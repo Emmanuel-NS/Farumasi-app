@@ -570,6 +570,63 @@ class _AskPharmacistTabState extends State<_AskPharmacistTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+           // Emergency Section / WhatsApp Contact
+          Container(
+            margin: EdgeInsets.only(bottom: 24),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Color(0xFFDCF8C6).withOpacity(0.5), // WhatsApp light green hint
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Color(0xFF25D366).withOpacity(0.5)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: Color(0xFF25D366).withOpacity(0.15), shape: BoxShape.circle),
+                  child: Icon(Icons.chat, color: Color(0xFF128C7E), size: 28),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Need advice?", style: TextStyle(color: Color(0xFF075E54), fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text("Chat with a pharmacist.", style: TextStyle(color: Color(0xFF128C7E), fontSize: 13)),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                     // Simulate WhatsApp launch
+                     ScaffoldMessenger.of(context).showSnackBar(
+                       SnackBar(
+                         content: Row(
+                           children: [
+                             Icon(Icons.check_circle, color: Colors.white),
+                             SizedBox(width: 8),
+                             Text("Launching WhatsApp chat...")
+                           ],
+                         ),
+                         backgroundColor: Color(0xFF25D366),
+                         behavior: SnackBarBehavior.floating,
+                       )
+                     );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF25D366), 
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                    elevation: 0,
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)
+                  ),
+                  icon: Icon(Icons.call, size: 18),
+                  label: Text("WhatsApp")
+                )
+              ],
+            ),
+          ),
+
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
