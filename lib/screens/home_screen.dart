@@ -3,6 +3,7 @@ import 'package:farumasi_app/screens/health_tips_screen.dart';
 import 'package:farumasi_app/screens/medicine_store_screen.dart';
 import 'package:farumasi_app/screens/cart_screen.dart';
 import 'package:farumasi_app/screens/prescription_upload_screen.dart';
+import 'package:farumasi_app/services/state_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,41 +35,64 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Icon(Icons.upload_file, color: Colors.green),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.green,
-        shape: CircularNotchedRectangle(),
-        notchMargin: 8.0,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.store, 'Store', 0),
-              _buildNavItem(Icons.health_and_safety, 'Tips', 1),
-              SizedBox(width: 48), // Gap for FAB
-              _buildNavItem(Icons.shopping_cart, 'Cart', 2),
-              _buildNavItem(Icons.history, 'Orders', 3),
-            ],
-          ),
-        ),
+      bottomNavigationBar: ListenableBuilder(
+        listenable: StateService(),
+        builder: (context, _) {
+          return BottomAppBar(
+            color: Colors.green,
+            shape: const CircularNotchedRectangle(),
+            notchMargin: 8.0,
+            child: SizedBox(
+              height: 60,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(Icons.store, 'Store', 0),
+                  _buildNavItem(Icons.health_and_safety, 'Tips', 1),
+                  const SizedBox(width: 48), // Gap for FAB
+                  _buildNavItem(Icons.shopping_cart, 'Cart', 2, isCart: true),
+                  _buildNavItem(Icons.history, 'Orders', 3),
+                ],
+              ),
+            ),
+          );
+        }
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _buildNavItem(IconData icon, String label, int index, {bool isCart = false}) {
       final isSelected = _currentIndex == index;
+      Widget iconWidget = Icon(icon, color: isSelected ? Colors.white : Colors.white60, size: 28);
+
+      if (isCart) {
+        final itemCount = StateService().cartItems.length;
+        if (itemCount > 0) {
+          iconWidget = Badge(
+            label: Text(itemCount.toString()),
+            backgroundColor: Colors.redAccent,
+            textColor: Colors.white,
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            child: iconWidget,
+          );
+        }
+      }
+
       return InkWell(
         onTap: () {
             setState(() {
                 _currentIndex = index;
             });
         },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: isSelected ? Colors.white : Colors.white60),
-            Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.white60, fontSize: 12)),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              iconWidget,
+              Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.white60, fontSize: 11)),
+            ],
+          ),
         ),
       );
   }

@@ -48,6 +48,26 @@ class StateService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void decrementQuantity(String medicineId) {
+    var existingIndex = _cartItems.indexWhere((item) => item.medicine.id == medicineId);
+    if (existingIndex >= 0) {
+      if (_cartItems[existingIndex].quantity > 1) {
+        _cartItems[existingIndex].quantity--;
+      } else {
+        _cartItems.removeAt(existingIndex);
+      }
+      notifyListeners();
+    }
+  }
+
+  void incrementQuantity(String medicineId) {
+    var existingIndex = _cartItems.indexWhere((item) => item.medicine.id == medicineId);
+    if (existingIndex >= 0) {
+        _cartItems[existingIndex].quantity++;
+        notifyListeners();
+    }
+  }
+
   void clearCart() {
     _cartItems.clear();
     notifyListeners();
