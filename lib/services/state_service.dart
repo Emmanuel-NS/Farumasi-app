@@ -8,15 +8,24 @@ class StateService extends ChangeNotifier {
 
   // Auth State
   bool _isLoggedIn = false;
+  String? _userEmail;
+  String? _userName;
+  
   bool get isLoggedIn => _isLoggedIn;
+  String? get userEmail => _userEmail;
+  String? get userName => _userName;
 
-  void login() {
+  void login(String email, {String? name}) {
     _isLoggedIn = true;
+    _userEmail = email;
+    _userName = name ?? email.split('@')[0];
     notifyListeners();
   }
 
   void logout() {
     _isLoggedIn = false;
+    _userEmail = null;
+    _userName = null;
     notifyListeners();
   }
 

@@ -286,27 +286,79 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen> with SingleTi
                             ),
                           ],
                         ),
-                        // Notification & Profile
-                        Row(
-                          children: [
-                            Stack(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(8),
-                                  decoration: BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
-                                  child: Icon(Icons.notifications, color: Colors.white, size: 28),
+                        // Auth State Display (Profile if logged in, Buttons if not)
+                        if (StateService().isLoggedIn)
+                          Row(
+                            children: [
+                              Stack(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle),
+                                    child: const Icon(Icons.notifications, color: Colors.white, size: 28),
+                                  ),
+                                  const Positioned(right: 8, top: 8, child: CircleAvatar(radius: 4, backgroundColor: Colors.red))
+                                ],
+                              ),
+                              const SizedBox(width: 12),
+                              PopupMenuButton<String>(
+                                offset: const Offset(0, 40),
+                                onSelected: (value) {
+                                  if (value == 'logout') {
+                                     StateService().logout();
+                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Logged out successfully")));
+                                  }
+                                },
+                                itemBuilder: (BuildContext context) => [
+                                  PopupMenuItem(
+                                    enabled: false,
+                                    child: Text('Hello, ${StateService().userName ?? 'User'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'logout',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.logout, color: Colors.green),
+                                        SizedBox(width: 8),
+                                        Text('Logout'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                child: CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: Colors.white,
+                                  child: Text(
+                                    StateService().userName != null && StateService().userName!.isNotEmpty 
+                                        ? StateService().userName![0].toUpperCase() 
+                                        : 'U',
+                                    style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 20),
+                                  ),
                                 ),
-                                Positioned(right: 8, top: 8, child: CircleAvatar(radius: 4, backgroundColor: Colors.red))
-                              ],
-                            ),
-                            SizedBox(width: 12),
-                            CircleAvatar(
-                              radius: 22,
-                              backgroundColor: Colors.white,
-                              child: Icon(Icons.person, color: Colors.green),
-                            )
-                          ],
-                        )
+                              )
+                            ],
+                          )
+                        else
+                          Row(
+                            children: [
+                              TextButton(
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
+                                child: const Text('Login', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                              ),
+                              const SizedBox(width: 4),
+                              ElevatedButton(
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                                  minimumSize: const Size(0, 36)
+                                ),
+                                child: const Text('Sign Up', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          )
                       ],
                     ),
                   ),
@@ -583,8 +635,8 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
-      color: Colors.white, // Ensure background is white so categories don't have green bg
-      child: child,
+      color: Colors.green, // Fix white line gap by using green background
+      child: child, // The child will have its own white background for the categories part
     );
   }
 

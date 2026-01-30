@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/state_service.dart';
 import 'checkout_screen.dart';
-import 'login_screen.dart';
+import 'auth_screen.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -57,26 +57,8 @@ class CartScreen extends StatelessWidget {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          if (StateService().isLoggedIn) {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => CheckoutScreen()));
-                          } else {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: Text('Login Required'),
-                                content: Text('You need to login to proceed to checkout.'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.pop(ctx);
-                                      Navigator.push(context, MaterialPageRoute(builder: (c) => LoginScreen()));
-                                    },
-                                    child: Text('Login'),
-                                  )
-                                ],
-                              ),
-                            );
-                          }
+                           // Allow guests to proceed to checkout screen
+                           Navigator.push(context, MaterialPageRoute(builder: (context) => CheckoutScreen()));
                         },
                         child: Text('Proceed to Checkout'),
                       ),
