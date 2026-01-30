@@ -178,43 +178,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
             SizedBox(height: 24),
-            ListenableBuilder(
-              listenable: StateService(),
-              builder: (context, _) {
-                final isLoggedIn = StateService().isLoggedIn;
-                return Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _placeOrder,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isLoggedIn ? Colors.green : Colors.grey.shade700,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 4
-                        ),
-                        child: Text(
-                          isLoggedIn ? 'COMPLETE PAYMENT' : 'LOGIN & PAY', 
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)
-                        ),
-                      ),
-                    ),
-                    if (!isLoggedIn)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12.0),
-                        child: Center(
-                          child: Text(
-                            "You need to be logged in to finish.", 
-                            style: TextStyle(color: Colors.orange.shade800, fontSize: 13, fontWeight: FontWeight.w500)
-                          )
-                        ),
-                      )
-                  ],
-                );
-              }
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _placeOrder,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 4
+                ),
+                child: Text('COMPLETE PAYMENT', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+              ),
             ),
+             if (!StateService().isLoggedIn)
+              Padding(
+                padding: const EdgeInsets.only(top: 12.0),
+                child: Center(child: Text("Login required to finish order", style: TextStyle(color: Colors.grey, fontSize: 12))),
+              )
           ],
         ),
       ),
