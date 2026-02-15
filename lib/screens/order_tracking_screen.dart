@@ -100,6 +100,16 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     }
   }
 
+  void _messageDriver() async {
+    final Uri launchUri = Uri(
+      scheme: 'sms',
+      path: '+250780000000',
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentDriverPos = _getCurrentDriverPos();
@@ -485,7 +495,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               const SizedBox(width: 8),
               IconButton(
                 // Message button
-                onPressed: () {},
+                onPressed: _messageDriver,
                 icon: const Icon(Icons.message),
                 style: IconButton.styleFrom(
                   backgroundColor: Colors.blue.shade50,

@@ -249,7 +249,7 @@ class OrdersScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    icon: const Icon(Icons.map_outlined, size: 18),
+                    icon: const Icon(Icons.location_on, size: 18),
                     label: const Text("Track Order Live", style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
