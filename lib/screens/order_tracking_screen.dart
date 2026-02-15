@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -26,6 +27,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
   // Simulation for driver movement
   double _driverProgress = 0.0;
+  final MapController _mapController = MapController();
+  final TileProvider _tileProvider = CancellableNetworkTileProvider(); // Reuse to prevent reloading tiles on setState
+  bool _isAutoCentering = true; // Auto-follow driver by default
 
   @override
   void initState() {
@@ -45,15 +49,23 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
   void _simulateDriverMovement() async {
     while (mounted && _driverProgress < 1.0) {
-      await Future.delayed(
-        const Duration(milliseconds: 500),
-      ); // Faster updates for smoother animation
+      await Future.delayed(const Duration(milliseconds: 100)); 
       if (mounted) {
         setState(() {
-          _driverProgress += 0.01;
+          _driverProgress += 0.005; // Smoother movement
         });
+        
+        // Auto-follow driver periodically if enabled
+        if (_driverProgress > 0 && _isAutoCentering) {
+           _mapController.move(_getCurrentDriverPos(), _mapController.camera.zoom);
+        }
       }
     }
+  }
+
+  void _recenterMap() {
+    setState(() => _isAutoCentering = true);
+    _mapController.move(_getCurrentDriverPos(), 16.0); // Zoom in on driver
   }
 
   LatLng _getCurrentDriverPos() {
@@ -93,70 +105,73 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     final currentDriverPos = _getCurrentDriverPos();
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Column(
-          children: [
-            const Text(
-              "Track Order",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            Text(
-              "#${widget.orderId}",
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: _callDriver,
-            icon: const Icon(Icons.phone, color: Colors.green),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: Container(
+          margin: const EdgeInsets.all(8),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
           ),
-        ],
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
       ),
       body: Stack(
         children: [
           // Map Layer
-          FlutterMap(
-            options: MapOptions(
-              initialCenter: const LatLng(
-                -1.9480,
-                30.0750,
-              ), // Center between pharmacy and user in Kigali
-              initialZoom: 15.0, // Closer zoom
-            ),
-            children: [
-              TileLayer(
-                // CartoDB Voyager is a clean "fixed and solid" looking map style
-                urlTemplate:
-                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
-                userAgentPackageName: 'com.farumasi.app',
+          Container(
+            color: Colors.grey.shade200, // Background color while loading (Google Maps style grey)
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCameraFit: CameraFit.bounds(
+                  bounds: LatLngBounds.fromPoints([_pharmacyLocation, _userLocation]),
+                  padding: const EdgeInsets.all(50), 
+                ),
+                onPositionChanged: (position, hasGesture) {
+                  if (hasGesture) {
+                    setState(() => _isAutoCentering = false);
+                  }
+                },
+                interactionOptions: const InteractionOptions(
+                  // CONTROLLED MOVEMENT:
+                  // 1. disable (rotate) to keep map north-up like Google Maps default.
+                  // 2. disable (flingAnimation) to stop the slippery "ice skating" feel. 
+                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate & ~InteractiveFlag.flingAnimation,
+                ),
+                minZoom: 13.0,
+                maxZoom: 18.0,
+                backgroundColor: Colors.grey.shade200, 
               ),
-              PolylineLayer(
-                polylines: [
-                  // Full theoretical path
-                  Polyline(
-                    points: _routePoints,
-                    color: Colors.grey.withValues(alpha: 0.5),
-                    strokeWidth: 4.0,
-                    pattern:
-                        StrokePattern.dotted(), // Dotted path for the whole route
-                  ),
-                  // Active path (Driver to User) - No, usually Driver to User is remaining logic
-                  // But visually, showing the path TAKEN vs REMAINING is good.
-
-                  // Let's show the full solid route for clarity of "Route being used"
-                  Polyline(
-                    points: _routePoints,
-                    color: Colors.blue.withValues(alpha: 0.3),
-                    strokeWidth: 6.0,
-                  ),
-                ],
-              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.farumasi.app',
+                  tileProvider: _tileProvider,
+                ),
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _routePoints,
+                      color: Colors.grey.withValues(alpha: 0.5),
+                      strokeWidth: 5.0,
+                    ),
+                    Polyline(
+                      points: _routePoints,
+                      color: Colors.green.withValues(alpha: 0.8),
+                      strokeWidth: 5.0,
+                    ),
+                  ],
+                ),
               MarkerLayer(
                 markers: [
-                  // Pharmacy Marker (Start)
+                  // Pharmacy Marker
                   Marker(
                     point: _pharmacyLocation,
                     width: 48,
@@ -168,91 +183,75 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(blurRadius: 4, color: Colors.black26),
-                            ],
+                            boxShadow: [BoxShadow(blurRadius: 4, color: Colors.black26)],
                           ),
-                          child: const Icon(
-                            Icons.store,
-                            color: Colors.green,
-                            size: 20,
-                          ),
+                          child: const Icon(Icons.store, color: Colors.green, size: 20),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 2,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.green,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
                             "Pharmacy",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // User Marker (Destination)
+                  // User Marker
                   Marker(
                     point: _userLocation,
                     width: 40,
                     height: 40,
-                    child: const Icon(
-                      Icons.location_on,
-                      color: Colors.red,
-                      size: 40,
-                    ),
+                    child: const Icon(Icons.location_on, color: Colors.red, size: 40),
                   ),
-                  // Driver Marker (Moving)
+                  // Driver Marker (Simple - No Rotation)
                   Marker(
                     point: currentDriverPos,
-                    width: 48, // Slightly larger for bike icon visibility
-                    height: 48,
+                    width: 50,
+                    height: 50,
                     child: Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(blurRadius: 5, color: Colors.black26),
-                        ],
+                        border: Border.all(color: Colors.green, width: 2),
+                        boxShadow: [BoxShadow(blurRadius: 5, color: Colors.black26)],
                       ),
                       padding: const EdgeInsets.all(6),
-                      child: const Icon(
-                        Icons.motorcycle, // Changed to motorbike icon
-                        color: Colors
-                            .blue, // Changed color to distinguish from pharmacy
-                        size: 28,
-                      ),
+                      child: const Icon(Icons.two_wheeler, color: Colors.green, size: 28),
                     ),
                   ),
                 ],
               ),
             ],
           ),
+          ),
 
-          // Bottom Info Card
-          // We can show pharmacy info in the info card too
+          // Top Info Card
+          if (!_isAutoCentering)
+            Positioned(
+              right: 20,
+              bottom: 270,
+              child: FloatingActionButton(
+                backgroundColor: Colors.white,
+                mini: true,
+                onPressed: _recenterMap,
+                child: const Icon(Icons.my_location, color: Colors.blue),
+              ),
+            ),
+
           Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
+            top: 100, 
+            left: 20,
+            right: 20,
             child: Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     Container(
@@ -264,33 +263,30 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                       child: const Icon(Icons.store, color: Colors.green),
                     ),
                     const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          "Picking up from",
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        Text(
-                          _pharmacyName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text("Picking up from", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(
+                            _pharmacyName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-
+          
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
+            bottom: 30,
+            left: 20,
+            right: 20,
             child: _buildTrackingInfoCard(),
           ),
         ],

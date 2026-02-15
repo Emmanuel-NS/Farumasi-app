@@ -86,93 +86,176 @@ class OrdersScreen extends StatelessWidget {
     BuildContext context,
     Map<String, dynamic> order,
   ) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  order['id'],
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.shade100),
-                  ),
-                  child: Text(
-                    order['status'],
-                    style: TextStyle(
-                      color: Colors.green.shade700,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+    final statusColor = order['status'] == 'Out for Delivery' ? Colors.orange : Colors.green;
+    final statusBg = statusColor.shade50;
+    final statusText = statusColor.shade800;
 
-            // Pharmacy Info
-            Row(
-              children: [
-                Icon(Icons.store, size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 4),
-                Text(
-                  order['pharmacy'] ?? "Unknown Pharmacy",
-                  style: TextStyle(
-                    color: Colors.grey.shade800,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            Text(order['items'], style: TextStyle(color: Colors.grey.shade700)),
-            const SizedBox(height: 4),
-            Text(
-              "Total: ${order['total']}",
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => OrderTrackingScreen(orderId: order['id']),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.map),
-                label: const Text("Track Order Live"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8), 
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OrderTrackingScreen(orderId: order['id']),
               ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Icon + Pharmacy + Date + Status
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.local_pharmacy_rounded, color: Colors.green, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            order['pharmacy'] ?? "Pharmacy",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            order['date'] ?? "Just now",
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 12, 
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: statusBg,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        order['status'],
+                        style: TextStyle(
+                          color: statusText,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Divider(height: 1),
+                ),
+
+                // Order Details Grid
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("ORDER ID", style: TextStyle(color: Colors.grey.shade400, fontSize: 10, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text("#${order['id']}", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("ITEMS", style: TextStyle(color: Colors.grey.shade400, fontSize: 10, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(
+                            order['items'] ?? "",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text("TOTAL", style: TextStyle(color: Colors.grey.shade400, fontSize: 10, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(
+                            order['total'] ?? "",
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+                
+                // Track Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                       Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OrderTrackingScreen(orderId: order['id']),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.map_outlined, size: 18),
+                    label: const Text("Track Order Live", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
