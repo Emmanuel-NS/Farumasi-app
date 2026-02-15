@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:farumasi_app/screens/driver_profile_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -121,6 +122,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
     }
+  }
+
+  void _openDriverProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const DriverProfileScreen(),
+      ),
+    );
   }
 
   @override
@@ -268,27 +278,30 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                               );
                             },
                           ),
-                        // Driver Icon
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                // Change border color based on status
-                                color: isNear ? Colors.red : (isArrived ? Colors.blue : Colors.green), 
-                                width: 2),
-                            boxShadow: [BoxShadow(blurRadius: 5, color: Colors.black26)],
+                          // Driver Icon
+                          GestureDetector(
+                            onTap: _openDriverProfile,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    // Change border color based on status
+                                    color: isNear ? Colors.red : (isArrived ? Colors.blue : Colors.green), 
+                                    width: 2),
+                                boxShadow: const [BoxShadow(blurRadius: 5, color: Colors.black26)],
+                              ),
+                              padding: const EdgeInsets.all(6),
+                              child: Icon(Icons.two_wheeler, color: statusColor, size: 28),
+                            ),
                           ),
-                          padding: const EdgeInsets.all(6),
-                          child: Icon(Icons.two_wheeler, color: statusColor, size: 28),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  ],
+                ),
+              ],
+            ),
           ),
 
           // Top Info Card
@@ -493,57 +506,58 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
           const SizedBox(height: 24),
 
           // Driver Info
-          Row(
-            children: [
-              const CircleAvatar(
-                radius: 24,
-                backgroundColor: Colors.grey,
-                child: Icon(Icons.person, color: Colors.white),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "John Doe",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  Row(
-                    children: [
-                      Icon(Icons.star, size: 14, color: Colors.amber.shade600),
-                      const SizedBox(width: 4),
-                      Text(
-                        "4.8 (124 deliveries)",
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 12,
+          InkWell(
+            onTap: _openDriverProfile,
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.grey,
+                  child: Icon(Icons.person, color: Colors.white),
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "John Doe",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    Row(
+                      children: [
+                        Icon(Icons.star, size: 14, color: Colors.amber.shade600),
+                        const SizedBox(width: 4),
+                        Text(
+                          "4.8 (124 deliveries)",
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: _callDriver,
+                  icon: const Icon(Icons.phone),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.green.shade50,
+                    foregroundColor: Colors.green,
                   ),
-                ],
-              ),
-              const Spacer(),
-              IconButton(
-                // Call button
-                onPressed: _callDriver,
-                icon: const Icon(Icons.phone),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.green.shade50,
-                  foregroundColor: Colors.green,
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                // Message button
-                onPressed: _messageDriver,
-                icon: const Icon(Icons.message),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.blue.shade50,
-                  foregroundColor: Colors.blue,
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _messageDriver,
+                  icon: const Icon(Icons.message),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue.shade50,
+                    foregroundColor: Colors.blue,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
