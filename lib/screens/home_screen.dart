@@ -27,12 +27,24 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       // App bar removed to allow screens to control their own headers
       body: _pages[_currentIndex],
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.white,
-        onPressed: () {
-           Navigator.push(context, MaterialPageRoute(builder: (context) => PrescriptionUploadScreen()));
-        },
-        child: Icon(Icons.upload_file, color: Colors.green),
+      floatingActionButton: SizedBox(
+        height: 70,
+        width: 70,
+        child: FloatingActionButton(
+          backgroundColor: Colors.white,
+          elevation: 4,
+          shape: CircleBorder(), // Ensure it's circular
+          onPressed: () {
+             Navigator.push(context, MaterialPageRoute(builder: (context) => PrescriptionUploadScreen()));
+          },
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.document_scanner_outlined, color: Colors.green, size: 28),
+              Text("Upload Rx", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 8)),
+            ],
+          ),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: ListenableBuilder(
