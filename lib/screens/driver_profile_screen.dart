@@ -1,17 +1,60 @@
 import 'package:flutter/material.dart';
 
-class DriverProfileScreen extends StatelessWidget {
-  const DriverProfileScreen({super.key});
+class DriverProfileScreen extends StatefulWidget {
+  final bool initialSavedState;
+  const DriverProfileScreen({super.key, this.initialSavedState = false});
+
+  @override
+  State<DriverProfileScreen> createState() => _DriverProfileScreenState();
+}
+
+class _DriverProfileScreenState extends State<DriverProfileScreen> {
+  late bool _isSaved;
+
+  @override
+  void initState() {
+    super.initState();
+    _isSaved = widget.initialSavedState;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Driver Profile"),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+    // ignore: deprecated_member_use
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pop(context, _isSaved);
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Driver Profile"),
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context, _isSaved),
+          ),
+          actions: [
+          IconButton(
+            icon: Icon(
+              _isSaved ? Icons.favorite : Icons.favorite_border,
+              color: _isSaved ? Colors.red : Colors.black,
+            ),
+            onPressed: () {
+              setState(() {
+                _isSaved = !_isSaved;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(_isSaved ? "Driver added to favorites!" : "Driver removed from favorites."),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -105,7 +148,7 @@ class DriverProfileScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildMenuButton(BuildContext context, {required IconData icon, required String label, required Color color, required VoidCallback onTap}) {

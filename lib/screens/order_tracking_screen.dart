@@ -32,6 +32,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
   final TileProvider _tileProvider = CancellableNetworkTileProvider(); // Reuse to prevent reloading tiles on setState
   bool _isAutoCentering = true; // Auto-follow driver by default
   late final AnimationController _waveController;
+  bool _isDriverSaved = false; // Add state to track if driver is saved
 
   @override
   void initState() {
@@ -124,13 +125,19 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
     }
   }
 
-  void _openDriverProfile() {
-    Navigator.push(
+  void _openDriverProfile() async {
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => const DriverProfileScreen(),
+        builder: (context) => DriverProfileScreen(initialSavedState: _isDriverSaved),
       ),
     );
+
+    if (result != null) {
+      setState(() {
+        _isDriverSaved = result;
+      });
+    }
   }
 
   @override
