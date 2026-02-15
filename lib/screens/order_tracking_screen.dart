@@ -12,7 +12,7 @@ class OrderTrackingScreen extends StatefulWidget {
   State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
 }
 
-class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTickerProviderStateMixin {
   // Simulated coordinates for Kigali, Rwanda
   // Start: Kigali City Center (Pharmacy)
   final LatLng _pharmacyLocation = const LatLng(-1.9441, 30.0619);
@@ -30,6 +30,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   final MapController _mapController = MapController();
   final TileProvider _tileProvider = CancellableNetworkTileProvider(); // Reuse to prevent reloading tiles on setState
   bool _isAutoCentering = true; // Auto-follow driver by default
+  late final AnimationController _waveController;
 
   @override
   void initState() {
@@ -43,8 +44,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       const LatLng(-1.9500, 30.0880), // Turn 4
       _userLocation,
     ];
+    
+    _waveController = AnimationController(
+       vsync: this,
+       duration: const Duration(seconds: 2),
+    )..repeat();
+
     // Simulate live updates
     _simulateDriverMovement();
+  }
+
+  @override
+  void dispose() {
+    _waveController.dispose();
+    super.dispose();
   }
 
   void _simulateDriverMovement() async {
@@ -116,7 +129,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
     // Determine status color
     final isArrived = _driverProgress >= 1.0;
-    final isNear = _driverProgress > 0.85 && !isArrived;
+    final isNear = _driverProgress > 0.85; // Signal continues even when arrived
     Color statusColor = Colors.green;
     if (isArrived) {
       statusColor = Colors.blue;
@@ -231,17 +244,45 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   // Driver Marker (Simple - No Rotation)
                   Marker(
                     point: currentDriverPos,
-                    width: 50,
-                    height: 50,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.green, width: 2),
-                        boxShadow: [BoxShadow(blurRadius: 5, color: Colors.black26)],
-                      ),
-                      padding: const EdgeInsets.all(6),
-                      child: const Icon(Icons.two_wheeler, color: Colors.green, size: 28),
+                    width: 100, // Increased to accommodate wave
+                    height: 100, // Increased to accommodate wave
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Wave animation when near or arrived
+                        if (isNear)
+                          AnimatedBuilder(
+                            animation: _waveController,
+                            builder: (context, child) {
+                              return Container(
+                                width: 50 + (50 * _waveController.value),
+                                height: 50 + (50 * _waveController.value),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: (isArrived ? Colors.blue : Colors.red)
+                                        .withValues(alpha: 1 - _waveController.value),
+                                    width: 4,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        // Driver Icon
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                // Change border color based on status
+                                color: isNear ? Colors.red : (isArrived ? Colors.blue : Colors.green), 
+                                width: 2),
+                            boxShadow: [BoxShadow(blurRadius: 5, color: Colors.black26)],
+                          ),
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(Icons.two_wheeler, color: statusColor, size: 28),
+                        ),
+                      ],
                     ),
                   ),
                 ],
