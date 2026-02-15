@@ -12,49 +12,77 @@ class OrderTrackingScreen extends StatefulWidget {
 }
 
 class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
-  // Simulated coordinates for demo (Kampala, Uganda region as example or generic)
-  final LatLng _userLocation = const LatLng(0.3476, 32.5825);
-  // Pharmacy is where the driver starts from (conceptually)
-  final LatLng _pharmacyLocation = const LatLng(0.3410, 32.5780);
+  // Simulated coordinates for Kigali, Rwanda
+  // Start: Kigali City Center (Pharmacy)
+  final LatLng _pharmacyLocation = const LatLng(-1.9441, 30.0619);
+  // End: Near Kigali Convention Centre / Kimihurura (User)
+  final LatLng _userLocation = const LatLng(-1.9515, 30.0933);
+
+  // Pharmacy Details
+  final String _pharmacyName = "Kigali Main Pharmacy";
+
+  // Simulated Route (Points to create corners/turns)
+  late final List<LatLng> _routePoints;
 
   // Simulation for driver movement
   double _driverProgress = 0.0;
 
-  // Pharmacy Details
-  final String _pharmacyName = "Kampala Main Pharmacy";
-
   @override
   void initState() {
     super.initState();
+    // Define a route with "corners"
+    _routePoints = [
+      _pharmacyLocation,
+      const LatLng(-1.9460, 30.0650), // Turn 1
+      const LatLng(-1.9480, 30.0750), // Turn 2
+      const LatLng(-1.9490, 30.0820), // Turn 3
+      const LatLng(-1.9500, 30.0880), // Turn 4
+      _userLocation,
+    ];
     // Simulate live updates
     _simulateDriverMovement();
   }
 
   void _simulateDriverMovement() async {
     while (mounted && _driverProgress < 1.0) {
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(
+        const Duration(milliseconds: 500),
+      ); // Faster updates for smoother animation
       if (mounted) {
         setState(() {
-          _driverProgress += 0.05;
+          _driverProgress += 0.01;
         });
       }
     }
   }
 
   LatLng _getCurrentDriverPos() {
-    // Linear interpolation between pharmacy and user location for the demo
+    // Interpolate along the multi-point route
+    if (_driverProgress <= 0) return _routePoints.first;
+    if (_driverProgress >= 1) return _routePoints.last;
+
+    // Total segments
+    int totalSegments = _routePoints.length - 1;
+    // Which segment are we on?
+    double segmentProgressRaw = _driverProgress * totalSegments;
+    int currentSegmentIndex = segmentProgressRaw.floor();
+    double currentSegmentProgress = segmentProgressRaw - currentSegmentIndex;
+
+    LatLng start = _routePoints[currentSegmentIndex];
+    LatLng end = _routePoints[currentSegmentIndex + 1];
+
     return LatLng(
-      _pharmacyLocation.latitude +
-          (_userLocation.latitude - _pharmacyLocation.latitude) *
-              _driverProgress,
-      _pharmacyLocation.longitude +
-          (_userLocation.longitude - _pharmacyLocation.longitude) *
-              _driverProgress,
+      start.latitude + (end.latitude - start.latitude) * currentSegmentProgress,
+      start.longitude +
+          (end.longitude - start.longitude) * currentSegmentProgress,
     );
   }
 
   void _callDriver() async {
-    final Uri launchUri = Uri(scheme: 'tel', path: '+256700000000');
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: '+250780000000',
+    ); // Rwanda code
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
     }
@@ -91,26 +119,38 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           // Map Layer
           FlutterMap(
             options: MapOptions(
-              initialCenter: _userLocation, // Center map on user
-              initialZoom: 14.0,
+              initialCenter: const LatLng(
+                -1.9480,
+                30.0750,
+              ), // Center between pharmacy and user in Kigali
+              initialZoom: 15.0, // Closer zoom
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                // CartoDB Voyager is a clean "fixed and solid" looking map style
+                urlTemplate:
+                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
                 userAgentPackageName: 'com.farumasi.app',
               ),
               PolylineLayer(
                 polylines: [
+                  // Full theoretical path
                   Polyline(
-                    points: [_pharmacyLocation, _userLocation],
+                    points: _routePoints,
                     color: Colors.grey.withValues(alpha: 0.5),
                     strokeWidth: 4.0,
-                    pattern: StrokePattern.dotted(),
+                    pattern:
+                        StrokePattern.dotted(), // Dotted path for the whole route
                   ),
+                  // Active path (Driver to User) - No, usually Driver to User is remaining logic
+                  // But visually, showing the path TAKEN vs REMAINING is good.
+
+                  // Let's show the full solid route for clarity of "Route being used"
                   Polyline(
-                    points: [_getCurrentDriverPos(), _userLocation],
-                    color: Colors.blue,
-                    strokeWidth: 4.0,
+                    points: _routePoints,
+                    color: Colors.blue.withValues(alpha: 0.3),
+                    strokeWidth: 6.0,
                   ),
                 ],
               ),

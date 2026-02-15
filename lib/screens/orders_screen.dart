@@ -17,9 +17,9 @@ class OrdersScreen extends StatelessWidget {
         "id": "ORD-7829X",
         "status": "Out for Delivery",
         "items": "Panadol Extra, Vitamin C",
-        "total": "UGX 25,000",
+        "total": "RWF 25,000",
         "date": "Today, 10:30 AM",
-        "pharmacy": "Kampala Main Pharmacy",
+        "pharmacy": "Kigali Main Pharmacy" 
       },
     ];
 
