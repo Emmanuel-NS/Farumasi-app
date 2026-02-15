@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:farumasi_app/screens/health_tips_screen.dart';
 import 'package:farumasi_app/screens/medicine_store_screen.dart';
 import 'package:farumasi_app/screens/cart_screen.dart';
+import 'package:farumasi_app/screens/orders_screen.dart';
 import 'package:farumasi_app/screens/prescription_upload_screen.dart';
 import 'package:farumasi_app/services/state_service.dart';
 
@@ -19,7 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
     MedicineStoreScreen(),
     HealthTipsScreen(),
     CartScreen(),
-    Center(child: Text('Past Orders Catalog')),
+    OrdersScreen(),
   ];
 
   @override

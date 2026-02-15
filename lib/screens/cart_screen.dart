@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/state_service.dart';
 import '../models/models.dart';
 import 'checkout_screen.dart';
+import 'prescription_upload_screen.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -89,6 +90,33 @@ class CartScreen extends StatelessWidget {
             "Looks like you haven't added anything yet.",
             style: TextStyle(color: Colors.grey.shade600),
           ),
+          SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 48),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const PrescriptionUploadScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text("Upload Prescription"),
+                ),
+              ],
+            ),
+          )
         ],
       ),
     );
