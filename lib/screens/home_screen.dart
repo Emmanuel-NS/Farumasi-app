@@ -19,7 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
     MedicineStoreScreen(),
     HealthTipsScreen(),
     CartScreen(),
-    Center(child: Text('Past Orders Catalog')), 
+    Center(child: Text('Past Orders Catalog')),
   ];
 
   @override
@@ -35,13 +35,29 @@ class _HomeScreenState extends State<HomeScreen> {
           elevation: 4,
           shape: CircleBorder(), // Ensure it's circular
           onPressed: () {
-             Navigator.push(context, MaterialPageRoute(builder: (context) => PrescriptionUploadScreen()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PrescriptionUploadScreen(),
+              ),
+            );
           },
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.document_scanner_outlined, color: Colors.green, size: 28),
-              Text("Upload Rx", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 8)),
+              Icon(
+                Icons.document_scanner_outlined,
+                color: Colors.green,
+                size: 28,
+              ),
+              Text(
+                "Upload Rx",
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 8,
+                ),
+              ),
             ],
           ),
         ),
@@ -68,47 +84,59 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           );
-        }
+        },
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index, {bool isCart = false}) {
-      final isSelected = _currentIndex == index;
-      // Using green.shade100 for inactive items makes them look integrated but not 'disabled' like white60
-      final color = isSelected ? Colors.white : Colors.green.shade100;
-      
-      Widget iconWidget = Icon(icon, color: color, size: 28);
+  Widget _buildNavItem(
+    IconData icon,
+    String label,
+    int index, {
+    bool isCart = false,
+  }) {
+    final isSelected = _currentIndex == index;
+    // Using green.shade100 for inactive items makes them look integrated but not 'disabled' like white60
+    final color = isSelected ? Colors.white : Colors.green.shade100;
 
-      if (isCart) {
-        final itemCount = StateService().cartItems.length;
-        if (itemCount > 0) {
-          iconWidget = Badge(
-            label: Text(itemCount.toString()),
-            backgroundColor: Colors.redAccent,
-            textColor: Colors.white,
-            padding: EdgeInsets.symmetric(horizontal: 6),
-            child: iconWidget,
-          );
-        }
+    Widget iconWidget = Icon(icon, color: color, size: 28);
+
+    if (isCart) {
+      final itemCount = StateService().cartItems.length;
+      if (itemCount > 0) {
+        iconWidget = Badge(
+          label: Text(itemCount.toString()),
+          backgroundColor: Colors.redAccent,
+          textColor: Colors.white,
+          padding: EdgeInsets.symmetric(horizontal: 6),
+          child: iconWidget,
+        );
       }
+    }
 
-      return InkWell(
-        onTap: () {
-            setState(() {
-                _currentIndex = index;
-            });
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              iconWidget,
-              Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-            ],
-          ),
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            iconWidget,
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 }

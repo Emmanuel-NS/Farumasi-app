@@ -20,7 +20,10 @@ class AppTheme {
       ),
     ),
     textTheme: const TextTheme(
-      headlineMedium: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+      headlineMedium: TextStyle(
+        color: Colors.green,
+        fontWeight: FontWeight.bold,
+      ),
       titleLarge: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
     ),
     inputDecorationTheme: InputDecorationTheme(

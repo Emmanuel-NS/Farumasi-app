@@ -17,15 +17,15 @@ class CartScreen extends StatelessWidget {
         title: Text('My Cart', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
-            IconButton(
-              icon: Icon(Icons.delete_outline, color: Colors.grey),
-              tooltip: "Clear Cart",
-              onPressed: () {
-                 if (StateService().cartItems.isNotEmpty) {
-                    _showClearCartDialog(context);
-                 }
-              },
-            )
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: Colors.grey),
+            tooltip: "Clear Cart",
+            onPressed: () {
+              if (StateService().cartItems.isNotEmpty) {
+                _showClearCartDialog(context);
+              }
+            },
+          ),
         ],
       ),
       body: ListenableBuilder(
@@ -69,12 +69,26 @@ class CartScreen extends StatelessWidget {
               color: Colors.green.shade50,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.shopping_cart_outlined, size: 64, color: Colors.green),
+            child: Icon(
+              Icons.shopping_cart_outlined,
+              size: 64,
+              color: Colors.green,
+            ),
           ),
           SizedBox(height: 24),
-          Text("Your cart is empty", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)),
+          Text(
+            "Your cart is empty",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
           SizedBox(height: 8),
-          Text("Looks like you haven't added anything yet.", style: TextStyle(color: Colors.grey.shade600)),
+          Text(
+            "Looks like you haven't added anything yet.",
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
         ],
       ),
     );
@@ -88,8 +102,17 @@ class CartScreen extends StatelessWidget {
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: Offset(0, -5))]
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, -5),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -104,8 +127,18 @@ class CartScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Total", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text("${total.toStringAsFixed(0)} RWF", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green)),
+              Text(
+                "Total",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                "${total.toStringAsFixed(0)} RWF",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
             ],
           ),
           SizedBox(height: 24),
@@ -113,19 +146,27 @@ class CartScreen extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                 Navigator.push(context, MaterialPageRoute(builder: (context) => CheckoutScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => CheckoutScreen()),
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 elevation: 4,
                 shadowColor: Colors.green.withOpacity(0.4),
               ),
-              child: Text("Proceed to Checkout", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: Text(
+                "Proceed to Checkout",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -135,29 +176,40 @@ class CartScreen extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 15)),
-        Text("${amount.toStringAsFixed(0)} RWF", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+        ),
+        Text(
+          "${amount.toStringAsFixed(0)} RWF",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
       ],
     );
   }
 
   void _showClearCartDialog(BuildContext context) {
     showDialog(
-      context: context, 
+      context: context,
       builder: (_) => AlertDialog(
         title: Text("Clear Cart"),
-        content: Text("Are you sure you want to remove all items from your cart?"),
+        content: Text(
+          "Are you sure you want to remove all items from your cart?",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel", style: TextStyle(color: Colors.grey))),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
           TextButton(
             onPressed: () {
               StateService().clearCart();
               Navigator.pop(context);
-            }, 
-            child: Text("Clear", style: TextStyle(color: Colors.red))
+            },
+            child: Text("Clear", style: TextStyle(color: Colors.red)),
           ),
         ],
-      )
+      ),
     );
   }
 }
@@ -173,7 +225,13 @@ class _CartItemCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 4))]
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       padding: EdgeInsets.all(12),
       child: Row(
@@ -189,10 +247,12 @@ class _CartItemCard extends StatelessWidget {
               image: DecorationImage(
                 image: NetworkImage(item.medicine.imageUrl),
                 fit: BoxFit.cover,
-                onError: (_,__) => {}
-              )
+                onError: (_, __) => {},
+              ),
             ),
-            child: item.medicine.imageUrl.isEmpty ? Icon(Icons.medication, color: Colors.green) : null,
+            child: item.medicine.imageUrl.isEmpty
+                ? Icon(Icons.medication, color: Colors.green)
+                : null,
           ),
           SizedBox(width: 16),
           // Info
@@ -203,35 +263,68 @@ class _CartItemCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(child: Text(item.medicine.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    Expanded(
+                      child: Text(
+                        item.medicine.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     InkWell(
                       onTap: () => _confirmRemove(context),
                       child: Icon(Icons.close, size: 18, color: Colors.grey),
-                    )
+                    ),
                   ],
                 ),
                 SizedBox(height: 4),
-                Text("Manufactured by ${item.medicine.manufacturer}", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(
+                  "Manufactured by ${item.medicine.manufacturer}",
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
                 SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("${item.medicine.price.toStringAsFixed(0)} RWF", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(
+                      "${item.medicine.price.toStringAsFixed(0)} RWF",
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     Row(
                       children: [
-                        _buildQtyBtn(Icons.remove, () => StateService().decrementQuantity(item.medicine.id)),
+                        _buildQtyBtn(
+                          Icons.remove,
+                          () => StateService().decrementQuantity(
+                            item.medicine.id,
+                          ),
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                          child: Text("${item.quantity}", style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: Text(
+                            "${item.quantity}",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
-                        _buildQtyBtn(Icons.add, () => StateService().incrementQuantity(item.medicine.id)),
+                        _buildQtyBtn(
+                          Icons.add,
+                          () => StateService().incrementQuantity(
+                            item.medicine.id,
+                          ),
+                        ),
                       ],
-                    )
+                    ),
                   ],
-                )
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -253,21 +346,24 @@ class _CartItemCard extends StatelessWidget {
 
   void _confirmRemove(BuildContext context) {
     showDialog(
-      context: context, 
+      context: context,
       builder: (_) => AlertDialog(
         title: Text("Remove Item"),
         content: Text("Remove ${item.medicine.name} from cart?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel", style: TextStyle(color: Colors.grey))),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
           TextButton(
             onPressed: () {
               StateService().removeFromCart(item.medicine.id);
               Navigator.pop(context);
-            }, 
-            child: Text("Remove", style: TextStyle(color: Colors.red))
+            },
+            child: Text("Remove", style: TextStyle(color: Colors.red)),
           ),
         ],
-      )
+      ),
     );
   }
 }

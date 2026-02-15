@@ -19,8 +19,8 @@ class _AuthScreenState extends State<AuthScreen> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       StateService().login(
-        _emailController.text, 
-        name: _isLogin ? null : _nameController.text
+        _emailController.text,
+        name: _isLogin ? null : _nameController.text,
       );
       Navigator.of(context).pop();
     }
@@ -47,7 +47,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 constraints: const BoxConstraints(maxWidth: 450),
                 child: Card(
                   elevation: 8,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Form(
@@ -63,12 +65,12 @@ class _AuthScreenState extends State<AuthScreen> {
                               // Flexible allows text to wrap if screen is very narrow
                               Flexible(
                                 child: Text(
-                                  "FARUMASI", 
+                                  "FARUMASI",
                                   style: TextStyle(
-                                    fontSize: 32, 
-                                    fontWeight: FontWeight.w900, 
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w900,
                                     color: Colors.green.shade800,
-                                    letterSpacing: 1.2
+                                    letterSpacing: 1.2,
                                   ),
                                   overflow: TextOverflow.fade,
                                 ),
@@ -78,126 +80,181 @@ class _AuthScreenState extends State<AuthScreen> {
                           SizedBox(height: 16),
                           Text(
                             _isLogin ? 'Welcome Back!' : 'Join Farumasi',
-                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade800,
+                            ),
                           ),
                           SizedBox(height: 24),
-                      if (!_isLogin) ...[
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: InputDecoration(
-                            labelText: 'Full Name',
-                            prefixIcon: Icon(Icons.person, color: Colors.green),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.green, width: 2),
-                            ),
-                          ),
-                          validator: (value) => value!.isEmpty ? 'Please enter your name' : null,
-                        ),
-                        SizedBox(height: 16),
-                      ],
-                      TextFormField(
-                        controller: _emailController,
-                        decoration: InputDecoration(
-                          labelText: 'Email Address',
-                          prefixIcon: Icon(Icons.email, color: Colors.green),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.green, width: 2),
-                            ),
-                        ),
-                        validator: (value) => value!.isEmpty ? 'Enter valid email' : null,
-                      ),
-                      SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: Icon(Icons.lock, color: Colors.green),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.green, width: 2),
-                            ),
-                        ),
-                        obscureText: true,
-                        validator: (value) => value!.length < 6 ? 'Min 6 characters' : null,
-                      ),
-                      if (!_isLogin) ...[
-                        SizedBox(height: 16),
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          decoration: InputDecoration(
-                            labelText: 'Confirm Password',
-                            prefixIcon: Icon(Icons.lock_outline, color: Colors.green),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.green, width: 2),
+                          if (!_isLogin) ...[
+                            TextFormField(
+                              controller: _nameController,
+                              decoration: InputDecoration(
+                                labelText: 'Full Name',
+                                prefixIcon: Icon(
+                                  Icons.person,
+                                  color: Colors.green,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.green,
+                                    width: 2,
+                                  ),
+                                ),
                               ),
+                              validator: (value) => value!.isEmpty
+                                  ? 'Please enter your name'
+                                  : null,
+                            ),
+                            SizedBox(height: 16),
+                          ],
+                          TextFormField(
+                            controller: _emailController,
+                            decoration: InputDecoration(
+                              labelText: 'Email Address',
+                              prefixIcon: Icon(
+                                Icons.email,
+                                color: Colors.green,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.green,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            validator: (value) =>
+                                value!.isEmpty ? 'Enter valid email' : null,
                           ),
-                          obscureText: true,
-                          validator: (value) {
-                            if (value != _passwordController.text) return 'Passwords do not match';
-                            return null;
-                          },
-                        ),
-                      ],
-                      SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _submit,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade600,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 2,
+                          SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: Icon(Icons.lock, color: Colors.green),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.green,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            obscureText: true,
+                            validator: (value) =>
+                                value!.length < 6 ? 'Min 6 characters' : null,
                           ),
-                          child: Text(
-                            _isLogin ? 'LOGIN' : 'SIGN UP', 
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                          if (!_isLogin) ...[
+                            SizedBox(height: 16),
+                            TextFormField(
+                              controller: _confirmPasswordController,
+                              decoration: InputDecoration(
+                                labelText: 'Confirm Password',
+                                prefixIcon: Icon(
+                                  Icons.lock_outline,
+                                  color: Colors.green,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.green,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              obscureText: true,
+                              validator: (value) {
+                                if (value != _passwordController.text)
+                                  return 'Passwords do not match';
+                                return null;
+                              },
+                            ),
+                          ],
+                          SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.shade600,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: Text(
+                                _isLogin ? 'LOGIN' : 'SIGN UP',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () {
-                           setState(() => _isLogin = !_isLogin);
-                           _formKey.currentState?.reset();
-                        },
-                        child: Text.rich( // Changed from RichText to Text.rich for better constraint handling
-                          TextSpan(
-                            text: _isLogin ? "Don't have an account? " : "Already have an account? ",
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13), // Reduced size slightly
-                            children: [
+                          SizedBox(height: 16),
+                          TextButton(
+                            onPressed: () {
+                              setState(() => _isLogin = !_isLogin);
+                              _formKey.currentState?.reset();
+                            },
+                            child: Text.rich(
+                              // Changed from RichText to Text.rich for better constraint handling
                               TextSpan(
-                                text: _isLogin ? 'Sign Up' : 'Login',
-                                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)
-                              )
-                            ]
+                                text: _isLogin
+                                    ? "Don't have an account? "
+                                    : "Already have an account? ",
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                ), // Reduced size slightly
+                                children: [
+                                  TextSpan(
+                                    text: _isLogin ? 'Sign Up' : 'Login',
+                                    style: TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                        ),
+                          if (_isLogin) ...[
+                            TextButton(
+                              onPressed: () {},
+                              child: Text(
+                                "Forgot Password?",
+                                style: TextStyle(color: Colors.green),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      if (_isLogin) ...[
-                        TextButton(
-                          onPressed: () {}, 
-                          child: Text("Forgot Password?", style: TextStyle(color: Colors.green)),
-                        )
-                      ],
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-      ),
       ),
     );
   }
@@ -209,10 +266,10 @@ class FarumasiLogo extends StatelessWidget {
   final bool onDark;
 
   const FarumasiLogo({
-    super.key, 
-    required this.size, 
-    this.color = Colors.green, 
-    this.onDark = false
+    super.key,
+    required this.size,
+    this.color = Colors.green,
+    this.onDark = false,
   });
 
   @override
@@ -224,9 +281,15 @@ class FarumasiLogo extends StatelessWidget {
       decoration: BoxDecoration(
         color: onDark ? Colors.white : Colors.transparent,
         shape: BoxShape.circle,
-        boxShadow: onDark ? [
-          const BoxShadow(blurRadius: 8, color: Colors.black26, offset: Offset(0, 4))
-        ] : null,
+        boxShadow: onDark
+            ? [
+                const BoxShadow(
+                  blurRadius: 8,
+                  color: Colors.black26,
+                  offset: Offset(0, 4),
+                ),
+              ]
+            : null,
       ),
       child: CustomPaint(
         painter: _LeafyFPainter(color: onDark ? Colors.green.shade700 : color),
@@ -243,11 +306,11 @@ class _LeafyFPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    
+
     final fillPaint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-      
+
     final strokePaint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -257,27 +320,47 @@ class _LeafyFPainter extends CustomPainter {
     // 1. Arc Circle (The encircling swoosh)
     final arcPath = Path();
     arcPath.addArc(
-      Rect.fromLTWH(0, 0, w, h), 
+      Rect.fromLTWH(0, 0, w, h),
       0.8, // Start angle (bottom rightish)
-      5.0  // Sweep angle (leave gap on left)
+      5.0, // Sweep angle (leave gap on left)
     );
     canvas.drawPath(arcPath, strokePaint);
 
     // 2. The "F" shapes (Leaf-like Wings)
-    
+
     // Top Wing (Forms top bar and curve of F)
     final topWing = Path();
     topWing.moveTo(w * 0.28, h * 0.55); // Start at stem bottom-left
-    topWing.quadraticBezierTo(w * 0.20, h * 0.20, w * 0.85, h * 0.22); // Curve up to top right tip
-    topWing.quadraticBezierTo(w * 0.55, h * 0.35, w * 0.45, h * 0.45); // Curve back under
+    topWing.quadraticBezierTo(
+      w * 0.20,
+      h * 0.20,
+      w * 0.85,
+      h * 0.22,
+    ); // Curve up to top right tip
+    topWing.quadraticBezierTo(
+      w * 0.55,
+      h * 0.35,
+      w * 0.45,
+      h * 0.45,
+    ); // Curve back under
     topWing.close();
     canvas.drawPath(topWing, fillPaint);
 
     // Bottom Wing (Forms middle bar)
     final bottomWing = Path();
     bottomWing.moveTo(w * 0.32, h * 0.65); // Start below top wing
-    bottomWing.quadraticBezierTo(w * 0.45, h * 0.50, w * 0.80, h * 0.50); // Curve out
-    bottomWing.quadraticBezierTo(w * 0.60, h * 0.60, w * 0.40, h * 0.70); // Curve back
+    bottomWing.quadraticBezierTo(
+      w * 0.45,
+      h * 0.50,
+      w * 0.80,
+      h * 0.50,
+    ); // Curve out
+    bottomWing.quadraticBezierTo(
+      w * 0.60,
+      h * 0.60,
+      w * 0.40,
+      h * 0.70,
+    ); // Curve back
     bottomWing.close();
     canvas.drawPath(bottomWing, fillPaint);
   }

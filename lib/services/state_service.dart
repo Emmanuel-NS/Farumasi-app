@@ -10,7 +10,7 @@ class StateService extends ChangeNotifier {
   bool _isLoggedIn = false;
   String? _userEmail;
   String? _userName;
-  
+
   bool get isLoggedIn => _isLoggedIn;
   String? get userEmail => _userEmail;
   String? get userName => _userName;
@@ -34,7 +34,9 @@ class StateService extends ChangeNotifier {
   List<CartItem> get cartItems => _cartItems;
 
   void addToCart(Medicine medicine, int quantity) {
-    var existingIndex = _cartItems.indexWhere((item) => item.medicine.id == medicine.id);
+    var existingIndex = _cartItems.indexWhere(
+      (item) => item.medicine.id == medicine.id,
+    );
     if (existingIndex >= 0) {
       _cartItems[existingIndex].quantity += quantity;
     } else {
@@ -49,7 +51,9 @@ class StateService extends ChangeNotifier {
   }
 
   void decrementQuantity(String medicineId) {
-    var existingIndex = _cartItems.indexWhere((item) => item.medicine.id == medicineId);
+    var existingIndex = _cartItems.indexWhere(
+      (item) => item.medicine.id == medicineId,
+    );
     if (existingIndex >= 0) {
       if (_cartItems[existingIndex].quantity > 1) {
         _cartItems[existingIndex].quantity--;
@@ -61,10 +65,12 @@ class StateService extends ChangeNotifier {
   }
 
   void incrementQuantity(String medicineId) {
-    var existingIndex = _cartItems.indexWhere((item) => item.medicine.id == medicineId);
+    var existingIndex = _cartItems.indexWhere(
+      (item) => item.medicine.id == medicineId,
+    );
     if (existingIndex >= 0) {
-        _cartItems[existingIndex].quantity++;
-        notifyListeners();
+      _cartItems[existingIndex].quantity++;
+      notifyListeners();
     }
   }
 

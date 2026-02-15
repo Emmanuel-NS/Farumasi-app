@@ -32,10 +32,12 @@ final List<HealthArticle> _articles = [
     id: 'a1',
     title: "The Science of Hydration",
     subtitle: "More than just drinking water.",
-    summary: "Why water is the most critical nutrient for your body's daily functions and how it affects your brain.",
+    summary:
+        "Why water is the most critical nutrient for your body's daily functions and how it affects your brain.",
     category: "General Health",
     readTimeMin: 4,
-    imageUrl: "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&q=80&w=800",
+    imageUrl:
+        "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&q=80&w=800",
     source: "Journal of Biological Chemistry",
     fullContent: """
 Water is essential for life, making up about 60% of the adult human body. Every cell, tissue, and organ in your body needs water to work properly.
@@ -51,16 +53,18 @@ A study published in 'Sports Medicine' found that dehydration reduces performanc
 
 **4. Prevents Headaches**
 Dehydration can trigger headaches and migraine in some individuals. Research has shown that water can relieve headaches in those who are dehydrated.
-    """
+    """,
   ),
   HealthArticle(
     id: 'a2',
     title: "Mastering Sleep Hygiene",
     subtitle: "The secret to 8 hours of deep rest.",
-    summary: "Optimizing your environment and habits for restorative deep sleep.",
+    summary:
+        "Optimizing your environment and habits for restorative deep sleep.",
     category: "Wellness",
     readTimeMin: 6,
-    imageUrl: "https://images.unsplash.com/photo-1511988617509-a57c8a288659?auto=format&fit=crop&q=80&w=800",
+    imageUrl:
+        "https://images.unsplash.com/photo-1511988617509-a57c8a288659?auto=format&fit=crop&q=80&w=800",
     source: "National Sleep Foundation",
     fullContent: """
 Sleep services to restore the body and mind. The National Sleep Foundation recommends 7-9 hours for adults.
@@ -73,19 +77,20 @@ Exposure to light during the day is beneficial, but nighttime light exposure has
 
 **Caffeine Cuts**
 Caffeine has numerous benefits and is consumed by 90% of the US population. However, when consumed late in the day, caffeine stimulates your nervous system and may stop your body from naturally relaxing at night.
-    """
+    """,
   ),
 ];
 
 final List<HealthArticle> _remedies = [
   HealthArticle(
-    id: 'r1', 
-    title: "Flu & Cold Recovery", 
-    subtitle: "Virus Defense Protocol", 
-    summary: "Science-backed natural methods to shorten recovery time.", 
-    category: "Viral Infection", 
+    id: 'r1',
+    title: "Flu & Cold Recovery",
+    subtitle: "Virus Defense Protocol",
+    summary: "Science-backed natural methods to shorten recovery time.",
+    category: "Viral Infection",
     readTimeMin: 4,
-    imageUrl: "https://images.unsplash.com/photo-1513224502586-d254786b1063?auto=format&fit=crop&q=80&w=800",
+    imageUrl:
+        "https://images.unsplash.com/photo-1513224502586-d254786b1063?auto=format&fit=crop&q=80&w=800",
     source: "Mayo Clinic",
     fullContent: """
 Influenza (Flu) is a viral infection that attacks your respiratory system. While rest is paramount, these natural methods can support recovery.
@@ -100,16 +105,17 @@ Inhaling steam helps thin mucus and drain the sinuses.
 
 **3. Zinc Supplementation**
 Research suggests that zinc lozenges may shorten the length of a cold if taken within 24 hours of symptoms appearing.
-    """
+    """,
   ),
   HealthArticle(
-    id: 'r2', 
-    title: "Natural Diabetes Management", 
-    subtitle: "Lifestyle Control", 
-    summary: "How diet and stress management significantly impact blood sugar.", 
-    category: "Chronic Care", 
+    id: 'r2',
+    title: "Natural Diabetes Management",
+    subtitle: "Lifestyle Control",
+    summary: "How diet and stress management significantly impact blood sugar.",
+    category: "Chronic Care",
     readTimeMin: 7,
-    imageUrl: "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&q=80&w=800", // Food image
+    imageUrl:
+        "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&q=80&w=800", // Food image
     source: "American Diabetes Association",
     fullContent: """
 Type 2 diabetes management relies heavily on lifestyle.
@@ -124,7 +130,7 @@ Apple cider vinegar has many health benefits. Although it is made from apples, t
 
 **3. Stress Management**
 When stressed, your body releases glucagon and cortisol, hormones that cause blood sugar levels to rise. Exercises like yoga and mindfulness-based stress reduction (MBSR) can correct insulin secretion problems in chronic diabetes.
-    """
+    """,
   ),
 ];
 
@@ -133,10 +139,12 @@ final List<HealthArticle> _facts = [
     id: 'f1',
     title: "Raw Onions & Lungs",
     subtitle: "Nature's Antihistamine",
-    summary: "Eating raw onions can help clear airways due to rich Quercetin content.",
+    summary:
+        "Eating raw onions can help clear airways due to rich Quercetin content.",
     category: "Did You Know?",
     readTimeMin: 2,
-    imageUrl: "https://images.unsplash.com/photo-1618512496245-c3f28328c313?auto=format&fit=crop&q=80&w=800",
+    imageUrl:
+        "https://images.unsplash.com/photo-1618512496245-c3f28328c313?auto=format&fit=crop&q=80&w=800",
     source: "Am. J. Physiol.",
     fullContent: """
 **Did you know that eating raw onions can help with respiratory issues?**
@@ -149,16 +157,18 @@ A study published in the 'American Journal of Physiology' found that Quercetin h
 
 ### How to Consume
 To get the maximum benefit, onions should be eaten raw. Cooking can degrade some of the compounds.
-    """
+    """,
   ),
   HealthArticle(
     id: 'f2',
     title: "Garlic as Antibiotic",
     subtitle: "Ancient Defense",
-    summary: "Garlic releases Allicin when crushed, a mighty antimicrobial compound.",
+    summary:
+        "Garlic releases Allicin when crushed, a mighty antimicrobial compound.",
     category: "Did You Know?",
     readTimeMin: 2,
-    imageUrl: "https://images.unsplash.com/photo-1615485925763-867862880b1a?auto=format&fit=crop&q=80&w=800",
+    imageUrl:
+        "https://images.unsplash.com/photo-1615485925763-867862880b1a?auto=format&fit=crop&q=80&w=800",
     source: "J. Antimicrobial Chemotherapy",
     fullContent: """
 **Did you know garlic was used in World War I to treat gangrene?**
@@ -184,7 +194,8 @@ class HealthTipsScreen extends StatefulWidget {
   State<HealthTipsScreen> createState() => _HealthTipsScreenState();
 }
 
-class _HealthTipsScreenState extends State<HealthTipsScreen> with SingleTickerProviderStateMixin {
+class _HealthTipsScreenState extends State<HealthTipsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -211,7 +222,11 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> with SingleTickerPr
                 titlePadding: EdgeInsets.only(left: 16, bottom: 62),
                 title: Text(
                   "Discover Wellness",
-                  style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 22),
+                  style: TextStyle(
+                    color: Colors.green.shade900,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                  ),
                 ),
                 background: Stack(
                   children: [
@@ -222,7 +237,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> with SingleTickerPr
                         opacity: 0.1,
                         child: Icon(Icons.spa, size: 180, color: Colors.green),
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -240,7 +255,13 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> with SingleTickerPr
                     indicator: BoxDecoration(
                       borderRadius: BorderRadius.circular(30),
                       color: Colors.green,
-                      boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 8, offset: Offset(0, 4))]
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
                     indicatorSize: TabBarIndicatorSize.label,
                     padding: EdgeInsets.zero,
@@ -249,7 +270,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> with SingleTickerPr
                       _buildTab("General Tips"),
                       _buildTab("Remedies"),
                       _buildTab("Did You Know?"),
-                      _buildTab("Ask Pharmacist"), 
+                      _buildTab("Ask Pharmacist"),
                     ],
                   ),
                 ),
@@ -261,7 +282,9 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> with SingleTickerPr
           controller: _tabController,
           children: [
             _buildArticleList(_articles),
-            _buildArticleList(_remedies), // Reusing modern card layout for remedies too
+            _buildArticleList(
+              _remedies,
+            ), // Reusing modern card layout for remedies too
             _buildArticleList(_facts, isFact: true),
             _AskPharmacistTab(),
           ],
@@ -328,7 +351,14 @@ class ArticleDetailScreen extends StatelessWidget {
                 child: Image.network(
                   article.imageUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (c,e,s) => Container(color: Colors.green.shade100, child: Icon(Icons.broken_image, size: 50, color: Colors.green)),
+                  errorBuilder: (c, e, s) => Container(
+                    color: Colors.green.shade100,
+                    child: Icon(
+                      Icons.broken_image,
+                      size: 50,
+                      color: Colors.green,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -342,35 +372,74 @@ class ArticleDetailScreen extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(20)),
-                        child: Text(article.category.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade800, letterSpacing: 1)),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          article.category.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                            letterSpacing: 1,
+                          ),
+                        ),
                       ),
                       Spacer(),
                       Icon(Icons.access_time, size: 16, color: Colors.grey),
                       SizedBox(width: 4),
-                      Text("${article.readTimeMin} min read", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      Text(
+                        "${article.readTimeMin} min read",
+                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                      ),
                     ],
                   ),
                   SizedBox(height: 20),
-                  Text(article.title, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, height: 1.2, color: Colors.black87)),
+                  Text(
+                    article.title,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      height: 1.2,
+                      color: Colors.black87,
+                    ),
+                  ),
                   SizedBox(height: 8),
-                  Text(article.subtitle, style: TextStyle(fontSize: 18, color: Colors.grey.shade600, height: 1.5)),
-                  
+                  Text(
+                    article.subtitle,
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey.shade600,
+                      height: 1.5,
+                    ),
+                  ),
+
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24.0),
                     child: Divider(thickness: 1, color: Colors.grey.shade200),
                   ),
-                  
-                  Text(article.fullContent, style: TextStyle(fontSize: 17, height: 1.8, color: Colors.grey.shade800)),
-                  
+
+                  Text(
+                    article.fullContent,
+                    style: TextStyle(
+                      fontSize: 17,
+                      height: 1.8,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+
                   SizedBox(height: 40),
                   Container(
                     padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50, 
+                      color: Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200)
+                      border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: Row(
                       children: [
@@ -380,11 +449,20 @@ class ArticleDetailScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("Source", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                              Text(article.source, style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text(
+                                "Source",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              Text(
+                                article.source,
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                             ],
                           ),
-                        )
+                        ),
                       ],
                     ),
                   ),
@@ -392,7 +470,7 @@ class ArticleDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -408,13 +486,24 @@ class _ModernArticleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ArticleDetailScreen(article: article))),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ArticleDetailScreen(article: article),
+        ),
+      ),
       child: Container(
         height: 260,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 15, offset: Offset(0, 8))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 15,
+              offset: Offset(0, 8),
+            ),
+          ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
@@ -424,9 +513,15 @@ class _ModernArticleCard extends StatelessWidget {
                 child: Hero(
                   tag: 'img-${article.id}',
                   child: Image.network(
-                    article.imageUrl, 
+                    article.imageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (c,e,s) => Container(color: Colors.grey.shade200, child: Icon(Icons.image_not_supported, color: Colors.grey)),
+                    errorBuilder: (c, e, s) => Container(
+                      color: Colors.grey.shade200,
+                      child: Icon(
+                        Icons.image_not_supported,
+                        color: Colors.grey,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -434,11 +529,14 @@ class _ModernArticleCard extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.black.withOpacity(0.85), Colors.transparent],
+                      colors: [
+                        Colors.black.withOpacity(0.85),
+                        Colors.transparent,
+                      ],
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
-                      stops: [0.0, 0.6]
-                    )
+                      stops: [0.0, 0.6],
+                    ),
                   ),
                 ),
               ),
@@ -450,20 +548,37 @@ class _ModernArticleCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                      child: Text(article.category, style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        article.category,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                     SizedBox(height: 8),
                     Text(
-                      article.title, 
-                      style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                      article.title,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: 4),
                     Text(
-                      article.subtitle, 
+                      article.subtitle,
                       style: TextStyle(color: Colors.white70, fontSize: 14),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -486,66 +601,110 @@ class _DidYouKnowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ArticleDetailScreen(article: article))),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ArticleDetailScreen(article: article),
+        ),
+      ),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.orange.shade100),
-          boxShadow: [BoxShadow(color: Colors.orange.shade50, blurRadius: 10, offset: Offset(0, 6))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.orange.shade50,
+              blurRadius: 10,
+              offset: Offset(0, 6),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-             Container(
-               padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-               color: Colors.orange.shade50,
-               child: Row(
-                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                 children: [
-                   Row(
-                     children: [
-                       Icon(Icons.lightbulb, color: Colors.orange, size: 20),
-                       SizedBox(width: 8),
-                       Text("DID YOU KNOW?", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.orange.shade800, letterSpacing: 1.2)),
-                     ],
-                   ),
-                   Icon(Icons.arrow_forward_ios, size: 12, color: Colors.orange.shade300)
-                 ],
-               ),
-             ),
-             Padding(
-               padding: EdgeInsets.all(16),
-               child: Row(
-                 crossAxisAlignment: CrossAxisAlignment.start,
-                 children: [
-                   Expanded(
-                     child: Column(
-                       crossAxisAlignment: CrossAxisAlignment.start,
-                       children: [
-                         Text(article.title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-                         SizedBox(height: 8),
-                         Text(article.summary, style: TextStyle(fontSize: 14, color: Colors.black54, height: 1.5), maxLines: 3, overflow: TextOverflow.ellipsis),
-                       ],
-                     ),
-                   ),
-                   SizedBox(width: 16),
-                   Hero(
-                     tag: 'img-${article.id}',
-                     child: ClipRRect(
-                       borderRadius: BorderRadius.circular(12),
-                       child: Image.network(
-                         article.imageUrl, 
-                         width: 90, 
-                         height: 90, 
-                         fit: BoxFit.cover,
-                         errorBuilder: (c,e,s) => Container(width: 90, height: 90, color: Colors.orange.shade100, child: Icon(Icons.broken_image, color: Colors.orange)),
-                       ),
-                     ),
-                   )
-                 ],
-               ),
-             )
+            Container(
+              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              color: Colors.orange.shade50,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.lightbulb, color: Colors.orange, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        "DID YOU KNOW?",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          color: Colors.orange.shade800,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 12,
+                    color: Colors.orange.shade300,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          article.title,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          article.summary,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black54,
+                            height: 1.5,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Hero(
+                    tag: 'img-${article.id}',
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        article.imageUrl,
+                        width: 90,
+                        height: 90,
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => Container(
+                          width: 90,
+                          height: 90,
+                          color: Colors.orange.shade100,
+                          child: Icon(Icons.broken_image, color: Colors.orange),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -570,12 +729,14 @@ class _AskPharmacistTabState extends State<_AskPharmacistTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           // Emergency Section / WhatsApp Contact
+          // Emergency Section / WhatsApp Contact
           Container(
             margin: EdgeInsets.only(bottom: 24),
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Color(0xFFDCF8C6).withOpacity(0.5), // WhatsApp light green hint
+              color: Color(
+                0xFFDCF8C6,
+              ).withOpacity(0.5), // WhatsApp light green hint
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Color(0xFF25D366).withOpacity(0.5)),
             ),
@@ -583,7 +744,10 @@ class _AskPharmacistTabState extends State<_AskPharmacistTab> {
               children: [
                 Container(
                   padding: EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: Color(0xFF25D366).withOpacity(0.15), shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF25D366).withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
                   child: Icon(Icons.chat, color: Color(0xFF128C7E), size: 28),
                 ),
                 SizedBox(width: 16),
@@ -591,38 +755,53 @@ class _AskPharmacistTabState extends State<_AskPharmacistTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Need advice?", style: TextStyle(color: Color(0xFF075E54), fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text("Chat with a pharmacist.", style: TextStyle(color: Color(0xFF128C7E), fontSize: 13)),
+                      Text(
+                        "Need advice?",
+                        style: TextStyle(
+                          color: Color(0xFF075E54),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        "Chat with a pharmacist.",
+                        style: TextStyle(
+                          color: Color(0xFF128C7E),
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 ElevatedButton.icon(
                   onPressed: () {
-                     // Simulate WhatsApp launch
-                     ScaffoldMessenger.of(context).showSnackBar(
-                       SnackBar(
-                         content: Row(
-                           children: [
-                             Icon(Icons.check_circle, color: Colors.white),
-                             SizedBox(width: 8),
-                             Text("Launching WhatsApp chat...")
-                           ],
-                         ),
-                         backgroundColor: Color(0xFF25D366),
-                         behavior: SnackBarBehavior.floating,
-                       )
-                     );
+                    // Simulate WhatsApp launch
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text("Launching WhatsApp chat..."),
+                          ],
+                        ),
+                        backgroundColor: Color(0xFF25D366),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF25D366), 
+                    backgroundColor: Color(0xFF25D366),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
                     elevation: 0,
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                   icon: Icon(Icons.call, size: 18),
-                  label: Text("WhatsApp")
-                )
+                  label: Text("WhatsApp"),
+                ),
               ],
             ),
           ),
@@ -632,45 +811,87 @@ class _AskPharmacistTabState extends State<_AskPharmacistTab> {
             decoration: BoxDecoration(
               color: Colors.green.shade600,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.green.shade200, blurRadius: 10, offset: Offset(0, 5))]
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.green.shade200,
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                CircleAvatar(backgroundColor: Colors.white, radius: 24, child: Icon(Icons.support_agent, color: Colors.green, size: 28)),
+                CircleAvatar(
+                  backgroundColor: Colors.white,
+                  radius: 24,
+                  child: Icon(
+                    Icons.support_agent,
+                    color: Colors.green,
+                    size: 28,
+                  ),
+                ),
                 SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Pharmacist Support", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text("Ask us anything about your medications or symptoms.", style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      Text(
+                        "Pharmacist Support",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        "Ask us anything about your medications or symptoms.",
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
           ),
           SizedBox(height: 32),
-          Text("Topic", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            "Topic",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
           SizedBox(height: 8),
           DropdownButtonFormField<String>(
             initialValue: _selectedTopic,
             decoration: InputDecoration(
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
-            items: ["General Inquiry", "Medication Side Effects", "Dosage Instructions", "Symptom Check"].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+            items: [
+              "General Inquiry",
+              "Medication Side Effects",
+              "Dosage Instructions",
+              "Symptom Check",
+            ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
             onChanged: (v) => setState(() => _selectedTopic = v!),
           ),
           SizedBox(height: 24),
-          Text("How can we help?", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            "How can we help?",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
           SizedBox(height: 8),
           TextField(
             controller: _msgController,
             maxLines: 5,
             decoration: InputDecoration(
               hintText: "Describe your symptoms or question here in detail...",
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               alignLabelWithHint: true,
             ),
           ),
@@ -678,29 +899,60 @@ class _AskPharmacistTabState extends State<_AskPharmacistTab> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _isSending ? null : () async {
-                if (_msgController.text.isEmpty) return;
-                setState(() => _isSending = true);
-                await Future.delayed(Duration(seconds: 2));
-                if(mounted) {
-                  setState(() { _isSending = false; _msgController.clear(); });
-                  showDialog(context: context, builder: (_) => AlertDialog(
-                    title: Icon(Icons.check_circle, color: Colors.green, size: 50),
-                    content: Text("Request Sent! A pharmacist will reply to your account email shortly.", textAlign: TextAlign.center),
-                    actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("OK"))],
-                  ));
-                }
-              },
-              icon: _isSending ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Icon(Icons.send),
+              onPressed: _isSending
+                  ? null
+                  : () async {
+                      if (_msgController.text.isEmpty) return;
+                      setState(() => _isSending = true);
+                      await Future.delayed(Duration(seconds: 2));
+                      if (mounted) {
+                        setState(() {
+                          _isSending = false;
+                          _msgController.clear();
+                        });
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: Icon(
+                              Icons.check_circle,
+                              color: Colors.green,
+                              size: 50,
+                            ),
+                            content: Text(
+                              "Request Sent! A pharmacist will reply to your account email shortly.",
+                              textAlign: TextAlign.center,
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: Text("OK"),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    },
+              icon: _isSending
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(Icons.send),
               label: Text(_isSending ? "Sending..." : "Submit Request"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green.shade800,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
-          )
+          ),
         ],
       ),
     );

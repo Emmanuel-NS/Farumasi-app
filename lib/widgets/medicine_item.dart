@@ -19,12 +19,16 @@ class MedicineItem extends StatelessWidget {
     return AnimatedBuilder(
       animation: StateService(),
       builder: (context, child) {
-        final isInCart = StateService().cartItems.any((item) => item.medicine.id == medicine.id);
+        final isInCart = StateService().cartItems.any(
+          (item) => item.medicine.id == medicine.id,
+        );
 
         return Card(
           elevation: 2,
           margin: const EdgeInsets.all(8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -39,7 +43,7 @@ class MedicineItem extends StatelessWidget {
                           duration: Duration(seconds: 2),
                           behavior: SnackBarBehavior.floating,
                           backgroundColor: Colors.amber,
-                        )
+                        ),
                       );
                       return;
                     }
@@ -48,21 +52,29 @@ class MedicineItem extends StatelessWidget {
                   borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                   child: Stack(
                     children: [
-                       Container(
+                      Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(12),
+                          ),
                         ),
                         child: Hero(
                           tag: medicine.id,
                           child: ClipRRect(
-                             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                             child: Image.network(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(12),
+                            ),
+                            child: Image.network(
                               medicine.imageUrl,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                return Icon(Icons.medication, size: 50, color: Colors.green);
+                                return Icon(
+                                  Icons.medication,
+                                  size: 50,
+                                  color: Colors.green,
+                                );
                               },
                             ),
                           ),
@@ -70,25 +82,36 @@ class MedicineItem extends StatelessWidget {
                       ),
                       // Overlay Tick when in Cart
                       if (isInCart)
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.4), // Transparent background overlay
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                          ),
-                          child: Center(
-                            child: Container(
-                              padding: EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.green, 
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(
+                                0.4,
+                              ), // Transparent background overlay
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(12),
                               ),
-                              child: Icon(Icons.check, color: Colors.white, size: 24),
+                            ),
+                            child: Center(
+                              child: Container(
+                                padding: EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -104,11 +127,13 @@ class MedicineItem extends StatelessWidget {
                           ScaffoldMessenger.of(context).hideCurrentSnackBar();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Prescription required for this item.'),
+                              content: Text(
+                                'Prescription required for this item.',
+                              ),
                               duration: Duration(seconds: 2),
                               behavior: SnackBarBehavior.floating,
                               backgroundColor: Colors.amber,
-                            )
+                            ),
                           );
                           return;
                         }
@@ -119,19 +144,40 @@ class MedicineItem extends StatelessWidget {
                         children: [
                           Text(
                             medicine.name,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           SizedBox(height: 4),
-                          Text('${medicine.price.toStringAsFixed(0)} RWF', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text(
+                            '${medicine.price.toStringAsFixed(0)} RWF',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                           SizedBox(height: 2),
                           if (medicine.requiresPrescription)
                             Row(
                               children: [
-                                Icon(Icons.description, size: 10, color: Colors.amber),
+                                Icon(
+                                  Icons.description,
+                                  size: 10,
+                                  color: Colors.amber,
+                                ),
                                 SizedBox(width: 4),
-                                Text('Rx Required', style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text(
+                                  'Rx Required',
+                                  style: TextStyle(
+                                    color: Colors.amber,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                         ],
@@ -142,66 +188,91 @@ class MedicineItem extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         InkWell(
-                          onTap: onAboutTap, // Explicit About Tap (Now isolated)
+                          onTap:
+                              onAboutTap, // Explicit About Tap (Now isolated)
                           borderRadius: BorderRadius.circular(8),
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(0, 8, 12, 8), // Larger hit area
+                            padding: const EdgeInsets.fromLTRB(
+                              0,
+                              8,
+                              12,
+                              8,
+                            ), // Larger hit area
                             child: Text(
-                              'About >', 
+                              'About >',
                               style: TextStyle(
-                                color: Colors.green, 
+                                color: Colors.green,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
                                 decoration: TextDecoration.underline,
-                              )
+                              ),
                             ),
                           ),
                         ),
                         Material(
-                          color: medicine.requiresPrescription ? Colors.grey : (isInCart ? Colors.green.shade800 : Colors.green),
+                          color: medicine.requiresPrescription
+                              ? Colors.grey
+                              : (isInCart
+                                    ? Colors.green.shade800
+                                    : Colors.green),
                           borderRadius: BorderRadius.circular(4),
                           child: InkWell(
                             onTap: () {
                               if (medicine.requiresPrescription) {
-                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                ScaffoldMessenger.of(
+                                  context,
+                                ).hideCurrentSnackBar();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Prescription required for this item.'),
+                                    content: Text(
+                                      'Prescription required for this item.',
+                                    ),
                                     duration: Duration(seconds: 2),
                                     behavior: SnackBarBehavior.floating,
                                     backgroundColor: Colors.amber,
-                                  )
+                                  ),
                                 );
                                 return;
                               }
 
-                               StateService().addToCart(medicine, 1);
-                               ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                               ScaffoldMessenger.of(context).showSnackBar(
-                                 SnackBar(
-                                   content: Text('${medicine.name} added to cart!'),
-                                   duration: Duration(seconds: 1),
-                                   behavior: SnackBarBehavior.floating,
-                                   backgroundColor: Colors.green,
-                                 )
-                               );
+                              StateService().addToCart(medicine, 1);
+                              ScaffoldMessenger.of(
+                                context,
+                              ).hideCurrentSnackBar();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '${medicine.name} added to cart!',
+                                  ),
+                                  duration: Duration(seconds: 1),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
                             },
                             borderRadius: BorderRadius.circular(4),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                              child: Icon(Icons.add_shopping_cart, size: 16, color: Colors.white),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                                vertical: 4.0,
+                              ),
+                              child: Icon(
+                                Icons.add_shopping_cart,
+                                size: 16,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),
             ],
           ),
         );
-      }
+      },
     );
   }
 }
