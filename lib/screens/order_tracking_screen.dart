@@ -104,6 +104,16 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   Widget build(BuildContext context) {
     final currentDriverPos = _getCurrentDriverPos();
 
+    // Determine status color
+    final isArrived = _driverProgress >= 1.0;
+    final isNear = _driverProgress > 0.85 && !isArrived;
+    Color statusColor = Colors.green;
+    if (isArrived) {
+      statusColor = Colors.blue;
+    } else if (isNear) {
+      statusColor = Colors.orange.shade800;
+    }
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -164,7 +174,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     ),
                     Polyline(
                       points: _routePoints,
-                      color: Colors.green.withValues(alpha: 0.8),
+                      color: statusColor.withValues(alpha: 0.8),
                       strokeWidth: 5.0,
                     ),
                   ],
@@ -295,6 +305,27 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   Widget _buildTrackingInfoCard() {
+    // Determine status based on progress
+    final isArrived = _driverProgress >= 1.0;
+    final isNear = _driverProgress > 0.85 && !isArrived;
+
+    Color statusColor = Colors.green;
+    String statusText = "Out for Delivery";
+    Color statusBgColor = Colors.green.shade50;
+    Color statusBorderColor = Colors.green.shade100;
+
+    if (isArrived) {
+      statusText = "Arrived";
+      statusColor = Colors.blue;
+      statusBgColor = Colors.blue.shade50;
+      statusBorderColor = Colors.blue.shade100;
+    } else if (isNear) {
+      statusText = "Arriving Soon";
+      statusColor = Colors.orange.shade800;
+      statusBgColor = Colors.orange.shade50;
+      statusBorderColor = Colors.orange.shade100;
+    }
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
@@ -339,17 +370,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.access_time_filled,
                         size: 16,
-                        color: Colors.green,
+                        color: statusColor,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        "${(15 * (1 - _driverProgress)).clamp(1, 15).toStringAsFixed(0)} mins",
-                        style: const TextStyle(
+                        isArrived ? "Arrived" : "${(15 * (1 - _driverProgress)).ceil()} mins",
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
+                          color: isArrived ? Colors.blue : Colors.black,
                         ),
                       ),
                     ],
@@ -362,14 +394,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: statusBgColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.shade100),
+                  border: Border.all(color: statusBorderColor),
                 ),
-                child: const Text(
-                  "Out for Delivery",
+                child: Text(
+                  statusText,
                   style: TextStyle(
-                    color: Colors.green,
+                    color: statusColor,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -384,7 +416,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             child: LinearProgressIndicator(
               value: 0.3 + (0.7 * _driverProgress),
               backgroundColor: Colors.grey.shade100,
-              color: Colors.green,
+              color: isArrived ? statusColor : Colors.green, // Keep green until fully arrived, or follow statusColor
               minHeight: 6,
             ),
           ),
