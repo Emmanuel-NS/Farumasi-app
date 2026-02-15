@@ -197,39 +197,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen> with SingleTi
       animation: StateService(),
       builder: (context, child) {
         return Scaffold(
-          bottomNavigationBar: StateService().cartItems.isEmpty ? null : Container(
-            color: Colors.green,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${StateService().cartItems.length} Items', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    Text('${StateService().totalAmount.toStringAsFixed(0)} RWF', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (!StateService().isLoggedIn) {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
-                    } else {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Processing Payment...")));
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
-                  ),
-                  child: const Text("Checkout")
-                )
-              ],
-            ),
-          ),
-      body: CustomScrollView(
+          body: CustomScrollView(
         slivers: [
           // 1. Unpinned Parallax Header (Brand + Image)
           SliverAppBar(
