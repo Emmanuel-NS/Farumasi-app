@@ -24,6 +24,59 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Delay location check slightly to ensure UI is ready
+    Future.delayed(Duration.zero, () {
+      _autoPickLocation();
+    });
+  }
+
+  Future<void> _autoPickLocation() async {
+    // Attempt to fetch real GPS location
+    try {
+      if (mounted) {
+         // Show a subtle snackbar or indicator if needed, 
+         // but for auto-pick we usually do it silently unless it fails.
+      }
+      await StateService().fetchRealLocation();
+      debugPrint("Location fetched successfully: ${StateService().userCoordinates}");
+    } catch (e) {
+      debugPrint("Location error: $e");
+      // Fallback/Demo default if permission denied or error
+      if (mounted) {
+         // Handle specific error cases with better UI feedback
+         String errorMessage = "GPS access failed. Using default location.";
+         
+         if (e.toString().contains('Location services are disabled')) {
+            errorMessage = "Please enable GPS/Location services on your device.";
+         } else if (e.toString().contains('denied')) {
+            errorMessage = "Location permission is required to detect your address.";
+         }
+
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(
+             content: Text(errorMessage),
+             duration: const Duration(seconds: 5),
+             action: SnackBarAction(
+               label: 'Settings', 
+               onPressed: () async {
+                 // Open relevant settings
+                 if (e.toString().contains('Location services are disabled')) {
+                   await StateService().openLocationSettings();
+                 } else {
+                   await StateService().openAppSettings();
+                 }
+               }
+             ),
+           ),
+         );
+         StateService().setLocation("Kigali, Rwanda (Default)", "-1.9706, 30.1044");
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       // App bar removed to allow screens to control their own headers
