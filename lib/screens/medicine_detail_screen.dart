@@ -15,31 +15,10 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> with Single
   int _quantity = 1;
   late TabController _tabController;
   
-  final List<Map<String, dynamic>> _reviews = [
-    {
-      "name": "John Doe",
-      "rating": 5.0,
-      "date": "Oct 24, 2025",
-      "comment": "Very effective! Started working within 20 minutes as promised. Highly recommend."
-    },
-    {
-      "name": "Sarah Smith",
-      "rating": 4.0,
-      "date": "Oct 20, 2025",
-      "comment": "Good product, but the shipping took a bit longer than expected. The medicine itself is great."
-    },
-    {
-      "name": "Michael Brown",
-      "rating": 5.0,
-      "date": "Oct 15, 2025",
-      "comment": "Excellent quality and packaging. Will order again."
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -99,7 +78,6 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> with Single
                               Icon(Icons.star, color: Colors.amber, size: 18),
                               SizedBox(width: 4),
                               Text(widget.medicine.rating.toString(), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
-                              Text(" (450+ Reviews)", style: TextStyle(color: Colors.grey, fontSize: 12)) 
                             ],
                           ),
                         )
@@ -142,7 +120,6 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> with Single
                     Tab(text: "Overview"),
                     Tab(text: "Dosage"),
                     Tab(text: "Safety"),
-                    Tab(text: "Reviews"),
                   ],
                 ),
               ),
@@ -155,7 +132,6 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> with Single
             _buildOverviewTab(),
             _buildDosageTab(),
             _buildSafetyTab(),
-            _buildReviewsTab(),
           ],
         ),
       ),
@@ -322,161 +298,6 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> with Single
           SizedBox(width: 8),
           Expanded(child: Text(text, style: _bodyStyle)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildReviewsTab() {
-    return ListView.builder(
-      padding: EdgeInsets.all(20),
-      itemCount: _reviews.length + 1, // +1 for the "Write a review" header/button
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("Customer Reviews", style: _headerStyle),
-                  TextButton.icon(
-                    onPressed: _showAddReviewDialog,
-                    icon: Icon(Icons.edit, size: 18),
-                    label: Text("Write a Review"),
-                    style: TextButton.styleFrom(foregroundColor: Colors.green),
-                  )
-                ],
-              ),
-              SizedBox(height: 16),
-              // Summary
-              Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Text("4.8", style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
-                    SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: List.generate(5, (i) => Icon(Icons.star, color: Colors.amber, size: 20))),
-                        SizedBox(height: 4),
-                        Text("Based on ${_reviews.length + 450} reviews", style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-                      ],
-                    )
-                  ],
-                ),
-              ),
-              SizedBox(height: 24),
-            ],
-          );
-        }
-
-        final review = _reviews[index - 1]; // Adjust for header
-        return Container(
-          margin: EdgeInsets.only(bottom: 16),
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: Offset(0, 2))]
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(review['name'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text(review['date'], style: TextStyle(color: Colors.grey, fontSize: 12)),
-                ],
-              ),
-              SizedBox(height: 4),
-              Row(children: List.generate(5, (i) => Icon(
-                Icons.star, 
-                size: 16, 
-                color: i < (review['rating'] as num).round() ? Colors.amber : Colors.grey.shade300
-              ))),
-              SizedBox(height: 8),
-              Text(review['comment'], style: TextStyle(color: Colors.grey.shade800, height: 1.4)),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showAddReviewDialog() {
-    final _commentController = TextEditingController();
-    double _rating = 5.0;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: Text("Write a Review"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text("How would you rate this product?", style: TextStyle(color: Colors.grey)),
-                SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (index) {
-                    return IconButton(
-                      icon: Icon(
-                        index < _rating ? Icons.star : Icons.star_border,
-                        color: Colors.amber,
-                        size: 32,
-                      ),
-                      onPressed: () => setState(() => _rating = index + 1.0),
-                    );
-                  }),
-                ),
-                SizedBox(height: 16),
-                TextField(
-                  controller: _commentController,
-                  decoration: InputDecoration(
-                    hintText: "Share your experience...",
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    filled: true,
-                    fillColor: Colors.grey.shade50
-                  ),
-                  maxLines: 3,
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text("Cancel", style: TextStyle(color: Colors.grey)),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                onPressed: () {
-                  if (_commentController.text.isNotEmpty) {
-                    this.setState(() {
-                      _reviews.insert(0, {
-                        "name": "You", // In a real app, use the logged-in user's name
-                        "rating": _rating,
-                        "date": "Just now",
-                        "comment": _commentController.text
-                      });
-                    });
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Review submitted successfully!"), backgroundColor: Colors.green));
-                  }
-                },
-                child: Text("Submit"),
-              ),
-            ],
-          );
-        }
       ),
     );
   }

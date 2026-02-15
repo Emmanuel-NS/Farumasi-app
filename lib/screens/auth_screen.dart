@@ -30,6 +30,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
+        height: double.infinity,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -37,41 +38,49 @@ class _AuthScreenState extends State<AuthScreen> {
             colors: [Colors.green.shade800, Colors.green.shade400],
           ),
         ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Card(
-              elevation: 8,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 450),
+                child: Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          FarumasiLogo(size: 60, color: Colors.green),
-                          SizedBox(width: 12),
-                          Text(
-                            "FARUMASI", 
-                            style: TextStyle(
-                              fontSize: 32, 
-                              fontWeight: FontWeight.w900, 
-                              color: Colors.green.shade800,
-                              letterSpacing: 1.2
-                            )
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              FarumasiLogo(size: 60, color: Colors.green),
+                              SizedBox(width: 12),
+                              // Flexible allows text to wrap if screen is very narrow
+                              Flexible(
+                                child: Text(
+                                  "FARUMASI", 
+                                  style: TextStyle(
+                                    fontSize: 32, 
+                                    fontWeight: FontWeight.w900, 
+                                    color: Colors.green.shade800,
+                                    letterSpacing: 1.2
+                                  ),
+                                  overflow: TextOverflow.fade,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        _isLogin ? 'Welcome Back!' : 'Join Farumasi',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green.shade800),
-                      ),
-                      SizedBox(height: 24),
+                          SizedBox(height: 16),
+                          Text(
+                            _isLogin ? 'Welcome Back!' : 'Join Farumasi',
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                          ),
+                          SizedBox(height: 24),
                       if (!_isLogin) ...[
                         TextFormField(
                           controller: _nameController,
@@ -148,7 +157,10 @@ class _AuthScreenState extends State<AuthScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 2,
                           ),
-                          child: Text(_isLogin ? 'LOGIN' : 'SIGN UP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          child: Text(
+                            _isLogin ? 'LOGIN' : 'SIGN UP', 
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                          ),
                         ),
                       ),
                       SizedBox(height: 16),
@@ -157,10 +169,10 @@ class _AuthScreenState extends State<AuthScreen> {
                            setState(() => _isLogin = !_isLogin);
                            _formKey.currentState?.reset();
                         },
-                        child: RichText(
-                          text: TextSpan(
+                        child: Text.rich( // Changed from RichText to Text.rich for better constraint handling
+                          TextSpan(
                             text: _isLogin ? "Don't have an account? " : "Already have an account? ",
-                            style: TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13), // Reduced size slightly
                             children: [
                               TextSpan(
                                 text: _isLogin ? 'Sign Up' : 'Login',
@@ -168,13 +180,15 @@ class _AuthScreenState extends State<AuthScreen> {
                               )
                             ]
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                      if (_isLogin)
-                      TextButton(
-                        onPressed: () {}, // TODO
-                        child: Text("Forgot Password?", style: TextStyle(color: Colors.green)),
-                      )
+                      if (_isLogin) ...[
+                        TextButton(
+                          onPressed: () {}, 
+                          child: Text("Forgot Password?", style: TextStyle(color: Colors.green)),
+                        )
+                      ],
                     ],
                   ),
                 ),
@@ -183,9 +197,11 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         ),
       ),
+      ),
+      ),
     );
   }
-}
+} // Closes _AuthScreenState check where Card was closed
 
 class FarumasiLogo extends StatelessWidget {
   final double size;

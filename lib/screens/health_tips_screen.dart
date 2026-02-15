@@ -654,7 +654,7 @@ class _AskPharmacistTabState extends State<_AskPharmacistTab> {
           Text("Topic", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: _selectedTopic,
+            initialValue: _selectedTopic,
             decoration: InputDecoration(
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14)

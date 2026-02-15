@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 import '../models/models.dart';
 import '../data/dummy_data.dart';
 import '../widgets/medicine_item.dart';
@@ -150,12 +149,15 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen> with SingleTi
                               selected: _selectedCategories.contains(cat),
                               onSelected: (selected) {
                                 setModalState(() {
-                                  if (selected) _selectedCategories.add(cat);
-                                  else _selectedCategories.remove(cat);
+                                  if (selected) {
+                                    _selectedCategories.add(cat);
+                                  } else {
+                                    _selectedCategories.remove(cat);
+                                  }
                                 });
                                 setState(() {});
                               },
-                            )).toList(),
+                            )),
                           ],
                         ),
                          SizedBox(height: 16),
@@ -263,28 +265,35 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen> with SingleTi
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Row(
-                          children: [
-                             // Unique 'F' Medical Logo (Leafy Style)
-                            FarumasiLogo(size: 60, color: Colors.green, onDark: true),
-                            SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  "FARUMASI", 
-                                  style: TextStyle(
-                                    color: Colors.white, 
-                                    fontSize: 34, // Increased size
-                                    fontWeight: FontWeight.w900,  
-                                    letterSpacing: 1.2,
-                                    shadows: [Shadow(blurRadius: 4, color: Colors.black45, offset: Offset(1,1))]
-                                  )
+                        Expanded(
+                          child: Row(
+                            children: [
+                               // Unique 'F' Medical Logo (Leafy Style)
+                              FarumasiLogo(size: 60, color: Colors.green, onDark: true),
+                              SizedBox(width: 8), // Reduced spacing
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      "FARUMASI", 
+                                      style: TextStyle(
+                                        color: Colors.white, 
+                                        fontSize: 28, // Reduced size to prevent overflow (was 34)
+                                        fontWeight: FontWeight.w900,  
+                                        letterSpacing: 1.0,
+                                        shadows: [Shadow(blurRadius: 4, color: Colors.black45, offset: Offset(1,1))]
+                                      ),
+                                      overflow: TextOverflow.fade,
+                                      maxLines: 1,
+                                      softWrap: false,
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
                         ),
                         // Auth State Display (Profile if logged in, Buttons if not)
                         if (StateService().isLoggedIn)

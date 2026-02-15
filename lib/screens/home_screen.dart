@@ -47,8 +47,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildNavItem(Icons.store, 'Store', 0),
-                  _buildNavItem(Icons.health_and_safety, 'Tips', 1),
+                  _buildNavItem(Icons.store, 'Home', 0),
+                  _buildNavItem(Icons.health_and_safety, 'Health', 1),
                   const SizedBox(width: 48), // Gap for FAB
                   _buildNavItem(Icons.shopping_cart, 'Cart', 2, isCart: true),
                   _buildNavItem(Icons.history, 'Orders', 3),
@@ -63,7 +63,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNavItem(IconData icon, String label, int index, {bool isCart = false}) {
       final isSelected = _currentIndex == index;
-      Widget iconWidget = Icon(icon, color: isSelected ? Colors.white : Colors.white60, size: 28);
+      // Using green.shade100 for inactive items makes them look integrated but not 'disabled' like white60
+      final color = isSelected ? Colors.white : Colors.green.shade100;
+      
+      Widget iconWidget = Icon(icon, color: color, size: 28);
 
       if (isCart) {
         final itemCount = StateService().cartItems.length;
@@ -90,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               iconWidget,
-              Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.white60, fontSize: 11)),
+              Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
             ],
           ),
         ),
