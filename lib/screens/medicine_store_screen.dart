@@ -30,11 +30,12 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     _scrollController = ScrollController();
     _scrollController.addListener(() {
       // 1. Existing logic for App Bar transparency/collapse
-      if (_scrollController.offset > 140 && !_isScrolled) {
+      // Updated threshold for expandedHeight: 180
+      if (_scrollController.offset > 120 && !_isScrolled) {
         setState(() {
           _isScrolled = true;
         });
-      } else if (_scrollController.offset <= 140 && _isScrolled) {
+      } else if (_scrollController.offset <= 120 && _isScrolled) {
         setState(() {
           _isScrolled = false;
         });
@@ -316,7 +317,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
               // 1. Unpinned Parallax Header (Brand + Image)
               SliverAppBar(
                 pinned: true, // Keep it visible when scrolled up
-                expandedHeight: 160, // Reduced from 220 to bring elements closer
+                expandedHeight: 180, // Increased height to prevent overflow and improve visibility
                 collapsedHeight: 60, 
                 toolbarHeight: 60,   
                 backgroundColor: Colors.green,
@@ -367,213 +368,212 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           ),
                         ),
                       ),
-                      // Brand Name + Notification Icon
+                      // Brand Name + Slogan (Moved to Top)
                       Positioned(
-                        bottom: 8, // Tighter spacing
+                        top: 80, // Moved down to clear the status bar/collapsed toolbar area
                         left: 16,
                         right: 16,
                         child: AnimatedOpacity(
                           duration: const Duration(milliseconds: 200),
                           opacity: _isScrolled ? 0.0 : 1.0,
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                  // Unique 'F' Medical Logo (Leafy Style)
-                                  FarumasiLogo(
-                                    size: 64, // Increased size
-                                    color: Colors.green,
-                                    onDark: true,
-                                  ),
-                                  SizedBox(width: 8), 
-                                  Flexible(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          "FARUMASI",
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize:
-                                                36, // Increased size
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 1.2,
-                                            height: 1.0, // Tighter line height
-                                            shadows: [
-                                              Shadow(
-                                                blurRadius: 4,
-                                                color: Colors.black45,
-                                                offset: Offset(1, 1),
-                                              ),
-                                            ],
-                                          ),
-                                          overflow: TextOverflow.fade,
-                                          maxLines: 1,
-                                          softWrap: false,
-                                        ),
-                                        // Typewriter Slogan
-                                        const TypewriterSlogan(),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                              // Unique 'F' Medical Logo (Leafy Style)
+                              FarumasiLogo(
+                                size: 56, // Increased size
+                                color: Colors.green,
+                                onDark: true,
                               ),
-                            ),
-                            // Auth State Display (Profile if logged in, Buttons if not)
-                            if (StateService().isLoggedIn)
-                              Row(
-                                children: [
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (context) =>
-                                                const NotificationScreen()),
-                                      );
-                                    },
-                                    child: Stack(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.white24,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.notifications,
-                                            color: Colors.white,
-                                            size: 28,
-                                          ),
-                                        ),
-                                        const Positioned(
-                                          right: 8,
-                                          top: 8,
-                                          child: CircleAvatar(
-                                            radius: 4,
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  PopupMenuButton<String>(
-                                    offset: const Offset(0, 40),
-                                    onSelected: (value) {
-                                      if (value == 'logout') {
-                                        StateService().logout();
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              "Logged out successfully",
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    itemBuilder: (BuildContext context) => [
-                                      PopupMenuItem(
-                                        enabled: false,
-                                        child: Text(
-                                          'Hello, ${StateService().userName ?? 'User'}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'logout',
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.logout,
-                                              color: Colors.green,
-                                            ),
-                                            SizedBox(width: 8),
-                                            Text('Logout'),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                    child: CircleAvatar(
-                                      radius: 22,
-                                      backgroundColor: Colors.white,
-                                      child: Text(
-                                        StateService().userName != null &&
-                                                StateService()
-                                                    .userName!
-                                                    .isNotEmpty
-                                            ? StateService().userName![0]
-                                                  .toUpperCase()
-                                            : 'U',
-                                        style: const TextStyle(
-                                          color: Colors.green,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 20,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
-                              Row(
-                                children: [
-                                  TextButton(
-                                    onPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const AuthScreen(),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Login',
+                              SizedBox(width: 12), 
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      "FARUMASI",
                                       style: TextStyle(
                                         color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
+                                        fontSize: 32, // Increased size
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.2,
+                                        height: 1.0, 
+                                        shadows: [
+                                          Shadow(
+                                            blurRadius: 4,
+                                            color: Colors.black45,
+                                            offset: Offset(1, 1),
+                                          ),
+                                        ],
                                       ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
                                     ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  ElevatedButton(
-                                    onPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const AuthScreen(),
-                                      ),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: Colors.green,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 0,
-                                      ),
-                                      minimumSize: const Size(0, 36),
-                                    ),
-                                    child: const Text(
-                                      'Sign Up',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                    // Typewriter Slogan
+                                    const Flexible(child: TypewriterSlogan()),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
+                        ),
+                      ),
+
+                      // Auth State Display (Kept at Bottom)
+                      Positioned(
+                        bottom: 16,
+                        right: 16,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: _isScrolled ? 0.0 : 1.0,
+                          child: StateService().isLoggedIn
+                              ? Row(
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const NotificationScreen()),
+                                        );
+                                      },
+                                      child: Stack(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.white24,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.notifications,
+                                              color: Colors.white,
+                                              size: 28,
+                                            ),
+                                          ),
+                                          const Positioned(
+                                            right: 8,
+                                            top: 8,
+                                            child: CircleAvatar(
+                                              radius: 4,
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    PopupMenuButton<String>(
+                                      offset: const Offset(0, 40),
+                                      onSelected: (value) {
+                                        if (value == 'logout') {
+                                          StateService().logout();
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                "Logged out successfully",
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      itemBuilder: (BuildContext context) => [
+                                        PopupMenuItem(
+                                          enabled: false,
+                                          child: Text(
+                                            'Hello, ${StateService().userName ?? 'User'}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'logout',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.logout,
+                                                color: Colors.green,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text('Logout'),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                      child: CircleAvatar(
+                                        radius: 22,
+                                        backgroundColor: Colors.white,
+                                        child: Text(
+                                          StateService().userName != null &&
+                                                  StateService()
+                                                      .userName!
+                                                      .isNotEmpty
+                                              ? StateService().userName![0]
+                                                    .toUpperCase()
+                                              : 'U',
+                                          style: const TextStyle(
+                                            color: Colors.green,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 20,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  children: [
+                                    TextButton(
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const AuthScreen(),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Login',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const AuthScreen(),
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: Colors.green,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 0,
+                                        ),
+                                        minimumSize: const Size(0, 36),
+                                      ),
+                                      child: const Text(
+                                        'Sign Up',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
                     ],
@@ -598,6 +598,17 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 8), 
                         child: Row(
                           children: [
+                            // Search Label Text
+                            const Text(
+                              "Search",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
                             // Expanded Search Field
                             Expanded(
                               child: Container(
@@ -608,20 +619,17 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                   border: Border.all(color: Colors.white),
                                 ),
                                 child: TextField(
-                                  style: TextStyle(fontSize: 16), // Standard readable font
+                                  style: const TextStyle(fontSize: 16), // Standard readable font
                                   decoration: InputDecoration(
                                     hintText: 'Search medicines...',
-                                    hintStyle: TextStyle(
+                                    hintStyle: const TextStyle(
                                       color: Colors.grey, 
                                       fontSize: 16,
                                     ),
-                                    prefixIcon: Icon(
-                                      Icons.search,
-                                      color: Colors.grey,
-                                      size: 24,
-                                    ),
+                                    // Removed prefixIcon since we have the external button now
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                     suffixIcon: IconButton(
-                                      icon: Icon(
+                                      icon: const Icon(
                                         Icons.tune,
                                         color: Colors.green,
                                         size: 24,
@@ -629,7 +637,6 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                       onPressed: _showFilterModal,
                                     ),
                                     border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(vertical: 12), 
                                   ),
                                   onChanged: (val) =>
                                       setState(() => _searchQuery = val),
@@ -1066,4 +1073,89 @@ class _LeafyFPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class TypewriterSlogan extends StatefulWidget {
+  const TypewriterSlogan({super.key});
+
+  @override
+  State<TypewriterSlogan> createState() => _TypewriterSloganState();
+}
+
+class _TypewriterSloganState extends State<TypewriterSlogan> {
+  final String _fullText = "Better Access, Better Living.";
+  String _displayText = "";
+  int _currentIndex = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start typing after a short delay
+    Future.delayed(const Duration(milliseconds: 500), _startLoop);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startLoop() {
+    if (!mounted) return;
+    setState(() {
+      _currentIndex = 0;
+      _displayText = "";
+    });
+    _typeNextChar();
+  }
+
+  void _typeNextChar() {
+    if (!mounted) return;
+    
+    if (_currentIndex < _fullText.length) {
+      if (!mounted) return;
+      setState(() {
+        _displayText = _fullText.substring(0, _currentIndex + 1);
+        _currentIndex++;
+      });
+      // Random typing speed creates a more natural effect
+      _timer = Timer(
+        Duration(milliseconds: 50 + (DateTime.now().millisecond % 100)),
+        _typeNextChar,
+      );
+    } else {
+      // Finished typing, wait then restart
+      _timer = Timer(const Duration(seconds: 3), _startLoop);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: _displayText),
+          if (_currentIndex < _fullText.length || (DateTime.now().second % 2 == 0))
+            WidgetSpan(
+              child: Container(
+                width: 3, 
+                height: 24, 
+                color: Colors.green, // Match text color
+                margin: const EdgeInsets.only(left: 2),
+              ),
+              alignment: PlaceholderAlignment.middle,
+            ),
+        ],
+      ),
+      style: const TextStyle(
+        color: Colors.green, 
+        fontSize: 22, 
+        fontWeight: FontWeight.w900, 
+        letterSpacing: 1.0,
+      ),
+      overflow: TextOverflow.ellipsis,
+      maxLines: 2,
+    );
+  }
 }
