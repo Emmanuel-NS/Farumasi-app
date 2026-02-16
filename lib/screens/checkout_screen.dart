@@ -139,7 +139,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             
             // City Dropdown
              DropdownButtonFormField<String>(
-              value: _selectedCity,
+              initialValue: _selectedCity,
               decoration: const InputDecoration(
                 labelText: 'City',
                 border: OutlineInputBorder(),
@@ -265,7 +265,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedRider,
+              initialValue: _selectedRider,
               decoration: InputDecoration(
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

@@ -51,6 +51,7 @@ class MedicineItem extends StatelessWidget {
                   }, // Image tap -> Toggle Cart
                   borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                   child: Stack(
+                    fit: StackFit.expand,
                     children: [
                       Container(
                         width: double.infinity,
@@ -69,11 +70,35 @@ class MedicineItem extends StatelessWidget {
                             child: Image.network(
                               medicine.imageUrl,
                               fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              cacheWidth: 600, // Optimize memory usage
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade200),
+                                    ),
+                                  ),
+                                );
+                              },
                               errorBuilder: (context, error, stackTrace) {
-                                return Icon(
-                                  Icons.medication,
-                                  size: 50,
-                                  color: Colors.green,
+                                return Container(
+                                  color: Colors.grey[100],
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.image_not_supported_outlined,
+                                        size: 32,
+                                        color: Colors.grey.shade400,
+                                      ),
+                                    ],
+                                  ),
                                 );
                               },
                             ),

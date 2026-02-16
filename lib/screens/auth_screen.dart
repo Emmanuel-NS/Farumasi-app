@@ -179,8 +179,9 @@ class _AuthScreenState extends State<AuthScreen> {
                               ),
                               obscureText: true,
                               validator: (value) {
-                                if (value != _passwordController.text)
+                                if (value != _passwordController.text) {
                                   return 'Passwords do not match';
+                                }
                                 return null;
                               },
                             ),

@@ -64,7 +64,7 @@ Dehydration can trigger headaches and migraine in some individuals. Research has
     category: "Wellness",
     readTimeMin: 6,
     imageUrl:
-        "https://images.unsplash.com/photo-1511988617509-a57c8a288659?auto=format&fit=crop&q=80&w=800",
+        "https://images.unsplash.com/photo-1541781777631-fa95375ed299?auto=format&fit=crop&q=80&w=800", // Bedroom/Sleep environment
     source: "National Sleep Foundation",
     fullContent: """
 Sleep services to restore the body and mind. The National Sleep Foundation recommends 7-9 hours for adults.
@@ -90,7 +90,7 @@ final List<HealthArticle> _remedies = [
     category: "Viral Infection",
     readTimeMin: 4,
     imageUrl:
-        "https://images.unsplash.com/photo-1513224502586-d254786b1063?auto=format&fit=crop&q=80&w=800",
+        "https://images.unsplash.com/photo-1512568400610-62da28bc8a13?auto=format&fit=crop&q=80&w=800", // Tea/Hot drink
     source: "Mayo Clinic",
     fullContent: """
 Influenza (Flu) is a viral infection that attacks your respiratory system. While rest is paramount, these natural methods can support recovery.
@@ -115,7 +115,7 @@ Research suggests that zinc lozenges may shorten the length of a cold if taken w
     category: "Chronic Care",
     readTimeMin: 7,
     imageUrl:
-        "https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&q=80&w=800", // Food image
+        "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=800", // Healthy Salad
     source: "American Diabetes Association",
     fullContent: """
 Type 2 diabetes management relies heavily on lifestyle.
@@ -144,7 +144,7 @@ final List<HealthArticle> _facts = [
     category: "Did You Know?",
     readTimeMin: 2,
     imageUrl:
-        "https://images.unsplash.com/photo-1618512496245-c3f28328c313?auto=format&fit=crop&q=80&w=800",
+        "https://images.unsplash.com/photo-1620574387735-3624d75b2dbc?auto=format&fit=crop&q=80&w=800", // Red Onions
     source: "Am. J. Physiol.",
     fullContent: """
 **Did you know that eating raw onions can help with respiratory issues?**

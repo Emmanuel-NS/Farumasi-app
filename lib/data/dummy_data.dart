@@ -7,8 +7,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'Effective pain reliever and fever reducer. Suitable for headaches, muscle aches, and colds.',
     price: 500,
-    imageUrl:
-        'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=80',
     category: 'Pain Relief',
     rating: 4.8,
     isPopular: true,
@@ -24,8 +23,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'Antibiotic used to treat bacterial infections. Requires a valid doctor\'s prescription.',
     price: 2500,
-    imageUrl:
-        'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1585435557343-3b092031a831?w=600&q=80',
     category: 'Antibiotics',
     requiresPrescription: true,
     rating: 4.5,
@@ -40,8 +38,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'High-potency immune system booster to keep you healthy and energized.',
     price: 8000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1577018501255-6677f502c38d?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1616671276445-169d9e3b2e36?w=600&q=80',
     category: 'Vitamins',
     isPopular: true,
     rating: 4.9,
@@ -55,8 +52,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'Fast-acting relief from dry and chesty coughs. Cherry flavor.',
     price: 3500,
-    imageUrl:
-        'https://images.unsplash.com/photo-1624454002302-36b824d7bd0a?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1598454519524-8f0a1c87607a?w=600&q=80',
     category: 'Cold & Flu',
     rating: 4.2,
     dosage: '10ml every 6 hours. Not for children under 6 years.',
@@ -69,8 +65,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'Non-steroidal anti-inflammatory drug (NSAID) for pain relief and inflammation.',
     price: 1500,
-    imageUrl:
-        'https://images.unsplash.com/photo-1550572017-ed108420b982?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1512069772995-ec65ed45afd6?w=600&q=80',
     category: 'Pain Relief',
     isPopular: true,
     rating: 4.7,
@@ -84,8 +79,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'Pure soothing gel for sunburns, skin irritations, and daily moisturizing.',
     price: 6000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1596547610928-8547ae07106b?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1620916773340-753bc9f77651?w=600&q=80',
     category: 'Skincare',
     rating: 4.6,
     dosage: 'Apply liberally to affected area as often as needed.',
@@ -98,8 +92,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'Complete daily nutritional support with essential vitamins and minerals.',
     price: 12000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1550572017-4fcdbb563725?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1576073719676-aa95576db207?w=600&q=80',
     category: 'Vitamins',
     isPopular: true,
     rating: 4.9,
@@ -113,8 +106,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'Alcohol-based hand sanitizer that kills 99.9% of germs instantly.',
     price: 2000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1584483766114-2cea6fac257d?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1584744982491-6652d3d3a778?w=600&q=80',
     category: 'Hygiene',
     rating: 4.5,
     dosage: 'Apply palmful to hands and rub until dry.',
@@ -127,8 +119,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'High filtration respiratory protection. Comfortable fit for daily use.',
     price: 1000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1586942593568-29361efcd571?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1585776245991-cf79dd4e5e40?w=600&q=80',
     category: 'Hygiene',
     isPopular: true,
     rating: 4.8,
@@ -142,8 +133,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'Broad-spectrum protection against UVA and UVB rays. Water-resistant.',
     price: 8500,
-    imageUrl:
-        'https://images.unsplash.com/photo-1556228722-dca852a36b53?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1526947425960-945c6e72858f?w=600&q=80',
     category: 'Skincare',
     rating: 4.7,
     dosage: 'Apply 15 minutes before sun exposure. Reapply every 2 hours.',
@@ -156,8 +146,7 @@ final List<Medicine> dummyMedicines = [
     name: 'Protein Powder (Whey)',
     description: 'Premium whey protein for muscle recovery and growth.',
     price: 45000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=600&q=80',
     category: 'Nutrition',
     rating: 4.8,
     dosage: 'Mix one scoop with 250ml water or milk after workout.',
@@ -169,8 +158,7 @@ final List<Medicine> dummyMedicines = [
     name: 'Fish Oil Omega-3',
     description: 'Essential fatty acids for heart and brain health.',
     price: 15000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=600', // Reusing pill bottle
+    imageUrl: 'https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=600&q=80',
     category: 'Nutrition',
     rating: 4.7,
     isPopular: true,
@@ -183,8 +171,7 @@ final List<Medicine> dummyMedicines = [
     name: 'Turmeric Curcumin',
     description: 'Natural herbal supplement for joint health and inflammation.',
     price: 12000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1563189140-a6aed69ebad1?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&q=80',
     category: 'Herbal Medicines',
     rating: 4.6,
     dosage: '1 capsule daily.',
@@ -196,8 +183,7 @@ final List<Medicine> dummyMedicines = [
     name: 'Ginseng Extract',
     description: 'Herbal energy booster and cognitive enhancer.',
     price: 18000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=600', // abstract herbs
+    imageUrl: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=600&q=80',
     category: 'Herbal Medicines',
     rating: 4.5,
     dosage: 'Take one vial daily in the morning.',
@@ -209,8 +195,7 @@ final List<Medicine> dummyMedicines = [
     name: 'Condoms (Pack of 3)',
     description: 'Latex condoms for protection and safe family planning.',
     price: 1500,
-    imageUrl:
-        'https://images.unsplash.com/photo-1542614532-6a6c2057d2a3?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1629198728256-654bd7f8e329?w=600&q=80',
     category: 'Sexual Health',
     rating: 4.5,
     dosage: 'Use once during intercourse.',
@@ -222,8 +207,7 @@ final List<Medicine> dummyMedicines = [
     name: 'Pregnancy Test Kit',
     description: 'Fast and accurate home pregnancy test.',
     price: 2500,
-    imageUrl:
-        'https://images.unsplash.com/photo-1582719230166-5e5899479e0a?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1629868744577-be804a621cda?w=600&q=80',
     category: 'Sexual Health',
     rating: 4.8,
     dosage: 'Follow instructions on pack.',
@@ -236,8 +220,7 @@ final List<Medicine> dummyMedicines = [
     description:
         'Foldable standard wheelchair with comfortable seating. Durable frame.',
     price: 150000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1579737088463-3dc467d56a29?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1582648792078-4384a22c1611?w=600&q=80',
     category: 'Mobility Aids',
     requiresPrescription: true,
     rating: 4.9,
@@ -250,8 +233,7 @@ final List<Medicine> dummyMedicines = [
     name: 'Adjustable Walking Cane',
     description: 'Lightweight aluminum walking stick with non-slip tip.',
     price: 15000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1583344933994-3a95832a8264?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1533618467263-9a6d5ae5844c?w=600&q=80',
     category: 'Mobility Aids',
     rating: 4.6,
     dosage: 'Adjust height to hip level.',
@@ -263,8 +245,7 @@ final List<Medicine> dummyMedicines = [
     name: 'Baby Diapers (Pack of 50)',
     description: 'Soft and absorbent diapers for babies. Leak protection.',
     price: 18000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1563812423300-a4309b43e11b?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1581093583449-ed25213bc51c?w=600&q=80',
     category: 'Mother & Baby',
     isPopular: true,
     rating: 4.8,
@@ -277,8 +258,7 @@ final List<Medicine> dummyMedicines = [
     name: 'Blood Pressure Monitor',
     description: 'Digital automatic upper arm blood pressure monitor.',
     price: 35000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1630656037492-f0275806c9bc?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1628348068358-11d354eaaf6e?w=600&q=80',
     category: 'Devices',
     rating: 4.7,
     dosage: 'Use seated with arm at heart level.',
@@ -290,8 +270,7 @@ final List<Medicine> dummyMedicines = [
     name: 'First Aid Kit',
     description: 'Comprehensive kit with bandages, antiseptic, and tools.',
     price: 22000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1603398938378-e54eab446dde?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1603398938378-e54eab446dde?w=600&q=80',
     category: 'First Aid',
     rating: 4.9,
     dosage: 'See individual items.',
@@ -303,8 +282,7 @@ final List<Medicine> dummyMedicines = [
     name: 'Insulin Syringes',
     description: 'Sterile syringes for insulin injection.',
     price: 5000,
-    imageUrl:
-        'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=600&q=80',
     category: 'Chronic Care',
     requiresPrescription: true,
     rating: 4.6,
