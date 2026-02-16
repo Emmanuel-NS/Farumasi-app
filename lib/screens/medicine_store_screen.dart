@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async'; // For Typewriter animation timer
 import '../models/models.dart';
 import '../data/dummy_data.dart';
 import '../widgets/medicine_item.dart';
@@ -415,6 +416,8 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                           maxLines: 1,
                                           softWrap: false,
                                         ),
+                                        // Typewriter Slogan
+                                        const TypewriterSlogan(),
                                       ],
                                     ),
                                   ),
