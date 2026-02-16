@@ -4,7 +4,6 @@ import '../data/dummy_data.dart';
 import '../widgets/medicine_item.dart';
 import 'medicine_detail_screen.dart';
 import '../services/state_service.dart';
-import '../services/notification_service.dart';
 import 'auth_screen.dart';
 
 import 'notification_screen.dart'; // Import the new screen
@@ -18,6 +17,32 @@ class MedicineStoreScreen extends StatefulWidget {
 
 class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     with SingleTickerProviderStateMixin {
+  late ScrollController _scrollController;
+  bool _isScrolled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(() {
+      if (_scrollController.offset > 140 && !_isScrolled) {
+        setState(() {
+          _isScrolled = true;
+        });
+      } else if (_scrollController.offset <= 140 && _isScrolled) {
+        setState(() {
+          _isScrolled = false;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   // Search & Filter State
   String _searchQuery = '';
   final Set<String> _selectedCategories = {};
@@ -260,12 +285,42 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
       builder: (context, child) {
         return Scaffold(
           body: CustomScrollView(
+            controller: _scrollController,
             slivers: [
               // 1. Unpinned Parallax Header (Brand + Image)
               SliverAppBar(
-                pinned: false, // Scrolls away completely
-                expandedHeight: 180, // Reduced height further as requested
+                pinned: true, // Keep it visible when scrolled up
+                expandedHeight: 160, // Reduced from 220 to bring elements closer
+                collapsedHeight: 60, 
+                toolbarHeight: 60,   
                 backgroundColor: Colors.green,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                automaticallyImplyLeading: false, 
+                title: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: _isScrolled ? 1.0 : 0.0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min, 
+                    children: [
+                       FarumasiLogo(
+                          size: 32, // Nice readable logo
+                          color: Colors.white,
+                          onDark: true,
+                        ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "FARUMASI",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22, // Nice bold readable font
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     fit: StackFit.expand,
@@ -288,23 +343,26 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                       ),
                       // Brand Name + Notification Icon
                       Positioned(
-                        bottom: 20,
-                        left: 20,
-                        right: 20,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
+                        bottom: 8, // Tighter spacing
+                        left: 16,
+                        right: 16,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: _isScrolled ? 0.0 : 1.0,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
                                   // Unique 'F' Medical Logo (Leafy Style)
                                   FarumasiLogo(
-                                    size: 60,
+                                    size: 64, // Increased size
                                     color: Colors.green,
                                     onDark: true,
                                   ),
-                                  SizedBox(width: 8), // Reduced spacing
+                                  SizedBox(width: 8), 
                                   Flexible(
                                     child: Column(
                                       crossAxisAlignment:
@@ -316,9 +374,10 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                           style: TextStyle(
                                             color: Colors.white,
                                             fontSize:
-                                                28, // Reduced size to prevent overflow (was 34)
+                                                36, // Increased size
                                             fontWeight: FontWeight.w900,
-                                            letterSpacing: 1.0,
+                                            letterSpacing: 1.2,
+                                            height: 1.0, // Tighter line height
                                             shadows: [
                                               Shadow(
                                                 blurRadius: 4,
@@ -485,7 +544,8 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                   ),
                                 ],
                               ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -499,57 +559,49 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                 pinned: true,
                 delegate: _StickyHeaderDelegate(
                   height: _showCategories
-                      ? 190
-                      : 92, // Increased height for padding
+                      ? 175 
+                      : 70, // Increased by 5px to eliminate 1px overflow + safety buffer
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.start, 
                     children: [
                       // Search Bar
                       Container(
                         color: Colors.green,
-                        padding: const EdgeInsets.fromLTRB(
-                          16,
-                          24,
-                          16,
-                          4,
-                        ), // Increased top padding
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8), 
                         child: Row(
                           children: [
-                            // Sticky Header Logo (Mini Version)
-                            FarumasiLogo(
-                              size: 40,
-                              color: Colors.green,
-                              onDark: true,
-                            ),
-                            SizedBox(width: 10),
                             // Expanded Search Field
                             Expanded(
                               child: Container(
-                                height: 45,
+                                height: 48, // Standard touch target height
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: Colors.white),
                                 ),
                                 child: TextField(
+                                  style: TextStyle(fontSize: 16), // Standard readable font
                                   decoration: InputDecoration(
                                     hintText: 'Search medicines...',
-                                    hintStyle: TextStyle(color: Colors.grey),
+                                    hintStyle: TextStyle(
+                                      color: Colors.grey, 
+                                      fontSize: 16,
+                                    ),
                                     prefixIcon: Icon(
                                       Icons.search,
                                       color: Colors.grey,
+                                      size: 24,
                                     ),
                                     suffixIcon: IconButton(
                                       icon: Icon(
                                         Icons.tune,
                                         color: Colors.green,
+                                        size: 24,
                                       ),
                                       onPressed: _showFilterModal,
                                     ),
                                     border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      vertical: 10,
-                                    ),
+                                    contentPadding: EdgeInsets.symmetric(vertical: 12), 
                                   ),
                                   onChanged: (val) =>
                                       setState(() => _searchQuery = val),
@@ -658,11 +710,6 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                 .toList(),
                           ),
                         ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: Colors.green.shade800,
-                      ),
                     ],
                   ),
                 ),
@@ -864,10 +911,11 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Container(
-      color: Colors.green, // Fix white line gap by using green background
-      child:
-          child, // The child will have its own white background for the categories part
+    // Determine visibility based on shrinkOffset to prevent content bleeding
+    // When fully collapsed, only valid content should show.
+    return SizedBox(
+      height: height,
+      child: child,
     );
   }
 
