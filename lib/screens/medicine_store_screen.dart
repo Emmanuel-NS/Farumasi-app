@@ -4,6 +4,7 @@ import '../data/dummy_data.dart';
 import '../widgets/medicine_item.dart';
 import 'medicine_detail_screen.dart';
 import '../services/state_service.dart';
+import '../services/notification_service.dart';
 import 'auth_screen.dart';
 
 class MedicineStoreScreen extends StatefulWidget {
@@ -338,29 +339,44 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                             if (StateService().isLoggedIn)
                               Row(
                                 children: [
-                                  Stack(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white24,
-                                          shape: BoxShape.circle,
+                                  GestureDetector(
+                                    onTap: () async {
+                                      await NotificationService().showNotification(
+                                        title: 'Farumasi Alert',
+                                        body: 'You have a new prescription ready for pickup!',
+                                      );
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Test Notification sent! Check your status bar.'),
+                                          behavior: SnackBarBehavior.floating,
+                                          backgroundColor: Colors.green,
                                         ),
-                                        child: const Icon(
-                                          Icons.notifications,
-                                          color: Colors.white,
-                                          size: 28,
+                                      );
+                                    },
+                                    child: Stack(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.white24,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.notifications,
+                                            color: Colors.white,
+                                            size: 28,
+                                          ),
                                         ),
-                                      ),
-                                      const Positioned(
-                                        right: 8,
-                                        top: 8,
-                                        child: CircleAvatar(
-                                          radius: 4,
-                                          backgroundColor: Colors.red,
+                                        const Positioned(
+                                          right: 8,
+                                          top: 8,
+                                          child: CircleAvatar(
+                                            radius: 4,
+                                            backgroundColor: Colors.red,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   PopupMenuButton<String>(
