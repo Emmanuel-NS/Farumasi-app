@@ -7,6 +7,8 @@ import '../services/state_service.dart';
 import '../services/notification_service.dart';
 import 'auth_screen.dart';
 
+import 'notification_screen.dart'; // Import the new screen
+
 class MedicineStoreScreen extends StatefulWidget {
   const MedicineStoreScreen({super.key});
 
@@ -340,17 +342,12 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               Row(
                                 children: [
                                   GestureDetector(
-                                    onTap: () async {
-                                      await NotificationService().showNotification(
-                                        title: 'Farumasi Alert',
-                                        body: 'You have a new prescription ready for pickup!',
-                                      );
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Test Notification sent! Check your status bar.'),
-                                          behavior: SnackBarBehavior.floating,
-                                          backgroundColor: Colors.green,
-                                        ),
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                const NotificationScreen()),
                                       );
                                     },
                                     child: Stack(
