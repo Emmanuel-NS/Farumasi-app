@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
 import 'package:farumasi_app/screens/health_tips_screen.dart';
 import 'package:farumasi_app/screens/medicine_store_screen.dart';
 import 'package:farumasi_app/screens/cart_screen.dart';
@@ -13,8 +14,11 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
+  late final AnimationController _hideBottomBarController;
+  bool _isBottomBarVisible = true;
 
   final List<Widget> _pages = [
     MedicineStoreScreen(),
@@ -26,10 +30,22 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _hideBottomBarController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+      value: 1.0, // Fully visible initially
+    );
+
     // Delay location check slightly to ensure UI is ready
     Future.delayed(Duration.zero, () {
       _autoPickLocation();
     });
+  }
+
+  @override
+  void dispose() {
+    _hideBottomBarController.dispose();
+    super.dispose();
   }
 
   Future<void> _autoPickLocation() async {
@@ -80,65 +96,92 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       // App bar removed to allow screens to control their own headers
-      body: _pages[_currentIndex],
-      floatingActionButton: SizedBox(
-        height: 70,
-        width: 70,
-        child: FloatingActionButton(
-          backgroundColor: Colors.white,
-          elevation: 4,
-          shape: CircleBorder(), // Ensure it's circular
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PrescriptionUploadScreen(),
-              ),
-            );
-          },
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.document_scanner_outlined,
-                color: Colors.green,
-                size: 28,
-              ),
-              Text(
-                "Upload Rx",
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 8,
+      // Wrap body in NotificationListener to detect scrolling
+      body: NotificationListener<UserScrollNotification>(
+        onNotification: (notification) {
+          if (notification.direction == ScrollDirection.reverse) {
+            // User is scrolling down (content moving up) -> Hide BAR
+            if (_isBottomBarVisible) {
+              _hideBottomBarController.reverse();
+              _isBottomBarVisible = false;
+            }
+          } else if (notification.direction == ScrollDirection.forward) {
+            // User is scrolling up (content moving down) -> Show BAR
+            if (!_isBottomBarVisible) {
+              _hideBottomBarController.forward();
+              _isBottomBarVisible = true;
+            }
+          }
+          return true; // Allow bubble up? Actually we can return true to maybe stop bubbling or false. Usually false.
+          // But here, returning true might stop refresher. Let's return false to be safe.
+        },
+        child: _pages[_currentIndex],
+      ),
+      floatingActionButton: ScaleTransition(
+        scale: _hideBottomBarController,
+        child: SizedBox(
+          height: 70,
+          width: 70,
+          child: FloatingActionButton(
+            backgroundColor: Colors.white,
+            elevation: 4,
+            shape: CircleBorder(), // Ensure it's circular
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PrescriptionUploadScreen(),
                 ),
-              ),
-            ],
+              );
+            },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.document_scanner_outlined,
+                  color: Colors.green,
+                  size: 28,
+                ),
+                Text(
+                  "Upload Rx",
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 8,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: ListenableBuilder(
-        listenable: StateService(),
-        builder: (context, _) {
-          return BottomAppBar(
-            color: Colors.green,
-            shape: const CircularNotchedRectangle(),
-            notchMargin: 8.0,
-            child: SizedBox(
-              height: 60,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(Icons.store, 'Home', 0),
-                  _buildNavItem(Icons.health_and_safety, 'Health', 1),
-                  const SizedBox(width: 48), // Gap for FAB
-                  _buildNavItem(Icons.shopping_cart, 'Cart', 2, isCart: true),
-                  _buildNavItem(Icons.history, 'Orders', 3),
-                ],
+      bottomNavigationBar: SizeTransition(
+        sizeFactor: _hideBottomBarController,
+        axisAlignment: -1.0,
+        child: ListenableBuilder(
+          listenable: StateService(),
+          builder: (context, _) {
+            return BottomAppBar(
+              color: Colors.green,
+              shape: const CircularNotchedRectangle(),
+              notchMargin: 8.0,
+              child: SizedBox(
+                height: 60,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(Icons.store, 'Home', 0),
+                    _buildNavItem(Icons.health_and_safety, 'Health', 1),
+                    const SizedBox(width: 48), // Gap for FAB
+                    _buildNavItem(Icons.shopping_cart, 'Cart', 2, isCart: true),
+                    _buildNavItem(Icons.history, 'Orders', 3),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
