@@ -7,6 +7,7 @@ import '../services/state_service.dart';
 import 'auth_screen.dart';
 
 import 'notification_screen.dart'; // Import the new screen
+import 'package:flutter/rendering.dart'; // Import for ScrollDirection
 
 class MedicineStoreScreen extends StatefulWidget {
   const MedicineStoreScreen({super.key});
@@ -19,12 +20,15 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     with SingleTickerProviderStateMixin {
   late ScrollController _scrollController;
   bool _isScrolled = false;
+  // Track scroll position to determine direction
+  double _lastScrollOffset = 0.0;
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
     _scrollController.addListener(() {
+      // 1. Existing logic for App Bar transparency/collapse
       if (_scrollController.offset > 140 && !_isScrolled) {
         setState(() {
           _isScrolled = true;
@@ -33,6 +37,27 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
         setState(() {
           _isScrolled = false;
         });
+      }
+
+      // 2. New Logic: Expand/Collapse Categories on Scroll
+      // Only trigger if we have scrolled more than a threshold to avoid jitter
+      if ((_scrollController.offset - _lastScrollOffset).abs() > 20) {
+        if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
+          // Scrolling down (content moving up) -> Hide Categories
+          if (_showCategories) {
+            setState(() {
+              _showCategories = false;
+            });
+          }
+        } else if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
+          // Scrolling up (content moving down) -> Show Categories
+          if (!_showCategories) {
+            setState(() {
+              _showCategories = true;
+            });
+          }
+        }
+        _lastScrollOffset = _scrollController.offset;
       }
     });
   }
@@ -49,7 +74,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   RangeValues _priceRange = const RangeValues(0, 50000);
   double _minRating = 0.0;
   String _sortBy = 'Popularity';
-  bool _showCategories = true; // State for category visibility
+  bool _showCategories = false; // Collapsed by default
 
   List<Medicine> get _filteredMedicines {
     return dummyMedicines.where((m) {
