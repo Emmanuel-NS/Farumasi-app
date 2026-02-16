@@ -67,9 +67,37 @@ class NotificationService {
   }
 
   final List<Map<String, dynamic>> notifications = [];
+  final List<Map<String, dynamic>> trash = []; // Trash bin
 
   void clearNotifications() {
+    // Move all to trash instead of permanent delete
+    trash.addAll(notifications);
     notifications.clear();
+  }
+
+  void deleteNotification(int id) {
+    final index = notifications.indexWhere((n) => n['id'] == id);
+    if (index != -1) {
+      trash.add(notifications[index]);
+      notifications.removeAt(index);
+    }
+  }
+
+  void restoreNotification(int id) {
+    final index = trash.indexWhere((n) => n['id'] == id);
+    if (index != -1) {
+      notifications.add(trash[index]);
+      // Sort by time to put it back in correct place
+      notifications.sort((a, b) => b['time'].compareTo(a['time']));
+      trash.removeAt(index);
+    }
+  }
+  
+  void markAsRead(int id) {
+    final index = notifications.indexWhere((n) => n['id'] == id);
+    if (index != -1) {
+      notifications[index]['isRead'] = true;
+    }
   }
 
   void loadDummyNotifications() {
@@ -82,6 +110,7 @@ class NotificationService {
         'body': 'Your order #ORD-2024-001 has been confirmed and is being processed.',
         'time': DateTime.now().subtract(const Duration(days: 5, hours: 2)),
         'category': 'order',
+        'isRead': true,
       },
       {
         'id': 102,
@@ -89,6 +118,7 @@ class NotificationService {
         'body': 'Drinking water before meals can help you feel fuller and aid in weight management.',
         'time': DateTime.now().subtract(const Duration(days: 4, hours: 9)),
         'category': 'health_tip',
+        'isRead': true,
       },
       {
         'id': 103,
@@ -96,6 +126,7 @@ class NotificationService {
         'body': 'Reminder: Your prescription for Amoxicillin is due for a refill in 3 days.',
         'time': DateTime.now().subtract(const Duration(days: 3, hours: 1)),
         'category': 'reminder',
+        'isRead': false,
       },
       {
         'id': 104,
@@ -103,6 +134,7 @@ class NotificationService {
         'body': 'Great news! Your order #ORD-2024-001 has been shipped. Track it now.',
         'time': DateTime.now().subtract(const Duration(days: 2, hours: 5)),
         'category': 'order_shipped',
+        'isRead': false,
       },
       {
         'id': 105,
@@ -110,6 +142,7 @@ class NotificationService {
         'body': 'Adults needs 7-9 hours of sleep. A good night\'s rest improves memory and mood.',
         'time': DateTime.now().subtract(const Duration(days: 1, hours: 14)),
         'category': 'health_tip',
+        'isRead': false,
       },
       {
         'id': 106,
@@ -117,6 +150,7 @@ class NotificationService {
         'body': 'Get 20% off all Vitamin C supplements this weekend only. Shop now!',
         'time': DateTime.now().subtract(const Duration(hours: 22)),
         'category': 'promo',
+        'isRead': false,
       },
       {
         'id': 107,
@@ -124,6 +158,7 @@ class NotificationService {
         'body': 'Package Delivered! Your order #ORD-2024-001 has arrived at your doorstep.',
         'time': DateTime.now().subtract(const Duration(hours: 5)),
         'category': 'order',
+        'isRead': false,
       },
       {
         'id': 108,
@@ -131,6 +166,7 @@ class NotificationService {
         'body': 'Flu season is here. Book your vaccination appointment at a nearby clinic through Farumasi.',
         'time': DateTime.now().subtract(const Duration(hours: 2)),
         'category': 'reminder',
+        'isRead': false,
       },
       {
         'id': 109,
@@ -138,6 +174,7 @@ class NotificationService {
         'body': 'You have a tele-consultation with Dr. Amani starting in 15 minutes.',
         'time': DateTime.now().subtract(const Duration(minutes: 45)),
         'category': 'reminder',
+        'isRead': false,
       },
       {
         'id': 110,
@@ -145,6 +182,7 @@ class NotificationService {
         'body': 'How was your recent experience with Farumasi? Rate your order.',
         'time': DateTime.now().subtract(const Duration(minutes: 5)),
         'category': 'general',
+        'isRead': false,
       },
     ];
 
@@ -158,12 +196,14 @@ class NotificationService {
     String? payload,
   }) async {
     // Add to local history list
-    notifications.add({
+    notifications.insert(0, { // Add to top
       'id': id,
       'title': title,
       'body': body,
       'payload': payload,
       'time': DateTime.now(),
+      'category': 'general', // Default category
+      'isRead': false,
     });
 
     const AndroidNotificationDetails androidNotificationDetails =
