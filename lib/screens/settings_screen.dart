@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../services/state_service.dart'; // Import StateService
 import 'security_screen.dart';
 import 'data_privacy_screen.dart';
 import 'transparency_permissions_screen.dart';
@@ -32,6 +33,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Check login state
+    final isLoggedIn = StateService().isLoggedIn;
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -42,72 +46,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: ListView(
         children: [
-          _buildHeader("Notifications & Updates"),
           
-          Container(
-            color: Colors.white,
-            child: Column(
-              children: [
-                _buildChannelSection(),
-                const Divider(height: 1, indent: 16),
-                _buildCategorySection(),
-              ],
+          if (isLoggedIn) ...[
+            _buildHeader("Notifications & Updates"),
+            Container(
+              color: Colors.white,
+              child: Column(
+                children: [
+                  _buildChannelSection(),
+                  const Divider(height: 1, indent: 16),
+                  _buildCategorySection(),
+                ],
+              ),
             ),
-          ),
-          
-          const SizedBox(height: 20),
-          _buildHeader("Account Security"),
-          Container(
-            color: Colors.white,
-            child: Column(
-              children: [
-                 ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.security, color: Colors.green),
-                  ),
-                  title: const Text('Security Center'),
-                   subtitle: const Text('2FA, Biometrics, Login history'),
-                   trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                   onTap: () {
-                     Navigator.push(context, MaterialPageRoute(builder: (c) => const SecurityScreen()));
-                   },
-                 ),
-                 const Divider(height: 1, indent: 64),
-                 ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.privacy_tip, color: Colors.indigo),
-                  ),
-                  title: const Text('Data Privacy'),
-                   subtitle: const Text('Manage data, permissions & passcode'),
-                   trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                   onTap: () {
-                     Navigator.push(context, MaterialPageRoute(builder: (c) => const DataPrivacyScreen()));
-                   },
-                 ),
-              ],
+            
+            const SizedBox(height: 20),
+            _buildHeader("Account Security"),
+            Container(
+              color: Colors.white,
+              child: Column(
+                children: [
+                   ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.security, color: Colors.green),
+                    ),
+                    title: const Text('Security Center'),
+                     subtitle: const Text('2FA, Biometrics, Login history'),
+                     trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                     onTap: () {
+                       Navigator.push(context, MaterialPageRoute(builder: (c) => const SecurityScreen()));
+                     },
+                   ),
+                   const Divider(height: 1, indent: 64),
+                   ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.privacy_tip, color: Colors.indigo),
+                    ),
+                    title: const Text('Data Privacy'),
+                     subtitle: const Text('Manage data, permissions & passcode'),
+                     trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                     onTap: () {
+                       Navigator.push(context, MaterialPageRoute(builder: (c) => const DataPrivacyScreen()));
+                     },
+                   ),
+                ],
+              ),
             ),
-          ),
+             const SizedBox(height: 20),
+          ],
 
-          const SizedBox(height: 20),
           _buildHeader("Transparency & Control"),
           Container(
             color: Colors.white,
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.verified_user, color: Colors.blue),
-                  title: const Text('Permissions & Policies'),
-                  subtitle: const Text('Pharmacists, Delivery, Data Management'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (c) => const TransparencyPermissionsScreen()));
-                  },
-                ),
-                const Divider(height: 1, indent: 64),
+                if (isLoggedIn) ...[
+                  ListTile(
+                    leading: const Icon(Icons.verified_user, color: Colors.blue),
+                    title: const Text('Permissions & Policies'),
+                    subtitle: const Text('Pharmacists, Delivery, Data Management'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => const TransparencyPermissionsScreen()));
+                    },
+                  ),
+                  const Divider(height: 1, indent: 64),
+                ],
                 ListTile(
                   leading: const Icon(Icons.description, color: Colors.blue), 
                   title: const Text('Terms & Conditions'),
@@ -195,6 +203,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: Text(_formatKey(key)),
           value: _notificationChannels[key]!,
           activeColor: Colors.green,
+          inactiveThumbColor: Colors.grey,
+          inactiveTrackColor: Colors.grey.shade200,
           dense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
           onChanged: (val) {
@@ -212,7 +222,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       subtitle: const Text("Customize your content"),
       initiallyExpanded: true,
       children: [
-        _buildSwitch("Order Updates", "Tracking, delivery status, receipts", 'orders'),
+        // Order Updates: Always ON (disabled switch)
+        _buildSwitch("Order Updates", "Tracking, delivery status, receipts", 'orders', isLocked: true),
         _buildSwitch("Health Tips", "Daily remedies, wellness advice", 'health_tips'),
         _buildSwitch("Reminders", "Medication schedules, refill alerts", 'reminders'),
         _buildSwitch("Promotions", "Discounts, deals, flash sales", 'promotions'),
@@ -221,14 +232,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSwitch(String title, String subtitle, String key) {
+  Widget _buildSwitch(String title, String subtitle, String key, {bool isLocked = false}) {
     return SwitchListTile(
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-      value: _notificationCategories[key] ?? false,
+      value: isLocked ? true : (_notificationCategories[key] ?? false),
       activeColor: Colors.green,
+      inactiveThumbColor: Colors.grey,
+      inactiveTrackColor: Colors.grey.shade200,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      onChanged: (val) {
+      onChanged: isLocked ? null : (val) {
         setState(() => _notificationCategories[key] = val);
       },
     );

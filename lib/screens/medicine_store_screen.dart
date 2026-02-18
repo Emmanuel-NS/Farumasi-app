@@ -352,6 +352,28 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                     ],
                   ),
                 ),
+                actions: [
+                   AnimatedOpacity(
+                    duration: const Duration(milliseconds: 300),
+                    opacity: _isScrolled ? 1.0 : 0.0,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: IconButton(
+                        icon: const Icon(Icons.settings, color: Colors.white),
+                        onPressed: _isScrolled
+                            ? () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SettingsScreen(),
+                                  ),
+                                );
+                              }
+                            : null,
+                      ),
+                    ),
+                  ),
+                ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     fit: StackFit.expand,
