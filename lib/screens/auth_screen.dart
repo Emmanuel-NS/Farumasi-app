@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/state_service.dart';
+import 'pharmacist/pharmacist_dashboard_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -18,6 +19,15 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
+      // 1. Check for Pharmacist Credentials
+      if (_emailController.text == 'pharmacist@farumasi.rw' && _passwordController.text == 'admin123') {
+         Navigator.of(context).pushReplacement(
+           MaterialPageRoute(builder: (context) => const PharmacistDashboardScreen()),
+         );
+         return; // Stop here, don't do regular user login
+      }
+
+      // 2. Regular User Login
       StateService().login(
         _emailController.text,
         name: _isLogin ? null : _nameController.text,
@@ -77,7 +87,22 @@ class _AuthScreenState extends State<AuthScreen> {
                               ),
                             ],
                           ),
-                          SizedBox(height: 16),
+                          const SizedBox(height: 16),
+                          // Helper Text for Pharmacist Login Demo
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.amber),
+                            ),
+                            child: const Text(
+                              "Pharmacist Login: pharmacist@farumasi.rw / admin123",
+                              style: TextStyle(fontSize: 12, color: Colors.brown),
+                              textAlign: TextAlign.center,
+                            ),
+                          ), 
+                          const SizedBox(height: 16),
                           Text(
                             _isLogin ? 'Welcome Back!' : 'Join Farumasi',
                             style: TextStyle(

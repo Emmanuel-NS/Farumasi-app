@@ -50,3 +50,95 @@ class CartItem {
 
   double get total => medicine.price * quantity;
 }
+
+// --- New Models for Pharmacist Dashboard ---
+
+enum OrderStatus {
+  pendingReview,     // 1. Pharmacist reviews prescription
+  findingPharmacy,   // 2. Sent to pharmacy, waiting for acceptance/price
+  pharmacyAccepted,  // 3. Pharmacy accepted, price received
+  paymentPending,    // 4. Sent to patient with final price (drug + delivery)
+  readyForPickup,    // 5. Patient paid, assigning driver
+  driverAssigned,    // 6. Driver on the way to pharmacy
+  outForDelivery,    // 7. Picked up, going to patient
+  delivered,         // 8. Completed
+  cancelled
+}
+
+class PrescriptionOrder {
+  final String id;
+  final String patientName;
+  final String patientLocationName; // Text address
+  final List<double> patientCoordinates; // [lat, long]
+  final String? prescriptionImageUrl;
+  final DateTime date;
+  OrderStatus status;
+  List<Medicine> items;
+  double pharmacyPrice; // Price from pharmacy
+  double deliveryFee;
+  double get totalPrice => pharmacyPrice + deliveryFee;
+  
+  String? assignedPharmacyId;
+  String? assignedPharmacyName;
+  List<double>? pharmacyCoordinates;
+
+  String? assignedDriverId;
+  String? assignedDriverName;
+  List<double>? driverCoordinates;
+
+  String? insuranceProvider;
+
+  PrescriptionOrder({
+    required this.id,
+    required this.patientName,
+    required this.patientLocationName,
+    required this.patientCoordinates,
+    this.prescriptionImageUrl,
+    required this.date,
+    this.status = OrderStatus.pendingReview,
+    this.items = const [],
+    this.pharmacyPrice = 0.0,
+    this.deliveryFee = 1500.0,
+    this.assignedPharmacyId,
+    this.assignedPharmacyName,
+    this.pharmacyCoordinates,
+    this.assignedDriverId,
+    this.assignedDriverName,
+    this.driverCoordinates,
+    this.insuranceProvider,
+  });
+}
+
+class Pharmacy {
+  final String id;
+  final String name;
+  final String locationName;
+  final List<double> coordinates; // [lat, long]
+  final List<String> supportedInsurances;
+  final bool isOpen;
+
+  Pharmacy({
+    required this.id,
+    required this.name,
+    required this.locationName,
+    required this.coordinates,
+    required this.supportedInsurances,
+    this.isOpen = true,
+  });
+}
+
+class Driver {
+  final String id;
+  final String name;
+  final String phoneNumber;
+  final List<double> currentCoordinates; // [lat, long]
+  final bool isAvailable;
+
+  Driver({
+    required this.id,
+    required this.name,
+    required this.phoneNumber,
+    required this.currentCoordinates,
+    this.isAvailable = true,
+  });
+}
