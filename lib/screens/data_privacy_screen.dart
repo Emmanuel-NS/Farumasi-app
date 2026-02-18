@@ -53,28 +53,6 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
           ),
 
           const Divider(),
-          _buildSectionHeader("Data Sharing & Permissions"),
-          
-          SwitchListTile(
-            title: const Text('Doctor Access'),
-            subtitle: const Text('Allow authorized doctors to view history'),
-            secondary: const Icon(Icons.medical_services_outlined, color: Colors.teal),
-            value: _allowDoctorAccess,
-            activeColor: Colors.green,
-            onChanged: (val) => setState(() => _allowDoctorAccess = val),
-          ),
-          
-          ListTile(
-            title: const Text('Manage Third-Party Access'),
-            subtitle: const Text('2 apps have access to your fitness data'),
-            leading: const Icon(Icons.apps, color: Colors.teal),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // Navigate to connected apps
-            },
-          ),
-
-          const Divider(),
           _buildSectionHeader("Usage & Analytics"),
           SwitchListTile(
             title: const Text('Share Analytics'),

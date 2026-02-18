@@ -88,54 +88,6 @@ class _SecurityScreenState extends State<SecurityScreen> {
               // Log out other sessions
             },
           ),
-
-          const Divider(),
-          _buildSectionHeader('Transparency & Community'),
-          ListTile(
-            leading: const Icon(Icons.policy, color: Colors.blueGrey),
-            title: const Text('How We Manage Data'),
-            subtitle: const Text('Retention, sharing, and ownership policies'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _showPolicyDialog(
-              context, 
-              'Data Management Policy',
-              'We believe your health data belongs to you.\n\n'
-              '• **Storage**: Your data is stored on secure, HIPAA-compliant servers.\n'
-              '• **Access**: Only you and doctors you explicitly authorize can view your records.\n'
-              '• **Retention**: We keep your records as long as your account is active, or as required by medical law.\n'
-              '• **Sharing**: We never sell your personal data to advertisers. Anonymized stats may be used for research only if you opt-in.'
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.shield_outlined, color: Colors.blueGrey),
-            title: const Text('Security Standards'),
-            subtitle: const Text('Encryption and infrastructure details'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _showPolicyDialog(
-              context,
-              'Security Infrastructure',
-              'Your safety is our top priority.\n\n'
-              '• **Encryption**: All data is encrypted at rest using AES-256 and in transit using TLS 1.3.\n'
-              '• **Audits**: Our systems undergo quarterly third-party security audits.\n'
-              '• **Monitoring**: 24/7 threat detection systems are in place to prevent unauthorized access.\n'
-              '• **Compliance**: We adhere to local data protection laws and international standards.'
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.handshake, color: Colors.blueGrey),
-            title: const Text('Code of Conduct'),
-            subtitle: const Text('Community guidelines and expectations'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _showPolicyDialog(
-              context,
-              'Community Code of Conduct',
-              'To ensure a safe environment for everyone:\n\n'
-              '1. **Respect**: Treat all pharmacists, doctors, and support staff with dignity.\n'
-              '2. **Honesty**: Provide accurate medical history to ensure safe prescriptions.\n'
-              '3. **Zero Tolerance**: Harassment, abuse, or fraudulent activity will result in immediate account suspension.\n'
-              '4. **Safety**: Do not use this app for emergency situations; call emergency services immediately.'
-            ),
-          ),
           
           const SizedBox(height: 24),
           Padding(
