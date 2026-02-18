@@ -7,8 +7,12 @@ import 'medicine_detail_screen.dart';
 import '../services/state_service.dart';
 import 'auth_screen.dart';
 
-import 'notification_screen.dart'; // Import the new screen
-import 'package:flutter/rendering.dart'; // Import for ScrollDirection
+import 'notification_screen.dart'; 
+import 'package:flutter/rendering.dart'; 
+import 'help_screen.dart';
+import 'profile_screen.dart';
+import 'settings_screen.dart';
+import 'orders_screen.dart';
 
 class MedicineStoreScreen extends StatefulWidget {
   const MedicineStoreScreen({super.key});
@@ -368,6 +372,54 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           ),
                         ),
                       ),
+                      
+                      // Help Button (Top Right, Hidden on Scroll)
+                      Positioned(
+                        top: 40, 
+                        right: 16,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: _isScrolled ? 0.0 : 1.0,
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const HelpScreen(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2), // Frosted glass effect
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white30),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.help_outline,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    "Help",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
                       // Brand Name + Slogan (Moved to Top)
                       Positioned(
                         top: 80, // Moved down to clear the status bar/collapsed toolbar area
@@ -467,8 +519,33 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                     const SizedBox(width: 12),
                                     PopupMenuButton<String>(
                                       offset: const Offset(0, 40),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      elevation: 8,
                                       onSelected: (value) {
-                                        if (value == 'logout') {
+                                        if (value == 'profile') {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const ProfileScreen()),
+                                          );
+                                        } else if (value == 'orders') {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const OrdersScreen()),
+                                          );
+                                        } else if (value == 'settings') {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const SettingsScreen()),
+                                          );
+                                        } else if (value == 'logout') {
                                           StateService().logout();
                                           ScaffoldMessenger.of(
                                             context,
@@ -484,23 +561,59 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                       itemBuilder: (BuildContext context) => [
                                         PopupMenuItem(
                                           enabled: false,
-                                          child: Text(
-                                            'Hello, ${StateService().userName ?? 'User'}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Hello, ${StateService().userName ?? 'User'}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              const Divider(),
+                                            ],
                                           ),
                                         ),
+                                        const PopupMenuItem(
+                                          value: 'profile',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.person_outline, color: Colors.green, size: 20),
+                                              SizedBox(width: 12),
+                                              Text('My Profile'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'orders',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.shopping_bag_outlined, color: Colors.green, size: 20),
+                                              SizedBox(width: 12),
+                                              Text('My Orders'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'settings',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.settings_outlined, color: Colors.green, size: 20),
+                                              SizedBox(width: 12),
+                                              Text('Settings'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuDivider(),
                                         const PopupMenuItem(
                                           value: 'logout',
                                           child: Row(
                                             children: [
-                                              Icon(
-                                                Icons.logout,
-                                                color: Colors.green,
-                                              ),
-                                              SizedBox(width: 8),
-                                              Text('Logout'),
+                                              Icon(Icons.logout, color: Colors.red, size: 20),
+                                              SizedBox(width: 12),
+                                              Text('Logout', style: TextStyle(color: Colors.red)),
                                             ],
                                           ),
                                         ),
