@@ -116,6 +116,9 @@ class Pharmacy {
   final List<double> coordinates; // [lat, long]
   final List<String> supportedInsurances;
   final bool isOpen;
+  final String imageUrl;
+  final double rating;
+  final String deliveryTime;
 
   Pharmacy({
     required this.id,
@@ -124,6 +127,9 @@ class Pharmacy {
     required this.coordinates,
     required this.supportedInsurances,
     this.isOpen = true,
+    this.imageUrl = 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?q=80&w=2938&auto=format&fit=crop', // Default image
+    this.rating = 4.5,
+    this.deliveryTime = '30-45 min',
   });
 }
 
@@ -140,5 +146,23 @@ class Driver {
     required this.phoneNumber,
     required this.currentCoordinates,
     this.isAvailable = true,
+  });
+}
+
+class Pharmacist {
+  final String id;
+  final String name;
+  final String specialty;
+  final String imageUrl;
+  final double rating;
+  final int yearsExperience;
+
+  Pharmacist({
+    required this.id,
+    required this.name,
+    required this.specialty,
+    required this.imageUrl,
+    this.rating = 4.8,
+    this.yearsExperience = 5,
   });
 }

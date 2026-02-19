@@ -197,6 +197,8 @@ class HealthTipsScreen extends StatefulWidget {
 class _HealthTipsScreenState extends State<HealthTipsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -205,21 +207,41 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
   }
 
   @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Filter a specific list based on search query
+  List<HealthArticle> _filterArticles(List<HealthArticle> list) {
+    if (_searchQuery.isEmpty) return list;
+    final query = _searchQuery.toLowerCase();
+    return list.where((item) {
+      return item.title.toLowerCase().contains(query) ||
+          item.summary.toLowerCase().contains(query) ||
+          item.category.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      body: NestedScrollView(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
-              expandedHeight: 120,
+              expandedHeight: 180, // Increased height for search bar
               floating: true,
               pinned: true,
               elevation: 0,
               backgroundColor: Colors.white,
               foregroundColor: Colors.green.shade900,
               flexibleSpace: FlexibleSpaceBar(
-                titlePadding: EdgeInsets.only(left: 16, bottom: 62),
+                titlePadding: EdgeInsets.only(left: 16, bottom: 120),
                 title: Text(
                   "Discover Wellness",
                   style: TextStyle(
@@ -236,6 +258,41 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
                       child: Opacity(
                         opacity: 0.1,
                         child: Icon(Icons.spa, size: 180, color: Colors.green),
+                      ),
+                    ),
+                    // Search Bar
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 70, // Positioned above the tab bar
+                      child: Container(
+                        height: 45,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Search tips, remedies, facts...',
+                            prefixIcon: Icon(Icons.search, color: Colors.grey),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(Icons.clear, color: Colors.grey),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onChanged: (value) {
+                            setState(() => _searchQuery = value);
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -281,15 +338,14 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildArticleList(_articles),
-            _buildArticleList(
-              _remedies,
-            ), // Reusing modern card layout for remedies too
-            _buildArticleList(_facts, isFact: true),
+            _buildArticleList(_filterArticles(_articles)),
+            _buildArticleList(_filterArticles(_remedies)),
+            _buildArticleList(_filterArticles(_facts), isFact: true),
             _AskPharmacistTab(),
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -307,7 +363,23 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
   }
 
   Widget _buildArticleList(List<HealthArticle> items, {bool isFact = false}) {
+    if (items.isEmpty) {
+       return Center(
+         child: Column(
+           mainAxisAlignment: MainAxisAlignment.center,
+           children: [
+             Icon(Icons.search_off, size: 64, color: Colors.grey.shade300),
+             SizedBox(height: 16),
+             Text(
+               "No results found",
+               style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+             ),
+           ],
+         ),
+       );
+    }
     return ListView.separated(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: EdgeInsets.all(20),
       itemCount: items.length,
       separatorBuilder: (c, i) => SizedBox(height: 20),

@@ -151,4 +151,34 @@ class StateService extends ChangeNotifier {
   double get totalAmount {
     return _cartItems.fold(0.0, (sum, item) => sum + item.total);
   }
+
+  // Pharmacy Preferences
+  // Using Set for O(1) lookups
+  final Set<String> _preferredPharmacies = {};
+  final Set<String> _blockedPharmacies = {};
+
+  bool isPharmacyPreferred(String id) => _preferredPharmacies.contains(id);
+  bool isPharmacyBlocked(String id) => _blockedPharmacies.contains(id);
+
+  // Toggle preference: true = preferred, false = remove preference
+  void setPharmacyPreferred(String id, bool isPreferred) {
+    if (isPreferred) {
+      _preferredPharmacies.add(id);
+      _blockedPharmacies.remove(id); // Can't be both
+    } else {
+      _preferredPharmacies.remove(id);
+    }
+    notifyListeners();
+  }
+
+  // Toggle block: true = blocked, false = unblocked (allowed)
+  void setPharmacyBlocked(String id, bool isBlocked) {
+    if (isBlocked) {
+      _blockedPharmacies.add(id);
+      _preferredPharmacies.remove(id); // Can't be both
+    } else {
+      _blockedPharmacies.remove(id);
+    }
+    notifyListeners();
+  }
 }

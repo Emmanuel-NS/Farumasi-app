@@ -318,3 +318,73 @@ final List<HealthTip> dummyHealthTips = [
         'https://images.unsplash.com/photo-1615485925694-a0391632402a?auto=format&fit=crop&q=80&w=600',
   ),
 ];
+
+final List<Pharmacy> dummyPharmacies = [
+  Pharmacy(
+    id: "ph1",
+    name: "GreenCross Pharmacy",
+    locationName: "Kigali Heights, KG 7 Ave",
+    coordinates: [-1.9540, 30.0926],
+    supportedInsurances: ["RSSB", "UAP", "MMI"],
+    imageUrl: "https://images.unsplash.com/photo-1585435557343-3b092031a831?w=600&q=80",
+    rating: 4.8,
+    deliveryTime: "25-40 min",
+  ),
+  Pharmacy(
+    id: "ph2",
+    name: "City Chemist",
+    locationName: "UTC Building, City Center",
+    coordinates: [-1.9441, 30.0619],
+    supportedInsurances: ["RSSB", "RADIANT"],
+    imageUrl: "https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=600&q=80",
+    rating: 4.5,
+    deliveryTime: "30-50 min",
+  ),
+  Pharmacy(
+    id: "ph3",
+    name: "HealthPlus Nyamirambo",
+    locationName: "Nyamirambo Market",
+    coordinates: [-1.9804, 30.0416],
+    supportedInsurances: ["RSSB", "UAP"],
+    imageUrl: "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=600&q=80",
+    rating: 4.2,
+    deliveryTime: "45-60 min",
+  ),
+  Pharmacy(
+    id: "ph4",
+    name: "Remera Modern Pharmacy",
+    locationName: "Giporoso, Remera",
+    coordinates: [-1.9610, 30.1118],
+    supportedInsurances: ["RSSB", "MMI"],
+    imageUrl: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&q=80",
+    rating: 4.6,
+    deliveryTime: "20-35 min",
+  ),
+];
+
+final dummyPharmacists = [
+  Pharmacist(
+    id: '1',
+    name: 'Dr. John Doe',
+    specialty: 'Clinical Pharmacist',
+    imageUrl: 'https://cdn-icons-png.flaticon.com/512/387/387561.png',
+    rating: 4.8,
+    yearsExperience: 8,
+  ),
+  Pharmacist(
+    id: '2', 
+    name: 'Dr. Sarah Smith',
+    specialty: 'Pediatric Specialist',
+    imageUrl: 'https://cdn-icons-png.flaticon.com/512/387/387569.png',
+    rating: 4.9,
+    yearsExperience: 12,
+  ),
+  Pharmacist(
+    id: '3',
+    name: 'Dr. Michael Chen',
+    specialty: 'Geriatric Care',
+    imageUrl: 'https://cdn-icons-png.flaticon.com/512/387/387561.png',
+    rating: 4.7,
+    yearsExperience: 6,
+  ),
+];

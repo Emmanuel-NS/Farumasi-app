@@ -395,33 +395,70 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 listenable: StateService(),
                 builder: (context, _) {
                   final total = StateService().totalAmount;
+                  final discount = total * 0.12; // 12% Reduction logic
+                  final discountedTotal = total - discount;
+                  final deliveryFee = 1500.0;
+                  final grandTotal = discountedTotal + deliveryFee;
+                  
                   return Column(
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Subtotal',
-                            style: TextStyle(color: Colors.grey.shade700),
-                          ),
-                          Text(
-                            '${total.toStringAsFixed(0)} RWF',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          Text('Standard Price', style: TextStyle(color: Colors.grey.shade700)),
+                          Text('${total.toStringAsFixed(0)} RWF', style: TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey)),
                         ],
                       ),
                       SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Delivery Fee',
-                            style: TextStyle(color: Colors.grey.shade700),
+                          Row(
+                            children: [
+                              Icon(Icons.flash_on, size: 16, color: Colors.orange.shade800),
+                              SizedBox(width: 4),
+                              Text('Smart Pharmacy Deal', style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold)),
+                            ],
                           ),
-                          Text(
-                            '1500 RWF',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          Text('-${discount.toStringAsFixed(0)} RWF', style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: () {
+                             // Using a simple dialog for immediate context, could also nav to HelpScreen
+                             showDialog(
+                               context: context,
+                               builder: (ctx) => AlertDialog(
+                                 title: Text("Why the price drop?"),
+                                 content: Text(
+                                   "Medicines are listed at maximum retail price for consistency.\n\n"
+                                   "When you checkout, we automatically route your order to the partner pharmacy with the best available price for your entire basket.\n\n"
+                                   "The discount shown reflects the difference between the standard list price and the actual pharmacy price."
+                                 ),
+                                 actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text("Got it"))],
+                               ),
+                             );
+                          },
+                          style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size(50, 20), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                          child: Text("Need to know why price reduced?", style: TextStyle(fontSize: 12, decoration: TextDecoration.underline, color: Colors.blue)),
+                        ),
+                      ),
+                      Divider(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Pharmacy Subtotal', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('${discountedTotal.toStringAsFixed(0)} RWF', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Delivery Fee', style: TextStyle(color: Colors.grey.shade700)),
+                          Text('${deliveryFee.toStringAsFixed(0)} RWF', style: TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                       Divider(height: 24),
@@ -429,17 +466,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'TOTAL',
+                            'TOTAL TO PAY',
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: Colors.green.shade900,
                             ),
                           ),
                           Text(
-                            '${(total + 1500).toStringAsFixed(0)} RWF',
+                            '${grandTotal.toStringAsFixed(0)} RWF',
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
                               color: Colors.green.shade900,
                             ),

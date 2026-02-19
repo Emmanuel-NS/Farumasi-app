@@ -208,7 +208,82 @@ class MedicineItem extends StatelessWidget {
                         ],
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
+
+                    // Description Overlay/Toggle
+                    // Using a stateful builder for local toggle if we wanted expansion.
+                    // But per user request "Show as tooltip/overlay", we'll do an inline peek 
+                    // that opens a modal for full text.
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return InkWell(
+                          onTap: () {
+                             showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: Text(medicine.name),
+                                content: SingleChildScrollView(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min, // Wrap content
+                                    children: [
+                                      Text(
+                                        medicine.description,
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        "Click 'Full Details' for more info about side effects and dosage.",
+                                        style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(ctx).pop(),
+                                    child: const Text("Close"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(ctx).pop();
+                                      onAboutTap();
+                                    },
+                                    child: const Text("Full Details"),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                medicine.description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11, 
+                                  color: Colors.grey[600],
+                                  height: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                "Read more...",
+                                style: TextStyle(
+                                  fontSize: 10, 
+                                  color: Colors.blue, 
+                                  fontWeight: FontWeight.bold
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    ),
+
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [

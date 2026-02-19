@@ -132,12 +132,13 @@ class PharmacistService extends ChangeNotifier {
   void sendToPatientForPayment(PrescriptionOrder order) {
     order.status = OrderStatus.paymentPending;
     notifyListeners();
-
-    // SIMULATION: Patient Pays after 5 seconds
-    Future.delayed(Duration(seconds: 5), () {
-      order.status = OrderStatus.readyForPickup;
-      notifyListeners();
-    });
+    // Simulation: None (Wait for manual "Confirm Payment")
+  }
+  
+  // Step 3b: Confirm Payment Received
+  void markAsPaid(PrescriptionOrder order) {
+    order.status = OrderStatus.readyForPickup;
+    notifyListeners();
   }
 
   // Step 4: Assign Driver

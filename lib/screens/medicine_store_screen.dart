@@ -9,10 +9,12 @@ import 'auth_screen.dart';
 
 import 'notification_screen.dart'; 
 import 'package:flutter/rendering.dart'; 
-import 'help_screen.dart';
-import 'profile_screen.dart';
-import 'settings_screen.dart';
-import 'orders_screen.dart';
+import 'package:farumasi_app/screens/help_screen.dart';
+import 'package:farumasi_app/screens/profile_screen.dart';
+import 'package:farumasi_app/screens/settings_screen.dart';
+import 'package:farumasi_app/screens/orders_screen.dart';
+import 'pharmacy_detail_screen.dart'; // Import Pharmacy Detail Screen
+import 'cart_screen.dart';
 
 class MedicineStoreScreen extends StatefulWidget {
   const MedicineStoreScreen({super.key});
@@ -27,41 +29,31 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   bool _isScrolled = false;
   // Track scroll position to determine direction
   double _lastScrollOffset = 0.0;
+  bool _showFloatingActions = true; // Default to visible
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
     _scrollController.addListener(() {
-      // 1. Existing logic for App Bar transparency/collapse
-      // Updated threshold for expandedHeight: 180
+      // 1. App Bar Logic
       if (_scrollController.offset > 120 && !_isScrolled) {
-        setState(() {
-          _isScrolled = true;
-        });
+        setState(() => _isScrolled = true);
       } else if (_scrollController.offset <= 120 && _isScrolled) {
-        setState(() {
-          _isScrolled = false;
-        });
+        setState(() => _isScrolled = false);
       }
 
-      // 2. New Logic: Expand/Collapse Categories on Scroll
-      // Only trigger if we have scrolled more than a threshold to avoid jitter
+      // 2. Hide/Show Logic
       if ((_scrollController.offset - _lastScrollOffset).abs() > 20) {
+        // Scrolling DOWN (reverse) -> SHOW
         if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
-          // Scrolling down (content moving up) -> Hide Categories
-          if (_showCategories) {
-            setState(() {
-              _showCategories = false;
-            });
-          }
-        } else if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
-          // Scrolling up (content moving down) -> Show Categories
-          if (!_showCategories) {
-            setState(() {
-              _showCategories = true;
-            });
-          }
+           if (!_showCategories) setState(() => _showCategories = true);
+           if (!_showFloatingActions) setState(() => _showFloatingActions = true);
+        } 
+        // Scrolling UP (forward) -> HIDE
+        else if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
+           if (_showCategories) setState(() => _showCategories = false);
+           if (_showFloatingActions) setState(() => _showFloatingActions = false);
         }
         _lastScrollOffset = _scrollController.offset;
       }
@@ -120,9 +112,6 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     }
     return list;
   }
-
-  List<Medicine> get _popularMedicines =>
-      dummyMedicines.where((m) => m.isPopular).toList();
 
   List<String> get _categories =>
       dummyMedicines.map((e) => e.category).toSet().toList();
@@ -311,10 +300,74 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: StateService(),
-      builder: (context, child) {
-        return Scaffold(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: AnimatedBuilder(
+        animation: StateService(),
+        builder: (context, child) {
+          return Scaffold(
+            floatingActionButton: _showFloatingActions 
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FloatingActionButton(
+                      heroTag: 'upload_btn',
+                      backgroundColor: Colors.blue,
+                      onPressed: () {
+                         ScaffoldMessenger.of(context).showSnackBar(
+                           const SnackBar(content: Text("Upload Prescription: Coming Soon")),
+                         );
+                      },
+                      tooltip: 'Upload Prescription',
+                      child: const Icon(Icons.upload_file, color: Colors.white),
+                    ),
+                    const SizedBox(height: 12),
+                    Stack(
+                      alignment: Alignment.topRight,
+                      clipBehavior: Clip.none,
+                      children: [
+                        FloatingActionButton(
+                          heroTag: 'cart_main_btn',
+                          backgroundColor: Colors.green,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CartScreen()),
+                            );
+                          },
+                          tooltip: 'View Cart',
+                          child: const Icon(Icons.shopping_cart, color: Colors.white),
+                        ),
+                        if (StateService().cartItems.isNotEmpty)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                '${StateService().cartItems.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ) 
+              : null,
           body: CustomScrollView(
             controller: _scrollController,
             slivers: [
@@ -747,22 +800,28 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                             // Expanded Search Field
                             Expanded(
                               child: Container(
-                                height: 48, // Standard touch target height
+                                height: 48,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white),
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black12,
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
                                 child: TextField(
-                                  style: const TextStyle(fontSize: 16), // Standard readable font
+                                  style: const TextStyle(fontSize: 16),
+                                  textAlignVertical: TextAlignVertical.center,
                                   decoration: InputDecoration(
-                                    hintText: 'Search medicines...',
-                                    hintStyle: const TextStyle(
-                                      color: Colors.grey, 
-                                      fontSize: 16,
+                                    hintText: 'Medicines, symptoms...',
+                                    hintStyle: TextStyle(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 15,
                                     ),
-                                    // Removed prefixIcon since we have the external button now
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
                                     suffixIcon: IconButton(
                                       icon: const Icon(
                                         Icons.tune,
@@ -770,8 +829,10 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                         size: 24,
                                       ),
                                       onPressed: _showFilterModal,
+                                      tooltip: "Filter & Sort",
                                     ),
                                     border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                                   ),
                                   onChanged: (val) =>
                                       setState(() => _searchQuery = val),
@@ -885,16 +946,16 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                 ),
               ),
 
-              // Section Title: Popular (Only if filtering is inactive)
+              // Partner Pharmacies Section (Replaces Popular Today)
               if (_searchQuery.isEmpty && _selectedCategories.isEmpty) ...[
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Popular Today',
+                          'Pharmacies we work with',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -906,71 +967,66 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                 ),
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 250,
+                    height: 180,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: _popularMedicines.length,
+                      itemCount: dummyPharmacies.length,
                       itemBuilder: (context, index) {
-                        final med = _popularMedicines[index];
-                        return SizedBox(
-                          width: 170,
-                          child: MedicineItem(
-                            medicine: med,
-                            onTap: () {
-                              if (med.requiresPrescription) {
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Prescription Required. Please consult a pharmacist.',
-                                    ),
-                                    backgroundColor: Colors.orange,
+                        final pharmacy = dummyPharmacies[index];
+                        return GestureDetector(
+                          onTap: () {
+                             // Navigate to pharmacy detail
+                             Navigator.push(
+                               context, 
+                               MaterialPageRoute(builder: (_) => PharmacyDetailScreen(pharmacy: pharmacy))
+                             );
+                          },
+                          child: Container(
+                            width: 240,
+                            margin: const EdgeInsets.only(right: 16),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.shade100,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                              border: Border.all(color: Colors.grey.shade100),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    pharmacy.imageUrl,
+                                    height: 100,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_,__,___) => Container(color: Colors.grey.shade200, height: 100, child: Icon(Icons.store, color: Colors.grey)),
                                   ),
-                                );
-                                return;
-                              }
-                              final isAdded = StateService().cartItems.any(
-                                (item) => item.medicine.id == med.id,
-                              );
-                              if (isAdded) {
-                                StateService().removeFromCart(med.id);
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '${med.name} removed from cart',
-                                    ),
-                                    duration: Duration(seconds: 1),
-                                    behavior: SnackBarBehavior.floating,
-                                    backgroundColor: Colors.black87,
-                                  ),
-                                );
-                              } else {
-                                StateService().addToCart(med, 1);
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('${med.name} added to cart!'),
-                                    duration: Duration(seconds: 1),
-                                    behavior: SnackBarBehavior.floating,
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              }
-                            },
-                            onAboutTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    MedicineDetailScreen(medicine: med),
-                              ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  pharmacy.name,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(Icons.star, size: 14, color: Colors.amber),
+                                    Text(" ${pharmacy.rating} ", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    Text("• ${pharmacy.deliveryTime}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -1065,7 +1121,8 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
           ),
         );
       }, // end builder
-    ); // end AnimatedBuilder
+    ), // end AnimatedBuilder
+    ); // end GestureDetector
   }
 }
 
