@@ -33,8 +33,14 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
       children: [
         FloatingActionButton(
           heroTag: 'upload_btn_pharmacy',
-          backgroundColor: Colors.blue,
+          backgroundColor: StateService().isLoggedIn ? Colors.blue : Colors.grey,
           onPressed: () {
+            if (!StateService().isLoggedIn) {
+               ScaffoldMessenger.of(context).showSnackBar(
+                 const SnackBar(content: Text("Please login to upload a prescription.")),
+               );
+               return;
+            }
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const PrescriptionUploadScreen()),

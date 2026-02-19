@@ -11,20 +11,48 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   bool _isLogin = true;
+  String _selectedRole = 'User'; // 'User' or 'Pharmacist'
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    // Default fill for User
+    _emailController.text = 'user@farumasi.rw';
+    _passwordController.text = 'password123';
+  }
+
+  void _switchRole(String role) {
+    setState(() {
+      _selectedRole = role;
+      if (role == 'Pharmacist') {
+        _emailController.text = 'pharmacist@farumasi.rw';
+        _passwordController.text = 'admin123';
+      } else {
+        _emailController.text = 'user@farumasi.rw';
+        _passwordController.text = 'password123';
+      }
+    });
+  }
+
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      // 1. Check for Pharmacist Credentials
-      if (_emailController.text == 'pharmacist@farumasi.rw' && _passwordController.text == 'admin123') {
-         Navigator.of(context).pushReplacement(
-           MaterialPageRoute(builder: (context) => const PharmacistDashboardScreen()),
-         );
-         return; // Stop here, don't do regular user login
+      // 1. Check for Pharmacist Credentials based on Role
+      if (_selectedRole == 'Pharmacist') {
+         // Simple validation for demo
+         if (_emailController.text == 'pharmacist@farumasi.rw' && _passwordController.text == 'admin123') {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const PharmacistDashboardScreen()),
+            );
+            return;
+         } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Pharmacist Credentials')));
+            return;
+         }
       }
 
       // 2. Regular User Login
@@ -32,7 +60,9 @@ class _AuthScreenState extends State<AuthScreen> {
         _emailController.text,
         name: _isLogin ? null : _nameController.text,
       );
-      Navigator.of(context).pop();
+      Navigator.pop(context); // Go back to existing screen (Home) or replace if it was the initial route
+      // If AuthScreen was pushed on top of Home, pop is fine. 
+      // If Home checks auth state, it will update.
     }
   }
 
@@ -88,20 +118,64 @@ class _AuthScreenState extends State<AuthScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          // Helper Text for Pharmacist Login Demo
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: Colors.amber.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.amber),
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Text(
-                              "Pharmacist Login: pharmacist@farumasi.rw / admin123",
-                              style: TextStyle(fontSize: 12, color: Colors.brown),
-                              textAlign: TextAlign.center,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => _switchRole('User'),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: _selectedRole == 'User' ? Colors.green : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: _selectedRole == 'User' 
+                                          ? [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
+                                          : [],
+                                      ),
+                                      child: Text(
+                                        "User",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: _selectedRole == 'User' ? Colors.white : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => _switchRole('Pharmacist'),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: _selectedRole == 'Pharmacist' ? Colors.green : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: _selectedRole == 'Pharmacist' 
+                                          ? [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
+                                          : [],
+                                      ),
+                                      child: Text(
+                                        "Pharmacist",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: _selectedRole == 'Pharmacist' ? Colors.white : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ), 
+                          ),
                           const SizedBox(height: 16),
                           Text(
                             _isLogin ? 'Welcome Back!' : 'Join Farumasi',

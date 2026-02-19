@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:farumasi_app/screens/prescription_upload_screen.dart';
 import 'package:farumasi_app/screens/order_tracking_screen.dart';
 
+import 'package:farumasi_app/services/state_service.dart';
+
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: StateService(),
+      builder: (context, _) {
     // For now, we simulate an empty list of orders.
     // In a real app, this would come from a backend or local database.
     final List<Map<String, dynamic>> pastOrders = [];
@@ -80,6 +85,8 @@ class OrdersScreen extends StatelessWidget {
         ),
       ),
     );
+    },
+   );
   }
 
   Widget _buildActiveOrderCard(
@@ -300,6 +307,12 @@ class OrdersScreen extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
+                  if (!StateService().isLoggedIn) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Please login to upload a prescription.")),
+                      );
+                      return;
+                  }
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => const PrescriptionUploadScreen(),
@@ -309,7 +322,7 @@ class OrdersScreen extends StatelessWidget {
                 icon: const Icon(Icons.upload_file),
                 label: const Text("Upload Prescription"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: StateService().isLoggedIn ? Colors.green : Colors.grey,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(

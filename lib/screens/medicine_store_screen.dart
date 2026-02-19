@@ -312,8 +312,14 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                   children: [
                     FloatingActionButton(
                       heroTag: 'upload_btn',
-                      backgroundColor: Colors.blue,
+                      backgroundColor: StateService().isLoggedIn ? Colors.blue : Colors.grey,
                       onPressed: () {
+                         if (!StateService().isLoggedIn) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             const SnackBar(content: Text("Please login to upload a prescription.")),
+                           );
+                           return;
+                         }
                          ScaffoldMessenger.of(context).showSnackBar(
                            const SnackBar(content: Text("Upload Prescription: Coming Soon")),
                          );

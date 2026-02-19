@@ -98,6 +98,12 @@ class CartScreen extends StatelessWidget {
               children: [
                 ElevatedButton(
                   onPressed: () {
+                    if (!StateService().isLoggedIn) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Please login to upload a prescription.")),
+                      );
+                      return;
+                    }
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => const PrescriptionUploadScreen(),
@@ -105,7 +111,7 @@ class CartScreen extends StatelessWidget {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: StateService().isLoggedIn ? Colors.green : Colors.grey,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -174,23 +180,29 @@ class CartScreen extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
+                if (!StateService().isLoggedIn) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please login to proceed.")),
+                  );
+                  return;
+                }
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => CheckoutScreen()),
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: StateService().isLoggedIn ? Colors.green : Colors.grey,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 4,
-                shadowColor: Colors.green.withOpacity(0.4),
+                shadowColor: StateService().isLoggedIn ? Colors.green.withOpacity(0.4) : Colors.transparent,
               ),
               child: Text(
-                "Proceed to Checkout",
+                StateService().isLoggedIn ? "Proceed to Checkout" : "Login to Checkout",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
