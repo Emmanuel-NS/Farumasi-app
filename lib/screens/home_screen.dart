@@ -4,6 +4,7 @@ import 'package:farumasi_app/screens/health_tips_screen.dart';
 import 'package:farumasi_app/screens/medicine_store_screen.dart';
 import 'package:farumasi_app/screens/cart_screen.dart';
 import 'package:farumasi_app/screens/orders_screen.dart';
+import 'package:farumasi_app/screens/auth_screen.dart';
 import 'package:farumasi_app/screens/prescription_upload_screen.dart';
 import 'package:farumasi_app/services/state_service.dart';
 
@@ -117,43 +118,69 @@ class _HomeScreenState extends State<HomeScreen>
         },
         child: _pages[_currentIndex],
       ),
-      floatingActionButton: ScaleTransition(
-        scale: _hideBottomBarController,
-        child: SizedBox(
-          height: 70,
-          width: 70,
-          child: FloatingActionButton(
-            backgroundColor: Colors.white,
-            elevation: 4,
-            shape: CircleBorder(), // Ensure it's circular
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PrescriptionUploadScreen(),
+      floatingActionButton: ListenableBuilder(
+        listenable: StateService(),
+        builder: (context, _) {
+          final isLoggedIn = StateService().isLoggedIn;
+          return ScaleTransition(
+            scale: _hideBottomBarController,
+            child: SizedBox(
+              height: 70,
+              width: 70,
+              child: FloatingActionButton(
+                backgroundColor: isLoggedIn ? Colors.white : Colors.grey[300],
+                elevation: 4,
+                shape: CircleBorder(), // Ensure it's circular
+                onPressed: () {
+                  if (!isLoggedIn) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Please log in to upload a prescription."),
+                        action: SnackBarAction(
+                          label: "Login",
+                          onPressed: () {
+                            // Navigate to login/auth screen
+                            // Usually we might have a dedicated route or method
+                            // For now basic prompt reference
+                             Navigator.pushNamed(context, '/auth'); // Or direct builder if named routes not set up, but let's stick to what we know works elsewhere or just prompt.
+                             // Actually, let's look at how we handled login navigation before.
+                             // Often just a message is enough for "muted". Or navigate to AuthScreen.
+                             Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
+                          },
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PrescriptionUploadScreen(),
+                    ),
+                  );
+                },
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.document_scanner_outlined,
+                      color: isLoggedIn ? Colors.green : Colors.grey,
+                      size: 28,
+                    ),
+                    Text(
+                      "Upload Rx",
+                      style: TextStyle(
+                        color: isLoggedIn ? Colors.green : Colors.grey,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 8,
+                      ),
+                    ),
+                  ],
                 ),
-              );
-            },
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.document_scanner_outlined,
-                  color: Colors.green,
-                  size: 28,
-                ),
-                Text(
-                  "Upload Rx",
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 8,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: SizeTransition(
@@ -192,9 +219,15 @@ class _HomeScreenState extends State<HomeScreen>
     int index, {
     bool isCart = false,
   }) {
+    final isLoggedIn = StateService().isLoggedIn;
+    // Index 3 is Orders
+    final isRestricted = (index == 3) && !isLoggedIn;
+
     final isSelected = _currentIndex == index;
-    // Using green.shade100 for inactive items makes them look integrated but not 'disabled' like white60
-    final color = isSelected ? Colors.white : Colors.green.shade100;
+    // If restricted, show as semi-transparent/greyed out
+    final color = isRestricted
+        ? Colors.green.shade800 // Darker/muted on green background specific for disabled
+        : (isSelected ? Colors.white : Colors.green.shade100);
 
     Widget iconWidget = Icon(icon, color: color, size: 28);
 
@@ -213,6 +246,20 @@ class _HomeScreenState extends State<HomeScreen>
 
     return InkWell(
       onTap: () {
+        if (isRestricted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(
+               content: Text("Please log in to view your orders."),
+               action: SnackBarAction(
+                 label: "Login",
+                 onPressed: () {
+                   Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
+                 },
+               ),
+             ),
+           );
+           return;
+        }
         setState(() {
           _currentIndex = index;
         });
