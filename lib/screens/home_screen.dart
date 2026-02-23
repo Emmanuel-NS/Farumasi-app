@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
 import 'package:farumasi_app/screens/health_tips_screen.dart';
 import 'package:farumasi_app/screens/medicine_store_screen.dart';
-import 'package:farumasi_app/screens/cart_screen.dart';
+import 'package:farumasi_app/screens/pharmacist_list_screen.dart'; // Import Pharmacist List
 import 'package:farumasi_app/screens/orders_screen.dart';
 import 'package:farumasi_app/screens/auth_screen.dart';
 import 'package:farumasi_app/screens/prescription_upload_screen.dart';
@@ -24,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen>
   final List<Widget> _pages = [
     MedicineStoreScreen(),
     HealthTipsScreen(),
-    CartScreen(),
+    PharmacistListScreen(), // Replaced CartScreen with PharmacistList
     OrdersScreen(),
   ];
 
@@ -95,7 +95,16 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        
+        setState(() {
+          _currentIndex = 0;
+        });
+      },
+      child: Scaffold(
       // App bar removed to allow screens to control their own headers
       // Wrap body in NotificationListener to detect scrolling
       body: NotificationListener<UserScrollNotification>(
@@ -201,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen>
                     _buildNavItem(Icons.store, 'Home', 0),
                     _buildNavItem(Icons.health_and_safety, 'Health', 1),
                     const SizedBox(width: 48), // Gap for FAB
-                    _buildNavItem(Icons.shopping_cart, 'Cart', 2, isCart: true),
+                    _buildNavItem(Icons.chat_bubble_outline, 'Consult', 2),
                     _buildNavItem(Icons.history, 'Orders', 3),
                   ],
                 ),
@@ -210,6 +219,7 @@ class _HomeScreenState extends State<HomeScreen>
           },
         ),
       ),
+    ),
     );
   }
 
@@ -220,8 +230,8 @@ class _HomeScreenState extends State<HomeScreen>
     bool isCart = false,
   }) {
     final isLoggedIn = StateService().isLoggedIn;
-    // Index 3 is Orders
-    final isRestricted = (index == 3) && !isLoggedIn;
+    // Index 2 is Consult/Chat, Index 3 is Orders
+    final isRestricted = (index == 2 || index == 3) && !isLoggedIn;
 
     final isSelected = _currentIndex == index;
     // If restricted, show as semi-transparent/greyed out
@@ -246,20 +256,27 @@ class _HomeScreenState extends State<HomeScreen>
 
     return InkWell(
       onTap: () {
+        if (index == _currentIndex) return;
+        
         if (isRestricted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(
-               content: Text("Please log in to view your orders."),
-               action: SnackBarAction(
-                 label: "Login",
-                 onPressed: () {
-                   Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
-                 },
-               ),
-             ),
-           );
-           return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                index == 2 
+                ? "Please log in to consult a pharmacist." 
+                : "Please log in to view your orders."
+              ),
+              action: SnackBarAction(
+                label: "Login",
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
+                },
+              ),
+            ),
+          );
+          return;
         }
+
         setState(() {
           _currentIndex = index;
         });

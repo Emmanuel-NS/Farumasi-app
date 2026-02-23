@@ -20,7 +20,7 @@ class _TransparencyPermissionsScreenState extends State<TransparencyPermissionsS
       'image': 'assets/images/doc1.png',
       'bio': 'Dr. Sarah has over 10 years of experience in clinical pharmacy. Specializes in pediatric care.',
       'qualifications': ['PharmD - University of Rwanda', 'Certified Pediatric Pharmacist'],
-      'rating': 4.8
+      // 'rating': 4.8 
     },
     {
       'id': '2', 
@@ -30,7 +30,7 @@ class _TransparencyPermissionsScreenState extends State<TransparencyPermissionsS
       'image': 'assets/images/doc2.png',
       'bio': 'Expert in diabetes management and medication therapy management.',
       'qualifications': ['BPharm', 'Certified Diabetes Educator'],
-      'rating': 4.5
+      // 'rating': 4.5
     },
     {
       'id': '3', 
@@ -40,7 +40,7 @@ class _TransparencyPermissionsScreenState extends State<TransparencyPermissionsS
       'image': 'assets/images/doc3.png',
       'bio': 'Consultant pharmacist focused on geriatric medicine.',
       'qualifications': ['MPharm', 'Geriatric Care Specialist'],
-      'rating': 3.9
+      // 'rating': 3.9
     },
   ];
 
@@ -53,7 +53,7 @@ class _TransparencyPermissionsScreenState extends State<TransparencyPermissionsS
       'image': 'assets/images/pharma1.png',
       'description': '24/7 Pharmacy with home delivery and consultation services.',
       'pharmacists': ['Dr. Alice', 'Dr. Bob'],
-      'rating': 4.9
+      // 'rating': 4.9
     }, 
     {
       'id': '2', 
@@ -63,7 +63,7 @@ class _TransparencyPermissionsScreenState extends State<TransparencyPermissionsS
       'image': 'assets/images/pharma2.png',
       'description': 'Community pharmacy focused on accessibility and affordability.',
       'pharmacists': ['Dr. Charlie'],
-      'rating': 4.2
+      // 'rating': 4.2
     },
     {
       'id': '3', 
@@ -73,7 +73,7 @@ class _TransparencyPermissionsScreenState extends State<TransparencyPermissionsS
       'image': 'assets/images/pharma3.png',
       'description': 'Central location with a wide range of imported medicines.',
       'pharmacists': ['Dr. David', 'Dr. Eve'],
-      'rating': 3.5
+      // 'rating': 3.5
     },
   ];
 
@@ -423,13 +423,14 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                         Text(widget.item['role'] ?? widget.item['location'] ?? widget.item['vehicle'] ?? '', 
                           style: TextStyle(color: Colors.grey.shade600)),
                         const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.star, color: Colors.amber, size: 18),
-                            Text(" ${widget.item['rating']} Rating", style: const TextStyle(fontWeight: FontWeight.bold)),
-                          ],
-                        )
+                        if (widget.type == ProviderType.deliverer)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.star, color: Colors.amber, size: 18),
+                              Text(" ${widget.item['rating']} Rating", style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          )
                       ],
                     ),
                   ),

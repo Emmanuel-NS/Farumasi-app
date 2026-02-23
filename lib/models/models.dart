@@ -5,12 +5,21 @@ class Medicine {
   final double price;
   final String imageUrl;
   final String category;
+  final String? subCategory;
   final bool requiresPrescription;
   final double rating;
   final bool isPopular;
   final String dosage;
   final String sideEffects;
   final String manufacturer;
+  final List<String> keywords; // Added for enhanced search
+  final double? maxPrice; // Optional upper range for price
+  final String? expiryDate; // e.g. "12/2025" or "Oct 2026"
+  // Structured Dosage Support
+  final String? doseMorning;   // e.g. "1 Tablet"
+  final String? doseAfternoon; // e.g. "None"
+  final String? doseEvening;   // e.g. "1 Tablet"
+  final String? doseTimeInterval; // e.g. "Every 8 hours"
 
   Medicine({
     required this.id,
@@ -18,13 +27,19 @@ class Medicine {
     required this.description,
     required this.price,
     required this.imageUrl,
-    required this.category,
-    this.requiresPrescription = false,
+    required this.category,    this.subCategory,    this.requiresPrescription = false,
     this.rating = 4.5,
     this.isPopular = false,
     this.dosage = 'Take as directed by physician.',
     this.sideEffects = 'Consult a doctor if adverse reactions occur.',
     this.manufacturer = 'Generic Pharm Co.',
+    this.keywords = const [],
+    this.maxPrice,
+    this.expiryDate,
+    this.doseMorning,
+    this.doseAfternoon,
+    this.doseEvening,
+    this.doseTimeInterval,
   });
 }
 
@@ -109,6 +124,26 @@ class PrescriptionOrder {
   });
 }
 
+class Message {
+  final String id;
+  final String senderId;
+  final String content;
+  final DateTime timestamp;
+  final bool isMe;
+  final String? attachmentPath;
+  final String? attachmentType; // 'image', 'file'
+
+  Message({
+    required this.id,
+    required this.senderId,
+    required this.content,
+    required this.timestamp,
+    required this.isMe,
+    this.attachmentPath,
+    this.attachmentType,
+  });
+}
+
 class Pharmacy {
   final String id;
   final String name;
@@ -117,8 +152,10 @@ class Pharmacy {
   final List<String> supportedInsurances;
   final bool isOpen;
   final String imageUrl;
-  final double rating;
-  final String deliveryTime;
+  final String province;
+  final String district;
+  final String sector;
+  final String cell;
 
   Pharmacy({
     required this.id,
@@ -128,8 +165,10 @@ class Pharmacy {
     required this.supportedInsurances,
     this.isOpen = true,
     this.imageUrl = 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?q=80&w=2938&auto=format&fit=crop', // Default image
-    this.rating = 4.5,
-    this.deliveryTime = '30-45 min',
+    this.province = 'Kigali City',
+    this.district = 'Nyarugenge',
+    this.sector = 'Nyarugenge',
+    this.cell = 'Kiyovu',
   });
 }
 
@@ -149,12 +188,19 @@ class Driver {
   });
 }
 
+enum PharmacistStatus {
+  available,
+  busy,
+  offline,
+}
+
 class Pharmacist {
   final String id;
   final String name;
   final String specialty;
   final String imageUrl;
-  final double rating;
+  final String organization; // Added organization
+  final PharmacistStatus status; // Added status
   final int yearsExperience;
 
   Pharmacist({
@@ -162,7 +208,26 @@ class Pharmacist {
     required this.name,
     required this.specialty,
     required this.imageUrl,
-    this.rating = 4.8,
+    this.organization = 'HealthPlus Pharmacy', // Default
+    this.status = PharmacistStatus.available, // Default
     this.yearsExperience = 5,
+  });
+}
+
+class PharmacistBooking {
+  final String id;
+  final String pharmacistId;
+  final String pharmacistName;
+  final DateTime date;
+  final String time;
+  final String notes;
+
+  PharmacistBooking({
+    required this.id,
+    required this.pharmacistId,
+    required this.pharmacistName,
+    required this.date,
+    required this.time,
+    required this.notes,
   });
 }

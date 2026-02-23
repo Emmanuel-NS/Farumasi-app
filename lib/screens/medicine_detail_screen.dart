@@ -82,46 +82,47 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '${widget.medicine.price.toStringAsFixed(0)} RWF',
+                          widget.medicine.maxPrice != null && widget.medicine.maxPrice! > widget.medicine.price
+                              ? '${widget.medicine.price.toStringAsFixed(0)} - ${widget.medicine.maxPrice!.toStringAsFixed(0)} RWF'
+                              : '${widget.medicine.price.toStringAsFixed(0)} RWF',
                           style: TextStyle(
-                            fontSize: 26,
+                            fontSize: 22, // Slightly smaller to fit range
                             fontWeight: FontWeight.bold,
                             color: Colors.green,
-                          ),
-                        ),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.green.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.star, color: Colors.amber, size: 18),
-                              SizedBox(width: 4),
-                              Text(
-                                widget.medicine.rating.toString(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green.shade800,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 10),
-                    Text(
-                      "Manufactured by ${widget.medicine.manufacturer}",
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontStyle: FontStyle.italic,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Manufactured by ${widget.medicine.manufacturer}",
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        if (widget.medicine.expiryDate != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Row(
+                              children: [
+                                Icon(Icons.calendar_today, size: 14, color: Colors.red.shade300),
+                                SizedBox(width: 6),
+                                Text(
+                                  "Expires: ${widget.medicine.expiryDate}",
+                                  style: TextStyle(
+                                    color: Colors.red.shade400,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
                     SizedBox(height: 16),
                     if (widget.medicine.requiresPrescription)
@@ -264,7 +265,11 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen>
                   child: Text(
                     widget.medicine.requiresPrescription
                         ? "Rx Required"
-                        : "Add to Cart - ${(widget.medicine.price * _quantity).toStringAsFixed(0)} RWF",
+                        : (widget.medicine.maxPrice != null &&
+                                widget.medicine.maxPrice! >
+                                    widget.medicine.price)
+                            ? "Add - From ${(widget.medicine.price * _quantity).toStringAsFixed(0)} RWF"
+                            : "Add to Cart - ${(widget.medicine.price * _quantity).toStringAsFixed(0)} RWF",
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),

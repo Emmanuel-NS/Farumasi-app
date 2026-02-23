@@ -15,6 +15,7 @@ import 'package:farumasi_app/screens/settings_screen.dart';
 import 'package:farumasi_app/screens/orders_screen.dart';
 import 'pharmacy_detail_screen.dart'; // Import Pharmacy Detail Screen
 import 'cart_screen.dart';
+import 'prescription_upload_screen.dart'; // Add this import
 
 class MedicineStoreScreen extends StatefulWidget {
   const MedicineStoreScreen({super.key});
@@ -26,6 +27,7 @@ class MedicineStoreScreen extends StatefulWidget {
 class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     with SingleTickerProviderStateMixin {
   late ScrollController _scrollController;
+  late TextEditingController _searchController; // Added controller
   bool _isScrolled = false;
   // Track scroll position to determine direction
   double _lastScrollOffset = 0.0;
@@ -34,6 +36,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   @override
   void initState() {
     super.initState();
+    _searchController = TextEditingController(); // Initialize
     _scrollController = ScrollController();
     _scrollController.addListener(() {
       // 1. App Bar Logic
@@ -63,51 +66,242 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose(); // Dispose search controller
     super.dispose();
   }
 
   // Search & Filter State
   String _searchQuery = '';
-  final Set<String> _selectedCategories = {};
-  RangeValues _priceRange = const RangeValues(0, 50000);
+  String? _suggestedQuery; // New: For "Did you mean?"
+  Set<String> _selectedCategories = {}; // Revert to set for multi-selection
+  String? _selectedSubCategory;
+  RangeValues _priceRange = const RangeValues(0, 50000); Set<String> _availableSubCategories = {}; // Dynamic subcategories
+
   double _minRating = 0.0;
-  String _sortBy = 'Popularity';
+  String _sortBy = 'Name'; // 'Name' or 'Price'
+  bool _sortAscending = true;
   bool _showCategories = false; // Collapsed by default
 
   List<Medicine> get _filteredMedicines {
-    return dummyMedicines.where((m) {
-      final matchesSearch = m.name.toLowerCase().contains(
-        _searchQuery.toLowerCase(),
-      );
-      final matchesCategory =
-          _selectedCategories.isEmpty ||
+    String query = _searchQuery.toLowerCase().trim();
+    
+    // Always apply filters via _getMedicinesForQuery, even if query is empty.
+    // This ensures category, price, rating filters work without text search.
+    var results = _getMedicinesForQuery(query);
+    
+    // If we have results (filtered or not), return them.
+    if (results.isNotEmpty) {
+      return results;
+    }
+
+    // Only attempt "Did you mean?" suggestions if there was an actual text query.
+    if (query.isNotEmpty && query.length > 3) {
+      final bestMatch = _findBestMatch(query);
+      if (bestMatch != null) {
+         // Return results for the corrected term, still respecting filters if possible?
+         // For now, let's just return matches for the term.
+         // Ideally, we should apply filters to the corrected term too.
+         return _getMedicinesForQuery(bestMatch);
+      }
+    }
+
+    return [];
+  }
+  
+  // Helper to determine if we are showing corrected results
+  bool get _isShowigCorrectedResults {
+     if (_searchQuery.isEmpty) return false;
+     if (_getMedicinesForQuery(_searchQuery).isNotEmpty) return false;
+     // If original query has no results, but current filtered list has items,
+     // it means we are showing corrected results.
+     return _filteredMedicines.isNotEmpty;
+  }
+  
+  String? get _correctionTerm {
+    if (_searchQuery.isEmpty) return null;
+    return _findBestMatch(_searchQuery);
+  }
+
+  // 1b. Helper to get results for a specific string query
+  List<Medicine> _getMedicinesForQuery(String queryText) {
+     return dummyMedicines.where((m) {
+      
+      // Clean the query
+      final cleanQuery = queryText.toLowerCase().trim();
+      List<String> queryWords = cleanQuery.split(' ').where((w) => w.isNotEmpty).toList();
+      
+      bool matches = true; 
+      
+      // If query is empty, we don't filter by text at all.
+      // We set matches = true so that other filters (category, price) can do their job.
+      if (cleanQuery.isEmpty) {
+        matches = true;
+      } else {
+        for (String word in queryWords) {
+          if (queryWords.length > 1 && word.length < 3 && !_isSignificant(word)) {
+            continue; 
+          }
+          if (!_checkMedicineAgainstTerm(m, word)) {
+            matches = false;
+            break;
+          }
+        }
+
+        // Fallback: If strict word matching failed, check if the full phrase is contained directly
+        if (!matches && (m.name.toLowerCase().contains(cleanQuery) || 
+            m.description.toLowerCase().contains(cleanQuery) ||
+            m.category.toLowerCase().contains(cleanQuery))) {
+           matches = true;
+        }
+      }
+
+      // Category Match
+      final matchesCategory = _selectedCategories.isEmpty || 
           _selectedCategories.contains(m.category);
-      final matchesPrice =
-          m.price >= _priceRange.start && m.price <= _priceRange.end;
+      
+      // SubCategory Match (if any selected, must match)
+      final matchesSubCategory = _selectedSubCategory == null || 
+          m.subCategory == _selectedSubCategory;
+      // Filtering by Price
+      // If Sort By is Min Price, filter by Min Price
+      // If Sort By is Max Price, filter by Max Price
+      // If Sort By is Name (or anything else), filter by Min Price (default behavior)
+      bool matchesPrice = false;
+      
+      if (_sortBy == 'MaxPrice') {
+         final maxP = m.maxPrice ?? m.price;
+         matchesPrice = maxP >= _priceRange.start && maxP <= _priceRange.end;
+      } else {
+         // Default to filtering on base/min price
+         matchesPrice = m.price >= _priceRange.start && m.price <= _priceRange.end;
+      }
+
       final matchesRating = m.rating >= _minRating;
-      return matchesSearch && matchesCategory && matchesPrice && matchesRating;
+
+      return matches && matchesCategory && matchesSubCategory && matchesPrice && matchesRating;
     }).toList();
+  }
+
+  // New Helper: Find best match for "Did you mean"
+  String? _findBestMatch(String typo) {
+    String? bestTerm;
+    int minDistance = 100;
+    
+    // 1. Collect candidate terms from known medicines
+    final Set<String> candidates = {};
+    for (var m in dummyMedicines) {
+      candidates.add(m.name.toLowerCase());
+      // Add category as candidate
+      candidates.add(m.category.toLowerCase());
+    }
+
+    // 2. Find closest
+    final typoLower = typo.toLowerCase().trim();
+    
+    for (var term in candidates) {
+      final dist = _levenshtein(typoLower, term);
+      
+      // Calculate threshold based on length
+      // "placitamor" (10) vs "paracetamol" (11) -> dist might be 4 or 5.
+      // Tolerance: ~50% of length for long words?
+      final threshold = (term.length * 0.55).ceil(); 
+      
+      if (dist < minDistance && dist <= threshold) {
+        minDistance = dist;
+        bestTerm = term;
+      }
+    }
+    
+    return bestTerm;
+  }
+
+
+  
+  bool _isSignificant(String term) {
+    // Keep short medical terms or acronyms relevant
+    const significantShorts = ['rx', 'flu', 'uv', 'bp', 'id'];
+    return significantShorts.contains(term);
+  }
+
+  // Extracted helper to check a specific term against a medicine
+  bool _checkMedicineAgainstTerm(Medicine m, String term) {
+    // 1. Direct containment (Higher priority)
+    if (m.name.toLowerCase().contains(term) ||
+        m.description.toLowerCase().contains(term) ||
+        m.category.toLowerCase().contains(term) ||
+        m.keywords.any((k) => k.toLowerCase().contains(term))) {
+      return true;
+    }
+
+    // 2. Fuzzy / Typo tolerance
+    // TIGHTER CONTROLS:
+    // - Only fuzzy match if term is > 3 chars (don't fuzzy match "flu" -> "fly")
+    // - Or if term is exactly 3 chars, ONLY fuzzy match against keywords/categories, not description text blobs.
+    
+    if (term.length > 3) {
+       // Allow distance 1 for length 4-5, distance 2 for longer
+       int maxEdits = term.length < 6 ? 1 : 2;
+
+       // Check Name parts (tokenized)
+       final nameParts = m.name.toLowerCase().split(' ');
+       for (final part in nameParts) {
+         if (_levenshtein(part, term) <= maxEdits) return true;
+       }
+       
+       // Check Category
+       if (_levenshtein(m.category.toLowerCase(), term) <= maxEdits) return true;
+
+       // Check Keywords
+       for (final k in m.keywords) {
+         if (_levenshtein(k.toLowerCase(), term) <= maxEdits) return true;
+       }
+    }
+
+    return false;
+  }
+
+  // Levenshtein Distance Algorithm (unchanged)
+  int _levenshtein(String s, String t) {
+    if (s == t) return 0;
+    if (s.isEmpty) return t.length;
+    if (t.isEmpty) return s.length;
+
+    List<int> v0 = List<int>.generate(t.length + 1, (i) => i);
+    List<int> v1 = List<int>.filled(t.length + 1, 0);
+
+    for (int i = 0; i < s.length; i++) {
+      v1[0] = i + 1;
+      for (int j = 0; j < t.length; j++) {
+        int cost = (s.codeUnitAt(i) == t.codeUnitAt(j)) ? 0 : 1;
+        v1[j + 1] = [v1[j] + 1, v0[j + 1] + 1, v0[j] + cost].reduce((a, b) => a < b ? a : b);
+      }
+      for (int j = 0; j < v0.length; j++) v0[j] = v1[j];
+    }
+    return v1[t.length];
   }
 
   List<Medicine> get _sortedMedicines {
     var list = _filteredMedicines;
     switch (_sortBy) {
-      case 'Price Low-High':
-        list.sort((a, b) => a.price.compareTo(b.price));
+      case 'MinPrice':
+        list.sort((a, b) => _sortAscending 
+            ? a.price.compareTo(b.price) 
+            : b.price.compareTo(a.price));
         break;
-      case 'Price High-Low':
-        list.sort((a, b) => b.price.compareTo(a.price));
+      case 'MaxPrice':
+        list.sort((a, b) {
+           final aMax = a.maxPrice ?? a.price;
+           final bMax = b.maxPrice ?? b.price;
+           return _sortAscending 
+               ? aMax.compareTo(bMax)
+               : bMax.compareTo(aMax);
+        });
         break;
       case 'Name':
-        list.sort((a, b) => a.name.compareTo(b.name));
-        break;
-      case 'Popularity':
       default:
-        list.sort((a, b) {
-          if (a.isPopular && !b.isPopular) return -1;
-          if (!a.isPopular && b.isPopular) return 1;
-          return b.rating.compareTo(a.rating);
-        });
+        list.sort((a, b) => _sortAscending 
+            ? a.name.compareTo(b.name) 
+            : b.name.compareTo(a.name));
         break;
     }
     return list;
@@ -115,6 +309,15 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
   List<String> get _categories =>
       dummyMedicines.map((e) => e.category).toSet().toList();
+  
+  List<String> get _currentSubCategories {
+    if (_selectedCategories.isEmpty) return [];
+    return dummyMedicines
+        .where((m) => _selectedCategories.contains(m.category) && m.subCategory != null)
+        .map((m) => m.subCategory!)
+        .toSet()
+        .toList();
+  }
 
   IconData _getCategoryIcon(String category) {
     switch (category) {
@@ -153,14 +356,14 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           return Container(
             padding: const EdgeInsets.all(20.0),
-            height: MediaQuery.of(context).size.height * 0.7,
+            height: MediaQuery.of(context).size.height * 0.75, // Slightly reduced height
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,112 +371,295 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Filters',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    const Text(
+                      'Sort & Filter',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     TextButton(
-                      child: Text('Reset'),
+                      child: const Text('Reset', style: TextStyle(color: Colors.red)),
                       onPressed: () {
                         setModalState(() {
                           _selectedCategories.clear();
+                          _selectedSubCategory = null;
                           _priceRange = const RangeValues(0, 50000);
                           _minRating = 0.0;
-                          _sortBy = 'Popularity';
+                          _sortBy = 'Name';
+                          _sortAscending = true;
                         });
                         setState(() {});
                       },
                     ),
                   ],
                 ),
-                Divider(),
+                const Divider(),
                 Expanded(
                   child: ListView(
                     children: [
-                      Text(
-                        'Sort By',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      // --- Sorting Logic Redesign ---
+                      const Text(
+                        'Sort Products By',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
                       ),
-                      Wrap(
-                        spacing: 8,
-                        children:
-                            [
-                              'Popularity',
-                              'Price Low-High',
-                              'Price High-Low',
-                              'Name',
-                            ].map((sort) {
-                              return ChoiceChip(
-                                label: Text(sort),
-                                selected: _sortBy == sort,
-                                onSelected: (selected) {
-                                  if (selected) {
-                                    setModalState(() => _sortBy = sort);
-                                    setState(() {});
-                                  }
-                                },
-                              );
-                            }).toList(),
+                      const SizedBox(height: 12),
+                      
+                      // Custom Radio-like Options for Sort Field
+                      _buildSortOption(
+                        title: "Name",
+                        isSelected: _sortBy == 'Name',
+                        onTap: () {
+                          setModalState(() {
+                             _sortBy = 'Name';
+                          });
+                          setState(() {});
+                        },
                       ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Category',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      _buildSortOption(
+                        title: "Minimum Price",
+                        subtitle: "Sort based on the lowest available price",
+                        isSelected: _sortBy == 'MinPrice',
+                        onTap: () {
+                          setModalState(() {
+                             _sortBy = 'MinPrice';
+                          });
+                          setState(() {});
+                        },
                       ),
-                      Wrap(
-                        spacing: 8,
+                      _buildSortOption(
+                        title: "Maximum Price",
+                        subtitle: "Sort based on the highest available price",
+                        isSelected: _sortBy == 'MaxPrice',
+                        onTap: () {
+                          setModalState(() {
+                             _sortBy = 'MaxPrice';
+                          });
+                          setState(() {});
+                        },
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      const Text('Order', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      // Ascending / Descending Toggle
+                      Row(
                         children: [
-                          FilterChip(
-                            label: Text('All'),
-                            selected: _selectedCategories.isEmpty,
-                            onSelected: (_) {
-                              setModalState(() => _selectedCategories.clear());
-                              setState(() {});
-                            },
-                          ),
-                          ..._categories.map(
-                            (cat) => FilterChip(
-                              label: Text(cat),
-                              selected: _selectedCategories.contains(cat),
-                              onSelected: (selected) {
-                                setModalState(() {
-                                  if (selected) {
-                                    _selectedCategories.add(cat);
-                                  } else {
-                                    _selectedCategories.remove(cat);
-                                  }
-                                });
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setModalState(() => _sortAscending = true);
                                 setState(() {});
                               },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: _sortAscending ? Colors.green.shade50 : Colors.white,
+                                  border: Border.all(
+                                    color: _sortAscending ? Colors.green : Colors.grey.shade300,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    "Ascending", 
+                                    style: TextStyle(
+                                      fontWeight: _sortAscending ? FontWeight.bold : FontWeight.normal,
+                                      color: _sortAscending ? Colors.green : Colors.black87,
+                                    )
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setModalState(() => _sortAscending = false);
+                                setState(() {});
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: !_sortAscending ? Colors.green.shade50 : Colors.white,
+                                  border: Border.all(
+                                    color: !_sortAscending ? Colors.green : Colors.grey.shade300,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    "Descending", 
+                                    style: TextStyle(
+                                      fontWeight: !_sortAscending ? FontWeight.bold : FontWeight.normal,
+                                      color: !_sortAscending ? Colors.green : Colors.black87,
+                                    )
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Price Range: ${_priceRange.start.round()} - ${_priceRange.end.round()} RWF',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      const SizedBox(height: 16),
+
+                      // --- Filtering ---
+                      const Text('Category', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+
+                      // Searchable Dropdown Button (Updated for Multi-Select)
+                      InkWell(
+                        onTap: () async {
+                          // Show custom searchable dialog that supports multi-select
+                          final selected = await showDialog<List<String>>(
+                            context: context,
+                            builder: (ctx) => _SearchableMultiSelectDialog(
+                              title: "Select Categories",
+                              items: _categories,
+                              selectedItems: _selectedCategories.toList(),
+                            ),
+                          );
+                          
+                          if (selected != null) {
+                            setModalState(() {
+                              _selectedCategories = selected.toSet();
+                              // Clear subcat if not valid anymore (optional but safer)
+                              if (_selectedSubCategory != null) {
+                                  // Check if the selected sub belongs to ANY of the new categories
+                                  bool isValid = dummyMedicines.any((m) => 
+                                     _selectedCategories.contains(m.category) && 
+                                     m.subCategory == _selectedSubCategory
+                                  );
+                                  if (!isValid) _selectedSubCategory = null;
+                              }
+                            });
+                            setState(() {});
+                          }
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _selectedCategories.isEmpty 
+                                      ? 'All Categories' 
+                                      : '${_selectedCategories.length} selected',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: _selectedCategories.isEmpty ? Colors.grey.shade600 : Colors.black87,
+                                    fontWeight: _selectedCategories.isNotEmpty ? FontWeight.bold : FontWeight.normal
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                            ],
+                          ),
                         ),
+                      ),
+                      
+                      // Display Selected Categories as Chips for Easy Removal
+                      if (_selectedCategories.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _selectedCategories.map((cat) => Chip(
+                            label: Text(cat, style: const TextStyle(fontSize: 12)),
+                            deleteIcon: const Icon(Icons.close, size: 16),
+                            onDeleted: () {
+                              setModalState(() {
+                                _selectedCategories.remove(cat);
+                                if (_selectedCategories.isEmpty) _selectedSubCategory = null;
+                              });
+                              setState(() {});
+                            },
+                            backgroundColor: Colors.green.shade50,
+                            labelStyle: TextStyle(color: Colors.green.shade900),
+                          )).toList(),
+                        ),
+                      ],
+
+                      // Sub-Category Section (Conditional)
+                      if (_selectedCategories.isNotEmpty && _currentSubCategories.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Sub-Category (Refine)',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                             ChoiceChip(
+                                label: const Text('Any'),
+                                selected: _selectedSubCategory == null,
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    setModalState(() => _selectedSubCategory = null);
+                                    setState(() {});
+                                  }
+                                },
+                              ),
+                             ..._currentSubCategories.map((sub) => ChoiceChip(
+                               label: Text(sub),
+                               selected: _selectedSubCategory == sub,
+                               onSelected: (selected) {
+                                 setModalState(() {
+                                   if (selected) {
+                                     _selectedSubCategory = sub;
+                                   } else {
+                                     _selectedSubCategory = null;
+                                   }
+                                 });
+                                 setState(() {});
+                               },
+                             )),
+                          ],
+                        ),
+                      ],
+
+                      // PRICE RANGE SECTION
+                      const SizedBox(height: 24),
+                      Text(
+                         _sortBy == 'MaxPrice' 
+                             ? 'Maximum Price Range' 
+                             : 'Minimum Price Range',
+                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                         children: [
+                           Text(
+                            'Filter by ${_sortBy == 'MaxPrice' ? 'Max' : 'Min'} Price',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                          ),
+                          Text(
+                            '${_priceRange.start.round()} - ${_priceRange.end.round()} RWF',
+                            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                          ),
+                         ],
                       ),
                       RangeSlider(
                         values: _priceRange,
                         min: 0,
                         max: 50000,
                         divisions: 50,
+                        activeColor: Colors.green,
+                        inactiveColor: Colors.green.shade100,
                         labels: RangeLabels(
-                          '${_priceRange.start.round()} RWF',
-                          '${_priceRange.end.round()} RWF',
+                          '${_priceRange.start.round()}',
+                          '${_priceRange.end.round()}',
                         ),
                         onChanged: (values) {
                           setModalState(() => _priceRange = values);
@@ -286,7 +672,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    child: Text('Apply Filters'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Apply Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ),
@@ -294,6 +686,64 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
             ),
           );
         },
+      ),
+    );
+  }
+
+  // Helper widget for custom radio-style sort option
+  Widget _buildSortOption({
+    required String title,
+    String? subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.green.shade50 : Colors.white,
+          border: Border.all(
+            color: isSelected ? Colors.green : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: isSelected ? Colors.green : Colors.grey,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? Colors.green : Colors.black87,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -316,12 +766,24 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                       onPressed: () {
                          if (!StateService().isLoggedIn) {
                            ScaffoldMessenger.of(context).showSnackBar(
-                             const SnackBar(content: Text("Please login to upload a prescription.")),
+                             SnackBar(
+                               content: const Text("Please login to upload a prescription."),
+                               action: SnackBarAction(
+                                 label: 'Login',
+                                 onPressed: () {
+                                   Navigator.push(
+                                     context,
+                                     MaterialPageRoute(builder: (_) => const AuthScreen()),
+                                   );
+                                 },
+                               ),
+                             ),
                            );
                            return;
                          }
-                         ScaffoldMessenger.of(context).showSnackBar(
-                           const SnackBar(content: Text("Upload Prescription: Coming Soon")),
+                         Navigator.push(
+                           context,
+                           MaterialPageRoute(builder: (_) => const PrescriptionUploadScreen()),
                          );
                       },
                       tooltip: 'Upload Prescription',
@@ -415,21 +877,70 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                    AnimatedOpacity(
                     duration: const Duration(milliseconds: 300),
                     opacity: _isScrolled ? 1.0 : 0.0,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: IconButton(
-                        icon: const Icon(Icons.settings, color: Colors.white),
-                        onPressed: _isScrolled
-                            ? () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const SettingsScreen(),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Cart Icon in App Bar
+                        Stack(
+                          clipBehavior: Clip.none,
+                          alignment: Alignment.center,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                              onPressed: _isScrolled
+                                  ? () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (_) => const CartScreen()),
+                                      );
+                                    }
+                                  : null,
+                            ),
+                            if (StateService().cartItems.isNotEmpty)
+                              Positioned(
+                                right: 8,
+                                top: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
                                   ),
-                                );
-                              }
-                            : null,
-                      ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 14,
+                                    minHeight: 14,
+                                  ),
+                                  child: Text(
+                                    '${StateService().cartItems.length}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: IconButton(
+                            icon: const Icon(Icons.settings, color: Colors.white),
+                            onPressed: _isScrolled
+                                ? () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const SettingsScreen(),
+                                      ),
+                                    );
+                                  }
+                                : null,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -781,15 +1292,15 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                 pinned: true,
                 delegate: _StickyHeaderDelegate(
                   height: _showCategories
-                      ? 175 
-                      : 70, // Increased by 5px to eliminate 1px overflow + safety buffer
+                      ? 220 
+                      : 80, // Increased height to prevent overflow
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.start, 
                     children: [
                       // Search Bar
                       Container(
                         color: Colors.green,
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8), 
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), 
                         child: Row(
                           children: [
                             // Search Label Text
@@ -819,6 +1330,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                   ],
                                 ),
                                 child: TextField(
+                                  controller: _searchController,
                                   style: const TextStyle(fontSize: 16),
                                   textAlignVertical: TextAlignVertical.center,
                                   decoration: InputDecoration(
@@ -830,12 +1342,12 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                     prefixIcon: const Icon(Icons.search, color: Colors.grey),
                                     suffixIcon: IconButton(
                                       icon: const Icon(
-                                        Icons.tune,
+                                        Icons.sort, // Changed icon to sort
                                         color: Colors.green,
                                         size: 24,
                                       ),
                                       onPressed: _showFilterModal,
-                                      tooltip: "Filter & Sort",
+                                      tooltip: "Sort & Filter",
                                     ),
                                     border: InputBorder.none,
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -868,7 +1380,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                       // Categories List (Conditionally Visible)
                       if (_showCategories)
                         Container(
-                          height: 110,
+                          height: 130, // Increased height for safe wrapping
                           color: Colors.white,
                           padding: EdgeInsets.symmetric(vertical: 10),
                           child: ListView(
@@ -881,13 +1393,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                     child: GestureDetector(
                                       onTap: () {
                                         setState(() {
-                                          if (_selectedCategories.contains(
-                                            cat,
-                                          )) {
+                                          if (_selectedCategories.contains(cat)) {
                                             _selectedCategories.remove(cat);
+                                            // Optional: clear subcategory if it belongs to removed category?
+                                            // _selectedSubCategory = null; 
                                           } else {
-                                            // No clearing, allow multiple
                                             _selectedCategories.add(cat);
+                                            _selectedSubCategory = null;
                                           }
                                         });
                                       },
@@ -900,16 +1412,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                             padding: EdgeInsets.all(12),
                                             decoration: BoxDecoration(
                                               color:
-                                                  _selectedCategories.contains(
-                                                    cat,
-                                                  )
+                                                  _selectedCategories.contains(cat)
                                                   ? Colors.green
                                                   : Colors.grey.shade100,
                                               shape: BoxShape.circle,
                                               border: Border.all(
                                                 color:
-                                                    _selectedCategories
-                                                        .contains(cat)
+                                                    _selectedCategories.contains(cat)
                                                     ? Colors.green
                                                     : Colors.grey.shade300,
                                               ),
@@ -917,9 +1426,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                             child: Icon(
                                               _getCategoryIcon(cat),
                                               color:
-                                                  _selectedCategories.contains(
-                                                    cat,
-                                                  )
+                                                  _selectedCategories.contains(cat)
                                                   ? Colors.white
                                                   : Colors.green,
                                               size: 28,
@@ -931,9 +1438,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight:
-                                                  _selectedCategories.contains(
-                                                    cat,
-                                                  )
+                                                  _selectedCategories.contains(cat)
                                                   ? FontWeight.bold
                                                   : FontWeight.w500,
                                               color: Colors.black87,
@@ -1027,9 +1532,14 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Icon(Icons.star, size: 14, color: Colors.amber),
-                                    Text(" ${pharmacy.rating} ", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                    Text("• ${pharmacy.deliveryTime}", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                    Icon(Icons.location_on, size: 14, color: Colors.grey.shade600),
+                                    Expanded(
+                                      child: Text(
+                                        " ${pharmacy.province}, ${pharmacy.district}, ${pharmacy.sector}, ${pharmacy.cell}", 
+                                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -1042,17 +1552,98 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                 ),
               ],
 
+              // "Did you mean?" Suggestion Header
+              if (_searchQuery.isNotEmpty && _filteredMedicines.isNotEmpty && _getMedicinesForQuery(_searchQuery).isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "No results found for your search.",
+                            style: TextStyle(color: Colors.red),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Text("Showing results for "),
+                              GestureDetector(
+                                onTap: () {
+                                  // Update the search query to the corrected term
+                                  setState(() {
+                                    final correction = _findBestMatch(_searchQuery) ?? "";
+                                    _searchQuery = correction;
+                                    _searchController.text = correction; // Update text field
+                                    // Move cursor to end
+                                    _searchController.selection = TextSelection.fromPosition(
+                                      TextPosition(offset: correction.length),
+                                    );
+                                  });
+                                },
+                                child: Text(
+                                  "${_findBestMatch(_searchQuery)}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontStyle: FontStyle.italic,
+                                    color: Colors.blue,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
               // All Products Header
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    _searchQuery.isNotEmpty
-                        ? 'Search Results'
-                        : (_selectedCategories.isNotEmpty
-                              ? 'Filtered Results'
-                              : 'Explore Medicines'),
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _searchQuery.isNotEmpty
+                            ? 'Search Results'
+                            : (_selectedCategories.isNotEmpty || _selectedSubCategory != null
+                                  ? 'Filtered Results'
+                                  : 'Explore Medicines'),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      if (_searchQuery.isNotEmpty || _selectedCategories.isNotEmpty || _selectedSubCategory != null)
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _searchQuery = '';
+                              _searchController.clear();
+                              _selectedCategories.clear();
+                              _selectedSubCategory = null;
+                              _priceRange = const RangeValues(0, 50000);
+                              _minRating = 0.0;
+                              _sortBy = 'Name';
+                              _sortAscending = true;
+                            });
+                          },
+                          icon: const Icon(Icons.close, size: 16, color: Colors.orange),
+                          label: const Text('Clear All', style: TextStyle(color: Colors.orange)),
+                          style: TextButton.styleFrom(
+                             padding: EdgeInsets.symmetric(horizontal: 8),
+                             minimumSize: Size.zero,
+                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -1061,9 +1652,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
               SliverPadding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 sliver: SliverGrid(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.68,
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 200, 
+                    mainAxisExtent: 280, // FIXED HEIGHT instead of aspect ratio
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                   ),
@@ -1354,6 +1945,220 @@ class _TypewriterSloganState extends State<TypewriterSlogan> {
       ),
       overflow: TextOverflow.ellipsis,
       maxLines: 2,
+    );
+  }
+}
+
+class _SearchableListDialog extends StatefulWidget {
+  final String title;
+  final List<String> items;
+
+  const _SearchableListDialog({
+    super.key,
+    required this.title,
+    required this.items,
+  });
+
+  @override
+  State<_SearchableListDialog> createState() => _SearchableListDialogState();
+}
+
+class _SearchableListDialogState extends State<_SearchableListDialog> {
+  String _searchQuery = '';
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Filter items
+    final filtered = widget.items
+        .where((item) => item.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        height: 500, // Fixed height or create constrained Box
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.title,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                )
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              decoration: InputDecoration(
+                hintText: 'Search...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              onChanged: (val) {
+                setState(() {
+                  _searchQuery = val;
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView.separated(
+                itemCount: filtered.length + 1,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                     // "All" Option
+                     if (_searchQuery.isNotEmpty && !'all categories'.contains(_searchQuery.toLowerCase())) {
+                       return const SizedBox.shrink(); 
+                     }
+                     return ListTile(
+                       title: const Text('All Categories', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                       onTap: () => Navigator.pop(context, 'All Categories'),
+                     );
+                  }
+                  
+                  // Adjust index because 0 is taken
+                  final actualIndex = index - 1;
+                  // If "All" was hidden (SizedBox.shrink), index 0 still exists in builder but takes no space? 
+                  // No, ListView builder logic is strict.
+                  // BETTER APPROACH: Build a unified list.
+                  
+                  return ListTile(
+                    title: Text(filtered[actualIndex]),
+                    onTap: () => Navigator.pop(context, filtered[actualIndex]),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class _SearchableMultiSelectDialog extends StatefulWidget {
+  final String title;
+  final List<String> items;
+  final List<String> selectedItems;
+
+  const _SearchableMultiSelectDialog({
+    super.key,
+    required this.title,
+    required this.items,
+    required this.selectedItems,
+  });
+
+  @override
+  State<_SearchableMultiSelectDialog> createState() => _SearchableMultiSelectDialogState();
+}
+
+class _SearchableMultiSelectDialogState extends State<_SearchableMultiSelectDialog> {
+  String _searchQuery = '';
+  late Set<String> _tempSelected;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempSelected = Set.from(widget.selectedItems);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = widget.items
+        .where((item) => item.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        height: 600,
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              ],
+            ),
+            if (_tempSelected.isNotEmpty)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => setState(() => _tempSelected.clear()),
+                  child: const Text('Clear All', style: TextStyle(color: Colors.red)),
+                ),
+              ),
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Search categories...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              onChanged: (val) => setState(() => _searchQuery = val),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView.separated(
+                itemCount: filtered.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final item = filtered[index];
+                  final isSelected = _tempSelected.contains(item);
+                  return CheckboxListTile(
+                    title: Text(item),
+                    value: isSelected,
+                    activeColor: Colors.green,
+                    onChanged: (val) {
+                      setState(() {
+                        if (val == true) {
+                          _tempSelected.add(item);
+                        } else {
+                          _tempSelected.remove(item);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () {
+                   Navigator.pop(context, _tempSelected.toList());
+                },
+                child: Text('Done (\)', style: const TextStyle(color: Colors.white, fontSize: 16)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

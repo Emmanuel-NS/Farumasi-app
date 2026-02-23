@@ -164,27 +164,38 @@ class MedicineItem extends StatelessWidget {
                         }
                         onTap();
                       }, // Text tap -> Toggle Cart
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            medicine.name,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min, // Ensure it takes minimum space
+                          children: [
+                            Text(
+                              medicine.name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1, // Strict single line
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            '${medicine.price.toStringAsFixed(0)} RWF',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                            SizedBox(height: 4),
+                            FittedBox( // Adapts price text if too long
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                medicine.maxPrice != null && medicine.maxPrice! > medicine.price
+                                    ? '${medicine.price.toStringAsFixed(0)} - ${medicine.maxPrice!.toStringAsFixed(0)} RWF'
+                                    : '${medicine.price.toStringAsFixed(0)} RWF',
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
-                          ),
+                            SizedBox(height: 4),
+                          // New Info: Expiry and Dosage removed from grid view to increase image size
+                          // These details are available in the "Read More" dialog.
+
                           SizedBox(height: 2),
                           if (medicine.requiresPrescription)
                             Row(
@@ -221,19 +232,75 @@ class MedicineItem extends StatelessWidget {
                              showDialog(
                               context: context,
                               builder: (ctx) => AlertDialog(
-                                title: Text(medicine.name),
+                                title: Text(medicine.name, style: TextStyle(fontWeight: FontWeight.bold)),
                                 content: SingleChildScrollView(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min, // Wrap content
+                                    mainAxisSize: MainAxisSize.min, 
                                     children: [
-                                      Text(
-                                        medicine.description,
-                                        style: const TextStyle(fontSize: 14),
+                                      // Price & Expiry
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            medicine.maxPrice != null && medicine.maxPrice! > medicine.price
+                                                ? '${medicine.price.toStringAsFixed(0)} - ${medicine.maxPrice!.toStringAsFixed(0)} RWF'
+                                                : '${medicine.price.toStringAsFixed(0)} RWF',
+                                            style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                                          ),
+                                          if (medicine.expiryDate != null)
+                                            Container(
+                                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
+                                              child: Text('Exp: ${medicine.expiryDate}', style: TextStyle(fontSize: 12, color: Colors.red.shade700)),
+                                            ),
+                                        ],
                                       ),
+                                      const Divider(),
+                                      
+                                      // Description
+                                      Text("Description:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                      Text(medicine.description, style: const TextStyle(fontSize: 14)),
                                       const SizedBox(height: 12),
+                                      
+                                      // Structured Dosage Logic
+                                      if (medicine.doseMorning != null || medicine.doseAfternoon != null || medicine.doseEvening != null) ...[
+                                        Text("Recommended Dosage:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                        SizedBox(height: 4),
+                                        Container(
+                                          padding: EdgeInsets.all(8),
+                                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                                          child: Column(
+                                            children: [
+                                              if (medicine.doseMorning != null)
+                                                _buildDoseRow(Icons.wb_sunny_outlined, "Morning", medicine.doseMorning!),
+                                              if (medicine.doseAfternoon != null)
+                                                _buildDoseRow(Icons.wb_sunny, "Afternoon", medicine.doseAfternoon!),
+                                              if (medicine.doseEvening != null)
+                                                _buildDoseRow(Icons.nights_stay_outlined, "Evening", medicine.doseEvening!),
+                                              if (medicine.doseTimeInterval != null)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(top: 8.0),
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.schedule, size: 14, color: Colors.blue),
+                                                      SizedBox(width: 8),
+                                                      Text("Interval: ${medicine.doseTimeInterval}", style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                                                    ],
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(height: 12),
+                                      ] else ...[
+                                        Text("Dosage:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                        Text(medicine.dosage, style: const TextStyle(fontSize: 13)),
+                                        SizedBox(height: 12),
+                                      ],
+                                      
                                       Text(
-                                        "Click 'Full Details' for more info about side effects and dosage.",
+                                        "Click 'Full Details' for more info regarding side effects.",
                                         style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
                                       ),
                                     ],
@@ -373,6 +440,22 @@ class MedicineItem extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  // Reusable Helper for Dosage Rows
+  Widget _buildDoseRow(IconData icon, String period, String dose) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisSize: MainAxisSize.min, // Wrap
+        children: [
+          Icon(icon, size: 16, color: Colors.blueGrey),
+          SizedBox(width: 8),
+          Text("$period: ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey)),
+          Expanded(child: Text(dose, style: TextStyle(fontSize: 13))),
+        ],
+      ),
     );
   }
 }

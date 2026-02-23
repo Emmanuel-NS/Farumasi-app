@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/state_service.dart';
+import 'package:intl/intl.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -71,6 +72,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
           key: _formKey,
           child: Column(
             children: [
+              // Contact Details - Example
+              // ...
+              
+              const Divider(),
+              const SizedBox(height: 10),
+              
+              ListenableBuilder(
+                listenable: StateService(),
+                builder: (context, _) {
+                  final bookings = StateService().bookings;
+                  if (bookings.isEmpty) return const SizedBox.shrink();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text("My Appointments", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.green)),
+                      ),
+                      const SizedBox(height: 10),
+                      ...bookings.map((booking) => Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          leading: const CircleAvatar(
+                            backgroundColor: Colors.green,
+                            child: Icon(Icons.medical_services, color: Colors.white),
+                          ),
+                          title: Text(booking.pharmacistName),
+                          subtitle: Text(
+                            "${DateFormat('MMM d').format(booking.date)} at ${booking.time}\n${booking.notes}",
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          isThreeLine: true,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.cancel, color: Colors.red),
+                            tooltip: "Cancel Appointment",
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text("Cancel Appointment?"),
+                                  content: const Text("This action cannot be undone."),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(ctx).pop(),
+                                      child: const Text("Keep"),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        StateService().cancelBooking(booking.id);
+                                        Navigator.of(ctx).pop();
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text("Appointment cancelled."))
+                                        );
+                                      },
+                                      child: const Text("Cancel", style: TextStyle(color: Colors.red)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      )).toList(),
+                      const SizedBox(height: 20),
+                    ],
+                  );
+                },
+              ),
+              
               const SizedBox(height: 20),
               Stack(
                 children: [

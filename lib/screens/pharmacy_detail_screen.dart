@@ -160,16 +160,9 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 20),
+                      const Icon(Icons.location_city, color: Colors.blue, size: 20),
                       const SizedBox(width: 4),
-                      Text(
-                        "${widget.pharmacy.rating} Rating",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.access_time, color: Colors.blue, size: 20),
-                      const SizedBox(width: 4),
-                      Text(widget.pharmacy.deliveryTime),
+                      Text("${widget.pharmacy.province}, ${widget.pharmacy.district}"),
                       const SizedBox(width: 16),
                       if (widget.pharmacy.isOpen)
                         Container(
@@ -198,7 +191,7 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          widget.pharmacy.locationName,
+                          "${widget.pharmacy.locationName}\nSector: ${widget.pharmacy.sector}, Cell: ${widget.pharmacy.cell}",
                           style: TextStyle(color: Colors.grey.shade700),
                         ),
                       ),

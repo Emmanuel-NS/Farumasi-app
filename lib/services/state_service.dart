@@ -9,6 +9,20 @@ class StateService extends ChangeNotifier {
 
   // Auth State
   bool _isLoggedIn = false;
+  
+  // Bookings
+  final List<PharmacistBooking> _bookings = [];
+  List<PharmacistBooking> get bookings => _bookings;
+
+  void addBooking(PharmacistBooking booking) {
+    _bookings.add(booking);
+    notifyListeners();
+  }
+
+  void cancelBooking(String id) {
+    _bookings.removeWhere((b) => b.id == id);
+    notifyListeners();
+  }
   String? _userEmail;
   String? _userName;
 
