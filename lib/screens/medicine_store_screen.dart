@@ -927,17 +927,30 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                         Padding(
                           padding: const EdgeInsets.only(right: 8.0),
                           child: IconButton(
+                            icon: const Icon(Icons.help_outline, color: Colors.white),
+                            tooltip: 'Help',
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const HelpScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: IconButton(
                             icon: const Icon(Icons.settings, color: Colors.white),
-                            onPressed: _isScrolled
-                                ? () {
+                            onPressed: () {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => const SettingsScreen(),
                                       ),
                                     );
-                                  }
-                                : null,
+                                  },
                           ),
                         ),
                       ],
@@ -961,53 +974,6 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                             ],
                             begin: Alignment.bottomLeft,
                             end: Alignment.topRight,
-                          ),
-                        ),
-                      ),
-                      
-                      // Help Button (Top Right, Hidden on Scroll)
-                      Positioned(
-                        top: 40, 
-                        right: 16,
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 200),
-                          opacity: _isScrolled ? 0.0 : 1.0,
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const HelpScreen(),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2), // Frosted glass effect
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white30),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(
-                                    Icons.help_outline,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    "Help",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ),
                         ),
                       ),

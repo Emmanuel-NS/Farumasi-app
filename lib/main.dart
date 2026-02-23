@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io'; // Import dart:io
-import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart'; // Import Splash Screen
 import 'theme/app_theme.dart';
 import 'services/notification_service.dart'; // Import NotificationService
 
@@ -38,7 +38,7 @@ class FarumasiApp extends StatelessWidget {
       title: 'Farumasi',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
-      home: const HomeScreen(),
+      home: const SplashScreen(),
     );
   }
 }
