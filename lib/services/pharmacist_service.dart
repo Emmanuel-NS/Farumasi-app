@@ -74,7 +74,71 @@ class PharmacistService extends ChangeNotifier {
     ),
   ];
 
+  // --- BOOKINGS (SESSIONS) ---
+  List<PharmacistBooking> bookings = [
+    PharmacistBooking(
+      id: "BK-001",
+      pharmacistId: "PH-USR-01",
+      pharmacistName: "You",
+      patientName: "Sarah M.",
+      type: "General Consultation",
+      date: DateTime.now(),
+      time: "10:30 AM",
+      notes: "Routine check-up for blood pressure.",
+      status: "Confirmed",
+    ),
+    PharmacistBooking(
+      id: "BK-002",
+      pharmacistId: "PH-USR-01",
+      pharmacistName: "You",
+      patientName: "David K.",
+      type: "Prescription Review",
+      date: DateTime.now(),
+      time: "02:00 PM",
+      notes: "Discuss side effects of new medication.",
+      status: "Pending",
+    ),
+    PharmacistBooking(
+      id: "BK-003",
+      pharmacistId: "PH-USR-01",
+      pharmacistName: "You",
+      patientName: "Grace L.",
+      type: "Follow-up",
+      date: DateTime.now().add(const Duration(days: 1)),
+      time: "09:00 AM",
+      notes: "Post-surgery follow-up.",
+      status: "Confirmed",
+    ),
+  ];
+  
   // --- HELPERS FOR DASHBOARD ---
+
+  List<PharmacistBooking> get upcomingSessions => bookings
+      .where((b) => b.status == "Confirmed" || b.status == "Pending")
+      .toList();
+
+  double get totalRevenue => completedOrders
+      .fold(0, (sum, order) => sum + order.totalPrice);
+
+  void updateBookingStatus(String id, String newStatus) {
+    final index = bookings.indexWhere((b) => b.id == id);
+    if (index != -1) {
+      // Create a new object with updated status because properties are final
+      final old = bookings[index];
+      bookings[index] = PharmacistBooking(
+        id: old.id,
+        pharmacistId: old.pharmacistId,
+        pharmacistName: old.pharmacistName,
+        patientName: old.patientName,
+        type: old.type,
+        date: old.date,
+        time: old.time,
+        notes: old.notes,
+        status: newStatus,
+      );
+      notifyListeners();
+    }
+  }
 
   List<PrescriptionOrder> get incomingRequests =>
       orders.where((o) => o.status == OrderStatus.pendingReview).toList();

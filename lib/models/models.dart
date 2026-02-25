@@ -15,11 +15,19 @@ class Medicine {
   final List<String> keywords; // Added for enhanced search
   final double? maxPrice; // Optional upper range for price
   final String? expiryDate; // e.g. "12/2025" or "Oct 2026"
+  
+  // Multi-Category Support
+  final List<String> additionalCategories; 
+  final List<String> additionalSubCategories;
+  
   // Structured Dosage Support
   final String? doseMorning;   // e.g. "1 Tablet"
   final String? doseAfternoon; // e.g. "None"
   final String? doseEvening;   // e.g. "1 Tablet"
   final String? doseTimeInterval; // e.g. "Every 8 hours"
+
+  List<String> get allCategories => {category, ...additionalCategories}.toList();
+  List<String> get allSubCategories => {(subCategory ?? ""), ...additionalSubCategories}.where((s) => s.isNotEmpty).toList();
 
   Medicine({
     required this.id,
@@ -36,6 +44,8 @@ class Medicine {
     this.keywords = const [],
     this.maxPrice,
     this.expiryDate,
+    this.additionalCategories = const [],
+    this.additionalSubCategories = const [],
     this.doseMorning,
     this.doseAfternoon,
     this.doseEvening,
@@ -218,16 +228,22 @@ class PharmacistBooking {
   final String id;
   final String pharmacistId;
   final String pharmacistName;
+  final String patientName; // Added for Pharmacist side
+  final String type; // e.g. "General Consultation"
   final DateTime date;
   final String time;
   final String notes;
+  final String status; // "Confirmed", "Pending", "Completed"
 
   PharmacistBooking({
     required this.id,
     required this.pharmacistId,
     required this.pharmacistName,
+    this.patientName = "Unknown Patient",
+    this.type = "General Consultation",
     required this.date,
     required this.time,
     required this.notes,
+    this.status = "Pending",
   });
 }

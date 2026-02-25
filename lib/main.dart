@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'dart:io'; // Import dart:io
 import 'screens/splash_screen.dart'; // Import Splash Screen
 import 'theme/app_theme.dart';
@@ -38,6 +40,15 @@ class FarumasiApp extends StatelessWidget {
       title: 'Farumasi',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        FlutterQuillLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en', 'US'),
+      ],
       home: const SplashScreen(),
     );
   }

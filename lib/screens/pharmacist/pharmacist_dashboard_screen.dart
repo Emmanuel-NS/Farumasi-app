@@ -100,14 +100,20 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   // Brand Header
                   Row(
                     children: [
-                       Icon(Icons.local_pharmacy, color: _primaryGreen, size: 24),
+                       Image.asset(
+                         'assets/images/app_logo.png',
+                         width: 28,
+                         height: 28,
+                         errorBuilder: (context, error, stackTrace) => Icon(Icons.local_pharmacy, color: _primaryGreen, size: 28),
+                       ),
                        const SizedBox(width: 8),
                        Text(
-                         "Farumasi",
+                         "FARUMASI",
                          style: TextStyle(
                            fontSize: 22, 
                            fontWeight: FontWeight.bold,
                            color: _primaryGreen,
+                           letterSpacing: 1.2,
                          ),
                        ),
                     ],
@@ -257,7 +263,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
               ),
               _buildStatCard(
                 title: "Revenue (Today)", 
-                value: "RWF 45k", 
+                value: "RWF ${_service.totalRevenue.toStringAsFixed(0)}", 
                 subtext: "+12% vs yest.",
                 icon: Icons.payments_outlined,
                 color: _primaryGreen,
@@ -284,9 +290,165 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
           ),
           const SizedBox(height: 16),
           _buildChart(),
+
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Upcoming Sessions",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1B5E20),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  _showAllSessions(context);
+                },
+                child: Text("See All", style: TextStyle(color: _primaryGreen)),
+              )
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildUpcomingSessions(),
           const SizedBox(height: 80),
         ],
       ),
+    );
+  }
+
+  Widget _buildUpcomingSessions() {
+    final sessions = _service.upcomingSessions;
+
+    if (sessions.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        alignment: Alignment.center,
+        child: Column(
+          children: [
+            Icon(Icons.event_busy, size: 48, color: Colors.grey.shade300),
+            const SizedBox(height: 12),
+            Text(
+              "No upcoming sessions",
+              style: TextStyle(color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: sessions.length,
+      itemBuilder: (context, index) {
+        final session = sessions[index];
+        bool isToday = session.date.day == DateTime.now().day &&
+            session.date.month == DateTime.now().month &&
+            session.date.year == DateTime.now().year;
+
+        return GestureDetector(
+          onTap: () => _showSessionDetails(session),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade100,
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              border: Border.all(color: Colors.grey.shade100),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: _lightGreenErrors,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      session.patientName.isNotEmpty ? session.patientName[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: _primaryGreen,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        session.patientName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "${session.type} • ${isToday ? 'Today' : 'Tomorrow'}", // Simplified date logic
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      session.time,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: _primaryGreen,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: session.status == "Confirmed"
+                            ? Colors.green.shade50
+                            : Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        session.status,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: session.status == "Confirmed"
+                              ? Colors.green
+                              : Colors.orange,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -821,5 +983,154 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
          ),
        ],
      );
+  }
+
+  void _showAllSessions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (_, controller) {
+            final allSessions = _service.upcomingSessions;
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 16),
+                  const Text("All Booked Sessions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.separated(
+                      controller: controller,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: allSessions.length,
+                      separatorBuilder: (_, __) => const Divider(),
+                      itemBuilder: (context, index) {
+                        final session = allSessions[index];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            backgroundColor: _lightGreenErrors,
+                            child: Text(session.patientName[0], style: TextStyle(color: _primaryGreen)),
+                          ),
+                          title: Text(session.patientName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text("${session.type}\n${session.date.toString().split(' ')[0]} at ${session.time}\nRe: ${session.notes}", maxLines: 2, overflow: TextOverflow.ellipsis),
+                          isThreeLine: true,
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(session.status, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: session.status == 'Confirmed' ? Colors.green : Colors.orange)),
+                              const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                            ],
+                          ),
+                          onTap: () {
+                            Navigator.pop(context); // Close sheet
+                            _showSessionDetails(session);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showSessionDetails(PharmacistBooking session) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Session Details"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _detailRow("Patient:", session.patientName),
+            _detailRow("Type:", session.type),
+            _detailRow("Time:", "${session.time} (${session.date.toString().split(' ')[0]})"),
+            _detailRow("Status:", session.status),
+            _detailRow("Notes:", session.notes),
+            const SizedBox(height: 20),
+            if (session.status == "Pending")
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    _service.updateBookingStatus(session.id, "Confirmed");
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Session confirmed!")));
+                  },
+                  icon: const Icon(Icons.check),
+                  label: const Text("Confirm Session"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryGreen,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+             if (session.status == "Confirmed")
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    _service.updateBookingStatus(session.id, "Completed");
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Session completed!")));
+                  },
+                  icon: const Icon(Icons.done_all),
+                  label: const Text("Mark as Completed"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                    _service.updateBookingStatus(session.id, "Cancelled");
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Session cancelled.")));
+                },
+                child: const Text("Cancel Session", style: TextStyle(color: Colors.red)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close")),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 80, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
   }
 }
