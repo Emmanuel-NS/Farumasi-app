@@ -465,7 +465,7 @@ final List<HealthTip> dummyHealthTips = [
 final List<Pharmacy> dummyPharmacies = [
   Pharmacy(
     id: "ph1",
-    name: "GreenCross Pharmacy",
+    name: "Farumasi Pharmacy",
     locationName: "Kigali Heights, KG 7 Ave",
     coordinates: [-1.9540, 30.0926],
     supportedInsurances: ["RSSB", "UAP", "MMI"],

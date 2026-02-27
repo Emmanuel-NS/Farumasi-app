@@ -10,16 +10,18 @@ class PharmacistService extends ChangeNotifier {
   // --- MOCK DATABASE ---
 
   List<PrescriptionOrder> orders = [
+    // 1. Pending Review (New Request)
     PrescriptionOrder(
       id: "RX-1001",
       patientName: "Alice Uwase",
       patientLocationName: "Nyarutarama, Kigali",
-      patientCoordinates: [-1.9441, 30.1040], // Near MTN Centre
+      patientCoordinates: [-1.9441, 30.1040],
       date: DateTime.now().subtract(Duration(minutes: 5)),
       prescriptionImageUrl: "assets/rx_sample1.jpg",
       insuranceProvider: "RSSB",
       status: OrderStatus.pendingReview,
     ),
+    // 2. Pharmacy Accepted (Ready for Pharmacist to finalize)
     PrescriptionOrder(
       id: "RX-1002",
       patientName: "John Mugabo",
@@ -27,18 +29,189 @@ class PharmacistService extends ChangeNotifier {
       patientCoordinates: [-1.9706, 30.1044],
       date: DateTime.now().subtract(Duration(minutes: 45)),
       prescriptionImageUrl: "assets/rx_sample2.jpg",
-      status: OrderStatus.pharmacyAccepted, // Ready for Pharmacist to review pricing/finalize
+      status: OrderStatus.pharmacyAccepted,
       assignedPharmacyId: "PH-01",
-      assignedPharmacyName: "GreenCross Pharmacy",
+      assignedPharmacyName: "Farumasi Pharmacy",
       pharmacyPrice: 12000, 
       items: [dummyMedicines[0], dummyMedicines[2]],
+      reviewedBy: "Pharmacist (You)",
+      reviewedAt: DateTime.now().subtract(Duration(minutes: 40)),
+      acceptedAt: DateTime.now().subtract(Duration(minutes: 5)),
+    ),
+    // 3. Payment Pending
+    PrescriptionOrder(
+      id: "RX-1003",
+      patientName: "Sarah Keza",
+      patientLocationName: "Remera, Gisimenti",
+      patientCoordinates: [-1.9585, 30.1114],
+      date: DateTime.now().subtract(Duration(hours: 1)),
+      prescriptionImageUrl: "assets/rx_sample3.jpg",
+      status: OrderStatus.paymentPending,
+      assignedPharmacyName: "City Center Chemists",
+      pharmacyPrice: 4500,
+      deliveryFee: 1000,
+      items: [dummyMedicines[1]],
+      reviewedBy: "Pharmacist (You)",
+    ),
+    // 4. Finding Pharmacy (Broadcasting)
+    PrescriptionOrder(
+      id: "RX-1004",
+      patientName: "David N.",
+      patientLocationName: "Kimironko, Zindiro",
+      patientCoordinates: [-1.9397, 30.1303],
+      date: DateTime.now().subtract(Duration(minutes: 10)),
+      prescriptionImageUrl: "assets/rx_sample1.jpg",
+      status: OrderStatus.findingPharmacy,
+      reviewedBy: "Pharmacist (You)",
+      reviewedAt: DateTime.now().subtract(Duration(minutes: 1)),
+    ),
+    // 5. Delivered (Direct Order)
+    PrescriptionOrder(
+      id: "ORD-2001",
+      patientName: "Emmanuel K.",
+      patientLocationName: "Kacyiru, US Embassy",
+      patientCoordinates: [-1.9470, 30.0880],
+      date: DateTime.now().subtract(Duration(days: 1)),
+      status: OrderStatus.delivered,
+      items: [dummyMedicines[3], dummyMedicines[0]],
+      pharmacyPrice: 15400,
+      deliveryFee: 1500,
+      paymentId: "TX-998877",
+      paidAt: DateTime.now().subtract(Duration(days: 1, hours: 2)),
+      shippedAt: DateTime.now().subtract(Duration(days: 1, hours: 1)),
+      completedAt: DateTime.now().subtract(Duration(days: 1)),
+      assignedDriverName: "Jean Paul",
+    ),
+    // 6. Rejected (Out of Stock)
+    PrescriptionOrder(
+      id: "RX-1005",
+      patientName: "Grace Batamuriza",
+      patientLocationName: "Gisozi, ULK",
+      patientCoordinates: [-1.9300, 30.0580],
+      date: DateTime.now().subtract(Duration(hours: 3)),
+      prescriptionImageUrl: "assets/rx_sample2.jpg",
+      status: OrderStatus.cancelled,
+      cancelledBy: "Pharmacist (You)",
+      cancelledAt: DateTime.now().subtract(Duration(hours: 2, minutes: 55)),
+      cancellationReason: "Prescription not legible and user unreachable.",
+    ),
+    // 7. Out For Delivery
+    PrescriptionOrder(
+      id: "ORD-2002",
+      patientName: "Fabrice I.",
+      patientLocationName: "Nyamirambo, Cosmos",
+      patientCoordinates: [-1.9750, 30.0400],
+      date: DateTime.now().subtract(Duration(hours: 2)),
+      status: OrderStatus.outForDelivery,
+      items: [dummyMedicines[2]],
+      pharmacyPrice: 3200,
+      assignedDriverName: "Eric M.",
+      shippedAt: DateTime.now().subtract(Duration(minutes: 30)),
+    ),
+    // 8. Ready for Pickup (Waiting for Driver)
+    PrescriptionOrder(
+      id: "RX-1006",
+      patientName: "Olive M.",
+      patientLocationName: "Kanombe, Airport",
+      patientCoordinates: [-1.9630, 30.1350],
+      date: DateTime.now().subtract(Duration(hours: 4)),
+      prescriptionImageUrl: "assets/rx_sample3.jpg",
+      status: OrderStatus.readyForPickup,
+      pharmacyPrice: 20000,
+      paymentId: "TX-776655",
+      paidAt: DateTime.now().subtract(Duration(minutes: 10)),
+    ),
+    // 9. Delivered (Old)
+    PrescriptionOrder(
+      id: "RX-9001",
+      patientName: "Paul R.",
+      patientLocationName: "Gacuriro",
+      patientCoordinates: [-1.9300, 30.0800],
+      date: DateTime.now().subtract(Duration(days: 5)),
+      prescriptionImageUrl: "assets/rx_sample1.jpg",
+      status: OrderStatus.delivered,
+      items: [dummyMedicines[4]],
+      pharmacyPrice: 5000,
+      completedAt: DateTime.now().subtract(Duration(days: 5)),
+    ),
+    // 10. Rejected (Invalid Insurance)
+    PrescriptionOrder(
+      id: "RX-1007",
+      patientName: "Chantal U.",
+      patientLocationName: "Kibagabaga",
+      patientCoordinates: [-1.9400, 30.1100],
+      date: DateTime.now().subtract(Duration(days: 2)),
+      prescriptionImageUrl: "assets/rx_sample2.jpg",
+      status: OrderStatus.cancelled,
+      cancelledBy: "Pharmacist (You)",
+      cancellationReason: "Insurance card expired.",
+      cancelledAt: DateTime.now().subtract(Duration(days: 2, hours: 1)),
+    ),
+    // 11. Payment Pending (Direct Order)
+    PrescriptionOrder(
+      id: "ORD-2003",
+      patientName: "Kevin G.",
+      patientLocationName: "Masaka",
+      patientCoordinates: [-2.0000, 30.2000],
+      date: DateTime.now().subtract(Duration(minutes: 20)),
+      status: OrderStatus.paymentPending,
+      items: [dummyMedicines[0], dummyMedicines[0]],
+      pharmacyPrice: 17000,
+    ),
+    // 12. Pending Review (Recent)
+    PrescriptionOrder(
+      id: "RX-1008",
+      patientName: "Beatrice K.",
+      patientLocationName: "Nyanza, Kicukiro",
+      patientCoordinates: [-1.9900, 30.1000],
+      date: DateTime.now().subtract(Duration(minutes: 2)),
+      prescriptionImageUrl: "assets/rx_sample3.jpg",
+      status: OrderStatus.pendingReview,
+      insuranceProvider: "MMI",
+    ),
+    // 13. Driver Assigned
+    PrescriptionOrder(
+      id: "ORD-2004",
+      patientName: "Robert T.",
+      patientLocationName: "Rebero",
+      patientCoordinates: [-1.9800, 30.0700],
+      date: DateTime.now().subtract(Duration(hours: 1, minutes: 30)),
+      status: OrderStatus.driverAssigned,
+      items: [dummyMedicines[2]],
+      pharmacyPrice: 6000,
+      assignedDriverName: "Jean Paul",
+    ),
+    // 14. Pharmacy Accepted
+    PrescriptionOrder(
+      id: "RX-1009",
+      patientName: "Diane S.",
+      patientLocationName: "Kimihurura",
+      patientCoordinates: [-1.9500, 30.0800],
+      date: DateTime.now().subtract(Duration(hours: 2)),
+      prescriptionImageUrl: "assets/rx_sample1.jpg",
+      status: OrderStatus.pharmacyAccepted,
+      assignedPharmacyName: "HealthPlus Kimironko",
+      items: [dummyMedicines[1], dummyMedicines[3]],
+      pharmacyPrice: 9500,
+    ),
+    // 15. Delivered (Yesterday)
+    PrescriptionOrder(
+      id: "ORD-2005",
+      patientName: "Patrick M.",
+      patientLocationName: "Gikondo",
+      patientCoordinates: [-1.9600, 30.0600],
+      date: DateTime.now().subtract(Duration(days: 1, hours: 5)),
+      status: OrderStatus.delivered,
+      items: [dummyMedicines[0]],
+      pharmacyPrice: 8500,
+      completedAt: DateTime.now().subtract(Duration(days: 1)),
     ),
   ];
 
   List<Pharmacy> partnerPharmacies = [
     Pharmacy(
       id: "PH-01", 
-      name: "GreenCross Pharmacy", 
+      name: "Farumasi Pharmacy", 
       locationName: "Kigali Heights", 
       coordinates: [-1.9540, 30.0926], 
       supportedInsurances: ["RSSB", "UAP", "MMI"]

@@ -113,6 +113,23 @@ class PrescriptionOrder {
 
   String? insuranceProvider;
 
+  // --- Audit Trail / Full History Fields ---
+  String? reviewedBy;
+  DateTime? reviewedAt;
+  
+  // acceptedAt corresponds to status findingPharmacy -> pharmacyAccepted
+  DateTime? acceptedAt; 
+
+  String? paymentId;
+  DateTime? paidAt;
+  
+  DateTime? shippedAt;
+  DateTime? completedAt;
+  
+  String? cancelledBy;
+  DateTime? cancelledAt;
+  String? cancellationReason;
+
   PrescriptionOrder({
     required this.id,
     required this.patientName,
@@ -131,6 +148,16 @@ class PrescriptionOrder {
     this.assignedDriverName,
     this.driverCoordinates,
     this.insuranceProvider,
+    this.reviewedBy,
+    this.reviewedAt,
+    this.acceptedAt,
+    this.paymentId,
+    this.paidAt,
+    this.shippedAt,
+    this.completedAt,
+    this.cancelledBy,
+    this.cancelledAt,
+    this.cancellationReason,
   });
 }
 

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../models/models.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class InventoryEditScreen extends StatefulWidget {
-  final Medicine medicine;
+  final Medicine? medicine;
   
-  const InventoryEditScreen({Key? key, required this.medicine}) : super(key: key);
+  const InventoryEditScreen({Key? key, this.medicine}) : super(key: key);
 
   @override
   State<InventoryEditScreen> createState() => _InventoryEditScreenState();
@@ -18,11 +20,16 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
   late TextEditingController _nameController;
   late TextEditingController _manufacturerController;
   late TextEditingController _priceController;
-  late TextEditingController _stockController; // Simulated
+  // late TextEditingController _stockController; // Replaced by stock status
   late TextEditingController _expiryDateController;
 
-  // Details
-  // late TextEditingController _descriptionController; // Replaced by Quill Controller
+  // New Summary Fields
+  late TextEditingController _shortDescriptionController;
+  late TextEditingController _dosageSummaryController;
+
+  // Stock Status
+  String _stockStatus = "Available"; // Options: Available, Low Stock, Out of Stock
+
 
   // Taxonomy Selection
   final Map<String, List<String>> _categoryHierarchy = {
@@ -52,7 +59,54 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
 
   // Booleans
   bool _requiresPrescription = false;
-  bool _isPopular = false;
+  
+  // Image State
+  File? _selectedImageFile;
+  String? _enteredImageUrl;
+  
+  // Mock Data for Pharmacy Stock View
+  final List<Map<String, dynamic>> _pharmacyStockList = [
+    {
+      "name": "Kigali City Pharmacy",
+      "location": "Nyarugenge, KN 2 St",
+      "price": 1800,
+      "expiry": "12/2025",
+      "status": "Available",
+      "quantity": 45
+    },
+    {
+      "name": "HealthFirst Pharma",
+      "location": "Remera, KG 11 Ave",
+      "price": 1750,
+      "expiry": "10/2025",
+      "status": "Low Stock",
+      "quantity": 5
+    },
+    {
+      "name": "LifeCare Pharmacy",
+      "location": "Kicukiro, KK 15 Rd",
+      "price": 1900,
+      "expiry": "01/2026",
+      "status": "Available",
+      "quantity": 120
+    },
+    {
+      "name": "Downtown Meds",
+      "location": "Nyarugenge, KN 4 St",
+      "price": 1850,
+      "expiry": "11/2025",
+      "status": "Out of Stock",
+      "quantity": 0
+    },
+     {
+      "name": "Wellness Center",
+      "location": "Gisozi, KG 14 Ave",
+      "price": 2000,
+      "expiry": "06/2026",
+      "status": "Available",
+      "quantity": 30
+    },
+  ];
 
   // UI State
   int _selectedDetailsTab = 0; // 0: Description, 1: Side Effects, 2: Dosage
@@ -60,66 +114,82 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
   @override
   void initState() {
     super.initState();
+    final m = widget.medicine;
+
     // Basic
-    _nameController = TextEditingController(text: widget.medicine.name);
-    _manufacturerController = TextEditingController(text: widget.medicine.manufacturer);
-    _priceController = TextEditingController(text: widget.medicine.price.toString());
-    _stockController = TextEditingController(text: "50"); // Mock
-    _expiryDateController = TextEditingController(text: widget.medicine.expiryDate ?? "");
+    _nameController = TextEditingController(text: m?.name ?? "");
+    _manufacturerController = TextEditingController(text: m?.manufacturer ?? "");
+    _priceController = TextEditingController(text: m?.price.toString() ?? "");
+    // _stockController = TextEditingController(text: "50"); // Mock
+    _expiryDateController = TextEditingController(text: m?.expiryDate ?? "");
+    
+    // Summary Fields
+    _shortDescriptionController = TextEditingController(text: "Effective pain reliever."); // Mock def
+    _dosageSummaryController = TextEditingController(text: "1-2 tablets every 4-6 hours."); // Mock def
+    if (m == null) {
+       _shortDescriptionController.text = "";
+       _dosageSummaryController.text = "";
+    }
+
+    // Initialize status based on simulated stock
+    _stockStatus = "Available"; // In a real app, this would come from `widget.medicine.status`
 
     // Details: Initialize Quill Controllers
     _descriptionQuillController = quill.QuillController(
-      document: quill.Document()..insert(0, widget.medicine.description),
+      document: m != null 
+        ? (quill.Document()..insert(0, m.description))
+        : quill.Document(),
       selection: const TextSelection.collapsed(offset: 0),
     );
     
     _sideEffectsQuillController = quill.QuillController(
-      document: quill.Document()..insert(0, widget.medicine.sideEffects),
+      document: m != null
+        ? (quill.Document()..insert(0, m.sideEffects))
+        : quill.Document(),
       selection: const TextSelection.collapsed(offset: 0),
     );
 
     _dosageQuillController = quill.QuillController(
-      document: quill.Document()..insert(0, widget.medicine.dosage),
+      document: m != null
+        ? (quill.Document()..insert(0, m.dosage))
+        : quill.Document(),
       selection: const TextSelection.collapsed(offset: 0),
     );
     
-    // 1. Add Primary
-    _addToTaxonomy(widget.medicine.category, widget.medicine.subCategory);
-    
-    // 2. Add Additional Categories 
-    for (String cat in widget.medicine.additionalCategories) {
-      if (!_selectedTaxonomy.containsKey(cat)) {
-        _selectedTaxonomy[cat] = {};
+    if (m != null) {
+      // 1. Add Primary
+      _addToTaxonomy(m.category, m.subCategory);
+      
+      // 2. Add Additional Categories 
+      for (String cat in m.additionalCategories) {
+        if (!_selectedTaxonomy.containsKey(cat)) {
+          _selectedTaxonomy[cat] = {};
+        }
+      }
+
+      // 3. Add Additional SubCategories
+      for (String sub in m.additionalSubCategories) {
+         String? parentCat;
+         _categoryHierarchy.forEach((key, value) {
+           if (value.contains(sub)) parentCat = key;
+         });
+         if (parentCat != null) {
+            if (!_selectedTaxonomy.containsKey(parentCat)) {
+              _selectedTaxonomy[parentCat!] = {};
+            }
+            _selectedTaxonomy[parentCat!]!.add(sub);
+         }
       }
     }
 
-    // 3. Add Additional SubCategories
-    for (String sub in widget.medicine.additionalSubCategories) {
-       String? parentCat;
-       _categoryHierarchy.forEach((key, value) {
-         if (value.contains(sub)) parentCat = key;
-       });
-       if (parentCat != null) {
-          if (!_selectedTaxonomy.containsKey(parentCat)) {
-            _selectedTaxonomy[parentCat!] = {};
-          }
-          _selectedTaxonomy[parentCat!]!.add(sub);
-       }
-    }
-
-    // Medical
-    // _dosageController = TextEditingController(text: widget.medicine.dosage);
-    // _sideEffectsController = TextEditingController(text: widget.medicine.sideEffects);
-    
-    // Structured Dosage
-    _doseMorningController = TextEditingController(text: widget.medicine.doseMorning ?? "");
-    _doseAfternoonController = TextEditingController(text: widget.medicine.doseAfternoon ?? "");
-    _doseEveningController = TextEditingController(text: widget.medicine.doseEvening ?? "");
-    _doseIntervalController = TextEditingController(text: widget.medicine.doseTimeInterval ?? "");
+    // Structued Dosage
+    _doseMorningController = TextEditingController(text: m?.doseMorning ?? "");
+    _doseAfternoonController = TextEditingController(text: m?.doseAfternoon ?? "");
+    _doseEveningController = TextEditingController(text: m?.doseEvening ?? "");
+    _doseIntervalController = TextEditingController(text: m?.doseTimeInterval ?? "");
 
     // Booleans
-    _requiresPrescription = widget.medicine.requiresPrescription;
-    _isPopular = widget.medicine.isPopular;
+    _requiresPrescription = m?.requiresPrescription ?? false;
   }
 
   void _addToTaxonomy(String cat, String? sub) {
@@ -131,14 +201,96 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
     }
   }
 
+  // --- Image Picker Logic ---
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: source);
+    
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImageFile = File(pickedFile.path);
+        _enteredImageUrl = null; // Clear URL if file is selected
+      });
+    }
+  }
+
+  void _showLinkDialog() {
+    final urlController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Enter Image URL"),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(hintText: "https://example.com/image.jpg"),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () {
+              if (urlController.text.isNotEmpty) {
+                setState(() {
+                  _enteredImageUrl = urlController.text;
+                  _selectedImageFile = null;
+                });
+              }
+              Navigator.pop(ctx);
+            }, 
+            child: const Text("Set URL")
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showImageSourceActionSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text("Take Photo"),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text("Choose from Gallery"),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text("Enter URL"),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showLinkDialog();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
     _manufacturerController.dispose();
     _priceController.dispose();
-    _stockController.dispose();
+    // _stockController.dispose();
     _expiryDateController.dispose();
     // _descriptionController.dispose();
+
+    _shortDescriptionController.dispose();
+    _dosageSummaryController.dispose();
+
     _descriptionQuillController.dispose();
     _sideEffectsQuillController.dispose();
     _dosageQuillController.dispose();
@@ -175,118 +327,268 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
         return;
       }
       
-      // Simulate save
+      // Simulate save - Handling Image
+      String imageMsg = "No image change";
+      if (_selectedImageFile != null) imageMsg = "New Image Uploaded";
+      if (_enteredImageUrl != null) imageMsg = "New Image URL Set";
+
+      final newMedicine = Medicine(
+        id: widget.medicine?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        name: _nameController.text.isNotEmpty ? _nameController.text : "New Product",
+        manufacturer: _manufacturerController.text,
+        price: double.tryParse(_priceController.text) ?? 0.0,
+        imageUrl: _selectedImageFile?.path ?? _enteredImageUrl ?? widget.medicine?.imageUrl ?? 'https://via.placeholder.com/150',
+        description: description.isNotEmpty ? description : "No description",
+        rating: widget.medicine?.rating ?? 0.0,
+        expiryDate: _expiryDateController.text,
+        category: primaryCat,
+        subCategory: primarySub,
+        additionalCategories: _selectedTaxonomy.keys.where((k) => k != primaryCat).toList(),
+        additionalSubCategories: _selectedTaxonomy.values.expand((set) => set).toList(), // Simplified
+        requiresPrescription: _requiresPrescription,
+        sideEffects: sideEffects,
+        dosage: dosage,
+        doseMorning: _doseMorningController.text,
+        doseAfternoon: _doseAfternoonController.text,
+        doseEvening: _doseEveningController.text,
+        doseTimeInterval: _doseIntervalController.text,
+      );
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Saved!\nCategories: \nPrimary:  / '),
+         SnackBar(
+          content: Text('Product Saved!\n$imageMsg'),
           duration: const Duration(seconds: 2),
         ),
       );
-      Navigator.pop(context);
+      Navigator.pop(context, newMedicine);
     }
   }
 
+  ImageProvider? _getDisplayImage() {
+    if (_selectedImageFile != null) return FileImage(_selectedImageFile!);
+    if (_enteredImageUrl != null) return NetworkImage(_enteredImageUrl!); // User entered URL
+    if (widget.medicine != null && widget.medicine!.imageUrl.isNotEmpty) {
+      return NetworkImage(widget.medicine!.imageUrl);
+    }
+    return null; // No image
+  }
+
+  // --- Theme Colors ---
+  final Color _primaryGreen = const Color(0xFF1B5E20); // Dark Green
+  final Color _lightGreen = const Color(0xFFE8F5E9);   // Light Green Background
+  final Color _textDark = const Color(0xFF1F2937);     // Dark Grey for Text
+
+  // --- Build ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F2EF), 
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Edit Product', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 16)),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.black54), 
-          onPressed: () => Navigator.pop(context)
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.medicine == null ? "Add New Product" : "Edit Product",
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
         ),
         actions: [
-          TextButton(
+           TextButton(
             onPressed: _saveChanges,
+            style: TextButton.styleFrom(
+              foregroundColor: _primaryGreen,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
             child: const Text("Save", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           )
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
-          child: Container(color: Colors.grey.shade300, height: 1.0),
+          child: Container(color: Colors.grey.shade100, height: 1.0),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 24),
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- Image Section (Card) ---
-              _buildCard(
-                child: Column(
-                  children: [
-                    Center(
-                      child: Stack(
-                        children: [
-                          Container(
-                            height: 120, width: 120,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.grey.shade200, width: 4),
-                              image: DecorationImage(
-                                image: NetworkImage(widget.medicine.imageUrl),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+              // --- Header: Image & Quick Info ---
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Image
+                  GestureDetector(
+                    onTap: _showImageSourceActionSheet,
+                    child: Stack(
+                      children: [
+                        Container(
+                          height: 100, width: 100,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            color: Colors.grey.shade100,
+                            image: _getDisplayImage() != null ? DecorationImage(
+                              image: _getDisplayImage()!,
+                              fit: BoxFit.cover,
+                            ) : null,
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+                            ]
                           ),
-                          Positioned(
-                            bottom: 0, right: 0,
-                            child: CircleAvatar(
-                              backgroundColor: Colors.white,
-                              radius: 18,
-                              child: IconButton(
-                                icon: const Icon(Icons.camera_alt, size: 18, color: Color(0xFF0A66C2)),
-                                onPressed: () {},
-                                padding: EdgeInsets.zero,
-                              ),
-                            ),
+                          child: _getDisplayImage() == null 
+                              ? Center(child: Icon(Icons.add_a_photo, color: Colors.grey.shade400, size: 30))
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: -4, right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: _primaryGreen, border: Border.all(color: Colors.white, width: 2)),
+                            child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    Text("Product Image", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 20),
+                  // Name & Manufacturer
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildCleanInput(controller: _nameController, label: 'Product Name', fontSize: 18, fontWeight: FontWeight.bold),
+                        const SizedBox(height: 8),
+                        _buildCleanInput(controller: _manufacturerController, label: 'Manufacturer', fontSize: 14, color: Colors.grey.shade600),
+                        const SizedBox(height: 12),
+                        // Status Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _stockStatus == "Available" ? _lightGreen : Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            _stockStatus,
+                            style: TextStyle(
+                              color: _stockStatus == "Available" ? _primaryGreen : Colors.orange.shade800,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+                  )
+                ],
+              ),
+
+              const SizedBox(height: 32),
+
+              // --- Market Intelligence Section ---
+              const Text("Market Intelligence", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87)),
+              const SizedBox(height: 12),
+              
+              // New Dashboard Grid
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                childAspectRatio: 1.3, // Significantly increased height (lower ratio) to fix 44px overflow
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                children: [
+                  _buildInfoCard("Market Avg Price", "1,850 RWF", Icons.monetization_on_outlined, Colors.blue),
+                  _buildInfoCard("Expiry Range", "6-18 Months", Icons.calendar_today_outlined, Colors.purple),
+                  _buildInfoCard("Availability", "High (85%)", Icons.inventory_2_outlined, Colors.green),
+                  _buildInfoCard("Competitors", "5 Local", Icons.store_mall_directory_outlined, Colors.orange),
+                ],
               ),
               
               const SizedBox(height: 16),
-
-              // --- Basic Info Section ---
-              _buildCard(
-                title: "Basic Information",
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              
+              // Price & Expiry Range (Read Only) 
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
                   children: [
-                    _buildLinkedInInput(controller: _nameController, label: 'Product Name', hint: 'Ex: Panadol Extra'),
-                    const SizedBox(height: 20),
-                    _buildLinkedInInput(controller: _manufacturerController, label: 'Manufacturer', hint: 'Ex: GSK'),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(child: _buildLinkedInInput(controller: _priceController, label: 'Price (RWF)', hint: '0.00', keyboardType: TextInputType.number)),
-                        const SizedBox(width: 20),
-                        Expanded(child: _buildLinkedInInput(controller: _stockController, label: 'Stock Quantity', hint: '0', keyboardType: TextInputType.number)),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _buildLinkedInInput(controller: _expiryDateController, label: 'Expiry Date', hint: 'MM/YY', icon: Icons.calendar_today),
+                    Expanded(child: _buildReadOnlyColumn("Standard Price Range", "1,500 - 2,200 RWF")),
+                    Container(width: 1, height: 40, color: Colors.grey.shade300),
+                    Expanded(child: _buildReadOnlyColumn("Market Expiry", "Jun '24 - Dec '25")),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 32),
+
+              // --- Pharmacy Listings (Collapsible) ---
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    title: Row(
+                      children: [
+                        Icon(Icons.map_outlined, color: _primaryGreen),
+                        const SizedBox(width: 12),
+                        const Text("Nearby Pharmacy Stock", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                      ],
+                    ),
+                    children: [
+                       ListView.separated(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.all(0),
+                        separatorBuilder: (ctx, i) => Divider(height: 1, color: Colors.grey.shade100),
+                        itemCount: _pharmacyStockList.length,
+                        itemBuilder: (context, index) {
+                          final pharmacy = _pharmacyStockList[index];
+                          return ListTile(
+                            title: Text(pharmacy['name'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                            subtitle: Text(pharmacy['location'], style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text("${pharmacy['price']} RWF", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                Text(pharmacy['status'], style: TextStyle(fontSize: 10, color: pharmacy['status'] == 'Available' ? Colors.green : Colors.red)),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 32),
 
               // --- Categorization ---
-              _buildCard(
-                title: "Taxonomy & Settings",
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const Text("Taxonomy & Settings", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87, fontSize: 16)),
+                    const SizedBox(height: 16),
+                    
                     const Text("Category", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87, fontSize: 14)),
                     const SizedBox(height: 8),
                     
@@ -302,7 +604,7 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
                           children: _selectedTaxonomy.keys.map((cat) {
                             return Chip(
                               label: Text(cat, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
-                              backgroundColor: const Color(0xFF0A66C2),
+                              backgroundColor: _primaryGreen,
                               deleteIcon: const Icon(Icons.close, size: 14, color: Colors.white),
                               onDeleted: () {
                                 setState(() {
@@ -319,13 +621,13 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
                     // DROPDOWN for Adding Category
                     DropdownButtonFormField<String>(
                       key: UniqueKey(), // Force rebuild to reset internal state
-                      value: null, // Ensure value is always null so it acts as an action button
+                      value: null, 
                       decoration: InputDecoration(
                         hintText: "Add a category...",
                         prefixIcon: const Icon(Icons.search, color: Colors.grey),
                         contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: Colors.grey.shade400)),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Color(0xFF0A66C2), width: 2)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: _primaryGreen, width: 2)),
                       ),
                       items: _categoryHierarchy.keys
                           .where((cat) => !_selectedTaxonomy.containsKey(cat)) // Filter out already selected
@@ -338,7 +640,7 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
                           });
                         }
                       },
-                      icon: const Icon(Icons.add_circle_outline, color: Color(0xFF0A66C2)),
+                      icon: Icon(Icons.add_circle_outline, color: _primaryGreen),
                     ),
 
                     if (_selectedTaxonomy.isNotEmpty) ...[
@@ -380,7 +682,7 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
                                       return ChoiceChip(
                                         label: Text(sub, style: TextStyle(fontSize: 12, color: isSubSelected ? Colors.white : Colors.black87)),
                                         selected: isSubSelected,
-                                        selectedColor: const Color(0xFF0A66C2),
+                                        selectedColor: _primaryGreen,
                                         backgroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
                                           side: BorderSide(color: isSubSelected ? Colors.transparent : Colors.grey.shade400),
@@ -413,131 +715,106 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
                       title: const Text("Prescription Required", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       value: _requiresPrescription,
                       onChanged: (val) => setState(() => _requiresPrescription = val),
-                      activeColor: const Color(0xFF0A66C2),
-                    ),
-                    const Divider(height: 1),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text("Show in Popular", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                      value: _isPopular,
-                      onChanged: (val) => setState(() => _isPopular = val),
-                      activeColor: const Color(0xFF0A66C2),
+                      activeColor: _primaryGreen,
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 16),
 
-              // --- Documentation Editor ---
-              _buildCard(
-                title: "Medicine Documentation",
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 32),
+
+              // --- Documentation & Details ---
+              const Text("Documentation", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black87)),
+              const SizedBox(height: 12),
+              
+              _buildModernInput(_shortDescriptionController, "Short Description", icon: Icons.description_outlined),
+              const SizedBox(height: 12),
+              _buildModernInput(_dosageSummaryController, "Dosage Summary", icon: Icons.medication_liquid_outlined),
+              const SizedBox(height: 24),
+              
+              // Modern Tabs
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.all(4),
+                child: Row(
                   children: [
-                    // Custom Tab Bar
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        children: [
-                          _buildEditorTab("About", 0),
-                          Container(width: 1, height: 24, color: Colors.grey.shade300),
-                          _buildEditorTab("Side Effects", 1),
-                          Container(width: 1, height: 24, color: Colors.grey.shade300),
-                          _buildEditorTab("Dosage", 2),
-                        ],
-                      ),
-                    ),
-                    
-                    // Editor Area
-                    Container(
-                      height: 400, // Taller editor area
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border(
-                          left: BorderSide(color: Colors.grey.shade300),
-                          right: BorderSide(color: Colors.grey.shade300),
-                          bottom: BorderSide(color: Colors.grey.shade300),
+                    _buildModernTab("Overview", 0),
+                    _buildModernTab("Dosage", 1),
+                    _buildModernTab("Safety", 2),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Tab Content Area
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Column(
+                  key: ValueKey(_selectedDetailsTab), // Animate when tab changes
+                  children: [
+                    // Structured Dosage (Only on Dosage Tab)
+                    if (_selectedDetailsTab == 1)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(color: _lightGreen, borderRadius: BorderRadius.circular(12)),
+                        child: Row(
+                           children: [
+                             Expanded(child: _buildTimeInput("Morning", _doseMorningController)),
+                             const SizedBox(width: 12),
+                             Expanded(child: _buildTimeInput("Afternoon", _doseAfternoonController)),
+                             const SizedBox(width: 12),
+                             Expanded(child: _buildTimeInput("Evening", _doseEveningController)),
+                           ],
                         ),
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4)),
+                      ),
+                      
+                    // Quill Editor
+                    Container(
+                      height: 350,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
                         children: [
-                          // Dynamic Toolbar
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-                              color: Colors.grey.shade50,
-                            ),
-                            child: quill.QuillSimpleToolbar(
-                              controller: _selectedDetailsTab == 0
-                                  ? _descriptionQuillController
-                                  : _selectedDetailsTab == 1
-                                      ? _sideEffectsQuillController
-                                      : _dosageQuillController,
-                              config: const quill.QuillSimpleToolbarConfig(
-                                showFontFamily: false,
-                                showFontSize: false,
-                                showSearchButton: false, 
-                                showInlineCode: false,
-                                showSubscript: false,
-                                showSuperscript: false,
-                                showHeaderStyle: true,
-                                showListNumbers: true,
-                                showListBullets: true,
-                                showBoldButton: true,
-                                showItalicButton: true,
-                                showUnderLineButton: true,
-                                showStrikeThrough: true,
-                                showLink: true,
-                                showUndo: true,
-                                showRedo: true,
-                                showClearFormat: true,
-                                multiRowsDisplay: false, 
+                           Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                border: Border(bottom: BorderSide(color: Colors.grey.shade200))
                               ),
-                            ),
-                          ),
-                          
-                          // Editor Content
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              child: quill.QuillEditor.basic(
-                                controller: _selectedDetailsTab == 0
-                                    ? _descriptionQuillController
-                                    : _selectedDetailsTab == 1
-                                        ? _sideEffectsQuillController
-                                        : _dosageQuillController,
-                                config: const quill.QuillEditorConfig(
-                                  placeholder: "Start typing...",
+                              child: quill.QuillSimpleToolbar(
+                                controller: _selectedDetailsTab == 0 ? _descriptionQuillController : _selectedDetailsTab == 1 ? _dosageQuillController : _sideEffectsQuillController,
+                                config: const quill.QuillSimpleToolbarConfig(
+                                  showFontFamily: false, showFontSize: false, showSearchButton: false, showInlineCode: false,
+                                  showSubscript: false, showSuperscript: false,
+                                  multiRowsDisplay: false, 
                                 ),
                               ),
-                            ),
-                          ),
+                           ),
+                           Expanded(
+                             child: Padding(
+                               padding: const EdgeInsets.all(12),
+                               child: quill.QuillEditor.basic(
+                                  controller: _selectedDetailsTab == 0 ? _descriptionQuillController : _selectedDetailsTab == 1 ? _dosageQuillController : _sideEffectsQuillController,
+                                  config: const quill.QuillEditorConfig(placeholder: "Enter details here..."),
+                               ),
+                             ),
+                           )
                         ],
                       ),
-                    ),
-                    
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          _selectedDetailsTab == 0 ? "General Info" : _selectedDetailsTab == 1 ? "Safety Info" : "Usage Info",
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
-                        ),
-                      ],
-                    ),
+                    )
                   ],
                 ),
               ),
-
-              const SizedBox(height: 32),
+              
+              const SizedBox(height: 50), // Bottom Safe Area
             ],
           ),
         ),
@@ -545,90 +822,118 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
     );
   }
 
-  Widget _buildCard({String? title, required Widget child}) {
-    return Container(
-      width: double.infinity,
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      margin: const EdgeInsets.only(bottom: 8), 
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title != null) ...[
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
-            const SizedBox(height: 24),
-          ],
-          child,
-        ],
+  // --- UI Builders ---
+
+  Widget _buildCleanInput({required TextEditingController controller, required String label, double fontSize = 14, FontWeight fontWeight = FontWeight.normal, Color? color}) {
+    return TextFormField(
+      controller: controller,
+      style: TextStyle(fontSize: fontSize, fontWeight: fontWeight, color: Colors.black87),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.zero,
+        isDense: true,
       ),
     );
   }
 
-  Widget _buildLinkedInInput({
-    required TextEditingController controller,
-    required String label,
-    String? hint,
-    IconData? icon,
-    TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
-  }) {
+  Widget _buildModernInput(TextEditingController controller, String label, {IconData? icon}) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: Colors.grey.shade600),
+        prefixIcon: icon != null ? Icon(icon, color: Colors.grey.shade400, size: 20) : null,
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _primaryGreen, width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      ),
+    );
+  }
+
+  Widget _buildTimeInput(String label, TextEditingController controller) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w400, fontSize: 14)),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          maxLines: maxLines,
-          style: const TextStyle(fontSize: 14, color: Colors.black87),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade500),
-            contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-            isDense: true,
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: Colors.grey.shade600, width: 1), 
+        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _primaryGreen)),
+        const SizedBox(height: 4),
+        Container(
+          height: 40,
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+          child: TextField(
+            controller: controller,
+            style: const TextStyle(fontSize: 13),
+            textAlign: TextAlign.center,
+            decoration: const InputDecoration(
+              hintText: "--",
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.only(bottom: 10), // Center text vertically
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.black87, width: 2), 
-            ),
-            suffixIcon: icon != null ? Icon(icon, size: 20, color: Colors.grey.shade600) : null,
           ),
-        ),
+        )
       ],
     );
   }
 
-  Widget _buildEditorTab(String label, int index) {
+  Widget _buildInfoCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.grey.shade100, blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(height: 8),
+          Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87), overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildReadOnlyColumn(String label, String value) {
+     return Padding(
+       padding: const EdgeInsets.symmetric(horizontal: 12),
+       child: Column(
+         crossAxisAlignment: CrossAxisAlignment.start,
+         children: [
+           Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            const SizedBox(height: 4),
+           Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+         ],
+       ),
+     );
+  }
+
+  Widget _buildModernTab(String label, int index) {
     bool isSelected = _selectedDetailsTab == index;
     return Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _selectedDetailsTab = index;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedDetailsTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.grey.shade100,
-            border: Border(
-              bottom: BorderSide(
-                color: isSelected ? Colors.white : Colors.grey.shade300,
-                width: isSelected ? 2 : 1, // Hide bottom border if selected to merge with content
-              ),
-              top: isSelected ? const BorderSide(color: Color(0xFF0A66C2), width: 3) : BorderSide.none,
-            ),
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)] : [],
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? const Color(0xFF0A66C2) : Colors.black54,
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected ? _textDark : Colors.grey.shade600,
             ),
           ),
         ),
