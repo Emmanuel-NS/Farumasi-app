@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/state_service.dart';
 import 'pharmacist/pharmacist_dashboard_screen.dart';
+import 'home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -45,8 +46,9 @@ class _AuthScreenState extends State<AuthScreen> {
       if (_selectedRole == 'Pharmacist') {
          // Simple validation for demo
          if (_emailController.text == 'pharmacist@farumasi.rw' && _passwordController.text == 'admin123') {
-            Navigator.of(context).pushReplacement(
+            Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (context) => const PharmacistDashboardScreen()),
+              (route) => false,
             );
             return;
          } else {
@@ -60,7 +62,14 @@ class _AuthScreenState extends State<AuthScreen> {
         _emailController.text,
         name: _isLogin ? null : _nameController.text,
       );
-      Navigator.pop(context); // Go back to existing screen (Home) or replace if it was the initial route
+      
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
       // If AuthScreen was pushed on top of Home, pop is fine. 
       // If Home checks auth state, it will update.
     }
