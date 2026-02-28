@@ -293,6 +293,9 @@ class PharmacistService extends ChangeNotifier {
   double get totalRevenue => completedOrders
       .fold(0, (sum, order) => sum + order.totalPrice);
 
+  double get todayRevenue => totalRevenue * 0.4; // Mock calculation for today
+  double get weeklyRevenue => totalRevenue * 2.5; // Mock calculation for week
+
   void updateBookingStatus(String id, String newStatus) {
     final index = bookings.indexWhere((b) => b.id == id);
     if (index != -1) {

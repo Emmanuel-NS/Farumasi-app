@@ -12,6 +12,7 @@ import 'pharmacist_chat_screen.dart';
 import 'revenue_details_screen.dart';
 import 'daily_sales_screen.dart';
 import 'pharmacist_notifications_screen.dart';
+import 'pharmacist_delivery_management_screen.dart';
 import '../auth_screen.dart';
 import 'settings/profile_management_screen.dart';
 import 'settings/system_audit_logs_screen.dart';
@@ -406,12 +407,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   setState(() => _selectedIndex = 1); // Go to Requests tab
                 },
               ),
-              _buildStatCard(
-                title: "Revenue (Today)",
-                value: "RWF ${_service.totalRevenue.toStringAsFixed(0)}",
-                subtext: "+12% vs yest.",
-                icon: Icons.payments_outlined,
-                color: _primaryGreen,
+              _buildCombinedRevenueCard(
+                todayRevenue: _service.todayRevenue,
+                weeklyRevenue: _service.weeklyRevenue,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -654,12 +652,12 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
           maxY: 20,
           barTouchData: BarTouchData(
             touchCallback: (FlTouchEvent event, barTouchResponse) {
-              if (!event.isInterestedForInteractions ||
-                  barTouchResponse == null ||
-                  barTouchResponse.spot == null) {
+              if (barTouchResponse == null || barTouchResponse.spot == null) {
                 return;
               }
-              if (event is FlTapUpEvent) {
+              if (event is FlTapUpEvent ||
+                  event is FlPanDownEvent ||
+                  event is FlLongPressEnd) {
                 final int dayIndex =
                     barTouchResponse.spot!.touchedBarGroupIndex;
                 Navigator.push(
@@ -866,6 +864,100 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                     fontSize: 10,
                     color: color,
                     fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCombinedRevenueCard({
+    required double todayRevenue,
+    required double weeklyRevenue,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade100,
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _primaryGreen.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.payments_outlined,
+                    size: 20,
+                    color: _primaryGreen,
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Colors.grey.shade400,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "RWF ${todayRevenue.toStringAsFixed(0)}",
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Today",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "RWF ${weeklyRevenue.toStringAsFixed(0)}",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "This Week",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -2756,6 +2848,19 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
               context,
               MaterialPageRoute(
                 builder: (_) => const ProfileManagementScreen(),
+              ),
+            );
+          },
+        ),
+        _buildMoreMenuItem(
+          Icons.two_wheeler,
+          "Fleet & Deliveries",
+          "Manage drivers, assign orders, and live track routes",
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const PharmacistDeliveryManagementScreen(),
               ),
             );
           },
