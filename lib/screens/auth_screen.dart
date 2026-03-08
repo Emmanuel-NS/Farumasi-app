@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/state_service.dart';
 import 'pharmacist/pharmacist_dashboard_screen.dart';
+import 'rider/rider_dashboard_screen.dart';
 import 'home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -12,7 +13,7 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   bool _isLogin = true;
-  String _selectedRole = 'User'; // 'User' or 'Pharmacist'
+  String _selectedRole = 'User'; // 'User', 'Pharmacist', or 'Rider'
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -33,6 +34,9 @@ class _AuthScreenState extends State<AuthScreen> {
       if (role == 'Pharmacist') {
         _emailController.text = 'pharmacist@farumasi.rw';
         _passwordController.text = 'admin123';
+      } else if (role == 'Rider') {
+        _emailController.text = 'rider@farumasi.rw';
+        _passwordController.text = 'rider123';
       } else {
         _emailController.text = 'user@farumasi.rw';
         _passwordController.text = 'password123';
@@ -53,6 +57,20 @@ class _AuthScreenState extends State<AuthScreen> {
             return;
          } else {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Pharmacist Credentials')));
+            return;
+         }
+      }
+
+      // Check for Rider Credentials based on Role
+      if (_selectedRole == 'Rider') {
+         if (_emailController.text == 'rider@farumasi.rw' && _passwordController.text == 'rider123') {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const RiderDashboardScreen()),
+              (route) => false,
+            );
+            return;
+         } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Rider Credentials')));
             return;
          }
       }
@@ -152,6 +170,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
+                                          fontSize: 13,
                                           color: _selectedRole == 'User' ? Colors.white : Colors.grey.shade600,
                                         ),
                                       ),
@@ -176,7 +195,33 @@ class _AuthScreenState extends State<AuthScreen> {
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
+                                          fontSize: 13,
                                           color: _selectedRole == 'Pharmacist' ? Colors.white : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => _switchRole('Rider'),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: _selectedRole == 'Rider' ? Colors.green : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: _selectedRole == 'Rider' 
+                                          ? [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
+                                          : [],
+                                      ),
+                                      child: Text(
+                                        "Rider",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: _selectedRole == 'Rider' ? Colors.white : Colors.grey.shade600,
                                         ),
                                       ),
                                     ),

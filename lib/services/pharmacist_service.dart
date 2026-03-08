@@ -389,21 +389,18 @@ class PharmacistService extends ChangeNotifier {
     order.status = OrderStatus.driverAssigned;
     notifyListeners();
 
-    // SIMULATION: Driver flow
-    _simulateDriverMovement(order);
+    // Removed automatic simulation so the Rider Dashboard can manually drive it!
+    // _simulateDriverMovement(order);
   }
 
-  void _simulateDriverMovement(PrescriptionOrder order) {
-    // 1. Going to Pharmacy
-    Future.delayed(Duration(seconds: 5), () {
-      order.status = OrderStatus.outForDelivery; // Picked up
-      notifyListeners();
-      
-      // 2. Going to Patient
-      Future.delayed(Duration(seconds: 8), () {
-        order.status = OrderStatus.delivered;
-        notifyListeners();
-      });
-    });
+  // Method for Rider Dashboard to manually advance state
+  void updateDriverOrderStatus(PrescriptionOrder order, OrderStatus newStatus) {
+    order.status = newStatus;
+    if (newStatus == OrderStatus.delivered) {
+      order.completedAt = DateTime.now();
+    }
+    notifyListeners();
   }
+
+
 }
