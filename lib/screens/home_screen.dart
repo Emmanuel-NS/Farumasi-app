@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
 import 'package:farumasi_app/screens/health_tips_screen.dart';
-import 'package:farumasi_app/screens/medicine_store_screen.dart' as store_screen;
+import 'package:farumasi_app/screens/medicine_store_screen.dart'
+    as store_screen;
 import 'package:farumasi_app/screens/pharmacist_list_screen.dart'; // Import Pharmacist List
 import 'package:farumasi_app/screens/orders_screen.dart';
 import 'package:farumasi_app/screens/auth_screen.dart';
@@ -69,42 +71,48 @@ class _HomeScreenState extends State<HomeScreen>
     // Attempt to fetch real GPS location
     try {
       if (mounted) {
-         // Show a subtle snackbar or indicator if needed, 
-         // but for auto-pick we usually do it silently unless it fails.
+        // Show a subtle snackbar or indicator if needed,
+        // but for auto-pick we usually do it silently unless it fails.
       }
       await StateService().fetchRealLocation();
-      debugPrint("Location fetched successfully: ${StateService().userCoordinates}");
+      debugPrint(
+        "Location fetched successfully: ${StateService().userCoordinates}",
+      );
     } catch (e) {
       debugPrint("Location error: $e");
       // Fallback/Demo default if permission denied or error
       if (mounted) {
-         // Handle specific error cases with better UI feedback
-         String errorMessage = "GPS access failed. Using default location.";
-         
-         if (e.toString().contains('Location services are disabled')) {
-            errorMessage = "Please enable GPS/Location services on your device.";
-         } else if (e.toString().contains('denied')) {
-            errorMessage = "Location permission is required to detect your address.";
-         }
+        // Handle specific error cases with better UI feedback
+        String errorMessage = "GPS access failed. Using default location.";
 
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-             content: Text(errorMessage),
-             duration: const Duration(seconds: 5),
-             action: SnackBarAction(
-               label: 'Settings', 
-               onPressed: () async {
-                 // Open relevant settings
-                 if (e.toString().contains('Location services are disabled')) {
-                   await StateService().openLocationSettings();
-                 } else {
-                   await StateService().openAppSettings();
-                 }
-               }
-             ),
-           ),
-         );
-         StateService().setLocation("Kigali, Rwanda (Default)", "-1.9706, 30.1044");
+        if (e.toString().contains('Location services are disabled')) {
+          errorMessage = "Please enable GPS/Location services on your device.";
+        } else if (e.toString().contains('denied')) {
+          errorMessage =
+              "Location permission is required to detect your address.";
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: () async {
+                // Open relevant settings
+                if (e.toString().contains('Location services are disabled')) {
+                  await StateService().openLocationSettings();
+                } else {
+                  await StateService().openAppSettings();
+                }
+              },
+            ),
+          ),
+        );
+        StateService().setLocation(
+          "Kigali, Rwanda (Default)",
+          "-1.9706, 30.1044",
+        );
       }
     }
   }
@@ -119,199 +127,239 @@ class _HomeScreenState extends State<HomeScreen>
       canPop: _currentIndex == 0,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        
+
         setState(() {
           _currentIndex = 0;
         });
       },
       child: Scaffold(
-      drawer: null,
-      // Wrap body in NotificationListener to detect scrolling
-      body: NotificationListener<UserScrollNotification>(
-        onNotification: (notification) {
-          if (notification.direction == ScrollDirection.reverse) {
-            // User is scrolling down (content moving up) -> Hide BAR
-            if (_isBottomBarVisible) {
-              _hideBottomBarController.reverse();
-              _isBottomBarVisible = false;
+        drawer: null,
+        // Wrap body in NotificationListener to detect scrolling
+        body: NotificationListener<UserScrollNotification>(
+          onNotification: (notification) {
+            if (notification.direction == ScrollDirection.reverse) {
+              // User is scrolling down (content moving up) -> Hide BAR
+              if (_isBottomBarVisible) {
+                _hideBottomBarController.reverse();
+                _isBottomBarVisible = false;
+              }
+            } else if (notification.direction == ScrollDirection.forward) {
+              // User is scrolling up (content moving down) -> Show BAR
+              if (!_isBottomBarVisible) {
+                _hideBottomBarController.forward();
+                _isBottomBarVisible = true;
+              }
             }
-          } else if (notification.direction == ScrollDirection.forward) {
-            // User is scrolling up (content moving down) -> Show BAR
-            if (!_isBottomBarVisible) {
-              _hideBottomBarController.forward();
-              _isBottomBarVisible = true;
-            }
-          }
-          return true; // Allow bubble up? Actually we can return true to maybe stop bubbling or false. Usually false.
-          // But here, returning true might stop refresher. Let's return false to be safe.
-        },
-        child: isWideScreen
-            ? Column(
-                children: [
-                  if (showDesktopShellHeader) _buildDesktopShellHeader(context),
-                  Expanded(
-                    child: Container(
-                      color: _shellGreen,
-                      child: Row(
-                        children: [
-                          _buildPersistentSidebar(
-                            context,
-                            showInlineToggle: !showDesktopShellHeader,
-                          ),
-                          MouseRegion(
-                            cursor: SystemMouseCursors.resizeLeftRight,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onPanUpdate: (details) {
-                                setState(() {
-                                  _sidebarWidth += details.delta.dx;
-                                  if (_sidebarWidth < 140) {
-                                    _isSidebarCollapsed = true;
-                                    _sidebarWidth = 200; // default for when re-opened
-                                  } else {
-                                    _isSidebarCollapsed = false;
-                                    if (_sidebarWidth > 400) _sidebarWidth = 400; // max width
-                                  }
-                                });
-                              },
-                              child: Container(
-                                width: 14,
-                                color: Colors.transparent,
-                                child: Center(
-                                  child: Container(
-                                    width: 4,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.8),
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                    child: const Column(
-                                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                      children: [
-                                        Icon(Icons.circle, size: 2, color: Colors.white),
-                                        Icon(Icons.circle, size: 2, color: Colors.white),
-                                        Icon(Icons.circle, size: 2, color: Colors.white),
-                                      ],
+            return true; // Allow bubble up? Actually we can return true to maybe stop bubbling or false. Usually false.
+            // But here, returning true might stop refresher. Let's return false to be safe.
+          },
+          child: isWideScreen
+              ? Column(
+                  children: [
+                    if (showDesktopShellHeader)
+                      _buildDesktopShellHeader(context),
+                    Expanded(
+                      child: Container(
+                        color: _shellGreen,
+                        child: Row(
+                          children: [
+                            _buildPersistentSidebar(
+                              context,
+                              showInlineToggle: !showDesktopShellHeader,
+                            ),
+                            MouseRegion(
+                              cursor: SystemMouseCursors.resizeLeftRight,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onPanUpdate: (details) {
+                                  setState(() {
+                                    _sidebarWidth += details.delta.dx;
+                                    if (_sidebarWidth < 140) {
+                                      _isSidebarCollapsed = true;
+                                      _sidebarWidth =
+                                          200; // default for when re-opened
+                                    } else {
+                                      _isSidebarCollapsed = false;
+                                      if (_sidebarWidth > 400)
+                                        _sidebarWidth = 400; // max width
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  width: 14,
+                                  color: Colors.transparent,
+                                  child: Center(
+                                    child: Container(
+                                      width: 4,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.8),
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                      child: const Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          Icon(
+                                            Icons.circle,
+                                            size: 2,
+                                            color: Colors.white,
+                                          ),
+                                          Icon(
+                                            Icons.circle,
+                                            size: 2,
+                                            color: Colors.white,
+                                          ),
+                                          Icon(
+                                            Icons.circle,
+                                            size: 2,
+                                            color: Colors.white,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.only(topLeft: Radius.circular(32)),
-                              child: Container(
-                                color: const Color(0xFFF6F8FB),
-                                child: pages[_currentIndex],
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(32),
+                                ),
+                                child: Container(
+                                  color: const Color(0xFFF6F8FB),
+                                  child: pages[_currentIndex],
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : pages[_currentIndex],
-      ),
-      floatingActionButton: isWideScreen ? null : ListenableBuilder(
-        listenable: StateService(),
-        builder: (context, _) {
-          final isLoggedIn = StateService().isLoggedIn;
-          return ScaleTransition(
-            scale: _hideBottomBarController,
-            child: SizedBox(
-              height: 70,
-              width: 70,
-              child: FloatingActionButton(
-                backgroundColor: isLoggedIn ? Colors.white : Colors.grey[300],
-                elevation: 4,
-                shape: CircleBorder(), // Ensure it's circular
-                onPressed: () {
-                  if (!isLoggedIn) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text("Please log in to upload a prescription."),
-                        action: SnackBarAction(
-                          label: "Login",
-                          onPressed: () {
-                            // Navigate to login/auth screen
-                            // Usually we might have a dedicated route or method
-                            // For now basic prompt reference
-                             Navigator.pushNamed(context, '/auth'); // Or direct builder if named routes not set up, but let's stick to what we know works elsewhere or just prompt.
-                             // Actually, let's look at how we handled login navigation before.
-                             // Often just a message is enough for "muted". Or navigate to AuthScreen.
-                             Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
-                          },
+                          ],
                         ),
                       ),
-                    );
-                    return;
-                  }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => PrescriptionUploadScreen(),
+                    ),
+                  ],
+                )
+              : pages[_currentIndex],
+        ),
+        floatingActionButton: isWideScreen
+            ? null
+            : ListenableBuilder(
+                listenable: StateService(),
+                builder: (context, _) {
+                  final isLoggedIn = StateService().isLoggedIn;
+                  return ScaleTransition(
+                    scale: _hideBottomBarController,
+                    child: SizedBox(
+                      height: 70,
+                      width: 70,
+                      child: FloatingActionButton(
+                        backgroundColor: isLoggedIn
+                            ? Colors.white
+                            : Colors.grey[300],
+                        elevation: 4,
+                        shape: CircleBorder(), // Ensure it's circular
+                        onPressed: () {
+                          if (!isLoggedIn) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "Please log in to upload a prescription.",
+                                ),
+                                action: SnackBarAction(
+                                  label: "Login",
+                                  onPressed: () {
+                                    // Navigate to login/auth screen
+                                    // Usually we might have a dedicated route or method
+                                    // For now basic prompt reference
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/auth',
+                                    ); // Or direct builder if named routes not set up, but let's stick to what we know works elsewhere or just prompt.
+                                    // Actually, let's look at how we handled login navigation before.
+                                    // Often just a message is enough for "muted". Or navigate to AuthScreen.
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const AuthScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PrescriptionUploadScreen(),
+                            ),
+                          );
+                        },
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.document_scanner_outlined,
+                              color: isLoggedIn
+                                  ? const Color(0xFF1E9E68)
+                                  : Colors.grey,
+                              size: 28,
+                            ),
+                            Text(
+                              "Upload Rx",
+                              style: TextStyle(
+                                color: isLoggedIn
+                                    ? const Color(0xFF1E9E68)
+                                    : Colors.grey,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   );
                 },
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.document_scanner_outlined,
-                      color: isLoggedIn ? const Color(0xFF1E9E68) : Colors.grey,
-                      size: 28,
-                    ),
-                    Text(
-                      "Upload Rx",
-                      style: TextStyle(
-                        color: isLoggedIn ? const Color(0xFF1E9E68) : Colors.grey,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 8,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ),
-          );
-        },
-      ),
         floatingActionButtonLocation: isWideScreen
-          ? FloatingActionButtonLocation.endFloat
-          : FloatingActionButtonLocation.centerDocked,
+            ? FloatingActionButtonLocation.endFloat
+            : FloatingActionButtonLocation.centerDocked,
         bottomNavigationBar: isWideScreen
-          ? null
-          : SizeTransition(
-        sizeFactor: _hideBottomBarController,
-        axisAlignment: -1.0,
-        child: ListenableBuilder(
-          listenable: StateService(),
-          builder: (context, _) {
-            return BottomAppBar(
-              color: const Color(0xFF1E9E68),
-              shape: const CircularNotchedRectangle(),
-              notchMargin: 8.0,
-              child: SizedBox(
-                height: 60,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(Icons.store, 'Home', 0),
-                    _buildNavItem(Icons.health_and_safety, 'Health', 1),
-                    const SizedBox(width: 48), // Gap for FAB
-                    _buildNavItem(Icons.chat_bubble_outline, 'Consult', 2),
-                    _buildNavItem(Icons.history, 'Orders', 3),
-                  ],
+            ? null
+            : SizeTransition(
+                sizeFactor: _hideBottomBarController,
+                axisAlignment: -1.0,
+                child: ListenableBuilder(
+                  listenable: StateService(),
+                  builder: (context, _) {
+                    return BottomAppBar(
+                      color: const Color(0xFF1E9E68),
+                      shape: const CircularNotchedRectangle(),
+                      notchMargin: 8.0,
+                      child: SizedBox(
+                        height: 60,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildNavItem(Icons.store, 'Home', 0),
+                            _buildNavItem(Icons.health_and_safety, 'Health', 1),
+                            const SizedBox(width: 48), // Gap for FAB
+                            _buildNavItem(
+                              Icons.chat_bubble_outline,
+                              'Consult',
+                              2,
+                            ),
+                            _buildNavItem(Icons.history, 'Orders', 3),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            );
-          },
-        ),
       ),
-    ),
     );
   }
 
@@ -328,8 +376,9 @@ class _HomeScreenState extends State<HomeScreen>
     final isSelected = _currentIndex == index;
     // If restricted, show as semi-transparent/greyed out
     final color = isRestricted
-          ? Colors.white30 // Darker/muted on green background specific for disabled
-          : (isSelected ? Colors.white : Colors.white70);
+        ? Colors
+              .white30 // Darker/muted on green background specific for disabled
+        : (isSelected ? Colors.white : Colors.white70);
 
     Widget iconWidget = Icon(icon, color: color, size: 28);
 
@@ -349,19 +398,22 @@ class _HomeScreenState extends State<HomeScreen>
     return InkWell(
       onTap: () {
         if (index == _currentIndex) return;
-        
+
         if (isRestricted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                index == 2 
-                ? "Please log in to consult a pharmacist." 
-                : "Please log in to view your orders."
+                index == 2
+                    ? "Please log in to consult a pharmacist."
+                    : "Please log in to view your orders.",
               ),
               action: SnackBarAction(
                 label: "Login",
                 onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AuthScreen()),
+                  );
                 },
               ),
             ),
@@ -406,7 +458,12 @@ class _HomeScreenState extends State<HomeScreen>
   }) {
     final selected = _currentIndex == index;
     return Padding(
-      padding: EdgeInsets.fromLTRB(collapsed ? 8 : 10, 6, collapsed ? 8 : 10, 0),
+      padding: EdgeInsets.fromLTRB(
+        collapsed ? 8 : 10,
+        6,
+        collapsed ? 8 : 10,
+        0,
+      ),
       child: Tooltip(
         message: restricted ? '$label (Login required)' : label,
         child: Material(
@@ -419,7 +476,9 @@ class _HomeScreenState extends State<HomeScreen>
               }
               if (restricted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(restrictedMessage ?? 'Please log in first.')),
+                  SnackBar(
+                    content: Text(restrictedMessage ?? 'Please log in first.'),
+                  ),
                 );
                 return;
               }
@@ -431,23 +490,32 @@ class _HomeScreenState extends State<HomeScreen>
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 10, vertical: 9),
+              padding: EdgeInsets.symmetric(
+                horizontal: collapsed ? 0 : 10,
+                vertical: 9,
+              ),
               decoration: BoxDecoration(
                 color: selected ? const Color(0x3347D196) : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: selected ? const Color(0x6647D196) : const Color(0x00000000),
+                  color: selected
+                      ? const Color(0x6647D196)
+                      : const Color(0x00000000),
                 ),
               ),
               child: Row(
-                mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+                mainAxisAlignment: collapsed
+                    ? MainAxisAlignment.center
+                    : MainAxisAlignment.start,
                 children: [
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      color: selected ? const Color(0xFF47D196) : const Color(0x3347D196),
+                      color: selected
+                          ? const Color(0xFF47D196)
+                          : const Color(0x3347D196),
                       borderRadius: BorderRadius.circular(9),
                     ),
                     child: Icon(
@@ -462,17 +530,29 @@ class _HomeScreenState extends State<HomeScreen>
                       child: Text(
                         label,
                         style: TextStyle(
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           color: restricted
                               ? const Color(0xFF96B3A7)
-                              : (selected ? const Color(0xFFEFFBF5) : const Color(0xFFD2E8DE)),
+                              : (selected
+                                    ? const Color(0xFFEFFBF5)
+                                    : const Color(0xFFD2E8DE)),
                         ),
                       ),
                     ),
                     if (restricted)
-                      const Icon(Icons.lock_outline, size: 16, color: Color(0xFF96B3A7))
+                      const Icon(
+                        Icons.lock_outline,
+                        size: 16,
+                        color: Color(0xFF96B3A7),
+                      )
                     else if (selected)
-                      const Icon(Icons.chevron_right, size: 18, color: Color(0xFFBFECD8)),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: Color(0xFFBFECD8),
+                      ),
                   ],
                 ],
               ),
@@ -503,7 +583,12 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           if (showInlineToggle)
             Padding(
-              padding: EdgeInsets.fromLTRB(_isSidebarCollapsed ? 8 : 12, 8, _isSidebarCollapsed ? 8 : 12, 0),
+              padding: EdgeInsets.fromLTRB(
+                _isSidebarCollapsed ? 8 : 12,
+                8,
+                _isSidebarCollapsed ? 8 : 12,
+                0,
+              ),
               child: SizedBox(
                 height: 40,
                 child: Material(
@@ -512,10 +597,14 @@ class _HomeScreenState extends State<HomeScreen>
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: () {
-                      setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
+                      setState(
+                        () => _isSidebarCollapsed = !_isSidebarCollapsed,
+                      );
                     },
                     child: Row(
-                      mainAxisAlignment: _isSidebarCollapsed ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: _isSidebarCollapsed
+                          ? MainAxisAlignment.center
+                          : MainAxisAlignment.spaceBetween,
                       children: [
                         if (!_isSidebarCollapsed)
                           const Padding(
@@ -530,7 +619,9 @@ class _HomeScreenState extends State<HomeScreen>
                             ),
                           ),
                         Padding(
-                          padding: EdgeInsets.only(right: _isSidebarCollapsed ? 0 : 8),
+                          padding: EdgeInsets.only(
+                            right: _isSidebarCollapsed ? 0 : 8,
+                          ),
                           child: Icon(
                             _isSidebarCollapsed ? Icons.menu_open : Icons.menu,
                             color: const Color(0xFFEFFBF5),
@@ -581,7 +672,12 @@ class _HomeScreenState extends State<HomeScreen>
             collapsed: _isSidebarCollapsed,
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(_isSidebarCollapsed ? 10 : 18, 14, _isSidebarCollapsed ? 10 : 18, 4),
+            padding: EdgeInsets.fromLTRB(
+              _isSidebarCollapsed ? 10 : 18,
+              14,
+              _isSidebarCollapsed ? 10 : 18,
+              4,
+            ),
             child: const Divider(color: Color(0xFF2A6A53), height: 1),
           ),
           _buildDrawerItem(
@@ -592,12 +688,16 @@ class _HomeScreenState extends State<HomeScreen>
             restricted: !isLoggedIn,
             restrictedMessage: 'Please log in to upload a prescription.',
             closeDrawerOnTap: false,
-            collapsed: _isSidebarCollapsed,            onTapOverride: () {
+            collapsed: _isSidebarCollapsed,
+            onTapOverride: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const PrescriptionUploadScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const PrescriptionUploadScreen(),
+                ),
               );
-            },          ),
+            },
+          ),
           const Spacer(),
           _buildDrawerItem(
             context,
@@ -661,7 +761,6 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildDesktopShellHeader(BuildContext context) {
     final isLoggedIn = StateService().isLoggedIn;
     final userName = StateService().userName ?? 'Guest';
-    final cartCount = StateService().cartItems.length;
 
     return Container(
       height: 72,
@@ -684,7 +783,11 @@ class _HomeScreenState extends State<HomeScreen>
             },
           ),
           const SizedBox(width: 6),
-          const store_screen.FarumasiLogo(size: 26, color: Colors.white, onDark: true),
+          const store_screen.FarumasiLogo(
+            size: 26,
+            color: Colors.white,
+            onDark: true,
+          ),
           const SizedBox(width: 10),
           if (MediaQuery.of(context).size.width > 800)
             const Text(
@@ -705,34 +808,55 @@ class _HomeScreenState extends State<HomeScreen>
               child: Container(
                 height: 48,
                 decoration: BoxDecoration(
-                   color: Colors.white,
-                   borderRadius: BorderRadius.circular(14),
-                   boxShadow: const [
-                     BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-                   ],
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: TextField(
-               style: const TextStyle(color: Color(0xFF0F172A), fontSize: 14),
-               onChanged: (val) {
-                 StateService().setSearchQuery(val);
-               },
-               decoration: InputDecoration(
-                  hintText: 'Search medicines, symptoms, categories...',
-                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
-                  prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.tune, color: Color(0xFF1E9E68), size: 20),
-                    onPressed: () {
-                      StateService().showFilterModal();
-                    },
-                    tooltip: 'Sort & Filter',
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 14,
                   ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-               ),
+                  onChanged: (val) {
+                    StateService().setSearchQuery(val);
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search medicines, symptoms, categories...',
+                    hintStyle: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 14,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                    suffixIcon: IconButton(
+                      icon: const Icon(
+                        Icons.tune,
+                        color: Color(0xFF1E9E68),
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        StateService().showFilterModal();
+                      },
+                      tooltip: 'Sort & Filter',
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-          ),
           ),
           const Spacer(),
           _buildShellHeaderIcon(
@@ -746,33 +870,45 @@ class _HomeScreenState extends State<HomeScreen>
             },
           ),
           const SizedBox(width: 8),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              _buildShellHeaderIcon(
-                icon: Icons.shopping_cart_outlined,
-                tooltip: 'Cart',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CartScreen()),
-                  );
-                },
-              ),
-              if (cartCount > 0)
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: CircleAvatar(
-                    radius: 8,
-                    backgroundColor: Colors.red,
-                    child: Text(
-                      '$cartCount',
-                      style: const TextStyle(fontSize: 10, color: Colors.white),
-                    ),
+          ListenableBuilder(
+            listenable: StateService(),
+
+            builder: (context, _) {
+              final cartCount = StateService().cartItems.length;
+
+              return Stack(
+                clipBehavior: Clip.none,
+
+                children: [
+                  _buildShellHeaderIcon(
+                    icon: Icons.shopping_cart_outlined,
+                    tooltip: 'Cart',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CartScreen()),
+                      );
+                    },
                   ),
-                ),
-            ],
+                  if (cartCount > 0)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: CircleAvatar(
+                        radius: 8,
+                        backgroundColor: Colors.red,
+                        child: Text(
+                          '$cartCount',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           const SizedBox(width: 16),
           if (isLoggedIn) ...[
@@ -789,7 +925,9 @@ class _HomeScreenState extends State<HomeScreen>
             const SizedBox(width: 12),
             PopupMenuButton<String>(
               offset: const Offset(0, 48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               elevation: 8,
               child: Row(
                 children: [
@@ -806,12 +944,19 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.arrow_drop_down, color: Colors.white, size: 22),
+                  const Icon(
+                    Icons.arrow_drop_down,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ],
               ),
               onSelected: (value) {
                 if (value == 'profile') {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                  );
                 } else if (value == 'logout') {
                   StateService().logout();
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -827,7 +972,10 @@ class _HomeScreenState extends State<HomeScreen>
                     children: [
                       Text(
                         'Hello, $userName',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       const Divider(),
@@ -838,7 +986,11 @@ class _HomeScreenState extends State<HomeScreen>
                   value: 'profile',
                   child: Row(
                     children: [
-                      Icon(Icons.person_outline, color: const Color(0xFF1E9E68), size: 20),
+                      Icon(
+                        Icons.person_outline,
+                        color: const Color(0xFF1E9E68),
+                        size: 20,
+                      ),
                       SizedBox(width: 12),
                       Text('My Profile'),
                     ],
@@ -861,22 +1013,42 @@ class _HomeScreenState extends State<HomeScreen>
             TextButton(
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
-              child: const Text('Log In', style: TextStyle(fontWeight: FontWeight.w600)),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AuthScreen()),
+              ),
+              child: const Text(
+                'Log In',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
             const SizedBox(width: 8),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: _shellGreen,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 elevation: 0,
               ),
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
-              child: const Text('Sign Up', style: TextStyle(fontWeight: FontWeight.w700)),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AuthScreen()),
+              ),
+              child: const Text(
+                'Sign Up',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
           ],
           const SizedBox(width: 24),
@@ -906,6 +1078,4 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
   }
-
 }
-

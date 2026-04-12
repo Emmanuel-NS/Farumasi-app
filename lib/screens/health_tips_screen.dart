@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:farumasi_app/widgets/responsive_web_wrapper.dart';
 
 // --- Data Models ---
 
@@ -228,10 +229,11 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: Colors.grey.shade50,
-        body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
+      child: ResponsiveWebWrapper(
+        child: Scaffold(
+          backgroundColor: Colors.grey.shade50,
+          body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
               expandedHeight: 180, // Increased height for search bar
@@ -344,6 +346,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
         ),
       ),
     ),
+    ),
     );
   }
 
@@ -376,15 +379,49 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
          ),
        );
     }
-    return ListView.separated(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: EdgeInsets.all(20),
-      itemCount: items.length,
-      separatorBuilder: (c, i) => SizedBox(height: 20),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        if (isFact) return _DidYouKnowCard(article: item);
-        return _ModernArticleCard(article: item);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (isFact) {
+          final isWide = constraints.maxWidth > 700;
+          return ListView.separated(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.symmetric(
+              vertical: 20,
+              horizontal: isWide ? (constraints.maxWidth - 600) / 2 : 20,
+            ),
+            itemCount: items.length,
+            separatorBuilder: (c, i) => const SizedBox(height: 20),
+            itemBuilder: (context, index) {
+              return _DidYouKnowCard(article: items[index]);
+            },
+          );
+        }
+
+        if (constraints.maxWidth > 700) {
+          return GridView.builder(
+            padding: EdgeInsets.all(20),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 450,
+              mainAxisSpacing: 20,
+              crossAxisSpacing: 20,
+              childAspectRatio: 1.1,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              return _ModernArticleCard(article: items[index]);
+            },
+          );
+        }
+
+        return ListView.separated(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.all(20),
+          itemCount: items.length,
+          separatorBuilder: (c, i) => const SizedBox(height: 20),
+          itemBuilder: (context, index) {
+            return _ModernArticleCard(article: items[index]);
+          },
+        );
       },
     );
   }
@@ -398,11 +435,12 @@ class ArticleDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
+    return ResponsiveWebWrapper(
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
             pinned: true,
             expandedHeight: 300,
             leading: Padding(
@@ -542,6 +580,7 @@ class ArticleDetailScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
