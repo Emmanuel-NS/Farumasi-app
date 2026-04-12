@@ -29,82 +29,103 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
-          _buildInfoBanner(),
-          
-          const SizedBox(height: 20),
-          _buildSectionHeader("Access Control"),
-          
-          SwitchListTile(
-            title: const Text('Lock Order History'),
-            subtitle: const Text('Require passcode to view past medicines'),
-            secondary: const Icon(Icons.lock_outline, color: Colors.indigo),
-            value: _requirePasscodeForOrders,
-            activeColor: const Color(0xFF1E9E68),
-            onChanged: (val) {
-              if (val) {
-                _showSetupPasscodeDialog();
-              } else {
-                setState(() => _requirePasscodeForOrders = false);
-              }
-            },
-          ),
-          SwitchListTile(
-            title: const Text('Hide Sensitive Conditions'),
-            subtitle: const Text('Blur sensitive items in dashboard'),
-            secondary: const Icon(Icons.visibility_off_outlined, color: Colors.indigo),
-            value: _hideSensitiveConditions,
-            activeColor: const Color(0xFF1E9E68),
-            onChanged: (val) => setState(() => _hideSensitiveConditions = val),
-          ),
+              _buildInfoBanner(),
 
-          const Divider(),
-          _buildSectionHeader("Usage & Analytics"),
-          SwitchListTile(
-            title: const Text('Share Analytics'),
-            subtitle: const Text('Help us improve with anonymous usage data'),
-            secondary: const Icon(Icons.analytics_outlined, color: Colors.orange),
-            value: _shareAnonymousAnalytics,
-            activeColor: const Color(0xFF1E9E68),
-            onChanged: (val) => setState(() => _shareAnonymousAnalytics = val),
-          ),
+              const SizedBox(height: 20),
+              _buildSectionHeader("Access Control"),
 
-          const Divider(),
-          _buildSectionHeader("Your Data Rights"),
-           ListTile(
-            title: const Text('Request Data Export'),
-            subtitle: const Text('Get a copy of all your stored health data'),
-            leading: const Icon(Icons.download_outlined, color: Colors.blueGrey),
-            onTap: () {
-               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Export requested. You will receive an email shortly."))
-              );
-            },
-          ),
-          ListTile(
-            title: const Text('Retention Policy'),
-            subtitle: const Text('How long we keep your data'),
-            leading: const Icon(Icons.history, color: Colors.blueGrey),
-            onTap: () {
-              // Show retention policy
-            },
-          ),
-          
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: OutlinedButton.icon(
-              onPressed: _confirmDeleteAccount,
-              icon: const Icon(Icons.delete_forever, color: Colors.red),
-              label: const Text('Delete My Account'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Colors.red),
-                padding: const EdgeInsets.all(16),
+              SwitchListTile(
+                title: const Text('Lock Order History'),
+                subtitle: const Text('Require passcode to view past medicines'),
+                secondary: const Icon(Icons.lock_outline, color: Colors.indigo),
+                value: _requirePasscodeForOrders,
+                activeColor: const Color(0xFF1E9E68),
+                onChanged: (val) {
+                  if (val) {
+                    _showSetupPasscodeDialog();
+                  } else {
+                    setState(() => _requirePasscodeForOrders = false);
+                  }
+                },
               ),
-            ),
+              SwitchListTile(
+                title: const Text('Hide Sensitive Conditions'),
+                subtitle: const Text('Blur sensitive items in dashboard'),
+                secondary: const Icon(
+                  Icons.visibility_off_outlined,
+                  color: Colors.indigo,
+                ),
+                value: _hideSensitiveConditions,
+                activeColor: const Color(0xFF1E9E68),
+                onChanged: (val) =>
+                    setState(() => _hideSensitiveConditions = val),
+              ),
+
+              const Divider(),
+              _buildSectionHeader("Usage & Analytics"),
+              SwitchListTile(
+                title: const Text('Share Analytics'),
+                subtitle: const Text(
+                  'Help us improve with anonymous usage data',
+                ),
+                secondary: const Icon(
+                  Icons.analytics_outlined,
+                  color: Colors.orange,
+                ),
+                value: _shareAnonymousAnalytics,
+                activeColor: const Color(0xFF1E9E68),
+                onChanged: (val) =>
+                    setState(() => _shareAnonymousAnalytics = val),
+              ),
+
+              const Divider(),
+              _buildSectionHeader("Your Data Rights"),
+              ListTile(
+                title: const Text('Request Data Export'),
+                subtitle: const Text(
+                  'Get a copy of all your stored health data',
+                ),
+                leading: const Icon(
+                  Icons.download_outlined,
+                  color: Colors.blueGrey,
+                ),
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Export requested. You will receive an email shortly.",
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                title: const Text('Retention Policy'),
+                subtitle: const Text('How long we keep your data'),
+                leading: const Icon(Icons.history, color: Colors.blueGrey),
+                onTap: () {
+                  // Show retention policy
+                },
+              ),
+
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: OutlinedButton.icon(
+                  onPressed: _confirmDeleteAccount,
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
+                  label: const Text('Delete My Account'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.all(16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
+            ],
           ),
-          const SizedBox(height: 40),
-        ],
+        ),
       ),
     );
   }
@@ -129,19 +150,30 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          const Icon(Icons.verified_user_outlined, color: Colors.indigo, size: 32),
+          const Icon(
+            Icons.verified_user_outlined,
+            color: Colors.indigo,
+            size: 32,
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Your Privacy is Protected", 
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
-                Text("We comply with HIPAA & GDPR standards to keep your health data safe.",
-                  style: TextStyle(fontSize: 12, color: Colors.indigo.shade700)),
+                const Text(
+                  "Your Privacy is Protected",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo,
+                  ),
+                ),
+                Text(
+                  "We comply with HIPAA & GDPR standards to keep your health data safe.",
+                  style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -173,8 +205,8 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text("Cancel")
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
           ),
           ElevatedButton(
             onPressed: () {
@@ -182,11 +214,13 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                 setState(() => _requirePasscodeForOrders = true);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Passcode set successfully!"))
+                  const SnackBar(content: Text("Passcode set successfully!")),
                 );
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E9E68)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E9E68),
+            ),
             child: const Text("Set PIN"),
           ),
         ],
@@ -196,22 +230,30 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
 
   void _confirmDeleteAccount() {
     showDialog(
-      context: context, 
+      context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Delete Account"),
-        content: const Text("Are you sure? This will permanently erase your medical history and prescriptions."),
+        content: const Text(
+          "Are you sure? This will permanently erase your medical history and prescriptions.",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
           TextButton(
             onPressed: () {
               // Perform delete API call
               Navigator.pop(ctx);
-              Navigator.pop(context); 
-            }, 
-            child: const Text("Delete Permanently", style: TextStyle(color: Colors.red))
+              Navigator.pop(context);
+            },
+            child: const Text(
+              "Delete Permanently",
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
-      )
+      ),
     );
   }
 }
