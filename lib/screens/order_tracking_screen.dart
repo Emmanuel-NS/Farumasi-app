@@ -13,7 +13,8 @@ class OrderTrackingScreen extends StatefulWidget {
   State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
 }
 
-class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTickerProviderStateMixin {
+class _OrderTrackingScreenState extends State<OrderTrackingScreen>
+    with SingleTickerProviderStateMixin {
   // Simulated coordinates for Kigali, Rwanda
   // Start: Kigali City Center (Pharmacy)
   final LatLng _pharmacyLocation = const LatLng(-1.9441, 30.0619);
@@ -29,7 +30,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
   // Simulation for driver movement
   double _driverProgress = 0.0;
   final MapController _mapController = MapController();
-  final TileProvider _tileProvider = CancellableNetworkTileProvider(); // Reuse to prevent reloading tiles on setState
+  final TileProvider _tileProvider =
+      CancellableNetworkTileProvider(); // Reuse to prevent reloading tiles on setState
   bool _isAutoCentering = true; // Auto-follow driver by default
   late final AnimationController _waveController;
   bool _isDriverSaved = false; // Add state to track if driver is saved
@@ -46,10 +48,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
       const LatLng(-1.9500, 30.0880), // Turn 4
       _userLocation,
     ];
-    
+
     _waveController = AnimationController(
-       vsync: this,
-       duration: const Duration(seconds: 2),
+      vsync: this,
+      duration: const Duration(seconds: 2),
     )..repeat();
 
     // Simulate live updates
@@ -64,15 +66,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
 
   void _simulateDriverMovement() async {
     while (mounted && _driverProgress < 1.0) {
-      await Future.delayed(const Duration(milliseconds: 100)); 
+      await Future.delayed(const Duration(milliseconds: 100));
       if (mounted) {
         setState(() {
           _driverProgress += 0.005; // Smoother movement
         });
-        
+
         // Auto-follow driver periodically if enabled
         if (_driverProgress > 0 && _isAutoCentering) {
-           _mapController.move(_getCurrentDriverPos(), _mapController.camera.zoom);
+          _mapController.move(
+            _getCurrentDriverPos(),
+            _mapController.camera.zoom,
+          );
         }
       }
     }
@@ -116,10 +121,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
   }
 
   void _messageDriver() async {
-    final Uri launchUri = Uri(
-      scheme: 'sms',
-      path: '+250780000000',
-    );
+    final Uri launchUri = Uri(scheme: 'sms', path: '+250780000000');
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
     }
@@ -129,7 +131,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => DriverProfileScreen(initialSavedState: _isDriverSaved),
+        builder: (context) =>
+            DriverProfileScreen(initialSavedState: _isDriverSaved),
       ),
     );
 
@@ -176,13 +179,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
         children: [
           // Map Layer
           Container(
-            color: Colors.grey.shade200, // Background color while loading (Google Maps style grey)
+            color: Colors
+                .grey
+                .shade200, // Background color while loading (Google Maps style grey)
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
                 initialCameraFit: CameraFit.bounds(
-                  bounds: LatLngBounds.fromPoints([_pharmacyLocation, _userLocation]),
-                  padding: const EdgeInsets.all(50), 
+                  bounds: LatLngBounds.fromPoints([
+                    _pharmacyLocation,
+                    _userLocation,
+                  ]),
+                  padding: const EdgeInsets.all(50),
                 ),
                 onPositionChanged: (position, hasGesture) {
                   if (hasGesture) {
@@ -192,12 +200,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                 interactionOptions: const InteractionOptions(
                   // CONTROLLED MOVEMENT:
                   // 1. disable (rotate) to keep map north-up like Google Maps default.
-                  // 2. disable (flingAnimation) to stop the slippery "ice skating" feel. 
-                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate & ~InteractiveFlag.flingAnimation,
+                  // 2. disable (flingAnimation) to stop the slippery "ice skating" feel.
+                  flags:
+                      InteractiveFlag.all &
+                      ~InteractiveFlag.rotate &
+                      ~InteractiveFlag.flingAnimation,
                 ),
                 minZoom: 13.0,
                 maxZoom: 18.0,
-                backgroundColor: Colors.grey.shade200, 
+                backgroundColor: Colors.grey.shade200,
               ),
               children: [
                 TileLayer(
@@ -219,72 +230,93 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                     ),
                   ],
                 ),
-              MarkerLayer(
-                markers: [
-                  // Pharmacy Marker
-                  Marker(
-                    point: _pharmacyLocation,
-                    width: 48,
-                    height: 48,
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [BoxShadow(blurRadius: 4, color: Colors.black26)],
+                MarkerLayer(
+                  markers: [
+                    // Pharmacy Marker
+                    Marker(
+                      point: _pharmacyLocation,
+                      width: 80,
+                      height: 80,
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(blurRadius: 4, color: Colors.black26),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.store,
+                              color: const Color(0xFF1E9E68),
+                              size: 20,
+                            ),
                           ),
-                          child: const Icon(Icons.store, color: const Color(0xFF1E9E68), size: 20),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E9E68),
-                            borderRadius: BorderRadius.circular(4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E9E68),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              "Pharmacy",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                          child: const Text(
-                            "Pharmacy",
-                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  // User Marker
-                  Marker(
-                    point: _userLocation,
-                    width: 40,
-                    height: 40,
-                    child: const Icon(Icons.location_on, color: Colors.red, size: 40),
-                  ),
-                  // Driver Marker (Simple - No Rotation)
-                  Marker(
-                    point: currentDriverPos,
-                    width: 100, // Increased to accommodate wave
-                    height: 100, // Increased to accommodate wave
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Wave animation when near or arrived
-                        if (isNear)
-                          AnimatedBuilder(
-                            animation: _waveController,
-                            builder: (context, child) {
-                              return Container(
-                                width: 50 + (50 * _waveController.value),
-                                height: 50 + (50 * _waveController.value),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: (isArrived ? Colors.blue : Colors.red)
-                                        .withValues(alpha: 1 - _waveController.value),
-                                    width: 4,
+                    // User Marker
+                    Marker(
+                      point: _userLocation,
+                      width: 40,
+                      height: 40,
+                      child: const Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 40,
+                      ),
+                    ),
+                    // Driver Marker (Simple - No Rotation)
+                    Marker(
+                      point: currentDriverPos,
+                      width: 100, // Increased to accommodate wave
+                      height: 100, // Increased to accommodate wave
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Wave animation when near or arrived
+                          if (isNear)
+                            AnimatedBuilder(
+                              animation: _waveController,
+                              builder: (context, child) {
+                                return Container(
+                                  width: 50 + (50 * _waveController.value),
+                                  height: 50 + (50 * _waveController.value),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color:
+                                          (isArrived ? Colors.blue : Colors.red)
+                                              .withValues(
+                                                alpha:
+                                                    1 - _waveController.value,
+                                              ),
+                                      width: 4,
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
-                          ),
+                                );
+                              },
+                            ),
                           // Driver Icon
                           GestureDetector(
                             onTap: _openDriverProfile,
@@ -293,13 +325,27 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                                 color: Colors.white,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                    // Change border color based on status
-                                    color: isNear ? Colors.red : (isArrived ? Colors.blue : const Color(0xFF1E9E68)), 
-                                    width: 2),
-                                boxShadow: const [BoxShadow(blurRadius: 5, color: Colors.black26)],
+                                  // Change border color based on status
+                                  color: isNear
+                                      ? Colors.red
+                                      : (isArrived
+                                            ? Colors.blue
+                                            : const Color(0xFF1E9E68)),
+                                  width: 2,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    blurRadius: 5,
+                                    color: Colors.black26,
+                                  ),
+                                ],
                               ),
                               padding: const EdgeInsets.all(6),
-                              child: Icon(Icons.two_wheeler, color: statusColor, size: 28),
+                              child: Icon(
+                                Icons.two_wheeler,
+                                color: statusColor,
+                                size: 28,
+                              ),
                             ),
                           ),
                         ],
@@ -325,14 +371,19 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
             ),
 
           Positioned(
-            top: 100, 
+            top: 100,
             left: 20,
             right: 20,
             child: Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     Container(
@@ -341,7 +392,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                         color: const Color(0xFF1E9E68),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.store, color: const Color(0xFF1E9E68)),
+                      child: const Icon(
+                        Icons.store,
+                        color: const Color(0xFF1E9E68),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -349,10 +403,16 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text("Picking up from", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          const Text(
+                            "Picking up from",
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                           Text(
                             _pharmacyName,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
@@ -363,7 +423,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
               ),
             ),
           ),
-          
+
           Positioned(
             bottom: 30,
             left: 20,
@@ -399,13 +459,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
 
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        boxShadow: [
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
           BoxShadow(
             color: Colors.black12,
             blurRadius: 10,
@@ -448,7 +505,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        isArrived ? "Arrived" : "${(15 * (1 - _driverProgress)).ceil()} mins",
+                        isArrived
+                            ? "Arrived"
+                            : "${(15 * (1 - _driverProgress)).ceil()} mins",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
@@ -487,7 +546,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
             child: LinearProgressIndicator(
               value: 0.3 + (0.7 * _driverProgress),
               backgroundColor: Colors.grey.shade100,
-              color: isArrived ? statusColor : const Color(0xFF1E9E68), // Keep green until fully arrived, or follow statusColor
+              color: isArrived
+                  ? statusColor
+                  : const Color(
+                      0xFF1E9E68,
+                    ), // Keep green until fully arrived, or follow statusColor
               minHeight: 6,
             ),
           ),
@@ -528,11 +591,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                   children: [
                     const Text(
                       "John Doe",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                     Row(
                       children: [
-                        Icon(Icons.star, size: 14, color: Colors.amber.shade600),
+                        Icon(
+                          Icons.star,
+                          size: 14,
+                          color: Colors.amber.shade600,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           "4.8 (124 deliveries)",
