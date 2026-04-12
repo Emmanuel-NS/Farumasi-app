@@ -22,8 +22,13 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
         backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
       ),
-      body: ListView(
-        children: [
+      backgroundColor: Colors.grey.shade50,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
           _buildInfoBanner(),
           
           const SizedBox(height: 20),

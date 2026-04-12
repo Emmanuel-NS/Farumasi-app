@@ -118,8 +118,13 @@ class _TransparencyPermissionsScreenState extends State<TransparencyPermissionsS
         backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
       ),
-      body: ListView(
-        children: [
+      backgroundColor: Colors.grey.shade50,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
           _buildInfoBanner(),
           
           const SizedBox(height: 20),
@@ -314,7 +319,11 @@ class _ProviderListScreenState extends State<ProviderListScreen> {
         foregroundColor: Colors.black,
         elevation: 1,
       ),
-      body: ListView.separated(
+      backgroundColor: Colors.grey.shade50,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: ListView.separated(
         itemCount: widget.items.length,
         separatorBuilder: (c, i) => const Divider(height: 1),
         itemBuilder: (context, index) {
@@ -402,11 +411,15 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
+      backgroundColor: Colors.grey.shade50,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 20),
@@ -499,6 +512,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
             ),
           ),
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
               color: Colors.white,

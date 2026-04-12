@@ -85,8 +85,11 @@ class _HelpScreenState extends State<HelpScreen> {
         backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: ListView(
+            padding: const EdgeInsets.all(16.0),
         children: [
           // 1. Search Bar (Added feature)
           Padding(

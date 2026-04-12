@@ -12,12 +12,16 @@ class TermsConditionsScreen extends StatelessWidget {
         foregroundColor: Colors.black,
         elevation: 1,
       ),
-      body: Scrollbar(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      backgroundColor: Colors.white,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Scrollbar(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               const Text(
                 "Last Updated: February 2026",
                 style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
@@ -99,7 +103,7 @@ class TermsConditionsScreen extends StatelessWidget {
               const SizedBox(height: 40),
             ],
           ),
-        ),
+        )))),
       ),
     );
   }
