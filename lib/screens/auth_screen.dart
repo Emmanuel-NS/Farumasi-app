@@ -102,7 +102,7 @@ class _AuthScreenState extends State<AuthScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.green.shade800, Colors.green.shade400],
+            colors: [const Color(0xFF1E9E68), const Color(0xFF1E9E68)],
           ),
         ),
         child: SafeArea(
@@ -127,7 +127,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              FarumasiLogo(size: 60, color: Colors.green),
+                              FarumasiLogo(size: 60, color: const Color(0xFF1E9E68)),
                               SizedBox(width: 12),
                               // Flexible allows text to wrap if screen is very narrow
                               Flexible(
@@ -136,7 +136,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   style: TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.w900,
-                                    color: Colors.green.shade800,
+                                    color: const Color(0xFF1E9E68),
                                     letterSpacing: 1.2,
                                   ),
                                   overflow: TextOverflow.fade,
@@ -159,7 +159,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                       decoration: BoxDecoration(
-                                        color: _selectedRole == 'User' ? Colors.green : Colors.transparent,
+                                        color: _selectedRole == 'User' ? const Color(0xFF1E9E68) : Colors.transparent,
                                         borderRadius: BorderRadius.circular(8),
                                         boxShadow: _selectedRole == 'User' 
                                           ? [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
@@ -184,7 +184,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                       decoration: BoxDecoration(
-                                        color: _selectedRole == 'Pharmacist' ? Colors.green : Colors.transparent,
+                                        color: _selectedRole == 'Pharmacist' ? const Color(0xFF1E9E68) : Colors.transparent,
                                         borderRadius: BorderRadius.circular(8),
                                         boxShadow: _selectedRole == 'Pharmacist' 
                                           ? [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
@@ -209,7 +209,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                       decoration: BoxDecoration(
-                                        color: _selectedRole == 'Rider' ? Colors.green : Colors.transparent,
+                                        color: _selectedRole == 'Rider' ? const Color(0xFF1E9E68) : Colors.transparent,
                                         borderRadius: BorderRadius.circular(8),
                                         boxShadow: _selectedRole == 'Rider' 
                                           ? [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
@@ -236,7 +236,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Colors.green.shade800,
+                              color: const Color(0xFF1E9E68),
                             ),
                           ),
                           SizedBox(height: 24),
@@ -247,7 +247,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 labelText: 'Full Name',
                                 prefixIcon: Icon(
                                   Icons.person,
-                                  color: Colors.green,
+                                  color: const Color(0xFF1E9E68),
                                 ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -255,7 +255,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Colors.green,
+                                    color: const Color(0xFF1E9E68),
                                     width: 2,
                                   ),
                                 ),
@@ -272,7 +272,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               labelText: 'Email Address',
                               prefixIcon: Icon(
                                 Icons.email,
-                                color: Colors.green,
+                                color: const Color(0xFF1E9E68),
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -280,7 +280,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: Colors.green,
+                                  color: const Color(0xFF1E9E68),
                                   width: 2,
                                 ),
                               ),
@@ -293,14 +293,14 @@ class _AuthScreenState extends State<AuthScreen> {
                             controller: _passwordController,
                             decoration: InputDecoration(
                               labelText: 'Password',
-                              prefixIcon: Icon(Icons.lock, color: Colors.green),
+                              prefixIcon: Icon(Icons.lock, color: const Color(0xFF1E9E68)),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: Colors.green,
+                                  color: const Color(0xFF1E9E68),
                                   width: 2,
                                 ),
                               ),
@@ -317,7 +317,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 labelText: 'Confirm Password',
                                 prefixIcon: Icon(
                                   Icons.lock_outline,
-                                  color: Colors.green,
+                                  color: const Color(0xFF1E9E68),
                                 ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -325,7 +325,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Colors.green,
+                                    color: const Color(0xFF1E9E68),
                                     width: 2,
                                   ),
                                 ),
@@ -345,7 +345,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             child: ElevatedButton(
                               onPressed: _submit,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green.shade600,
+                                backgroundColor: const Color(0xFF1E9E68),
                                 foregroundColor: Colors.white,
                                 padding: EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
@@ -382,7 +382,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   TextSpan(
                                     text: _isLogin ? 'Sign Up' : 'Login',
                                     style: TextStyle(
-                                      color: Colors.green,
+                                      color: const Color(0xFF1E9E68),
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -396,7 +396,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               onPressed: () {},
                               child: Text(
                                 "Forgot Password?",
-                                style: TextStyle(color: Colors.green),
+                                style: TextStyle(color: const Color(0xFF1E9E68)),
                               ),
                             ),
                           ],
@@ -422,7 +422,7 @@ class FarumasiLogo extends StatelessWidget {
   const FarumasiLogo({
     super.key,
     required this.size,
-    this.color = Colors.green,
+    this.color = const Color(0xFF1E9E68),
     this.onDark = false,
   });
 
@@ -446,7 +446,7 @@ class FarumasiLogo extends StatelessWidget {
             : null,
       ),
       child: CustomPaint(
-        painter: _LeafyFPainter(color: onDark ? Colors.green.shade700 : color),
+        painter: _LeafyFPainter(color: onDark ? const Color(0xFF1E9E68) : color),
       ),
     );
   }

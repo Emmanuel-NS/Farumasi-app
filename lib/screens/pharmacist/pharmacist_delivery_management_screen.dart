@@ -327,7 +327,7 @@ class _PharmacistDeliveryManagementScreenState
   Color _getStatusColor(DriverStatus status) {
     switch (status) {
       case DriverStatus.available:
-        return Colors.green;
+        return const Color(0xFF1E9E68);
       case DriverStatus.busy:
         return Colors.orange;
       case DriverStatus.offline:
@@ -426,17 +426,17 @@ class _PharmacistDeliveryManagementScreenState
                       final driver = availableDrivers[idx];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Colors.green.shade50,
+                          backgroundColor: const Color(0xFF1E9E68),
                           child: const Icon(
                             Icons.two_wheeler,
-                            color: Colors.green,
+                            color: const Color(0xFF1E9E68),
                           ),
                         ),
                         title: Text(driver.name),
                         subtitle: Text("Near: ${driver.locationArea}"),
                         trailing: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade800,
+                            backgroundColor: const Color(0xFF1E9E68),
                             foregroundColor: Colors.white,
                           ),
                           onPressed: () {
@@ -708,7 +708,7 @@ class _PharmacistDeliveryManagementScreenState
                                   const Icon(
                                     Icons.medication_outlined,
                                     size: 16,
-                                    color: Colors.green,
+                                    color: const Color(0xFF1E9E68),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -733,7 +733,7 @@ class _PharmacistDeliveryManagementScreenState
                                 "${order.totalAmount} RWF",
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.green.shade700,
+                                  color: const Color(0xFF1E9E68),
                                 ),
                               ),
                             ],
@@ -770,14 +770,14 @@ class _PharmacistDeliveryManagementScreenState
                                     width: 12,
                                     height: 12,
                                     decoration: BoxDecoration(
-                                      color: Colors.green.shade500,
+                                      color: const Color(0xFF1E9E68),
                                       shape: BoxShape.circle,
                                     ),
                                   ),
                                   Container(
                                     width: 2,
                                     height: 40,
-                                    color: Colors.green.shade200,
+                                    color: const Color(0xFF1E9E68),
                                   ),
                                 ],
                               ),
@@ -921,7 +921,7 @@ class _PharmacistDeliveryManagementScreenState
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.call, color: Colors.green),
+                    icon: const Icon(Icons.call, color: const Color(0xFF1E9E68)),
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text("Calling ${driver.name}...")),
@@ -1049,9 +1049,9 @@ class _PharmacistDeliveryManagementScreenState
         iconTheme: const IconThemeData(color: Colors.black87),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.green.shade800,
+          labelColor: const Color(0xFF1E9E68),
           unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.green.shade800,
+          indicatorColor: const Color(0xFF1E9E68),
           isScrollable: true,
           tabs: const [
             Tab(text: "Active Orders"),
@@ -1303,8 +1303,8 @@ class _PharmacistDeliveryManagementScreenState
                         icon: const Icon(Icons.person_add_alt_1),
                         label: const Text("Assign to Rider"),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.green.shade800,
-                          side: BorderSide(color: Colors.green.shade800),
+                          foregroundColor: const Color(0xFF1E9E68),
+                          side: BorderSide(color: const Color(0xFF1E9E68)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -1320,11 +1320,11 @@ class _PharmacistDeliveryManagementScreenState
                           children: [
                             CircleAvatar(
                               radius: 12,
-                              backgroundColor: Colors.green.shade100,
+                              backgroundColor: const Color(0xFF1E9E68),
                               child: const Icon(
                                 Icons.sports_motorsports,
                                 size: 14,
-                                color: Colors.green,
+                                color: const Color(0xFF1E9E68),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -1410,7 +1410,7 @@ class _PharmacistDeliveryManagementScreenState
                         ),
                         decoration: BoxDecoration(
                           color: order.status == "Delivered"
-                              ? Colors.green.shade50
+                              ? const Color(0xFF1E9E68)
                               : Colors.red.shade50,
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -1418,7 +1418,7 @@ class _PharmacistDeliveryManagementScreenState
                           order.status,
                           style: TextStyle(
                             color: order.status == "Delivered"
-                                ? Colors.green.shade700
+                                ? const Color(0xFF1E9E68)
                                 : Colors.red.shade700,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -1603,13 +1603,13 @@ class _PharmacistDeliveryManagementScreenState
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
+                                    color: const Color(0xFF1E9E68),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     "Available",
                                     style: TextStyle(
-                                      color: Colors.green.shade800,
+                                      color: const Color(0xFF1E9E68),
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -1650,11 +1650,11 @@ class _PharmacistDeliveryManagementScreenState
                       icon: Icon(
                         Icons.call_outlined,
                         size: 18,
-                        color: Colors.green.shade700,
+                        color: const Color(0xFF1E9E68),
                       ),
                       label: Text(
                         "Call Node",
-                        style: TextStyle(color: Colors.green.shade700),
+                        style: TextStyle(color: const Color(0xFF1E9E68)),
                       ),
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(

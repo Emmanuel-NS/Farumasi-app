@@ -7,6 +7,24 @@ class StateService extends ChangeNotifier {
   factory StateService() => _instance;
   StateService._internal();
 
+  // Search State
+  String _searchQuery = '';
+  String get searchQuery => _searchQuery;
+  
+  // Callback to trigger filter modal from different screens
+  VoidCallback? onShowFilterModal;
+
+  void setSearchQuery(String query) {
+    _searchQuery = query;
+    notifyListeners();
+  }
+
+  void showFilterModal() {
+    if (onShowFilterModal != null) {
+      onShowFilterModal!();
+    }
+  }
+
   // Auth State
   bool _isLoggedIn = false;
   

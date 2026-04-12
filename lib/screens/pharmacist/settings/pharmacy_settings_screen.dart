@@ -30,7 +30,7 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Settings Saved.")));
               Navigator.pop(context);
             },
-            child: const Text("Save", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+            child: const Text("Save", style: TextStyle(color: const Color(0xFF1E9E68), fontWeight: FontWeight.bold)),
           )
         ],
       ),
@@ -44,7 +44,7 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
                subtitle: const Text("Automatically assign orders matching your license schedule."),
                value: _autoAssignOrders,
                onChanged: (val) => setState(() => _autoAssignOrders = val),
-               activeColor: Colors.green,
+               activeColor: const Color(0xFF1E9E68),
           ),
           const Divider(),
           _buildSectionHeader("Notifications & Alerts"),
@@ -53,14 +53,14 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
                subtitle: const Text("App alerts for high priority reviews."),
                value: _pushNotifications,
                onChanged: (val) => setState(() => _pushNotifications = val),
-               activeColor: Colors.green,
+               activeColor: const Color(0xFF1E9E68),
           ),
           SwitchListTile(
                title: const Text("SMS Fallback Alerts", style: TextStyle(fontWeight: FontWeight.w600)),
                subtitle: const Text("Send text messages for critical delays."),
                value: _smsAlerts,
                onChanged: (val) => setState(() => _smsAlerts = val),
-               activeColor: Colors.green,
+               activeColor: const Color(0xFF1E9E68),
           ),
           const Divider(),
           _buildSectionHeader("Operational Limits"),
@@ -73,7 +73,7 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text("Daily Order Capacity Limit", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                    Text("${_operatingCapacity.toInt()} orders", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                    Text("${_operatingCapacity.toInt()} orders", style: const TextStyle(fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68))),
                   ],
                 ),
                 Slider(
@@ -81,7 +81,7 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
                   min: 50,
                   max: 500,
                   divisions: 9,
-                  activeColor: Colors.green,
+                  activeColor: const Color(0xFF1E9E68),
                   onChanged: (val) => setState(() => _operatingCapacity = val),
                 ),
                 const Text("Set maximum daily dispensions to prevent queue overload.", style: TextStyle(fontSize: 12, color: Colors.grey)),

@@ -502,7 +502,7 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
                 children: [
                   _buildInfoCard("Market Avg Price", "1,850 RWF", Icons.monetization_on_outlined, Colors.blue),
                   _buildInfoCard("Expiry Range", "6-18 Months", Icons.calendar_today_outlined, Colors.purple),
-                  _buildInfoCard("Availability", "High (85%)", Icons.inventory_2_outlined, Colors.green),
+                  _buildInfoCard("Availability", "High (85%)", Icons.inventory_2_outlined, const Color(0xFF1E9E68)),
                   _buildInfoCard("Competitors", "5 Local", Icons.store_mall_directory_outlined, Colors.orange),
                 ],
               ),
@@ -561,7 +561,7 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text("${pharmacy['price']} RWF", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                Text(pharmacy['status'], style: TextStyle(fontSize: 10, color: pharmacy['status'] == 'Available' ? Colors.green : Colors.red)),
+                                Text(pharmacy['status'], style: TextStyle(fontSize: 10, color: pharmacy['status'] == 'Available' ? const Color(0xFF1E9E68) : Colors.red)),
                               ],
                             ),
                           );

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
 import 'package:farumasi_app/screens/health_tips_screen.dart';
-import 'package:farumasi_app/screens/medicine_store_screen.dart';
+import 'package:farumasi_app/screens/medicine_store_screen.dart' as store_screen;
 import 'package:farumasi_app/screens/pharmacist_list_screen.dart'; // Import Pharmacist List
 import 'package:farumasi_app/screens/orders_screen.dart';
 import 'package:farumasi_app/screens/auth_screen.dart';
 import 'package:farumasi_app/screens/prescription_upload_screen.dart';
+import 'package:farumasi_app/screens/help_screen.dart';
+import 'package:farumasi_app/screens/notification_screen.dart';
+import 'package:farumasi_app/screens/cart_screen.dart';
+import 'package:farumasi_app/screens/profile_screen.dart';
+import 'package:farumasi_app/screens/settings_screen.dart';
 import 'package:farumasi_app/services/state_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -17,16 +23,26 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
+  static const Color _shellGreen = Color(0xFF1E9E68); // Match category avatars
+  static const Color _shellGreenDark = Color(0xFF167B51); // Darker variant
+
   int _currentIndex = 0;
   late final AnimationController _hideBottomBarController;
   bool _isBottomBarVisible = true;
+  bool _isSidebarCollapsed = false;
+  double _sidebarWidth = 200.0;
 
-  final List<Widget> _pages = [
-    MedicineStoreScreen(),
-    HealthTipsScreen(),
-    PharmacistListScreen(), // Replaced CartScreen with PharmacistList
-    OrdersScreen(),
-  ];
+  List<Widget> _buildPages(bool embedStoreInShell) {
+    return [
+      store_screen.MedicineStoreScreen(
+        key: ValueKey('store-shell-$embedStoreInShell'),
+        embeddedInHomeShell: embedStoreInShell,
+      ),
+      HealthTipsScreen(),
+      PharmacistListScreen(), // Replaced CartScreen with PharmacistList
+      OrdersScreen(),
+    ];
+  }
 
   @override
   void initState() {
@@ -95,9 +111,13 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isWideScreen = MediaQuery.of(context).size.width >= 600;
+    final showDesktopShellHeader = isWideScreen;
+    final pages = _buildPages(isWideScreen);
+
     return PopScope(
       canPop: _currentIndex == 0,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         
         setState(() {
@@ -105,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen>
         });
       },
       child: Scaffold(
-      // App bar removed to allow screens to control their own headers
+      drawer: null,
       // Wrap body in NotificationListener to detect scrolling
       body: NotificationListener<UserScrollNotification>(
         onNotification: (notification) {
@@ -125,9 +145,77 @@ class _HomeScreenState extends State<HomeScreen>
           return true; // Allow bubble up? Actually we can return true to maybe stop bubbling or false. Usually false.
           // But here, returning true might stop refresher. Let's return false to be safe.
         },
-        child: _pages[_currentIndex],
+        child: isWideScreen
+            ? Column(
+                children: [
+                  if (showDesktopShellHeader) _buildDesktopShellHeader(context),
+                  Expanded(
+                    child: Container(
+                      color: _shellGreen,
+                      child: Row(
+                        children: [
+                          _buildPersistentSidebar(
+                            context,
+                            showInlineToggle: !showDesktopShellHeader,
+                          ),
+                          MouseRegion(
+                            cursor: SystemMouseCursors.resizeLeftRight,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onPanUpdate: (details) {
+                                setState(() {
+                                  _sidebarWidth += details.delta.dx;
+                                  if (_sidebarWidth < 140) {
+                                    _isSidebarCollapsed = true;
+                                    _sidebarWidth = 200; // default for when re-opened
+                                  } else {
+                                    _isSidebarCollapsed = false;
+                                    if (_sidebarWidth > 400) _sidebarWidth = 400; // max width
+                                  }
+                                });
+                              },
+                              child: Container(
+                                width: 14,
+                                color: Colors.transparent,
+                                child: Center(
+                                  child: Container(
+                                    width: 4,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.8),
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                    child: const Column(
+                                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                      children: [
+                                        Icon(Icons.circle, size: 2, color: Colors.white),
+                                        Icon(Icons.circle, size: 2, color: Colors.white),
+                                        Icon(Icons.circle, size: 2, color: Colors.white),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.only(topLeft: Radius.circular(32)),
+                              child: Container(
+                                color: const Color(0xFFF6F8FB),
+                                child: pages[_currentIndex],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : pages[_currentIndex],
       ),
-      floatingActionButton: ListenableBuilder(
+      floatingActionButton: isWideScreen ? null : ListenableBuilder(
         listenable: StateService(),
         builder: (context, _) {
           final isLoggedIn = StateService().isLoggedIn;
@@ -173,13 +261,13 @@ class _HomeScreenState extends State<HomeScreen>
                   children: [
                     Icon(
                       Icons.document_scanner_outlined,
-                      color: isLoggedIn ? Colors.green : Colors.grey,
+                      color: isLoggedIn ? const Color(0xFF1E9E68) : Colors.grey,
                       size: 28,
                     ),
                     Text(
                       "Upload Rx",
                       style: TextStyle(
-                        color: isLoggedIn ? Colors.green : Colors.grey,
+                        color: isLoggedIn ? const Color(0xFF1E9E68) : Colors.grey,
                         fontWeight: FontWeight.bold,
                         fontSize: 8,
                       ),
@@ -191,15 +279,19 @@ class _HomeScreenState extends State<HomeScreen>
           );
         },
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: SizeTransition(
+        floatingActionButtonLocation: isWideScreen
+          ? FloatingActionButtonLocation.endFloat
+          : FloatingActionButtonLocation.centerDocked,
+        bottomNavigationBar: isWideScreen
+          ? null
+          : SizeTransition(
         sizeFactor: _hideBottomBarController,
         axisAlignment: -1.0,
         child: ListenableBuilder(
           listenable: StateService(),
           builder: (context, _) {
             return BottomAppBar(
-              color: Colors.green,
+              color: const Color(0xFF1E9E68),
               shape: const CircularNotchedRectangle(),
               notchMargin: 8.0,
               child: SizedBox(
@@ -236,8 +328,8 @@ class _HomeScreenState extends State<HomeScreen>
     final isSelected = _currentIndex == index;
     // If restricted, show as semi-transparent/greyed out
     final color = isRestricted
-        ? Colors.green.shade800 // Darker/muted on green background specific for disabled
-        : (isSelected ? Colors.white : Colors.green.shade100);
+          ? Colors.white30 // Darker/muted on green background specific for disabled
+          : (isSelected ? Colors.white : Colors.white70);
 
     Widget iconWidget = Icon(icon, color: color, size: 28);
 
@@ -300,4 +392,520 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
   }
+
+  Widget _buildDrawerItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    int index, {
+    bool restricted = false,
+    String? restrictedMessage,
+    bool closeDrawerOnTap = true,
+    bool collapsed = false,
+    VoidCallback? onTapOverride,
+  }) {
+    final selected = _currentIndex == index;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(collapsed ? 8 : 10, 6, collapsed ? 8 : 10, 0),
+      child: Tooltip(
+        message: restricted ? '$label (Login required)' : label,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              if (closeDrawerOnTap && Navigator.canPop(context)) {
+                Navigator.pop(context);
+              }
+              if (restricted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(restrictedMessage ?? 'Please log in first.')),
+                );
+                return;
+              }
+              if (onTapOverride != null) {
+                onTapOverride();
+              } else {
+                setState(() => _currentIndex = index);
+              }
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 10, vertical: 9),
+              decoration: BoxDecoration(
+                color: selected ? const Color(0x3347D196) : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selected ? const Color(0x6647D196) : const Color(0x00000000),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: selected ? const Color(0xFF47D196) : const Color(0x3347D196),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 18,
+                      color: selected ? const Color(0xFF0A2B1E) : Colors.white,
+                    ),
+                  ),
+                  if (!collapsed) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          color: restricted
+                              ? const Color(0xFF96B3A7)
+                              : (selected ? const Color(0xFFEFFBF5) : const Color(0xFFD2E8DE)),
+                        ),
+                      ),
+                    ),
+                    if (restricted)
+                      const Icon(Icons.lock_outline, size: 16, color: Color(0xFF96B3A7))
+                    else if (selected)
+                      const Icon(Icons.chevron_right, size: 18, color: Color(0xFFBFECD8)),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersistentSidebar(
+    BuildContext context, {
+    bool showInlineToggle = true,
+  }) {
+    final isLoggedIn = StateService().isLoggedIn;
+    final userName = StateService().userName ?? 'User';
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      width: _isSidebarCollapsed ? 92 : _sidebarWidth,
+      clipBehavior: Clip.antiAlias,
+      decoration: const BoxDecoration(
+        color: _shellGreen,
+        borderRadius: BorderRadius.zero,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showInlineToggle)
+            Padding(
+              padding: EdgeInsets.fromLTRB(_isSidebarCollapsed ? 8 : 12, 8, _isSidebarCollapsed ? 8 : 12, 0),
+              child: SizedBox(
+                height: 40,
+                child: Material(
+                  color: _shellGreenDark,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      setState(() => _isSidebarCollapsed = !_isSidebarCollapsed);
+                    },
+                    child: Row(
+                      mainAxisAlignment: _isSidebarCollapsed ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (!_isSidebarCollapsed)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 12),
+                            child: Text(
+                              'Navigation',
+                              style: TextStyle(
+                                color: Color(0xFFD2E8DE),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        Padding(
+                          padding: EdgeInsets.only(right: _isSidebarCollapsed ? 0 : 8),
+                          child: Icon(
+                            _isSidebarCollapsed ? Icons.menu_open : Icons.menu,
+                            color: const Color(0xFFEFFBF5),
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 10),
+          _buildDrawerItem(
+            context,
+            Icons.store,
+            'Home',
+            0,
+            closeDrawerOnTap: false,
+            collapsed: _isSidebarCollapsed,
+          ),
+          _buildDrawerItem(
+            context,
+            Icons.health_and_safety,
+            'Health',
+            1,
+            closeDrawerOnTap: false,
+            collapsed: _isSidebarCollapsed,
+          ),
+          _buildDrawerItem(
+            context,
+            Icons.chat_bubble_outline,
+            'Consult',
+            2,
+            restricted: !isLoggedIn,
+            restrictedMessage: 'Please log in to consult a pharmacist.',
+            closeDrawerOnTap: false,
+            collapsed: _isSidebarCollapsed,
+          ),
+          _buildDrawerItem(
+            context,
+            Icons.history,
+            'Orders',
+            3,
+            restricted: !isLoggedIn,
+            restrictedMessage: 'Please log in to view your orders.',
+            closeDrawerOnTap: false,
+            collapsed: _isSidebarCollapsed,
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(_isSidebarCollapsed ? 10 : 18, 14, _isSidebarCollapsed ? 10 : 18, 4),
+            child: const Divider(color: Color(0xFF2A6A53), height: 1),
+          ),
+          _buildDrawerItem(
+            context,
+            Icons.upload_file,
+            'Upload Prescription',
+            4,
+            restricted: !isLoggedIn,
+            restrictedMessage: 'Please log in to upload a prescription.',
+            closeDrawerOnTap: false,
+            collapsed: _isSidebarCollapsed,            onTapOverride: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PrescriptionUploadScreen()),
+              );
+            },          ),
+          const Spacer(),
+          _buildDrawerItem(
+            context,
+            Icons.settings,
+            'Settings',
+            5,
+            restricted: false,
+            closeDrawerOnTap: false,
+            collapsed: _isSidebarCollapsed,
+            onTapOverride: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
+          ),
+          if (isLoggedIn)
+            _buildDrawerItem(
+              context,
+              Icons.logout,
+              'Logout',
+              6,
+              restricted: false,
+              closeDrawerOnTap: false,
+              collapsed: _isSidebarCollapsed,
+              onTapOverride: () {
+                StateService().logout();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Logged out successfully')),
+                );
+              },
+            ),
+          if (!_isSidebarCollapsed)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: TextButton(
+                  onPressed: () async {
+                    final u = Uri.parse('https://example.com/terms');
+                    if (await canLaunchUrl(u)) {
+                      await launchUrl(u);
+                    }
+                  },
+                  child: const Text(
+                    'Terms & Conditions',
+                    style: TextStyle(
+                      color: Color(0xFF9BC8B5),
+                      fontSize: 12,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Color(0xFF9BC8B5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopShellHeader(BuildContext context) {
+    final isLoggedIn = StateService().isLoggedIn;
+    final userName = StateService().userName ?? 'Guest';
+    final cartCount = StateService().cartItems.length;
+
+    return Container(
+      height: 72,
+      width: double.infinity,
+      decoration: const BoxDecoration(color: _shellGreen),
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(
+              _isSidebarCollapsed ? Icons.menu : Icons.menu_open,
+              color: Colors.white,
+              size: 28,
+            ),
+            tooltip: _isSidebarCollapsed ? 'Expand menu' : 'Collapse menu',
+            onPressed: () {
+              setState(() {
+                _isSidebarCollapsed = !_isSidebarCollapsed;
+              });
+            },
+          ),
+          const SizedBox(width: 6),
+          const store_screen.FarumasiLogo(size: 26, color: Colors.white, onDark: true),
+          const SizedBox(width: 10),
+          if (MediaQuery.of(context).size.width > 800)
+            const Text(
+              'Farumasi',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.0,
+              ),
+            ),
+          const Spacer(),
+          // SEARCH BAR
+          Flexible(
+            flex: 3,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                   color: Colors.white,
+                   borderRadius: BorderRadius.circular(14),
+                   boxShadow: const [
+                     BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+                   ],
+                ),
+                child: TextField(
+               style: const TextStyle(color: Color(0xFF0F172A), fontSize: 14),
+               onChanged: (val) {
+                 StateService().setSearchQuery(val);
+               },
+               decoration: InputDecoration(
+                  hintText: 'Search medicines, symptoms, categories...',
+                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                  prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.tune, color: Color(0xFF1E9E68), size: 20),
+                    onPressed: () {
+                      StateService().showFilterModal();
+                    },
+                    tooltip: 'Sort & Filter',
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+               ),
+            ),
+          ),
+          ),
+          ),
+          const Spacer(),
+          _buildShellHeaderIcon(
+            icon: Icons.help_outline,
+            tooltip: 'Help',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HelpScreen()),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _buildShellHeaderIcon(
+                icon: Icons.shopping_cart_outlined,
+                tooltip: 'Cart',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CartScreen()),
+                  );
+                },
+              ),
+              if (cartCount > 0)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: CircleAvatar(
+                    radius: 8,
+                    backgroundColor: Colors.red,
+                    child: Text(
+                      '$cartCount',
+                      style: const TextStyle(fontSize: 10, color: Colors.white),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          if (isLoggedIn) ...[
+            _buildShellHeaderIcon(
+              icon: Icons.notifications_none,
+              tooltip: 'Notifications',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationScreen()),
+                );
+              },
+            ),
+            const SizedBox(width: 12),
+            PopupMenuButton<String>(
+              offset: const Offset(0, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 8,
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: const Color(0xFF2B7C5E),
+                    child: Text(
+                      userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFEFFBF5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_drop_down, color: Colors.white, size: 22),
+                ],
+              ),
+              onSelected: (value) {
+                if (value == 'profile') {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+                } else if (value == 'logout') {
+                  StateService().logout();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Logged out successfully")),
+                  );
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                PopupMenuItem(
+                  enabled: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hello, $userName',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      const Divider(),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'profile',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_outline, color: const Color(0xFF1E9E68), size: 20),
+                      SizedBox(width: 12),
+                      Text('My Profile'),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, color: Colors.red, size: 20),
+                      SizedBox(width: 12),
+                      Text('Logout', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
+              child: const Text('Log In', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: _shellGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                elevation: 0,
+              ),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
+              child: const Text('Sign Up', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ],
+          const SizedBox(width: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShellHeaderIcon({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+        ),
+      ),
+    );
+  }
+
 }
+

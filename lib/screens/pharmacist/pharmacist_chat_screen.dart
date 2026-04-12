@@ -117,9 +117,9 @@ class _PharmacistChatScreenState extends State<PharmacistChatScreen> with Single
         iconTheme: const IconThemeData(color: Colors.black87),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.green.shade800,
+          labelColor: const Color(0xFF1E9E68),
           unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.green.shade800,
+          indicatorColor: const Color(0xFF1E9E68),
           tabs: const [
             Tab(text: "Consultations"),
             Tab(text: "General Inquiries"),
@@ -163,11 +163,11 @@ class _PharmacistChatScreenState extends State<PharmacistChatScreen> with Single
                     children: [
                       CircleAvatar(
                         radius: 28,
-                        backgroundColor: session.type == SessionType.consultation ? Colors.blue.shade50 : Colors.green.shade50,
+                        backgroundColor: session.type == SessionType.consultation ? Colors.blue.shade50 : const Color(0xFF1E9E68),
                         child: Text(
                           session.patientName[0],
                           style: TextStyle(
-                            color: session.type == SessionType.consultation ? Colors.blue : Colors.green,
+                            color: session.type == SessionType.consultation ? Colors.blue : const Color(0xFF1E9E68),
                             fontSize: 20,
                             fontWeight: FontWeight.bold
                           )
@@ -178,7 +178,7 @@ class _PharmacistChatScreenState extends State<PharmacistChatScreen> with Single
                           bottom: 0, right: 0,
                           child: Container(
                             width: 14, height: 14,
-                            decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                            decoration: BoxDecoration(color: const Color(0xFF1E9E68), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
                           ),
                         )
                     ],
@@ -289,7 +289,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 Text(widget.session.patientName, style: const TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold)),
                 Text(
                   widget.session.isOnline ? "Online" : "Offline", 
-                  style: TextStyle(color: widget.session.isOnline ? Colors.green : Colors.grey, fontSize: 12)
+                  style: TextStyle(color: widget.session.isOnline ? const Color(0xFF1E9E68) : Colors.grey, fontSize: 12)
                 ),
               ],
             ),
@@ -350,7 +350,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                     decoration: BoxDecoration(
-                      color: msg.isMe ? Colors.green.shade800 : Colors.white,
+                      color: msg.isMe ? const Color(0xFF1E9E68) : Colors.white,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(16),
                         topRight: const Radius.circular(16),
@@ -419,7 +419,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   const SizedBox(width: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.green.shade800,
+                      color: const Color(0xFF1E9E68),
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(

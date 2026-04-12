@@ -606,7 +606,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: session.status == "Confirmed"
-                            ? Colors.green.shade50
+                            ? const Color(0xFF1E9E68)
                             : Colors.orange.shade50,
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -616,7 +616,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: session.status == "Confirmed"
-                              ? Colors.green
+                              ? const Color(0xFF1E9E68)
                               : Colors.orange,
                         ),
                       ),
@@ -1406,8 +1406,8 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                       statusBgColor = Colors.red.shade50;
                       statusText = "Rejected";
                     } else if (isDelivered) {
-                      statusColor = Colors.green;
-                      statusBgColor = Colors.green.shade50;
+                      statusColor = const Color(0xFF1E9E68);
+                      statusBgColor = const Color(0xFF1E9E68);
                       statusText = "Completed";
                     } else if (isPaymentPending) {
                       statusColor = Colors.orange;
@@ -1732,12 +1732,12 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                         color: const Color(0xFFE8F5E9), // Light map aesthetic
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.green.shade200,
+                          color: const Color(0xFF1E9E68),
                           width: 2,
                         ),
                         // Giving it a grid-like texture to simulate a map background
                         gradient: LinearGradient(
-                          colors: [Colors.green.shade50, Colors.blue.shade50],
+                          colors: [const Color(0xFF1E9E68), Colors.blue.shade50],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -1784,7 +1784,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                             child: _buildMapPin(
                               Icons.home,
                               "Patient",
-                              Colors.green,
+                              const Color(0xFF1E9E68),
                             ),
                           ),
                           // Driver Pin (Simulated midway)
@@ -1852,10 +1852,10 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.green.shade50,
+                              color: const Color(0xFF1E9E68),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.phone, color: Colors.green),
+                            child: const Icon(Icons.phone, color: const Color(0xFF1E9E68)),
                           ),
                         ],
                       ),
@@ -2401,7 +2401,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                                   ? Colors.orange.withOpacity(
                                                       0.1,
                                                     )
-                                                  : Colors.green.withOpacity(
+                                                  : const Color(0xFF1E9E68).withOpacity(
                                                       0.1,
                                                     ),
                                               borderRadius:
@@ -2415,7 +2415,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                                 fontSize: 10,
                                                 color: isLowStock
                                                     ? Colors.orange
-                                                    : Colors.green,
+                                                    : const Color(0xFF1E9E68),
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -2660,7 +2660,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: session.status == 'Confirmed'
-                                      ? Colors.green
+                                      ? const Color(0xFF1E9E68)
                                       : Colors.orange,
                                 ),
                               ),

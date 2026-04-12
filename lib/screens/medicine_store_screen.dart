@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'dart:async'; // For Typewriter animation timer
 import '../models/models.dart';
 import '../data/dummy_data.dart';
@@ -18,7 +20,12 @@ import 'cart_screen.dart';
 import 'prescription_upload_screen.dart'; // Add this import
 
 class MedicineStoreScreen extends StatefulWidget {
-  const MedicineStoreScreen({super.key});
+  final bool embeddedInHomeShell;
+
+  const MedicineStoreScreen({
+    super.key,
+    this.embeddedInHomeShell = false,
+  });
 
   @override
   State<MedicineStoreScreen> createState() => _MedicineStoreScreenState();
@@ -27,15 +34,34 @@ class MedicineStoreScreen extends StatefulWidget {
 class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     with SingleTickerProviderStateMixin {
   late ScrollController _scrollController;
+  late ScrollController _categoryScrollController;
   late TextEditingController _searchController; // Added controller
   bool _isScrolled = false;
   // Track scroll position to determine direction
   double _lastScrollOffset = 0.0;
   bool _showFloatingActions = true; // Default to visible
 
+  void _onGlobalSearchChanged() {
+    if (_searchQuery != StateService().searchQuery) {
+      setState(() {
+        _searchQuery = StateService().searchQuery;
+        _searchController.text = _searchQuery;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    StateService().onShowFilterModal = _showFilterModal;
+    _categoryScrollController = ScrollController();
+    _categoryScrollController.addListener(_updateCategoryScrollState);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateCategoryScrollState();
+    });
+
+    StateService().addListener(_onGlobalSearchChanged);
     _searchController = TextEditingController(); // Initialize
     _scrollController = ScrollController();
     _scrollController.addListener(() {
@@ -65,6 +91,10 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
   @override
   void dispose() {
+    StateService().onShowFilterModal = null;
+    StateService().removeListener(_onGlobalSearchChanged);
+    _categoryScrollController.removeListener(_updateCategoryScrollState);
+    _categoryScrollController.dispose();
     _scrollController.dispose();
     _searchController.dispose(); // Dispose search controller
     super.dispose();
@@ -81,6 +111,17 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   String _sortBy = 'Name'; // 'Name' or 'Price'
   bool _sortAscending = true;
   bool _showCategories = false; // Collapsed by default
+  bool _hideDesktopCategories = false; // User toggle for desktop shell
+  bool _canScrollLeft = false;
+  bool _canScrollRight = true;
+
+  void _updateCategoryScrollState() {
+    if (!mounted || !_categoryScrollController.hasClients) return;
+    setState(() {
+      _canScrollLeft = _categoryScrollController.offset > 0;
+      _canScrollRight = _categoryScrollController.offset < _categoryScrollController.position.maxScrollExtent;
+    });
+  }
 
   List<Medicine> get _filteredMedicines {
     String query = _searchQuery.toLowerCase().trim();
@@ -451,9 +492,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 decoration: BoxDecoration(
-                                  color: _sortAscending ? Colors.green.shade50 : Colors.white,
+                                  color: _sortAscending ? const Color(0xFF1E9E68) : Colors.white,
                                   border: Border.all(
-                                    color: _sortAscending ? Colors.green : Colors.grey.shade300,
+                                    color: _sortAscending ? const Color(0xFF1E9E68) : Colors.grey.shade300,
                                   ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -462,7 +503,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                     "Ascending", 
                                     style: TextStyle(
                                       fontWeight: _sortAscending ? FontWeight.bold : FontWeight.normal,
-                                      color: _sortAscending ? Colors.green : Colors.black87,
+                                      color: _sortAscending ? const Color(0xFF1E9E68) : Colors.black87,
                                     )
                                   ),
                                 ),
@@ -479,9 +520,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 decoration: BoxDecoration(
-                                  color: !_sortAscending ? Colors.green.shade50 : Colors.white,
+                                  color: !_sortAscending ? const Color(0xFF1E9E68) : Colors.white,
                                   border: Border.all(
-                                    color: !_sortAscending ? Colors.green : Colors.grey.shade300,
+                                    color: !_sortAscending ? const Color(0xFF1E9E68) : Colors.grey.shade300,
                                   ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -490,7 +531,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                     "Descending", 
                                     style: TextStyle(
                                       fontWeight: !_sortAscending ? FontWeight.bold : FontWeight.normal,
-                                      color: !_sortAscending ? Colors.green : Colors.black87,
+                                      color: !_sortAscending ? const Color(0xFF1E9E68) : Colors.black87,
                                     )
                                   ),
                                 ),
@@ -583,8 +624,8 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               });
                               setState(() {});
                             },
-                            backgroundColor: Colors.green.shade50,
-                            labelStyle: TextStyle(color: Colors.green.shade900),
+                            backgroundColor: const Color(0xFF1E9E68),
+                            labelStyle: TextStyle(color: const Color(0xFF1E9E68)),
                           )).toList(),
                         ),
                       ],
@@ -646,7 +687,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           ),
                           Text(
                             '${_priceRange.start.round()} - ${_priceRange.end.round()} RWF',
-                            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                            style: const TextStyle(color: const Color(0xFF1E9E68), fontWeight: FontWeight.bold),
                           ),
                          ],
                       ),
@@ -655,8 +696,8 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                         min: 0,
                         max: 50000,
                         divisions: 50,
-                        activeColor: Colors.green,
-                        inactiveColor: Colors.green.shade100,
+                        activeColor: const Color(0xFF1E9E68),
+                        inactiveColor: const Color(0xFF1E9E68),
                         labels: RangeLabels(
                           '${_priceRange.start.round()}',
                           '${_priceRange.end.round()}',
@@ -673,7 +714,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: const Color(0xFF1E9E68),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -703,9 +744,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.green.shade50 : Colors.white,
+          color: isSelected ? const Color(0xFF1E9E68) : Colors.white,
           border: Border.all(
-            color: isSelected ? Colors.green : Colors.grey.shade300,
+            color: isSelected ? const Color(0xFF1E9E68) : Colors.grey.shade300,
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -714,7 +755,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
           children: [
             Icon(
               isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: isSelected ? Colors.green : Colors.grey,
+              color: isSelected ? const Color(0xFF1E9E68) : Colors.grey,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -726,7 +767,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected ? Colors.green : Colors.black87,
+                        color: isSelected ? const Color(0xFF1E9E68) : Colors.black87,
                       ),
                     ),
                     if (subtitle != null) ...[
@@ -748,118 +789,734 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     );
   }
 
+  Widget _desktopHeroIconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.18),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.35)),
+          ),
+          child: Icon(icon, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopStore(BuildContext context, double screenWidth) {
+    final contentWidth = (screenWidth * 0.96).clamp(1100.0, 1380.0).toDouble();
+    final desktopCardWidth = ((contentWidth * 0.19).clamp(200.0, 260.0)).toDouble();
+    final desktopCardHeight = (desktopCardWidth * 1.18).toDouble();
+    final pharmacyColumns = contentWidth >= 1280 ? 4 : 3;
+    final showHeroHeader = !widget.embeddedInHomeShell;
+
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: AnimatedBuilder(
+        animation: StateService(),
+        builder: (context, _) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFF6F8FB),
+            body: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: contentWidth),
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    if (showHeroHeader)
+                      SliverAppBar(
+                      pinned: true,
+                      expandedHeight: 210,
+                      collapsedHeight: 72,
+                      toolbarHeight: 72,
+                      automaticallyImplyLeading: false,
+                      backgroundColor: const Color(0xFF1E8E63),
+                      title: Row(
+                        children: [
+                          FarumasiLogo(size: 28, color: Colors.white, onDark: true),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'FARUMASI',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        _desktopHeroIconButton(
+                          icon: Icons.help_outline,
+                          tooltip: 'Help',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const HelpScreen()),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _desktopHeroIconButton(
+                          icon: Icons.notifications_none,
+                          tooltip: 'Notifications',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const NotificationScreen()),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            _desktopHeroIconButton(
+                              icon: Icons.shopping_cart_outlined,
+                              tooltip: 'Cart',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const CartScreen()),
+                                );
+                              },
+                            ),
+                            if (StateService().cartItems.isNotEmpty)
+                              Positioned(
+                                right: -2,
+                                top: -2,
+                                child: CircleAvatar(
+                                  radius: 8,
+                                  backgroundColor: Colors.red,
+                                  child: Text(
+                                    '${StateService().cartItems.length}',
+                                    style: const TextStyle(fontSize: 10, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      flexibleSpace: FlexibleSpaceBar(
+                        background: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&q=80&w=1800',
+                              fit: BoxFit.cover,
+                            ),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xFF1E9E68).withOpacity(0.86),
+                                    const Color(0xFF1E9E68).withOpacity(0.55),
+                                    Colors.transparent,
+                                  ],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                              ),
+                            ),
+                            const Positioned(
+                              left: 22,
+                              bottom: 18,
+                              child: Text(
+                                'Your trusted digital pharmacy partner in Rwanda',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  shadows: [Shadow(color: Colors.black38, blurRadius: 6)],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    else
+                      const SliverToBoxAdapter(child: SizedBox.shrink()),
+                    if (!widget.embeddedInHomeShell)
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _StickyHeaderDelegate(
+                          height: 90,
+                          child: Container(
+                            color: const Color(0xFFF6F8FB),
+                            alignment: Alignment.center,
+                            child: Container(
+                              margin: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0xFFE4E8EC)),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x110F172A),
+                                    blurRadius: 14,
+                                    offset: Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  const Expanded(
+                                    child: Text(
+                                      'Farumasi Store',
+                                      style: TextStyle(
+                                        fontSize: 26,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.2,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ),
+                                  Flexible(
+                                    flex: 8,
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(maxWidth: 520),
+                                      child: TextField(
+                                        controller: _searchController,
+                                        decoration: InputDecoration(
+                                          hintText: 'Search medicines, symptoms, categories...',
+                                          prefixIcon: const Icon(Icons.search),
+                                          suffixIcon: IconButton(
+                                            onPressed: _showFilterModal,
+                                            icon: const Icon(Icons.tune),
+                                            tooltip: 'Sort & Filter',
+                                          ),
+                                          filled: true,
+                                          fillColor: const Color(0xFFF3F6FA),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(14),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                        ),
+                                        onChanged: (val) => setState(() => _searchQuery = val),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _StickyHeaderDelegate(
+                        height: _hideDesktopCategories ? 64 : 154, // Collapse height vs Expanded
+                        child: Container(
+                          color: const Color(0xFFF6F8FB),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: _hideDesktopCategories ? MainAxisAlignment.end : MainAxisAlignment.spaceBetween,
+                                children: [
+                                  if (!_hideDesktopCategories)
+                                    const Text(
+                                      'Browse Categories',
+                                      style: TextStyle(
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  Tooltip(
+                                    message: _hideDesktopCategories ? 'Show Categories' : 'Hide Categories',
+                                    child: Material(
+                                      color: _hideDesktopCategories ? Colors.white : Colors.transparent,
+                                      elevation: _hideDesktopCategories ? 2 : 0,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(20),
+                                        onTap: () => setState(() => _hideDesktopCategories = !_hideDesktopCategories),
+                                        child: Padding(
+                                          padding: _hideDesktopCategories ? const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0) : const EdgeInsets.all(8.0),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (_hideDesktopCategories)
+                                                const Text(
+                                                  'Categories',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 13,
+                                                    color: Color(0xFF64748B),
+                                                  ),
+                                                ),
+                                              Icon(
+                                                _hideDesktopCategories ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                                                color: const Color(0xFF64748B),
+                                                size: _hideDesktopCategories ? 20 : 24,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (!_hideDesktopCategories)
+                                const SizedBox(height: 10),
+                              if (!_hideDesktopCategories)
+                                Expanded(
+                                child: ScrollConfiguration(
+                                  behavior: ScrollConfiguration.of(context).copyWith(
+                                    dragDevices: {
+                                      PointerDeviceKind.touch,
+                                      PointerDeviceKind.mouse,
+                                      PointerDeviceKind.trackpad,
+                                    },
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      MouseRegion(
+                                        cursor: SystemMouseCursors.click,
+                                        child: ListView(
+                                          controller: _categoryScrollController,
+                                          scrollDirection: Axis.horizontal,
+                                          physics: const BouncingScrollPhysics(),
+                                          children: _categories
+                                              .map(
+                                            (cat) => Padding(
+                                          padding: const EdgeInsets.only(right: 16),
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                if (_selectedCategories.contains(cat)) {
+                                                  _selectedCategories.remove(cat);
+                                                } else {
+                                                  _selectedCategories.add(cat);
+                                                  _selectedSubCategory = null;
+                                                }
+                                              });
+                                            },
+                                            child: Column(
+                                              children: [
+                                                AnimatedContainer(
+                                                  duration: const Duration(milliseconds: 180),
+                                                  padding: const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: _selectedCategories.contains(cat)
+                                                        ? const Color(0xFF1E9E68)
+                                                        : const Color(0xFFF1F5F9),
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: _selectedCategories.contains(cat)
+                                                          ? const Color(0xFF1E9E68)
+                                                          : const Color(0xFFD8E1EA),
+                                                    ),
+                                                    boxShadow: _selectedCategories.contains(cat)
+                                                        ? const [
+                                                            BoxShadow(
+                                                              color: Color(0x3322A36F),
+                                                              blurRadius: 12,
+                                                              offset: Offset(0, 4),
+                                                            ),
+                                                          ]
+                                                        : null,
+                                                  ),
+                                                  child: Icon(
+                                                    _getCategoryIcon(cat),
+                                                    color: _selectedCategories.contains(cat)
+                                                        ? Colors.white
+                                                        : const Color(0xFF1E9E68),
+                                                    size: 26,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                SizedBox(
+                                                  width: 92,
+                                                  child: Text(
+                                                    cat,
+                                                    textAlign: TextAlign.center,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: _selectedCategories.contains(cat)
+                                                          ? const Color(0xFF0F172A)
+                                                          : const Color(0xFF334155),
+                                                      fontWeight: _selectedCategories.contains(cat)
+                                                          ? FontWeight.w700
+                                                          : FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                    ),
+                                  ),
+                                  if (_canScrollLeft)
+                                      Positioned(
+                                        left: 0,
+                                        top: 6,
+                                        bottom: 46,
+                                        child: Center(
+                                          child: Material(
+                                            elevation: 4,
+                                            shape: const CircleBorder(),
+                                            shadowColor: Colors.black26,
+                                            child: CircleAvatar(
+                                              backgroundColor: Colors.white,
+                                              radius: 20,
+                                              child: IconButton(
+                                                padding: EdgeInsets.zero,
+                                                icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF1E9E68), size: 20),
+                                                tooltip: 'Scroll left',
+                                                onPressed: () {
+                                                  if (_categoryScrollController.hasClients) {
+                                                    _categoryScrollController.animateTo(
+                                                      _categoryScrollController.offset - 400,
+                                                      duration: const Duration(milliseconds: 250),
+                                                      curve: Curves.easeOutCubic,
+                                                    );
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    if (_canScrollRight)
+                                      Positioned(
+                                        right: 0,
+                                        top: 6,
+                                        bottom: 46,
+                                        child: Center(
+                                          child: Material(
+                                            elevation: 4,
+                                            shape: const CircleBorder(),
+                                            shadowColor: Colors.black26,
+                                            child: CircleAvatar(
+                                              backgroundColor: Colors.white,
+                                              radius: 20,
+                                              child: IconButton(
+                                                padding: EdgeInsets.zero,
+                                                icon: const Icon(Icons.arrow_forward_ios, color: Color(0xFF1E9E68), size: 20),
+                                                tooltip: 'Scroll right',
+                                                onPressed: () {
+                                                  if (_categoryScrollController.hasClients) {
+                                                    _categoryScrollController.animateTo(
+                                                      _categoryScrollController.offset + 400,
+                                                      duration: const Duration(milliseconds: 250),
+                                                      curve: Curves.easeOutCubic,
+                                                    );
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_searchQuery.isEmpty && _selectedCategories.isEmpty) ...[
+                      SliverToBoxAdapter(
+                        child: const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+                          child: Text(
+                            'Pharmacies we work with',
+                            style: TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: 106,
+                          child: ScrollConfiguration(
+                            behavior: ScrollConfiguration.of(context).copyWith(
+                              dragDevices: {
+                                PointerDeviceKind.touch,
+                                PointerDeviceKind.mouse,
+                                PointerDeviceKind.trackpad,
+                              },
+                            ),
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: ListView.separated(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                scrollDirection: Axis.horizontal,
+                                physics: const BouncingScrollPhysics(),
+                                itemCount: dummyPharmacies.length,
+                                separatorBuilder: (context, index) => const SizedBox(width: 14),
+                                itemBuilder: (context, index) {
+                                  final pharmacy = dummyPharmacies[index];
+                                  return Container(
+                                    width: 250,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(color: const Color(0xFFE6EAEE)),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x120F172A),
+                                          blurRadius: 10,
+                                          offset: Offset(0, 5),
+                                        ),
+                                      ],
+                                    ),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => PharmacyDetailScreen(pharmacy: pharmacy),
+                                          ),
+                                        );
+                                      },
+                                      child: Row(
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: const BorderRadius.horizontal(
+                                              left: Radius.circular(14),
+                                            ),
+                                            child: Image.network(
+                                              pharmacy.imageUrl,
+                                              width: 96,
+                                              height: double.infinity,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => Container(
+                                                width: 96,
+                                                color: Colors.grey.shade200,
+                                                child: const Icon(Icons.store, color: Colors.grey),
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(10),
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    pharmacy.name,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w700,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    '${pharmacy.province}, ${pharmacy.district}',
+                                                    style: TextStyle(
+                                                      color: Colors.grey.shade700,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 26, 16, 12),
+                        child: Row(
+                          children: [
+                            Text(
+                              _searchQuery.isNotEmpty
+                                  ? 'Search Results'
+                                  : (_selectedCategories.isNotEmpty || _selectedSubCategory != null
+                                        ? 'Filtered Results'
+                                        : 'Explore Medicines'),
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const Spacer(),
+                            if (_searchQuery.isNotEmpty ||
+                                _selectedCategories.isNotEmpty ||
+                                _selectedSubCategory != null)
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _searchQuery = '';
+                                    _searchController.clear();
+                                    _selectedCategories.clear();
+                                    _selectedSubCategory = null;
+                                    _priceRange = const RangeValues(0, 50000);
+                                    _minRating = 0.0;
+                                    _sortBy = 'Name';
+                                    _sortAscending = true;
+                                  });
+                                },
+                                icon: const Icon(Icons.close, size: 16),
+                                label: const Text('Clear All'),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: desktopCardWidth,
+                          mainAxisExtent: desktopCardHeight,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final med = _sortedMedicines[index];
+                            return MedicineItem(
+                              medicine: med,
+                              onTap: () {
+                                if (med.requiresPrescription) {
+                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Prescription Required. Please consult a pharmacist.'),
+                                      backgroundColor: Colors.orange,
+                                    ),
+                                  );
+                                  return;
+                                }
+                                final isAdded = StateService().cartItems.any(
+                                  (item) => item.medicine.id == med.id,
+                                );
+                                if (isAdded) {
+                                  StateService().removeFromCart(med.id);
+                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('${med.name} removed from cart'),
+                                      duration: const Duration(seconds: 1),
+                                      behavior: SnackBarBehavior.floating,
+                                      backgroundColor: Colors.black87,
+                                    ),
+                                  );
+                                } else {
+                                  StateService().addToCart(med, 1);
+                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('${med.name} added to cart!'),
+                                      duration: const Duration(seconds: 1),
+                                      behavior: SnackBarBehavior.floating,
+                                      backgroundColor: const Color(0xFF1E9E68),
+                                    ),
+                                  );
+                                }
+                              },
+                              onAboutTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => MedicineDetailScreen(medicine: med),
+                                ),
+                              ),
+                            );
+                          },
+                          childCount: _sortedMedicines.length,
+                        ),
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 28)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 600;
+    final cappedWidth = screenWidth > 1280 ? 1280.0 : screenWidth;
+    final responsiveCardWidth =
+      ((cappedWidth * (isDesktop ? 0.19 : 0.46)).clamp(170.0, 340.0)).toDouble();
+    final responsiveCardHeight =
+      ((responsiveCardWidth * 1.24).clamp(250.0, 380.0)).toDouble();
+    final responsiveGridSpacing =
+      ((responsiveCardWidth * 0.06).clamp(10.0, 18.0)).toDouble();
+
+    if (isDesktop) {
+      return _buildDesktopStore(context, screenWidth);
+    }
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: AnimatedBuilder(
         animation: StateService(),
         builder: (context, child) {
-          return Scaffold(
-            floatingActionButton: _showFloatingActions 
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FloatingActionButton(
-                      heroTag: 'upload_btn',
-                      backgroundColor: StateService().isLoggedIn ? Colors.blue : Colors.grey,
-                      onPressed: () {
-                         if (!StateService().isLoggedIn) {
-                           ScaffoldMessenger.of(context).showSnackBar(
-                             SnackBar(
-                               content: const Text("Please login to upload a prescription."),
-                               action: SnackBarAction(
-                                 label: 'Login',
-                                 onPressed: () {
-                                   Navigator.push(
-                                     context,
-                                     MaterialPageRoute(builder: (_) => const AuthScreen()),
-                                   );
-                                 },
-                               ),
-                             ),
-                           );
-                           return;
-                         }
-                         Navigator.push(
-                           context,
-                           MaterialPageRoute(builder: (_) => const PrescriptionUploadScreen()),
-                         );
-                      },
-                      tooltip: 'Upload Prescription',
-                      child: const Icon(Icons.upload_file, color: Colors.white),
-                    ),
-                    const SizedBox(height: 12),
-                    Stack(
-                      alignment: Alignment.topRight,
-                      clipBehavior: Clip.none,
-                      children: [
-                        FloatingActionButton(
-                          heroTag: 'cart_main_btn',
-                          backgroundColor: Colors.green,
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const CartScreen()),
-                            );
-                          },
-                          tooltip: 'View Cart',
-                          child: const Icon(Icons.shopping_cart, color: Colors.white),
-                        ),
-                        if (StateService().cartItems.isNotEmpty)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 16,
-                                minHeight: 16,
-                              ),
-                              child: Text(
-                                '${StateService().cartItems.length}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ) 
-              : null,
-          body: CustomScrollView(
+          final storeScrollView = CustomScrollView(
             controller: _scrollController,
             slivers: [
               // 1. Unpinned Parallax Header (Brand + Image)
               SliverAppBar(
                 pinned: true, // Keep it visible when scrolled up
                 expandedHeight: 180, // Increased height to prevent overflow and improve visibility
-                collapsedHeight: 60, 
-                toolbarHeight: 60,   
-                backgroundColor: Colors.green,
+                collapsedHeight: 60,
+                toolbarHeight: 60,
+                backgroundColor: const Color(0xFF1E9E68),
                 elevation: 0,
                 scrolledUnderElevation: 0,
-                automaticallyImplyLeading: false, 
+                automaticallyImplyLeading: false,
                 title: AnimatedOpacity(
                   duration: const Duration(milliseconds: 300),
                   opacity: _isScrolled ? 1.0 : 0.0,
                   child: Row(
-                    mainAxisSize: MainAxisSize.min, 
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                       FarumasiLogo(
-                          size: 32, // Nice readable logo
-                          color: Colors.white,
-                          onDark: true,
-                        ),
+                      FarumasiLogo(
+                        size: 32, // Nice readable logo
+                        color: Colors.white,
+                        onDark: true,
+                      ),
                       const SizedBox(width: 10),
                       const Text(
                         "FARUMASI",
@@ -874,7 +1531,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                   ),
                 ),
                 actions: [
-                   AnimatedOpacity(
+                  AnimatedOpacity(
                     duration: const Duration(milliseconds: 300),
                     opacity: _isScrolled ? 1.0 : 0.0,
                     child: Row(
@@ -944,13 +1601,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           child: IconButton(
                             icon: const Icon(Icons.settings, color: Colors.white),
                             onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => const SettingsScreen(),
-                                      ),
-                                    );
-                                  },
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const SettingsScreen(),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -969,7 +1626,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              Colors.green.shade900.withOpacity(0.9),
+                              const Color(0xFF1E9E68).withOpacity(0.9),
                               Colors.transparent,
                             ],
                             begin: Alignment.bottomLeft,
@@ -977,7 +1634,6 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           ),
                         ),
                       ),
-
                       // Brand Name + Slogan (Moved to Top)
                       Positioned(
                         top: 80, // Moved down to clear the status bar/collapsed toolbar area
@@ -991,10 +1647,10 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               // Unique 'F' Medical Logo (Leafy Style)
                               FarumasiLogo(
                                 size: 56, // Increased size
-                                color: Colors.green,
+                                color: const Color(0xFF1E9E68),
                                 onDark: true,
                               ),
-                              SizedBox(width: 12), 
+                              SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment:
@@ -1008,7 +1664,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                         fontSize: 32, // Increased size
                                         fontWeight: FontWeight.w900,
                                         letterSpacing: 1.2,
-                                        height: 1.0, 
+                                        height: 1.0,
                                         shadows: [
                                           Shadow(
                                             blurRadius: 4,
@@ -1138,7 +1794,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                           value: 'profile',
                                           child: Row(
                                             children: [
-                                              Icon(Icons.person_outline, color: Colors.green, size: 20),
+                                              Icon(Icons.person_outline, color: const Color(0xFF1E9E68), size: 20),
                                               SizedBox(width: 12),
                                               Text('My Profile'),
                                             ],
@@ -1148,7 +1804,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                           value: 'orders',
                                           child: Row(
                                             children: [
-                                              Icon(Icons.shopping_bag_outlined, color: Colors.green, size: 20),
+                                              Icon(Icons.shopping_bag_outlined, color: const Color(0xFF1E9E68), size: 20),
                                               SizedBox(width: 12),
                                               Text('My Orders'),
                                             ],
@@ -1158,7 +1814,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                           value: 'settings',
                                           child: Row(
                                             children: [
-                                              Icon(Icons.settings_outlined, color: Colors.green, size: 20),
+                                              Icon(Icons.settings_outlined, color: const Color(0xFF1E9E68), size: 20),
                                               SizedBox(width: 12),
                                               Text('Settings'),
                                             ],
@@ -1188,7 +1844,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                                     .toUpperCase()
                                               : 'U',
                                           style: const TextStyle(
-                                            color: Colors.green,
+                                            color: const Color(0xFF1E9E68),
                                             fontWeight: FontWeight.bold,
                                             fontSize: 20,
                                           ),
@@ -1225,7 +1881,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                       ),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.white,
-                                        foregroundColor: Colors.green,
+                                        foregroundColor: const Color(0xFF1E9E68),
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
                                               BorderRadius.circular(20),
@@ -1258,15 +1914,15 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                 pinned: true,
                 delegate: _StickyHeaderDelegate(
                   height: _showCategories
-                      ? 220 
-                      : 80, // Increased height to prevent overflow
+                      ? (isDesktop ? 190 : 220)
+                      : 80,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start, 
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       // Search Bar
                       Container(
-                        color: Colors.green,
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), 
+                        color: const Color(0xFF1E9E68),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                         child: Row(
                           children: [
                             // Search Label Text
@@ -1309,7 +1965,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                     suffixIcon: IconButton(
                                       icon: const Icon(
                                         Icons.sort, // Changed icon to sort
-                                        color: Colors.green,
+                                        color: const Color(0xFF1E9E68),
                                         size: 24,
                                       ),
                                       onPressed: _showFilterModal,
@@ -1346,77 +2002,132 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                       // Categories List (Conditionally Visible)
                       if (_showCategories)
                         Container(
-                          height: 130, // Increased height for safe wrapping
+                          height: isDesktop ? 110 : 130,
                           color: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 10),
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            children: _categories
-                                .map(
-                                  (cat) => Padding(
-                                    padding: const EdgeInsets.only(right: 16.0),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          if (_selectedCategories.contains(cat)) {
-                                            _selectedCategories.remove(cat);
-                                            // Optional: clear subcategory if it belongs to removed category?
-                                            // _selectedSubCategory = null; 
-                                          } else {
-                                            _selectedCategories.add(cat);
-                                            _selectedSubCategory = null;
-                                          }
-                                        });
-                                      },
-                                      child: Column(
-                                        children: [
-                                          AnimatedContainer(
-                                            duration: Duration(
-                                              milliseconds: 200,
-                                            ),
-                                            padding: EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  _selectedCategories.contains(cat)
-                                                  ? Colors.green
-                                                  : Colors.grey.shade100,
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color:
-                                                    _selectedCategories.contains(cat)
-                                                    ? Colors.green
-                                                    : Colors.grey.shade300,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: isDesktop
+                              ? SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  child: Row(
+                                    children: _categories
+                                        .map(
+                                          (cat) => Padding(
+                                            padding: const EdgeInsets.only(right: 16.0),
+                                            child: GestureDetector(
+                                              onTap: () {
+                                                setState(() {
+                                                  if (_selectedCategories.contains(cat)) {
+                                                    _selectedCategories.remove(cat);
+                                                  } else {
+                                                    _selectedCategories.add(cat);
+                                                    _selectedSubCategory = null;
+                                                  }
+                                                });
+                                              },
+                                              child: Column(
+                                                children: [
+                                                  AnimatedContainer(
+                                                    duration: const Duration(milliseconds: 200),
+                                                    padding: const EdgeInsets.all(12),
+                                                    decoration: BoxDecoration(
+                                                      color: _selectedCategories.contains(cat)
+                                                          ? const Color(0xFF1E9E68)
+                                                          : Colors.grey.shade100,
+                                                      shape: BoxShape.circle,
+                                                      border: Border.all(
+                                                        color: _selectedCategories.contains(cat)
+                                                            ? const Color(0xFF1E9E68)
+                                                            : Colors.grey.shade300,
+                                                      ),
+                                                    ),
+                                                    child: Icon(
+                                                      _getCategoryIcon(cat),
+                                                      color: _selectedCategories.contains(cat)
+                                                          ? Colors.white
+                                                          : const Color(0xFF1E9E68),
+                                                      size: 28,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    cat,
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: _selectedCategories.contains(cat)
+                                                          ? FontWeight.bold
+                                                          : FontWeight.w500,
+                                                      color: Colors.black87,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                            child: Icon(
-                                              _getCategoryIcon(cat),
-                                              color:
-                                                  _selectedCategories.contains(cat)
-                                                  ? Colors.white
-                                                  : Colors.green,
-                                              size: 28,
-                                            ),
                                           ),
-                                          SizedBox(height: 8),
-                                          Text(
-                                            cat,
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight:
-                                                  _selectedCategories.contains(cat)
-                                                  ? FontWeight.bold
-                                                  : FontWeight.w500,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                        )
+                                        .toList(),
                                   ),
                                 )
-                                .toList(),
-                          ),
+                              : ListView(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  children: _categories
+                                      .map(
+                                        (cat) => Padding(
+                                          padding: const EdgeInsets.only(right: 16.0),
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              setState(() {
+                                                if (_selectedCategories.contains(cat)) {
+                                                  _selectedCategories.remove(cat);
+                                                } else {
+                                                  _selectedCategories.add(cat);
+                                                  _selectedSubCategory = null;
+                                                }
+                                              });
+                                            },
+                                            child: Column(
+                                              children: [
+                                                AnimatedContainer(
+                                                  duration: const Duration(milliseconds: 200),
+                                                  padding: const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: _selectedCategories.contains(cat)
+                                                        ? const Color(0xFF1E9E68)
+                                                        : Colors.grey.shade100,
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: _selectedCategories.contains(cat)
+                                                          ? const Color(0xFF1E9E68)
+                                                          : Colors.grey.shade300,
+                                                    ),
+                                                  ),
+                                                  child: Icon(
+                                                    _getCategoryIcon(cat),
+                                                    color: _selectedCategories.contains(cat)
+                                                        ? Colors.white
+                                                        : const Color(0xFF1E9E68),
+                                                    size: 28,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  cat,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: _selectedCategories.contains(cat)
+                                                        ? FontWeight.bold
+                                                        : FontWeight.w500,
+                                                    color: Colors.black87,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
                         ),
                     ],
                   ),
@@ -1442,80 +2153,167 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                     ),
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 180,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: dummyPharmacies.length,
-                      itemBuilder: (context, index) {
-                        final pharmacy = dummyPharmacies[index];
-                        return GestureDetector(
-                          onTap: () {
-                             // Navigate to pharmacy detail
-                             Navigator.push(
-                               context, 
-                               MaterialPageRoute(builder: (_) => PharmacyDetailScreen(pharmacy: pharmacy))
-                             );
-                          },
-                          child: Container(
-                            width: 240,
-                            margin: const EdgeInsets.only(right: 16),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.shade100,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
+                if (isDesktop)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    sliver: SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 320,
+                        mainAxisExtent: 190,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final pharmacy = dummyPharmacies[index];
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PharmacyDetailScreen(pharmacy: pharmacy),
                                 ),
-                              ],
-                              border: Border.all(color: Colors.grey.shade100),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(
-                                    pharmacy.imageUrl,
-                                    height: 100,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_,__,___) => Container(color: Colors.grey.shade200, height: 100, child: Icon(Icons.store, color: Colors.grey)),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.shade100,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
                                   ),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  pharmacy.name,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(Icons.location_on, size: 14, color: Colors.grey.shade600),
-                                    Expanded(
-                                      child: Text(
-                                        " ${pharmacy.province}, ${pharmacy.district}, ${pharmacy.sector}, ${pharmacy.cell}", 
-                                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                                        overflow: TextOverflow.ellipsis,
+                                ],
+                                border: Border.all(color: Colors.grey.shade100),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      pharmacy.imageUrl,
+                                      height: 90,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        color: Colors.grey.shade200,
+                                        height: 90,
+                                        child: const Icon(Icons.store, color: Colors.grey),
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    pharmacy.name,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.location_on, size: 14, color: Colors.grey.shade600),
+                                      Expanded(
+                                        child: Text(
+                                          " ${pharmacy.province}, ${pharmacy.district}, ${pharmacy.sector}, ${pharmacy.cell}",
+                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                        childCount: dummyPharmacies.length,
+                      ),
+                    ),
+                  )
+                else
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 180,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        itemCount: dummyPharmacies.length,
+                        itemBuilder: (context, index) {
+                          final pharmacy = dummyPharmacies[index];
+                          return GestureDetector(
+                            onTap: () {
+                              // Navigate to pharmacy detail
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => PharmacyDetailScreen(pharmacy: pharmacy)),
+                              );
+                            },
+                            child: Container(
+                              width: 240,
+                              margin: const EdgeInsets.only(right: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.shade100,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                                border: Border.all(color: Colors.grey.shade100),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      pharmacy.imageUrl,
+                                      height: 100,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        color: Colors.grey.shade200,
+                                        height: 100,
+                                        child: Icon(Icons.store, color: Colors.grey),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    pharmacy.name,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.location_on, size: 14, color: Colors.grey.shade600),
+                                      Expanded(
+                                        child: Text(
+                                          " ${pharmacy.province}, ${pharmacy.district}, ${pharmacy.sector}, ${pharmacy.cell}",
+                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
-                ),
               ],
 
               // "Did you mean?" Suggestion Header
@@ -1604,9 +2402,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           icon: const Icon(Icons.close, size: 16, color: Colors.orange),
                           label: const Text('Clear All', style: TextStyle(color: Colors.orange)),
                           style: TextButton.styleFrom(
-                             padding: EdgeInsets.symmetric(horizontal: 8),
-                             minimumSize: Size.zero,
-                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                         ),
                     ],
@@ -1616,13 +2414,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
               // Main Grid
               SliverPadding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
+                padding: EdgeInsets.symmetric(horizontal: isDesktop ? 20 : 12),
                 sliver: SliverGrid(
                   gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 200, 
-                    mainAxisExtent: 280, // FIXED HEIGHT instead of aspect ratio
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
+                    maxCrossAxisExtent: responsiveCardWidth,
+                    mainAxisExtent: responsiveCardHeight,
+                    crossAxisSpacing: responsiveGridSpacing,
+                    mainAxisSpacing: responsiveGridSpacing,
                   ),
                   delegate: SliverChildBuilderDelegate((context, index) {
                     final med = _sortedMedicines[index];
@@ -1663,7 +2461,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               content: Text('${med.name} added to cart!'),
                               duration: Duration(seconds: 1),
                               behavior: SnackBarBehavior.floating,
-                              backgroundColor: Colors.green,
+                              backgroundColor: const Color(0xFF1E9E68),
                             ),
                           );
                         }
@@ -1681,7 +2479,97 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
               SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
-          ),
+          );
+
+          return Scaffold(
+            floatingActionButton: (!isDesktop && _showFloatingActions) 
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FloatingActionButton(
+                      heroTag: 'upload_btn',
+                      backgroundColor: StateService().isLoggedIn ? Colors.blue : Colors.grey,
+                      onPressed: () {
+                         if (!StateService().isLoggedIn) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             SnackBar(
+                               content: const Text("Please login to upload a prescription."),
+                               action: SnackBarAction(
+                                 label: 'Login',
+                                 onPressed: () {
+                                   Navigator.push(
+                                     context,
+                                     MaterialPageRoute(builder: (_) => const AuthScreen()),
+                                   );
+                                 },
+                               ),
+                             ),
+                           );
+                           return;
+                         }
+                         Navigator.push(
+                           context,
+                           MaterialPageRoute(builder: (_) => const PrescriptionUploadScreen()),
+                         );
+                      },
+                      tooltip: 'Upload Prescription',
+                      child: const Icon(Icons.upload_file, color: Colors.white),
+                    ),
+                    const SizedBox(height: 12),
+                    Stack(
+                      alignment: Alignment.topRight,
+                      clipBehavior: Clip.none,
+                      children: [
+                        FloatingActionButton(
+                          heroTag: 'cart_main_btn',
+                          backgroundColor: const Color(0xFF1E9E68),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CartScreen()),
+                            );
+                          },
+                          tooltip: 'View Cart',
+                          child: const Icon(Icons.shopping_cart, color: Colors.white),
+                        ),
+                        if (StateService().cartItems.isNotEmpty)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                '${StateService().cartItems.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ) 
+              : null,
+          body: isDesktop
+              ? Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1280),
+                    child: storeScrollView,
+                  ),
+                )
+              : storeScrollView,
         );
       }, // end builder
     ), // end AnimatedBuilder
@@ -1729,7 +2617,7 @@ class FarumasiLogo extends StatelessWidget {
   const FarumasiLogo({
     super.key,
     required this.size,
-    this.color = Colors.green,
+    this.color = const Color(0xFF1E9E68),
     this.onDark = false,
   });
 
@@ -1753,7 +2641,7 @@ class FarumasiLogo extends StatelessWidget {
             : null,
       ),
       child: CustomPaint(
-        painter: _LeafyFPainter(color: onDark ? Colors.green.shade700 : color),
+        painter: _LeafyFPainter(color: onDark ? const Color(0xFF1E9E68) : color),
       ),
     );
   }
@@ -1896,7 +2784,7 @@ class _TypewriterSloganState extends State<TypewriterSlogan> {
               child: Container(
                 width: 3, 
                 height: 24, 
-                color: Colors.green, // Match text color
+                color: const Color(0xFF1E9E68), // Match text color
                 margin: const EdgeInsets.only(left: 2),
               ),
               alignment: PlaceholderAlignment.middle,
@@ -1904,7 +2792,7 @@ class _TypewriterSloganState extends State<TypewriterSlogan> {
         ],
       ),
       style: const TextStyle(
-        color: Colors.green, 
+        color: const Color(0xFF1E9E68), 
         fontSize: 22, 
         fontWeight: FontWeight.w900, 
         letterSpacing: 1.0,
@@ -1996,7 +2884,7 @@ class _SearchableListDialogState extends State<_SearchableListDialog> {
                        return const SizedBox.shrink(); 
                      }
                      return ListTile(
-                       title: const Text('All Categories', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                       title: const Text('All Categories', style: TextStyle(fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68))),
                        onTap: () => Navigator.pop(context, 'All Categories'),
                      );
                   }
@@ -2094,7 +2982,7 @@ class _SearchableMultiSelectDialogState extends State<_SearchableMultiSelectDial
                   return CheckboxListTile(
                     title: Text(item),
                     value: isSelected,
-                    activeColor: Colors.green,
+                    activeColor: const Color(0xFF1E9E68),
                     onChanged: (val) {
                       setState(() {
                         if (val == true) {
@@ -2113,7 +3001,7 @@ class _SearchableMultiSelectDialogState extends State<_SearchableMultiSelectDial
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: const Color(0xFF1E9E68),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 onPressed: () {

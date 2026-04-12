@@ -20,8 +20,8 @@ class ProfileManagementScreen extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 50,
-                  backgroundColor: Colors.green.shade100,
-                  child: const Icon(Icons.person, size: 50, color: Colors.green),
+                  backgroundColor: const Color(0xFF1E9E68),
+                  child: const Icon(Icons.person, size: 50, color: const Color(0xFF1E9E68)),
                 ),
                 Positioned(
                   bottom: 0,
@@ -29,7 +29,7 @@ class ProfileManagementScreen extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: const BoxDecoration(
-                      color: Colors.green,
+                      color: const Color(0xFF1E9E68),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.edit, size: 16, color: Colors.white),
@@ -60,7 +60,7 @@ class ProfileManagementScreen extends StatelessWidget {
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: const Color(0xFF1E9E68),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))

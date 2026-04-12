@@ -24,7 +24,7 @@ class HelpCenterScreen extends StatelessWidget {
           ),
           const Divider(),
           const ListTile(
-            leading: Icon(Icons.support_agent, color: Colors.green),
+            leading: Icon(Icons.support_agent, color: const Color(0xFF1E9E68)),
             title: Text("Contact Support", style: TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text("Live chat or email the support team."),
             trailing: Icon(Icons.arrow_forward_ios, size: 16),

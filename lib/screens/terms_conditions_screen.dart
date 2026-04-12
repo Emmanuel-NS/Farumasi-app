@@ -25,7 +25,7 @@ class TermsConditionsScreen extends StatelessWidget {
               const SizedBox(height: 24),
               const Text(
                 "Welcome to Farumasi!",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68)),
               ),
               const SizedBox(height: 16),
               const Text(

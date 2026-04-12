@@ -61,10 +61,10 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
+                        color: const Color(0xFF1E9E68).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8)
                       ),
-                      child: const Icon(Icons.receipt_long, color: Colors.green),
+                      child: const Icon(Icons.receipt_long, color: const Color(0xFF1E9E68)),
                     ),
                     title: Text("Order #${order.id}", style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(
@@ -73,7 +73,7 @@ class _DailySalesScreenState extends State<DailySalesScreen> {
                     ),
                     trailing: Text(
                       "RWF ${order.totalPrice.toStringAsFixed(0)}", 
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16)
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68), fontSize: 16)
                     ),
                     isThreeLine: true,
                   ),

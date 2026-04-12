@@ -75,7 +75,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: Colors.green,
+                        color: const Color(0xFF1E9E68),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.check, color: Colors.white, size: 20),
@@ -120,7 +120,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     context,
                     icon: Icons.payments_rounded,
                     label: "Send a Tip",
-                    color: Colors.green,
+                    color: const Color(0xFF1E9E68),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TipDriverScreen())),
                   ),
                   const SizedBox(height: 16),
@@ -318,7 +318,7 @@ class _TipDriverScreenState extends State<TipDriverScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: Colors.green),
+                CircularProgressIndicator(color: const Color(0xFF1E9E68)),
                 SizedBox(height: 16),
                 Text("Processing Payment...", style: TextStyle(fontWeight: FontWeight.bold)),
               ],
@@ -339,7 +339,7 @@ class _TipDriverScreenState extends State<TipDriverScreen> {
        showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.check_circle, color: Colors.green, size: 48),
+          icon: const Icon(Icons.check_circle, color: const Color(0xFF1E9E68), size: 48),
           title: const Text("Thank You!"),
           content: Text("You successfully tipped $amount RWF to John."),
           actions: [
@@ -385,9 +385,9 @@ class _TipDriverScreenState extends State<TipDriverScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.green : Colors.grey.shade100,
+                      color: isSelected ? const Color(0xFF1E9E68) : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isSelected ? Colors.green : Colors.transparent),
+                      border: Border.all(color: isSelected ? const Color(0xFF1E9E68) : Colors.transparent),
                     ),
                     child: Column(
                       children: [
@@ -440,9 +440,9 @@ class _TipDriverScreenState extends State<TipDriverScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Colors.green, width: 2),
+                  borderSide: const BorderSide(color: const Color(0xFF1E9E68), width: 2),
                 ),
-                suffixIcon: _isCustomAmount ? const Icon(Icons.edit, color: Colors.green) : null,
+                suffixIcon: _isCustomAmount ? const Icon(Icons.edit, color: const Color(0xFF1E9E68)) : null,
               ),
             ),
 
@@ -455,7 +455,7 @@ class _TipDriverScreenState extends State<TipDriverScreen> {
               child: ElevatedButton(
                 onPressed: _processPayment,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green, 
+                  backgroundColor: const Color(0xFF1E9E68), 
                   foregroundColor: Colors.white, 
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
                 ),

@@ -239,13 +239,13 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
               pinned: true,
               elevation: 0,
               backgroundColor: Colors.white,
-              foregroundColor: Colors.green.shade900,
+              foregroundColor: const Color(0xFF1E9E68),
               flexibleSpace: FlexibleSpaceBar(
                 titlePadding: EdgeInsets.only(left: 16, bottom: 120),
                 title: Text(
                   "Discover Wellness",
                   style: TextStyle(
-                    color: Colors.green.shade900,
+                    color: const Color(0xFF1E9E68),
                     fontWeight: FontWeight.bold,
                     fontSize: 22,
                   ),
@@ -257,7 +257,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
                       top: -30,
                       child: Opacity(
                         opacity: 0.1,
-                        child: Icon(Icons.spa, size: 180, color: Colors.green),
+                        child: Icon(Icons.spa, size: 180, color: const Color(0xFF1E9E68)),
                       ),
                     ),
                     // Search Bar
@@ -308,13 +308,13 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
                     controller: _tabController,
                     isScrollable: true,
                     labelColor: Colors.white,
-                    unselectedLabelColor: Colors.green.shade700,
+                    unselectedLabelColor: const Color(0xFF1E9E68),
                     indicator: BoxDecoration(
                       borderRadius: BorderRadius.circular(30),
-                      color: Colors.green,
+                      color: const Color(0xFF1E9E68),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.green.withOpacity(0.3),
+                          color: const Color(0xFF1E9E68).withOpacity(0.3),
                           blurRadius: 8,
                           offset: Offset(0, 4),
                         ),
@@ -353,7 +353,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.green.shade100),
+          border: Border.all(color: const Color(0xFF1E9E68)),
         ),
         child: Text(text, style: TextStyle(fontWeight: FontWeight.bold)),
       ),
@@ -410,7 +410,7 @@ class ArticleDetailScreen extends StatelessWidget {
               child: CircleAvatar(
                 backgroundColor: Colors.white.withOpacity(0.9),
                 child: IconButton(
-                  icon: Icon(Icons.arrow_back, color: Colors.green.shade900),
+                  icon: Icon(Icons.arrow_back, color: const Color(0xFF1E9E68)),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
@@ -422,11 +422,11 @@ class ArticleDetailScreen extends StatelessWidget {
                   article.imageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (c, e, s) => Container(
-                    color: Colors.green.shade100,
+                    color: const Color(0xFF1E9E68),
                     child: Icon(
                       Icons.broken_image,
                       size: 50,
-                      color: Colors.green,
+                      color: const Color(0xFF1E9E68),
                     ),
                   ),
                 ),
@@ -447,7 +447,7 @@ class ArticleDetailScreen extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: const Color(0xFF1E9E68),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -455,7 +455,7 @@ class ArticleDetailScreen extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green.shade800,
+                            color: const Color(0xFF1E9E68),
                             letterSpacing: 1,
                           ),
                         ),
@@ -513,7 +513,7 @@ class ArticleDetailScreen extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.menu_book, color: Colors.green),
+                        Icon(Icons.menu_book, color: const Color(0xFF1E9E68)),
                         SizedBox(width: 12),
                         Flexible(
                           child: Column(

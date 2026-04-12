@@ -32,12 +32,12 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: LinearColorGradient(
-                   Colors.green.shade600,
-                   Colors.green.shade400,
+                   const Color(0xFF1E9E68),
+                   const Color(0xFF1E9E68),
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
-                  BoxShadow(color: Colors.green.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))
+                  BoxShadow(color: const Color(0xFF1E9E68).withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))
                 ]
               ),
               child: Row(
@@ -143,7 +143,7 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                   maxY: 20000,
                   lineTouchData: LineTouchData(
                     touchTooltipData: LineTouchTooltipData(
-                      getTooltipColor: (_) => Colors.green,
+                      getTooltipColor: (_) => const Color(0xFF1E9E68),
                       getTooltipItems: (touchedSpots) {
                         return touchedSpots.map((spot) {
                           return LineTooltipItem(
@@ -166,11 +166,11 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                         FlSpot(6, 11000),
                       ],
                       isCurved: true,
-                      color: Colors.green,
+                      color: const Color(0xFF1E9E68),
                       barWidth: 4,
                       belowBarData: BarAreaData(
                         show: true, 
-                        color: Colors.green.withValues(alpha: 0.1),
+                        color: const Color(0xFF1E9E68).withValues(alpha: 0.1),
                       ),
                       dotData: const FlDotData(show: false),
                     ),
@@ -194,12 +194,12 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                 ),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.green.shade50,
-                    child: const Icon(Icons.arrow_downward, color: Colors.green, size: 20),
+                    backgroundColor: const Color(0xFF1E9E68),
+                    child: const Icon(Icons.arrow_downward, color: const Color(0xFF1E9E68), size: 20),
                   ),
                   title: const Text("Order Payment", style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text("Order ID: ${order.id}\n${order.completedAt?.toString().substring(0, 10) ?? 'N/A'}"),
-                  trailing: Text("+RWF ${order.totalPrice.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16)),
+                  trailing: Text("+RWF ${order.totalPrice.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68), fontSize: 16)),
                   isThreeLine: true,
                 ),
               );

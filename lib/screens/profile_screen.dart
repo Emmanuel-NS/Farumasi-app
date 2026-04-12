@@ -49,7 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Profile'),
-        backgroundColor: Colors.green,
+        backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -66,12 +66,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 1000.0),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
               // Contact Details - Example
               // ...
               
@@ -89,14 +92,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Text("My Appointments", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.green)),
+                        child: Text("My Appointments", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68))),
                       ),
                       const SizedBox(height: 10),
                       ...bookings.map((booking) => Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
                           leading: const CircleAvatar(
-                            backgroundColor: Colors.green,
+                            backgroundColor: const Color(0xFF1E9E68),
                             child: Icon(Icons.medical_services, color: Colors.white),
                           ),
                           title: Text(booking.pharmacistName),
@@ -148,10 +151,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   CircleAvatar(
                     radius: 50,
-                    backgroundColor: Colors.green.shade100,
+                    backgroundColor: const Color(0xFF1E9E68),
                     child: Text(
                       _nameController.text.isNotEmpty ? _nameController.text[0].toUpperCase() : "U",
-                      style: const TextStyle(fontSize: 40, color: Colors.green),
+                      style: const TextStyle(fontSize: 40, color: const Color(0xFF1E9E68)),
                     ),
                   ),
                   if (_isEditing)
@@ -163,7 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         backgroundColor: Colors.white,
                         child: IconButton(
                           padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.camera_alt, size: 20, color: Colors.green),
+                          icon: const Icon(Icons.camera_alt, size: 20, color: const Color(0xFF1E9E68)),
                           onPressed: () {
                             // enhance: Pick image
                           },
@@ -182,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (!_isEditing) ...[
                  Card(
                   child: ListTile(
-                    leading: const Icon(Icons.location_on, color: Colors.green),
+                    leading: const Icon(Icons.location_on, color: const Color(0xFF1E9E68)),
                     title: const Text("Manage Addresses"),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () {
@@ -194,7 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
-      ),
+      ))),
     );
   }
 
@@ -205,7 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       keyboardType: keyBoardType,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: Colors.green),
+        prefixIcon: Icon(icon, color: const Color(0xFF1E9E68)),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

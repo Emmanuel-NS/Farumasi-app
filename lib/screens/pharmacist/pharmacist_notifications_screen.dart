@@ -92,7 +92,7 @@ class _PharmacistNotificationsScreenState extends State<PharmacistNotificationsS
   Widget _buildIcon(NotificationType type) {
     switch (type) {
       case NotificationType.order:
-        return CircleAvatar(backgroundColor: Colors.green.shade50, child: const Icon(Icons.shopping_bag_outlined, color: Colors.green));
+        return CircleAvatar(backgroundColor: const Color(0xFF1E9E68), child: const Icon(Icons.shopping_bag_outlined, color: const Color(0xFF1E9E68)));
       case NotificationType.consultation:
         return CircleAvatar(backgroundColor: Colors.blue.shade50, child: const Icon(Icons.video_camera_front_outlined, color: Colors.blue));
       case NotificationType.inventory:
@@ -128,7 +128,7 @@ class _PharmacistNotificationsScreenState extends State<PharmacistNotificationsS
           children: [
             const Text("Notifications", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18)),
             if (unreadCount > 0)
-              Text("$unreadCount unread messages", style: TextStyle(color: Colors.green.shade800, fontSize: 12, fontWeight: FontWeight.w500)),
+              Text("$unreadCount unread messages", style: TextStyle(color: const Color(0xFF1E9E68), fontSize: 12, fontWeight: FontWeight.w500)),
           ],
         ),
         backgroundColor: Colors.white,
@@ -137,7 +137,7 @@ class _PharmacistNotificationsScreenState extends State<PharmacistNotificationsS
         actions: [
           TextButton(
             onPressed: _notifications.isEmpty ? null : _markAllAsRead,
-            child: Text("Mark all read", style: TextStyle(color: _notifications.isEmpty ? Colors.grey : Colors.green.shade800, fontWeight: FontWeight.w600)),
+            child: Text("Mark all read", style: TextStyle(color: _notifications.isEmpty ? Colors.grey : const Color(0xFF1E9E68), fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 8),
         ],
@@ -180,7 +180,7 @@ class _PharmacistNotificationsScreenState extends State<PharmacistNotificationsS
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        color: notification.isRead ? Colors.white : Colors.green.shade50.withValues(alpha: 0.3),
+                        color: notification.isRead ? Colors.white : const Color(0xFF1E9E68).withValues(alpha: 0.3),
                         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -209,7 +209,7 @@ class _PharmacistNotificationsScreenState extends State<PharmacistNotificationsS
                                     Text(
                                       _formatTime(notification.time),
                                       style: TextStyle(
-                                        color: notification.isRead ? Colors.grey : Colors.green.shade800,
+                                        color: notification.isRead ? Colors.grey : const Color(0xFF1E9E68),
                                         fontSize: 12,
                                         fontWeight: notification.isRead ? FontWeight.normal : FontWeight.w600,
                                       ),
@@ -235,7 +235,7 @@ class _PharmacistNotificationsScreenState extends State<PharmacistNotificationsS
                               width: 8,
                               height: 8,
                               decoration: const BoxDecoration(
-                                color: Colors.green,
+                                color: const Color(0xFF1E9E68),
                                 shape: BoxShape.circle,
                               ),
                             ),

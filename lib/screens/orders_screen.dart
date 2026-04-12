@@ -42,9 +42,9 @@ class OrdersScreen extends StatelessWidget {
           ),
           centerTitle: true,
           bottom: const TabBar(
-            labelColor: Colors.green,
+            labelColor: const Color(0xFF1E9E68),
             unselectedLabelColor: Colors.grey,
-            indicatorColor: Colors.green,
+            indicatorColor: const Color(0xFF1E9E68),
             tabs: [
               Tab(text: "Active Orders"),
               Tab(text: "Past Orders"),
@@ -93,9 +93,9 @@ class OrdersScreen extends StatelessWidget {
     BuildContext context,
     Map<String, dynamic> order,
   ) {
-    final statusColor = order['status'] == 'Out for Delivery' ? Colors.orange : Colors.green;
-    final statusBg = statusColor.shade50;
-    final statusText = statusColor.shade800;
+    final statusColor = order['status'] == 'Out for Delivery' ? Colors.orange : const Color(0xFF1E9E68);
+    final statusBg = order['status'] == 'Out for Delivery' ? Colors.orange.shade50 : const Color(0xFF1E9E68).withOpacity(0.1);
+    final statusText = order['status'] == 'Out for Delivery' ? Colors.orange.shade800 : const Color(0xFF1E9E68);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8), 
@@ -134,10 +134,10 @@ class OrdersScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade50,
+                        color: const Color(0xFF1E9E68),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.local_pharmacy_rounded, color: Colors.green, size: 24),
+                      child: const Icon(Icons.local_pharmacy_rounded, color: const Color(0xFF1E9E68), size: 24),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -225,7 +225,7 @@ class OrdersScreen extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             order['total'] ?? "",
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF1E9E68)),
                           ),
                         ],
                       ),
@@ -322,7 +322,7 @@ class OrdersScreen extends StatelessWidget {
                 icon: const Icon(Icons.upload_file),
                 label: const Text("Upload Prescription"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: StateService().isLoggedIn ? Colors.green : Colors.grey,
+                  backgroundColor: StateService().isLoggedIn ? const Color(0xFF1E9E68) : Colors.grey,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(

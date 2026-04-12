@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -18,9 +19,11 @@ class  MyHttpOverrides extends HttpOverrides {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Apply the override before running the app
-  HttpOverrides.global = MyHttpOverrides();
-  
+  // Apply the override before running the app (not for web)
+  if (!kIsWeb) {
+    HttpOverrides.global = MyHttpOverrides();
+  }
+
   // Initialize Notification Service
   try {
     await NotificationService().init();

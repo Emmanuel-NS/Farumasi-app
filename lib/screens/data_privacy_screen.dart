@@ -19,7 +19,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Data Privacy'),
-        backgroundColor: Colors.green,
+        backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
       ),
       body: ListView(
@@ -34,7 +34,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
             subtitle: const Text('Require passcode to view past medicines'),
             secondary: const Icon(Icons.lock_outline, color: Colors.indigo),
             value: _requirePasscodeForOrders,
-            activeColor: Colors.green,
+            activeColor: const Color(0xFF1E9E68),
             onChanged: (val) {
               if (val) {
                 _showSetupPasscodeDialog();
@@ -48,7 +48,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
             subtitle: const Text('Blur sensitive items in dashboard'),
             secondary: const Icon(Icons.visibility_off_outlined, color: Colors.indigo),
             value: _hideSensitiveConditions,
-            activeColor: Colors.green,
+            activeColor: const Color(0xFF1E9E68),
             onChanged: (val) => setState(() => _hideSensitiveConditions = val),
           ),
 
@@ -59,7 +59,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
             subtitle: const Text('Help us improve with anonymous usage data'),
             secondary: const Icon(Icons.analytics_outlined, color: Colors.orange),
             value: _shareAnonymousAnalytics,
-            activeColor: Colors.green,
+            activeColor: const Color(0xFF1E9E68),
             onChanged: (val) => setState(() => _shareAnonymousAnalytics = val),
           ),
 
@@ -181,7 +181,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                 );
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E9E68)),
             child: const Text("Set PIN"),
           ),
         ],

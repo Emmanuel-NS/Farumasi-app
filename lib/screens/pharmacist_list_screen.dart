@@ -58,7 +58,7 @@ class PharmacistListScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(pharmacy != null ? "Our Pharmacists" : "Consult a Pharmacist"),
-        backgroundColor: Colors.green,
+        backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
       ),
       body: ListenableBuilder(
@@ -75,14 +75,14 @@ class PharmacistListScreen extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Row(
                     children: [
-                      const Icon(Icons.event_available, color: Colors.green),
+                      const Icon(Icons.event_available, color: const Color(0xFF1E9E68)),
                       const SizedBox(width: 8),
                       Text(
                         "Your Upcoming Sessions (${bookings.length})",
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: const Color(0xFF1E9E68),
                         ),
                       ),
                     ],
@@ -102,7 +102,7 @@ class PharmacistListScreen extends StatelessWidget {
                         child: Card(
                           elevation: 3,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          color: Colors.green.shade50,
+                          color: const Color(0xFF1E9E68),
                           child: Padding(
                             padding: const EdgeInsets.all(12),
                             child: Column(
@@ -112,7 +112,7 @@ class PharmacistListScreen extends StatelessWidget {
                                   children: [
                                     const CircleAvatar(
                                       radius: 16,
-                                      backgroundColor: Colors.green,
+                                      backgroundColor: const Color(0xFF1E9E68),
                                       child: Icon(Icons.person, size: 20, color: Colors.white),
                                     ),
                                     const SizedBox(width: 8),
@@ -205,7 +205,7 @@ class PharmacistListScreen extends StatelessWidget {
                 String statusText;
                 switch (pharmacist.status) {
                   case PharmacistStatus.available:
-                    statusColor = Colors.green;
+                    statusColor = const Color(0xFF1E9E68);
                     statusText = "Available";
                     break;
                   case PharmacistStatus.busy:
@@ -281,7 +281,7 @@ class PharmacistListScreen extends StatelessWidget {
                       // Chat Button Logic: Only active if AVAILABLE
                       if (pharmacist.status == PharmacistStatus.available)
                         IconButton(
-                          icon: const Icon(Icons.chat_bubble_outline, color: Colors.green),
+                          icon: const Icon(Icons.chat_bubble_outline, color: const Color(0xFF1E9E68)),
                           tooltip: "Chat with Pharmacist",
                           onPressed: () {
                              Navigator.push(
@@ -353,11 +353,11 @@ class PharmacistListScreen extends StatelessWidget {
                           onPressed: () {
                              StateService().setPharmacyBlocked(pharmacy!.id, false);
                           },
-                          icon: const Icon(Icons.check_circle, color: Colors.green),
+                          icon: const Icon(Icons.check_circle, color: const Color(0xFF1E9E68)),
                           label: const Text("Unblock Pharmacy"),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.green,
-                            side: const BorderSide(color: Colors.green),
+                            foregroundColor: const Color(0xFF1E9E68),
+                            side: const BorderSide(color: const Color(0xFF1E9E68)),
                             padding: const EdgeInsets.all(16),
                           ),
                         );

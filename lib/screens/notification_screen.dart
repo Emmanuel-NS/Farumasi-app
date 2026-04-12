@@ -59,7 +59,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'order_shipped':
         return Colors.indigo;
       case 'health_tip':
-        return Colors.green;
+        return const Color(0xFF1E9E68);
       case 'promo':
         return Colors.purple;
       case 'reminder':

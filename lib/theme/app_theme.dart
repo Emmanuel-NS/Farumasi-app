@@ -2,26 +2,26 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   static final ThemeData theme = ThemeData(
-    primaryColor: Colors.green,
+    primaryColor: const Color(0xFF1E9E68),
     scaffoldBackgroundColor: Colors.white,
     colorScheme: ColorScheme.fromSwatch().copyWith(
-      primary: Colors.green,
+      primary: const Color(0xFF1E9E68),
       secondary: Colors.lightGreen,
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.green,
+      backgroundColor: const Color(0xFF1E9E68),
       foregroundColor: Colors.white,
       elevation: 0,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.green, // background (button) color
+        backgroundColor: const Color(0xFF1E9E68), // background (button) color
         foregroundColor: Colors.white, // foreground (text) color
       ),
     ),
     textTheme: const TextTheme(
       headlineMedium: TextStyle(
-        color: Colors.green,
+        color: const Color(0xFF1E9E68),
         fontWeight: FontWeight.bold,
       ),
       titleLarge: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
@@ -29,13 +29,13 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8.0),
-        borderSide: BorderSide(color: Colors.green),
+        borderSide: BorderSide(color: const Color(0xFF1E9E68)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8.0),
-        borderSide: BorderSide(color: Colors.green, width: 2.0),
+        borderSide: BorderSide(color: const Color(0xFF1E9E68), width: 2.0),
       ),
-      labelStyle: TextStyle(color: Colors.green),
+      labelStyle: TextStyle(color: const Color(0xFF1E9E68)),
     ),
   );
 }

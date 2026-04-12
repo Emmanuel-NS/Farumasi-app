@@ -16,7 +16,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Security Center'),
-        backgroundColor: Colors.green,
+        backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
       ),
       body: ListView(
@@ -28,7 +28,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
             title: const Text('Two-Factor Authentication (2FA)'),
             subtitle: const Text('Extra layer of security for logins'),
             value: _twoFactorEnabled,
-            activeColor: Colors.green,
+            activeColor: const Color(0xFF1E9E68),
             onChanged: (val) {
               setState(() => _twoFactorEnabled = val);
               // enhance: Show confirm dialog/enter code
@@ -38,7 +38,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
             title: const Text('Biometric Login'),
             subtitle: const Text('Use FaceID/Fingerprint'),
             value: _biometricEnabled,
-            activeColor: Colors.green,
+            activeColor: const Color(0xFF1E9E68),
             onChanged: (val) {
               setState(() => _biometricEnabled = val);
               // enhance: Authenticate biometric
@@ -58,8 +58,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
           ListTile(
             title: const Text('Data Encryption Status'),
             subtitle: const Text('Active (AES-256)'),
-            leading: const Icon(Icons.lock, color: Colors.green),
-            trailing: const Icon(Icons.check_circle, color: Colors.green),
+            leading: const Icon(Icons.lock, color: const Color(0xFF1E9E68)),
+            trailing: const Icon(Icons.check_circle, color: const Color(0xFF1E9E68)),
           ),
           ListTile(
             title: const Text('Manage Permissions'),
@@ -169,7 +169,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: const Color(0xFF1E9E68),
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 50),
                     ),
@@ -203,13 +203,13 @@ class _SecurityScreenState extends State<SecurityScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.1),
-        border: Border.all(color: Colors.green),
+        color: const Color(0xFF1E9E68).withOpacity(0.1),
+        border: Border.all(color: const Color(0xFF1E9E68)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: const [
-          Icon(Icons.shield, color: Colors.green),
+          Icon(Icons.shield, color: const Color(0xFF1E9E68)),
           SizedBox(width: 12),
           Expanded(
             child: Text(

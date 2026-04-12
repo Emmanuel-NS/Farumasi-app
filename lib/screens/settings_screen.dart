@@ -40,7 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Settings'),
-        backgroundColor: Colors.green,
+        backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -69,8 +69,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                    ListTile(
                     leading: Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.security, color: Colors.green),
+                      decoration: BoxDecoration(color: const Color(0xFF1E9E68), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.security, color: const Color(0xFF1E9E68)),
                     ),
                     title: const Text('Security Center'),
                      subtitle: const Text('2FA, Biometrics, Login history'),
@@ -144,7 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       context: context,
                       applicationName: 'Farumasi App',
                       applicationVersion: '1.0.0',
-                      applicationIcon: const Icon(Icons.local_pharmacy, size: 50, color: Colors.green),
+                      applicationIcon: const Icon(Icons.local_pharmacy, size: 50, color: const Color(0xFF1E9E68)),
                       children: [
                         const Text("Farumasi App connects you with trusted pharmacies and doctors for seamless healthcare delivery."),
                       ]
@@ -202,7 +202,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return SwitchListTile(
           title: Text(_formatKey(key)),
           value: _notificationChannels[key]!,
-          activeColor: Colors.green,
+          activeColor: const Color(0xFF1E9E68),
           inactiveThumbColor: Colors.grey,
           inactiveTrackColor: Colors.grey.shade200,
           dense: true,
@@ -237,7 +237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
       value: isLocked ? true : (_notificationCategories[key] ?? false),
-      activeColor: Colors.green,
+      activeColor: const Color(0xFF1E9E68),
       inactiveThumbColor: Colors.grey,
       inactiveTrackColor: Colors.grey.shade200,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -298,14 +298,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ListTile(
-              leading: const Icon(Icons.email, color: Colors.green),
+              leading: const Icon(Icons.email, color: const Color(0xFF1E9E68)),
               title: const Text("Contact Support"),
               subtitle: const Text("support@farumasi.rw"),
               contentPadding: EdgeInsets.zero,
               onTap: () {}, // Launch email
             ),
             ListTile(
-              leading: const Icon(Icons.phone, color: Colors.green),
+              leading: const Icon(Icons.phone, color: const Color(0xFF1E9E68)),
               title: const Text("Call Center"),
               subtitle: const Text("+250 788 000 000"),
               contentPadding: EdgeInsets.zero,

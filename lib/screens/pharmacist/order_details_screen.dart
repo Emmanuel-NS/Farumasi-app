@@ -128,7 +128,7 @@ class OrderDetailsScreen extends StatelessWidget {
 
     switch (order.status) {
       case OrderStatus.delivered:
-        color = Colors.green;
+        color = const Color(0xFF1E9E68);
         text = "Completed";
         icon = Icons.check_circle;
         break;
@@ -241,7 +241,7 @@ class OrderDetailsScreen extends StatelessWidget {
           const Divider(),
           ListTile(
             title: const Text("Total Estimated Cost", style: TextStyle(fontWeight: FontWeight.bold)),
-            trailing: Text("RWF ${(order.totalPrice).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+            trailing: Text("RWF ${(order.totalPrice).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68))),
           )
         ],
       ),
@@ -249,7 +249,7 @@ class OrderDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildTimelineItem({required String title, required String subtitle, DateTime? time, bool isFirst = false, bool isLast = false, bool isCompleted = false, bool isError = false}) {
-    Color color = isError ? Colors.red : (isCompleted ? Colors.green : Colors.grey.shade300);
+    Color color = isError ? Colors.red : (isCompleted ? const Color(0xFF1E9E68) : Colors.grey.shade300);
     
     return IntrinsicHeight(
       child: Row(

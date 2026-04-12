@@ -227,7 +227,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
          content: Column(
            mainAxisSize: MainAxisSize.min,
            children: [
-             Icon(Icons.check_circle, color: Colors.green, size: 60),
+             Icon(Icons.check_circle, color: const Color(0xFF1E9E68), size: 60),
              const SizedBox(height: 16),
              Text("$pharmacyName has accepted the request."),
              const SizedBox(height: 8),
@@ -525,7 +525,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
                     onPressed: () => _removeMedicine(medicine),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+                    icon: const Icon(Icons.add_circle_outline, color: const Color(0xFF1E9E68)),
                     onPressed: () => _addMedicine(medicine),
                   ),
                 ],
@@ -618,7 +618,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
             IconData statusIcon = Icons.hourglass_empty;
             
             if (status == 'accepted') {
-              statusColor = Colors.green;
+              statusColor = const Color(0xFF1E9E68);
               statusIcon = Icons.check_circle;
             } else if (status == 'rejected') {
               statusColor = Colors.red;
@@ -629,7 +629,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
             }
             
             return Card(
-              color: status == 'accepted' ? Colors.green.shade50 : Colors.white,
+              color: status == 'accepted' ? const Color(0xFF1E9E68) : Colors.white,
               child: ListTile(
                 leading: CircleAvatar(backgroundColor: statusColor.withOpacity(0.1), child: Icon(statusIcon, color: statusColor, size: 20)),
                 title: Text(p['name'], style: TextStyle(fontWeight: FontWeight.bold, color: status == 'served_other' ? Colors.grey : Colors.black)),
@@ -650,7 +650,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
            Center(
              child: Column(
                children: [
-                 const Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
+                 const Icon(Icons.check_circle_outline, size: 48, color: const Color(0xFF1E9E68)),
                  const SizedBox(height: 8),
                  Text("Order served by $_finalfulfillmentPharmacy", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                ],

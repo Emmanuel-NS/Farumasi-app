@@ -96,7 +96,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     Navigator.pop(context);
                     _pickImage(ImageSource.camera);
                   },
-                  icon: const Icon(Icons.camera_alt, size: 30, color: Colors.green),
+                  icon: const Icon(Icons.camera_alt, size: 30, color: const Color(0xFF1E9E68)),
                 ),
                 const Text("Camera"),
               ],
@@ -184,7 +184,7 @@ class _ChatScreenState extends State<ChatScreen> {
             Text(widget.pharmacist.name),
           ],
         ),
-        backgroundColor: Colors.green,
+        backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -204,7 +204,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isMe ? Colors.green : Colors.grey[200],
+                      color: isMe ? const Color(0xFF1E9E68) : Colors.grey[200],
                       borderRadius: BorderRadius.circular(20).copyWith(
                         bottomRight: isMe ? const Radius.circular(0) : null,
                         bottomLeft: !isMe ? const Radius.circular(0) : null,
@@ -307,7 +307,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(width: 8),
                 CircleAvatar(
-                  backgroundColor: Colors.green,
+                  backgroundColor: const Color(0xFF1E9E68),
                   child: IconButton(
                     icon: const Icon(Icons.send, color: Colors.white, size: 18),
                     onPressed: _sendMessage,

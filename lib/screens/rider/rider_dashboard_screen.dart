@@ -36,7 +36,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          selectedItemColor: Colors.green.shade800,
+          selectedItemColor: const Color(0xFF1E9E68),
           unselectedItemColor: Colors.grey.shade500,
           backgroundColor: Colors.white,
           type: BottomNavigationBarType.fixed,
@@ -178,13 +178,13 @@ class _DashboardTab extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.green.shade100,
+                              color: const Color(0xFF1E9E68),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               "${newRequests.length} Available",
                               style: TextStyle(
-                                color: Colors.green.shade800,
+                                color: const Color(0xFF1E9E68),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -226,7 +226,7 @@ class _DashboardTab extends StatelessWidget {
             Text(
               riderName,
               style: TextStyle(
-                color: Colors.green.shade800,
+                color: const Color(0xFF1E9E68),
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
@@ -285,14 +285,14 @@ class _DashboardTab extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isOnline ? Colors.green.shade50 : Colors.grey.shade100,
+              color: isOnline ? const Color(0xFF1E9E68) : Colors.grey.shade100,
               shape: BoxShape.circle,
             ),
             child: Icon(
               isOnline
                   ? Icons.motorcycle_rounded
                   : Icons.power_settings_new_rounded,
-              color: isOnline ? Colors.green.shade700 : Colors.grey.shade500,
+              color: isOnline ? const Color(0xFF1E9E68) : Colors.grey.shade500,
               size: 28,
             ),
           ),
@@ -321,7 +321,7 @@ class _DashboardTab extends StatelessWidget {
           ),
           Switch(
             value: isOnline,
-            activeTrackColor: Colors.green.shade600,
+            activeTrackColor: const Color(0xFF1E9E68),
             inactiveThumbColor: Colors.grey.shade400,
             inactiveTrackColor: Colors.grey.shade200,
             onChanged: onToggleOnline,
@@ -412,10 +412,10 @@ class _DashboardTab extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.green.shade200, width: 2),
+        border: Border.all(color: const Color(0xFF1E9E68), width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.green.withValues(alpha: 0.1),
+            color: const Color(0xFF1E9E68).withValues(alpha: 0.1),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -494,7 +494,7 @@ class _DashboardTab extends StatelessWidget {
             height: 50,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade700,
+                backgroundColor: const Color(0xFF1E9E68),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -525,8 +525,8 @@ class _DashboardTab extends StatelessWidget {
     required bool isCurrent,
   }) {
     Color dotColor = isCompleted
-        ? Colors.green.shade600
-        : (isCurrent ? Colors.green.shade600 : Colors.grey.shade300);
+        ? const Color(0xFF1E9E68)
+        : (isCurrent ? const Color(0xFF1E9E68) : Colors.grey.shade300);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -537,7 +537,7 @@ class _DashboardTab extends StatelessWidget {
           decoration: BoxDecoration(
             color: isCurrent ? Colors.white : dotColor,
             border: isCurrent
-                ? Border.all(color: Colors.green, width: 4)
+                ? Border.all(color: const Color(0xFF1E9E68), width: 4)
                 : null,
             shape: BoxShape.circle,
           ),
@@ -571,7 +571,7 @@ class _DashboardTab extends StatelessWidget {
       margin: const EdgeInsets.only(left: 9, top: 4, bottom: 4),
       width: 2,
       height: 24,
-      color: isCompleted ? Colors.green.shade600 : Colors.grey.shade300,
+      color: isCompleted ? const Color(0xFF1E9E68) : Colors.grey.shade300,
     );
   }
 
@@ -605,7 +605,7 @@ class _DashboardTab extends StatelessWidget {
                     ),
                     child: Icon(
                       Icons.inventory_2,
-                      color: Colors.green.shade700,
+                      color: const Color(0xFF1E9E68),
                       size: 20,
                     ),
                   ),
@@ -634,7 +634,7 @@ class _DashboardTab extends StatelessWidget {
               Text(
                 "${req.deliveryFee.toInt()} RWF",
                 style: TextStyle(
-                  color: Colors.green.shade800,
+                  color: const Color(0xFF1E9E68),
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
@@ -680,8 +680,8 @@ class _DashboardTab extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade50,
-                foregroundColor: Colors.green.shade800,
+                backgroundColor: const Color(0xFF1E9E68),
+                foregroundColor: const Color(0xFF1E9E68),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -804,14 +804,14 @@ class _EarningsTab extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.green.shade800, Colors.green.shade600],
+                colors: [const Color(0xFF1E9E68), const Color(0xFF1E9E68)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.green.withValues(alpha: 0.3),
+                  color: const Color(0xFF1E9E68).withValues(alpha: 0.3),
                   blurRadius: 15,
                   offset: const Offset(0, 8),
                 ),
@@ -840,7 +840,7 @@ class _EarningsTab extends StatelessWidget {
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
-                          foregroundColor: Colors.green.shade800,
+                          foregroundColor: const Color(0xFF1E9E68),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -875,7 +875,7 @@ class _EarningsTab extends StatelessWidget {
                 onPressed: () {},
                 child: Text(
                   "See All",
-                  style: TextStyle(color: Colors.green.shade700),
+                  style: TextStyle(color: const Color(0xFF1E9E68)),
                 ),
               ),
             ],
@@ -928,12 +928,12 @@ class _EarningsTab extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: isCredit ? Colors.green.shade50 : Colors.red.shade50,
+              color: isCredit ? const Color(0xFF1E9E68) : Colors.red.shade50,
               shape: BoxShape.circle,
             ),
             child: Icon(
               isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-              color: isCredit ? Colors.green : Colors.red,
+              color: isCredit ? const Color(0xFF1E9E68) : Colors.red,
               size: 20,
             ),
           ),
@@ -961,7 +961,7 @@ class _EarningsTab extends StatelessWidget {
             "${isCredit ? '+' : ''}$amount RWF",
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: isCredit ? Colors.green.shade800 : Colors.red.shade800,
+              color: isCredit ? const Color(0xFF1E9E68) : Colors.red.shade800,
               fontSize: 15,
             ),
           ),
@@ -1038,12 +1038,12 @@ class _HistoryTab extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade50,
+                                color: const Color(0xFF1E9E68),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 Icons.check_circle_rounded,
-                                color: Colors.green.shade600,
+                                color: const Color(0xFF1E9E68),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -1073,7 +1073,7 @@ class _HistoryTab extends StatelessWidget {
                               "${task.deliveryFee.toInt()} RWF",
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.green.shade800,
+                                color: const Color(0xFF1E9E68),
                                 fontSize: 14,
                               ),
                             ),
@@ -1121,13 +1121,13 @@ class _AccountTab extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 45,
-                  backgroundColor: Colors.green.shade100,
+                  backgroundColor: const Color(0xFF1E9E68),
                   child: Text(
                     riderName[0],
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Colors.green.shade800,
+                      color: const Color(0xFF1E9E68),
                     ),
                   ),
                 ),
@@ -1205,7 +1205,7 @@ class _AccountTab extends StatelessWidget {
             color: Colors.grey.shade100,
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: Colors.green.shade700, size: 20),
+          child: Icon(icon, color: const Color(0xFF1E9E68), size: 20),
         ),
         title: Text(
           title,
@@ -1310,7 +1310,7 @@ class TripMapScreen extends StatelessWidget {
                                 ? "Navigating to Pharmacy..."
                                 : "Navigating to Patient...",
                             style: TextStyle(
-                              color: Colors.green.shade800,
+                              color: const Color(0xFF1E9E68),
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1374,10 +1374,10 @@ class TripMapScreen extends StatelessWidget {
                         children: [
                           CircleAvatar(
                             radius: 24,
-                            backgroundColor: Colors.green.shade100,
+                            backgroundColor: const Color(0xFF1E9E68),
                             child: Icon(
                               isGoingToPharmacy ? Icons.store : Icons.person,
-                              color: Colors.green.shade800,
+                              color: const Color(0xFF1E9E68),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -1411,12 +1411,12 @@ class TripMapScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.green.shade50,
+                              color: const Color(0xFF1E9E68),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               CupertinoIcons.phone_fill,
-                              color: Colors.green.shade700,
+                              color: const Color(0xFF1E9E68),
                               size: 22,
                             ),
                           ),
@@ -1488,7 +1488,7 @@ class TripMapScreen extends StatelessWidget {
                         height: 56,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade700,
+                            backgroundColor: const Color(0xFF1E9E68),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
@@ -1552,7 +1552,7 @@ class MockRoutePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.green.shade600
+      ..color = const Color(0xFF1E9E68)
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
@@ -1565,7 +1565,7 @@ class MockRoutePainter extends CustomPainter {
     path.lineTo(size.width * 0.8, size.height * 0.2);
 
     // Setup shadow for the path
-    canvas.drawShadow(path, Colors.green.shade800, 4.0, false);
+    canvas.drawShadow(path, const Color(0xFF1E9E68), 4.0, false);
 
     // Draw the green path
     canvas.drawPath(path, paint);
@@ -1586,7 +1586,7 @@ class MockRoutePainter extends CustomPainter {
     );
 
     // Draw destination dot (Pharmacy / House)
-    final destPaint = Paint()..color = Colors.green.shade700;
+    final destPaint = Paint()..color = const Color(0xFF1E9E68);
     canvas.drawCircle(
       Offset(size.width * 0.8, size.height * 0.2),
       10,

@@ -177,7 +177,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                          Navigator.pop(ctx);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
+                        backgroundColor: const Color(0xFF1E9E68),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: const Text("Use This Location", style: TextStyle(color: Colors.white, fontSize: 16)),
@@ -275,7 +275,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 builder: (c) => AlertDialog(
                   title: const Column(
                     children: [
-                     Icon(Icons.check_circle, size: 50, color: Colors.green),
+                     Icon(Icons.check_circle, size: 50, color: const Color(0xFF1E9E68)),
                      SizedBox(height: 8),
                      Text("Payment Successful"),
                     ],
@@ -293,7 +293,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E9E68), foregroundColor: Colors.white),
             child: const Text('Pay Now'),
           ),
         ],
@@ -346,7 +346,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.location_on, color: Colors.green),
+                          Icon(Icons.location_on, color: const Color(0xFF1E9E68)),
                           SizedBox(width: 8),
                           Text(
                             "Delivery Location",
@@ -426,9 +426,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             Container(
               padding: EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: const Color(0xFF1E9E68),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green.shade200),
+                border: Border.all(color: const Color(0xFF1E9E68)),
               ),
               child: ListenableBuilder(
                 listenable: StateService(),
@@ -465,7 +465,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.green.shade900,
+                              color: const Color(0xFF1E9E68),
                             ),
                           ),
                           Text(
@@ -473,7 +473,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
-                              color: Colors.green.shade900,
+                              color: const Color(0xFF1E9E68),
                             ),
                           ),
                         ],
@@ -489,7 +489,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: ElevatedButton(
                 onPressed: _placeOrder,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: const Color(0xFF1E9E68),
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(

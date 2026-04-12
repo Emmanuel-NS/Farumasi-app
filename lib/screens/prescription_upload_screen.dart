@@ -129,7 +129,7 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: const Color(0xFF1E9E68)),
                   color: Colors.grey.shade100,
                   image: _isPdf
                       ? null
@@ -170,7 +170,7 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
                   Icon(
                     Icons.check_circle_outline,
                     size: 16,
-                    color: Colors.green,
+                    color: const Color(0xFF1E9E68),
                   ),
                 ],
               ),
@@ -180,9 +180,9 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
           Container(
             height: 200,
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
+              color: const Color(0xFF1E9E68),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.green.shade100),
+              border: Border.all(color: const Color(0xFF1E9E68)),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -190,13 +190,13 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
                 Icon(
                   Icons.document_scanner_rounded,
                   size: 64,
-                  color: Colors.green.shade300,
+                  color: const Color(0xFF1E9E68),
                 ),
                 SizedBox(height: 16),
                 Text(
                   "Scan, Photo or PDF",
                   style: TextStyle(
-                    color: Colors.green.shade700,
+                    color: const Color(0xFF1E9E68),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -235,7 +235,7 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
           Center(
             child: Column(
               children: [
-                CircularProgressIndicator(color: Colors.green),
+                CircularProgressIndicator(color: const Color(0xFF1E9E68)),
                 SizedBox(height: 16),
                 Text("Uploading...", style: TextStyle(color: Colors.grey)),
               ],
@@ -249,7 +249,7 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
                 icon: Icon(Icons.cloud_upload),
                 label: Text("Confirm & Upload"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: const Color(0xFF1E9E68),
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 16),
                   minimumSize: Size(double.infinity, 56),
@@ -282,7 +282,7 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
                 icon: Icon(Icons.camera_alt),
                 label: Text("Take Photo"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: const Color(0xFF1E9E68),
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 16),
                   minimumSize: Size(double.infinity, 56),
@@ -302,8 +302,8 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
                 icon: Icon(Icons.photo_library),
                 label: Text("Upload from Gallery"),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.green,
-                  side: BorderSide(color: Colors.green),
+                  foregroundColor: const Color(0xFF1E9E68),
+                  side: BorderSide(color: const Color(0xFF1E9E68)),
                   padding: EdgeInsets.symmetric(vertical: 16),
                   minimumSize: Size(double.infinity, 56),
                   shape: RoundedRectangleBorder(
@@ -387,10 +387,10 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
           height: 120,
           width: 120,
           decoration: BoxDecoration(
-            color: Colors.green.shade50,
+            color: const Color(0xFF1E9E68),
             shape: BoxShape.circle,
           ),
-          child: Icon(Icons.check_circle, size: 80, color: Colors.green),
+          child: Icon(Icons.check_circle, size: 80, color: const Color(0xFF1E9E68)),
         ),
         SizedBox(height: 32),
         Text(
@@ -398,7 +398,7 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Colors.green.shade800,
+            color: const Color(0xFF1E9E68),
           ),
           textAlign: TextAlign.center,
         ),
@@ -419,13 +419,13 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text("We've received your prescription!"),
-                backgroundColor: Colors.green,
+                backgroundColor: const Color(0xFF1E9E68),
                 behavior: SnackBarBehavior.floating,
               ),
             );
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
+            backgroundColor: const Color(0xFF1E9E68),
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(vertical: 16),
             minimumSize: Size(double.infinity, 56),
@@ -446,7 +446,7 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.green.shade700),
+        Icon(icon, size: 18, color: const Color(0xFF1E9E68)),
         SizedBox(width: 12),
         Expanded(
           child: Text(

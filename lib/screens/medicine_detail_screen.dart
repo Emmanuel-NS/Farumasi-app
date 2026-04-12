@@ -50,7 +50,7 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> with Single
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) => Container(
                             color: Colors.grey.shade100,
-                            child: Icon(Icons.medication, size: 80, color: Colors.green.shade200),
+                            child: Icon(Icons.medication, size: 80, color: const Color(0xFF1E9E68)),
                           ),
                         ),
                       ),
@@ -107,12 +107,12 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> with Single
                       children: widget.medicine.allCategories.take(3).map((cat) => Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: const Color(0xFF1E9E68),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           cat.toUpperCase(),
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68)),
                         ),
                       )).toList(),
                     ),
@@ -422,11 +422,11 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> with Single
         Container(
           width: 60, height: 60,
           decoration: BoxDecoration(
-            color: isActive ? Colors.green.shade50 : Colors.grey.shade100,
+            color: isActive ? const Color(0xFF1E9E68) : Colors.grey.shade100,
             shape: BoxShape.circle,
-            border: Border.all(color: isActive ? Colors.green.shade200 : Colors.transparent),
+            border: Border.all(color: isActive ? const Color(0xFF1E9E68) : Colors.transparent),
           ),
-          child: Icon(icon, color: isActive ? Colors.green : Colors.grey),
+          child: Icon(icon, color: isActive ? const Color(0xFF1E9E68) : Colors.grey),
         ),
         const SizedBox(height: 8),
         Text(time, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),

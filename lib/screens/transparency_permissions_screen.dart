@@ -115,7 +115,7 @@ class _TransparencyPermissionsScreenState extends State<TransparencyPermissionsS
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transparency & Permissions'),
-        backgroundColor: Colors.green,
+        backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
       ),
       body: ListView(
@@ -280,7 +280,7 @@ class _TransparencyPermissionsScreenState extends State<TransparencyPermissionsS
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E9E68), foregroundColor: Colors.white),
                     child: const Text('I Understand'),
                   ),
                 ],
@@ -361,7 +361,7 @@ class _ProviderListScreenState extends State<ProviderListScreen> {
     Color color;
     String text;
     switch (status) {
-      case 'preferred': color = Colors.green; text = 'Preferred'; break;
+      case 'preferred': color = const Color(0xFF1E9E68); text = 'Preferred'; break;
       case 'blocked': color = Colors.red; text = 'Blocked'; break;
       default: color = Colors.blueGrey; text = 'Allowed';
     }
@@ -485,7 +485,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                             children: [
                               _buildRadioOption("allowed", "Allowed", "Can be assigned to you (Default)"),
                               const Divider(height: 1),
-                              _buildRadioOption("preferred", "Preferred", "Prioritize this provider when available", color: Colors.green),
+                              _buildRadioOption("preferred", "Preferred", "Prioritize this provider when available", color: const Color(0xFF1E9E68)),
                               const Divider(height: 1),
                               _buildRadioOption("blocked", "Blocked (Never)", "Never assign this provider to me", color: Colors.red),
                             ],
@@ -513,7 +513,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: const Color(0xFF1E9E68),
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -560,7 +560,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
           padding: const EdgeInsets.only(bottom: 4),
           child: Row(
             children: [
-              const Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
+              const Icon(Icons.check_circle_outline, size: 16, color: const Color(0xFF1E9E68)),
               const SizedBox(width: 8),
               Text(item.toString(), style: const TextStyle(fontSize: 15)),
             ],

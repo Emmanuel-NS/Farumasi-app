@@ -81,7 +81,7 @@ class MedicineItem extends StatelessWidget {
                                     height: 24,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade200),
+                                      valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF1E9E68)),
                                     ),
                                   ),
                                 );
@@ -121,7 +121,7 @@ class MedicineItem extends StatelessWidget {
                               child: Container(
                                 padding: EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Colors.green,
+                                  color: const Color(0xFF1E9E68),
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     color: Colors.white,
@@ -186,7 +186,7 @@ class MedicineItem extends StatelessWidget {
                                     ? '${medicine.price.toStringAsFixed(0)} - ${medicine.maxPrice!.toStringAsFixed(0)} RWF'
                                     : '${medicine.price.toStringAsFixed(0)} RWF',
                                 style: TextStyle(
-                                  color: Colors.green,
+                                  color: const Color(0xFF1E9E68),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),
@@ -246,7 +246,7 @@ class MedicineItem extends StatelessWidget {
                                             medicine.maxPrice != null && medicine.maxPrice! > medicine.price
                                                 ? '${medicine.price.toStringAsFixed(0)} - ${medicine.maxPrice!.toStringAsFixed(0)} RWF'
                                                 : '${medicine.price.toStringAsFixed(0)} RWF',
-                                            style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                                            style: TextStyle(color: const Color(0xFF1E9E68), fontWeight: FontWeight.bold),
                                           ),
                                           if (medicine.expiryDate != null)
                                             Container(
@@ -368,7 +368,7 @@ class MedicineItem extends StatelessWidget {
                             child: Text(
                               'About >',
                               style: TextStyle(
-                                color: Colors.green,
+                                color: const Color(0xFF1E9E68),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
                                 decoration: TextDecoration.underline,
@@ -380,8 +380,8 @@ class MedicineItem extends StatelessWidget {
                           color: medicine.requiresPrescription
                               ? Colors.grey
                               : (isInCart
-                                    ? Colors.green.shade800
-                                    : Colors.green),
+                                    ? const Color(0xFF1E9E68)
+                                    : const Color(0xFF1E9E68)),
                           borderRadius: BorderRadius.circular(4),
                           child: InkWell(
                             onTap: () {
@@ -413,7 +413,7 @@ class MedicineItem extends StatelessWidget {
                                   ),
                                   duration: Duration(seconds: 1),
                                   behavior: SnackBarBehavior.floating,
-                                  backgroundColor: Colors.green,
+                                  backgroundColor: const Color(0xFF1E9E68),
                                 ),
                               );
                             },

@@ -82,7 +82,7 @@ class _HelpScreenState extends State<HelpScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Help & Support'),
-        backgroundColor: Colors.green,
+        backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
       ),
       body: ListView(
@@ -185,7 +185,7 @@ class _HelpScreenState extends State<HelpScreen> {
             const SizedBox(height: 8),
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: Colors.green,
+                backgroundColor: const Color(0xFF1E9E68),
                 child: Icon(Icons.email, color: Colors.white),
               ),
               title: const Text('Email Support'),
@@ -219,7 +219,7 @@ class _HelpScreenState extends State<HelpScreen> {
             const Divider(),
              ListTile(
               leading: const CircleAvatar(
-                backgroundColor: Colors.green,
+                backgroundColor: const Color(0xFF1E9E68),
                 child: Icon(FontAwesomeIcons.whatsapp, color: Colors.white),
               ),
               title: const Text('WhatsApp Chat'),
@@ -237,7 +237,7 @@ class _HelpScreenState extends State<HelpScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
+        color: const Color(0xFF1E9E68),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -245,7 +245,7 @@ class _HelpScreenState extends State<HelpScreen> {
         children: [
           Text(
             'How can we help you?',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68)),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -262,7 +262,7 @@ class _HelpScreenState extends State<HelpScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: Icon(icon, color: Colors.green, size: 28),
+        leading: Icon(icon, color: const Color(0xFF1E9E68), size: 28),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),

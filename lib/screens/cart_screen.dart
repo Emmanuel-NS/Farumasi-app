@@ -29,32 +29,37 @@ class CartScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListenableBuilder(
-        listenable: StateService(),
-        builder: (context, _) {
-          final cartItems = StateService().cartItems;
-          final total = StateService().totalAmount;
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 1000.0),
+          child: ListenableBuilder(
+            listenable: StateService(),
+            builder: (context, _) {
+              final cartItems = StateService().cartItems;
+              final total = StateService().totalAmount;
 
-          if (cartItems.isEmpty) {
-            return _buildEmptyState(context);
-          }
+              if (cartItems.isEmpty) {
+                return _buildEmptyState(context);
+              }
 
-          return Column(
-            children: [
-              Expanded(
-                child: ListView.separated(
-                  padding: EdgeInsets.all(16),
-                  itemCount: cartItems.length,
-                  separatorBuilder: (ctx, i) => SizedBox(height: 16),
-                  itemBuilder: (ctx, i) {
-                    return _CartItemCard(item: cartItems[i]);
-                  },
-                ),
-              ),
-              _buildSummarySection(context, total),
-            ],
-          );
-        },
+              return Column(
+                children: [
+                  Expanded(
+                    child: ListView.separated(
+                      padding: EdgeInsets.all(16),
+                      itemCount: cartItems.length,
+                      separatorBuilder: (ctx, i) => SizedBox(height: 16),
+                      itemBuilder: (ctx, i) {
+                        return _CartItemCard(item: cartItems[i]);
+                      },
+                    ),
+                  ),
+                  _buildSummarySection(context, total),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -67,13 +72,13 @@ class CartScreen extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
+              color: const Color(0xFF1E9E68),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.shopping_cart_outlined,
               size: 64,
-              color: Colors.green,
+              color: const Color(0xFF1E9E68),
             ),
           ),
           SizedBox(height: 24),
@@ -111,7 +116,7 @@ class CartScreen extends StatelessWidget {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: StateService().isLoggedIn ? Colors.green : Colors.grey,
+                    backgroundColor: StateService().isLoggedIn ? const Color(0xFF1E9E68) : Colors.grey,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -170,7 +175,7 @@ class CartScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green,
+                  color: const Color(0xFF1E9E68),
                 ),
               ),
             ],
@@ -192,14 +197,14 @@ class CartScreen extends StatelessWidget {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: StateService().isLoggedIn ? Colors.green : Colors.grey,
+                backgroundColor: StateService().isLoggedIn ? const Color(0xFF1E9E68) : Colors.grey,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 4,
-                shadowColor: StateService().isLoggedIn ? Colors.green.withOpacity(0.4) : Colors.transparent,
+                shadowColor: StateService().isLoggedIn ? const Color(0xFF1E9E68).withOpacity(0.4) : Colors.transparent,
               ),
               child: Text(
                 StateService().isLoggedIn ? "Proceed to Checkout" : "Login to Checkout",
@@ -291,7 +296,7 @@ class _CartItemCard extends StatelessWidget {
               ),
             ),
             child: item.medicine.imageUrl.isEmpty
-                ? Icon(Icons.medication, color: Colors.green)
+                ? Icon(Icons.medication, color: const Color(0xFF1E9E68))
                 : null,
           ),
           SizedBox(width: 16),
@@ -332,7 +337,7 @@ class _CartItemCard extends StatelessWidget {
                     Text(
                       "${item.medicine.price.toStringAsFixed(0)} RWF",
                       style: TextStyle(
-                        color: Colors.green,
+                        color: const Color(0xFF1E9E68),
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),

@@ -42,7 +42,7 @@ class HelpSupportScreen extends StatelessWidget {
             icon: Icons.chat_bubble_outline,
             title: "Live Chat",
             subtitle: "Typically replies in 5 min",
-            color: Colors.green,
+            color: const Color(0xFF1E9E68),
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Connecting to support agent...")));
             },
@@ -100,7 +100,7 @@ class HelpSupportScreen extends StatelessWidget {
           Center(
             child: TextButton(
               onPressed: () {}, 
-              child: const Text("View All Articles", style: TextStyle(color: Colors.green))
+              child: const Text("View All Articles", style: TextStyle(color: const Color(0xFF1E9E68)))
             ),
           ),
         ],

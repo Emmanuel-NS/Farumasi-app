@@ -61,7 +61,7 @@ class _SystemAuditLogsScreenState extends State<SystemAuditLogsScreen> {
           'orderId': order.id,
           'description': 'Confirmed delivered to ${order.patientName}',
           'icon': Icons.check_circle,
-          'color': Colors.green
+          'color': const Color(0xFF1E9E68)
         });
       }
     }

@@ -147,7 +147,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
     // Determine status color
     final isArrived = _driverProgress >= 1.0;
     final isNear = _driverProgress > 0.85; // Signal continues even when arrived
-    Color statusColor = Colors.green;
+    Color statusColor = const Color(0xFF1E9E68);
     if (isArrived) {
       statusColor = Colors.blue;
     } else if (isNear) {
@@ -235,12 +235,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                             borderRadius: BorderRadius.circular(8),
                             boxShadow: [BoxShadow(blurRadius: 4, color: Colors.black26)],
                           ),
-                          child: const Icon(Icons.store, color: Colors.green, size: 20),
+                          child: const Icon(Icons.store, color: const Color(0xFF1E9E68), size: 20),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.green,
+                            color: const Color(0xFF1E9E68),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
@@ -294,7 +294,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                     // Change border color based on status
-                                    color: isNear ? Colors.red : (isArrived ? Colors.blue : Colors.green), 
+                                    color: isNear ? Colors.red : (isArrived ? Colors.blue : const Color(0xFF1E9E68)), 
                                     width: 2),
                                 boxShadow: const [BoxShadow(blurRadius: 5, color: Colors.black26)],
                               ),
@@ -338,10 +338,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade50,
+                        color: const Color(0xFF1E9E68),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.store, color: Colors.green),
+                      child: const Icon(Icons.store, color: const Color(0xFF1E9E68)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -380,10 +380,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
     final isArrived = _driverProgress >= 1.0;
     final isNear = _driverProgress > 0.85 && !isArrived;
 
-    Color statusColor = Colors.green;
+    Color statusColor = const Color(0xFF1E9E68);
     String statusText = "Out for Delivery";
-    Color statusBgColor = Colors.green.shade50;
-    Color statusBorderColor = Colors.green.shade100;
+    Color statusBgColor = const Color(0xFF1E9E68);
+    Color statusBorderColor = const Color(0xFF1E9E68);
 
     if (isArrived) {
       statusText = "Arrived";
@@ -487,7 +487,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
             child: LinearProgressIndicator(
               value: 0.3 + (0.7 * _driverProgress),
               backgroundColor: Colors.grey.shade100,
-              color: isArrived ? statusColor : Colors.green, // Keep green until fully arrived, or follow statusColor
+              color: isArrived ? statusColor : const Color(0xFF1E9E68), // Keep green until fully arrived, or follow statusColor
               minHeight: 6,
             ),
           ),
@@ -550,8 +550,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> with SingleTi
                   onPressed: _callDriver,
                   icon: const Icon(Icons.phone),
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.green.shade50,
-                    foregroundColor: Colors.green,
+                    backgroundColor: const Color(0xFF1E9E68),
+                    foregroundColor: const Color(0xFF1E9E68),
                   ),
                 ),
                 const SizedBox(width: 8),
