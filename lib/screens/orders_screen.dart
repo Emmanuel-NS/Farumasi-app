@@ -51,7 +51,7 @@ class OrdersScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 800), child: TabBarView(
           children: [
             // Active Orders Tab
             activeOrders.isEmpty
@@ -84,6 +84,8 @@ class OrdersScreen extends StatelessWidget {
           ],
         ),
       ),
+    ),
+    ),
     );
     },
    );

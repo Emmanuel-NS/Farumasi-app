@@ -44,13 +44,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: ListView(
-        children: [
-          
-          if (isLoggedIn) ...[
-            _buildHeader("Notifications & Updates"),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: ListView(
+            children: [
+
+              if (isLoggedIn) ...[
+                _buildHeader("Notifications & Updates"),
             Container(
-              color: Colors.white,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                   _buildChannelSection(),
@@ -63,14 +75,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 20),
             _buildHeader("Account Security"),
             Container(
-              color: Colors.white,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                    ListTile(
                     leading: Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: const Color(0xFF1E9E68), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.security, color: const Color(0xFF1E9E68)),
+                      decoration: BoxDecoration(color: const Color(0xFF1E9E68).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.security, color: const Color(0xFF1E9E68)),
                     ),
                     title: const Text('Security Center'),
                      subtitle: const Text('2FA, Biometrics, Login history'),
@@ -101,7 +121,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           _buildHeader("Transparency & Control"),
           Container(
-            color: Colors.white,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                 if (isLoggedIn) ...[
@@ -158,7 +187,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
            const SizedBox(height: 20),
            _buildHeader("Preferences"),
            Container(
-            color: Colors.white,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
                  ListTile(
@@ -188,7 +226,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
            ),
            const SizedBox(height: 40),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

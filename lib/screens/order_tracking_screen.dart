@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
@@ -175,10 +177,64 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
           ),
         ),
       ),
-      body: Stack(
-        children: [
-          // Map Layer
-          Container(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final bool isWebWide = kIsWeb || constraints.maxWidth >= 800;
+
+          // Sidebar Top Card (Pharmacy Info)
+          final topInfoCard = Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1E9E68),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.store,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          "Picking up from",
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        Text(
+                          _pharmacyName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+
+          // 1. The fully assembled Map
+          final mapWidget = // Map Layer
+          ClipRect(
+            child: Container(
             color: Colors
                 .grey
                 .shade200, // Background color while loading (Google Maps style grey)
@@ -190,7 +246,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     _pharmacyLocation,
                     _userLocation,
                   ]),
-                  padding: const EdgeInsets.all(50),
+                  padding: const EdgeInsets.all(100),
                 ),
                 onPositionChanged: (position, hasGesture) {
                   if (hasGesture) {
@@ -355,82 +411,109 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 ),
               ],
             ),
-          ),
+          ));
 
-          // Top Info Card
-          if (!_isAutoCentering)
-            Positioned(
-              right: 20,
-              bottom: 270,
-              child: FloatingActionButton(
-                backgroundColor: Colors.white,
-                mini: true,
-                onPressed: _recenterMap,
-                child: const Icon(Icons.my_location, color: Colors.blue),
-              ),
-            ),
+          // 2. The Recenter Button
+          final recenterBtn = !_isAutoCentering
+              ? Positioned(
+                  right: 20,
+                  bottom: isWebWide ? 30 : 270,
+                  child: FloatingActionButton(
+                    backgroundColor: Colors.white,
+                    mini: true,
+                    onPressed: _recenterMap,
+                    child: const Icon(Icons.my_location, color: Colors.blue),
+                  ),
+                )
+              : const SizedBox.shrink();
 
-          Positioned(
-            top: 100,
-            left: 20,
-            right: 20,
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E9E68),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.store,
-                        color: const Color(0xFF1E9E68),
-                      ),
+          if (isWebWide) {
+            return SizedBox(
+              height: constraints.maxHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                // SIDEBAR
+                Container(
+                  width: 400,
+                  color: Colors.grey.shade50,
+                  child: SafeArea(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 60),
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: topInfoCard,
+                        ),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: _buildTrackingInfoCard(),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
+                  ),
+                ),
+                // MAP AREA
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 80, right: 20, bottom: 20, left: 10),
+                    child: Card(
+                      elevation: 4,
+                      clipBehavior: Clip.antiAlias,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        side: BorderSide(color: Colors.grey.shade200, width: 2),
+                      ),
+                      child: Stack(
                         children: [
-                          const Text(
-                            "Picking up from",
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                          Text(
-                            _pharmacyName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          Positioned.fill(child: mapWidget),
+                          recenterBtn,
                         ],
                       ),
                     ),
-                  ],
+                  ),
+                ),
+              ],
+            ),
+          );
+          }
+
+          // MOBILE LAYOUT (Stack)
+          return Stack(
+            children: [
+              mapWidget,
+              recenterBtn,
+              Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 100, left: 20, right: 20),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: topInfoCard,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-
-          Positioned(
-            bottom: 30,
-            left: 20,
-            right: 20,
-            child: _buildTrackingInfoCard(),
-          ),
-        ],
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: _buildTrackingInfoCard(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

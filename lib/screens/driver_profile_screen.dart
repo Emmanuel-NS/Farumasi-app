@@ -56,7 +56,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: SingleChildScrollView(
         child: Column(
           children: [
             const SizedBox(height: 32),
@@ -147,7 +147,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             ),
           ],
         ),
-      ),
+      ))))),
     ));
   }
 
@@ -217,7 +217,7 @@ class _RateDriverScreenState extends State<RateDriverScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Rate Rider"), backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0),
-      body: Padding(
+      body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
@@ -256,7 +256,7 @@ class _RateDriverScreenState extends State<RateDriverScreen> {
             ),
           ],
         ),
-      ),
+      ))))),
     );
   }
 }
@@ -360,7 +360,7 @@ class _TipDriverScreenState extends State<TipDriverScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Send a Tip"), backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0),
-      body: SingleChildScrollView(
+      body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
@@ -471,7 +471,7 @@ class _TipDriverScreenState extends State<TipDriverScreen> {
             ),
           ],
         ),
-      ),
+      ))))),
     );
   }
 }
@@ -483,7 +483,7 @@ class CommentDriverScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Leave a Comment"), backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0),
-      body: Padding(
+      body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,7 +514,7 @@ class CommentDriverScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
+      ))))),
     );
   }
 }

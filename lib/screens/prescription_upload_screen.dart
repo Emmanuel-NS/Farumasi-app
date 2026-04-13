@@ -108,9 +108,14 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(24),
-          child: _uploaded ? _buildSuccessView() : _buildUploadView(),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 600),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(24),
+              child: _uploaded ? _buildSuccessView() : _buildUploadView(),
+            ),
+          ),
         ),
       ),
     );
@@ -180,23 +185,24 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
           Container(
             height: 200,
             decoration: BoxDecoration(
-              color: const Color(0xFF1E9E68),
+              color: const Color(0xFF1E9E68).withOpacity(0.05), // Light green background instead of solid dark green
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF1E9E68)),
+              border: Border.all(color: const Color(0xFF1E9E68).withOpacity(0.3), width: 2), // Subtle border
             ),
-            child: Column(
+            child: const Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   Icons.document_scanner_rounded,
                   size: 64,
-                  color: const Color(0xFF1E9E68),
+                  color: Color(0xFF1E9E68),
                 ),
                 SizedBox(height: 16),
                 Text(
                   "Scan, Photo or PDF",
                   style: TextStyle(
-                    color: const Color(0xFF1E9E68),
+                    color: Color(0xFF1E9E68),
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

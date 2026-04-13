@@ -5,7 +5,7 @@ import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
 import 'package:farumasi_app/screens/health_tips_screen.dart';
 import 'package:farumasi_app/screens/medicine_store_screen.dart'
     as store_screen;
-import 'package:farumasi_app/screens/pharmacist_list_screen.dart'; // Import Pharmacist List
+import 'package:farumasi_app/screens/consult_chat_screen.dart'; // Direct consultation
 import 'package:farumasi_app/screens/orders_screen.dart';
 import 'package:farumasi_app/screens/auth_screen.dart';
 import 'package:farumasi_app/screens/prescription_upload_screen.dart';
@@ -41,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen>
         embeddedInHomeShell: embedStoreInShell,
       ),
       HealthTipsScreen(),
-      PharmacistListScreen(), // Replaced CartScreen with PharmacistList
+      ConsultChatScreen(), // Replaced CartScreen with PharmacistList
       OrdersScreen(),
     ];
   }
