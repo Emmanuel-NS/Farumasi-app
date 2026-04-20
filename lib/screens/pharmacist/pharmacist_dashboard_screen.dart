@@ -179,7 +179,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                     type: BottomNavigationBarType.fixed,
                     backgroundColor: Colors.white,
                     selectedItemColor: _primaryGreen,
-                    unselectedItemColor: Colors.grey.shade400,
+                    unselectedItemColor: Colors.grey.shade800,
                     showSelectedLabels: true,
                     showUnselectedLabels: true,
                     selectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
@@ -302,49 +302,63 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
       width: _isSidebarCollapsed ? 92 : _sidebarWidth,
       clipBehavior: Clip.antiAlias,
       decoration: const BoxDecoration(color: _shellGreen, borderRadius: BorderRadius.zero),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 16),
-          _buildDrawerItem(context, Icons.dashboard_outlined, Icons.dashboard, "Overview", 0),
-          _buildDrawerItem(context, Icons.assignment_outlined, Icons.assignment, "Requests", 1),
-          _buildDrawerItem(context, Icons.shopping_bag_outlined, Icons.shopping_bag, "Orders", 2),
-          _buildDrawerItem(context, Icons.inventory_2_outlined, Icons.inventory_2, "Stock", 3),
-          const Divider(color: Colors.white24, height: 32, thickness: 1),
-          _buildDrawerItem(context, Icons.two_wheeler_outlined, Icons.two_wheeler, "Fleet", 4, 
-            onTapOverride: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PharmacistDeliveryManagementScreen())),
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 16),
+                _buildDrawerItem(context, Icons.dashboard_outlined, Icons.dashboard, "Overview", 0),
+                _buildDrawerItem(context, Icons.assignment_outlined, Icons.assignment, "Requests", 1),
+                _buildDrawerItem(context, Icons.shopping_bag_outlined, Icons.shopping_bag, "Orders", 2),
+                _buildDrawerItem(context, Icons.inventory_2_outlined, Icons.inventory_2, "Stock", 3),
+                const Divider(color: Colors.white24, height: 32, thickness: 1),       
+                _buildDrawerItem(context, Icons.two_wheeler_outlined, Icons.two_wheeler, "Fleet", 4,
+                  onTapOverride: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PharmacistDeliveryManagementScreen())),
+                ),
+                _buildDrawerItem(context, Icons.history_edu_outlined, Icons.history_edu, "Audit Logs", 5,
+                  onTapOverride: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SystemAuditLogsScreen())),
+                ),
+                _buildDrawerItem(context, Icons.settings_outlined, Icons.settings, "Settings", 6,
+                  onTapOverride: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PharmacySettingsScreen())),
+                ),
+              ],
+            ),
           ),
-          _buildDrawerItem(context, Icons.history_edu_outlined, Icons.history_edu, "Audit Logs", 5,
-            onTapOverride: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SystemAuditLogsScreen())),
-          ),
-          _buildDrawerItem(context, Icons.settings_outlined, Icons.settings, "Settings", 6,
-            onTapOverride: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PharmacySettingsScreen())),
-          ),
-          const Spacer(),
-          _buildDrawerItem(context, Icons.logout, Icons.logout, "Logout", 7,
-            onTapOverride: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
-          ),
-          if (!_isSidebarCollapsed)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()));
-                  },
-                  child: const Text(
-                    'Privacy & Terms',
-                    style: TextStyle(
-                      color: Color(0xFF9BC8B5),
-                      fontSize: 12,
-                      decoration: TextDecoration.underline,
-                      decorationColor: Color(0xFF9BC8B5),
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildDrawerItem(context, Icons.logout, Icons.logout, "Logout", 7,    
+                  onTapOverride: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
+                ),
+                if (!_isSidebarCollapsed)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()));
+                        },
+                        child: const Text(
+                          'Privacy & Terms',
+                          style: TextStyle(
+                            color: Color(0xFF9BC8B5),
+                            fontSize: 12,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Color(0xFF9BC8B5),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+                const SizedBox(height: 16),
+              ],
             ),
-          const SizedBox(height: 16),
+          ),
         ],
       ),
     );
@@ -583,13 +597,15 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
           const SizedBox(height: 24),
 
           // Overview Stats
-          GridView.count(
+          GridView(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            childAspectRatio: 0.95, // Adjusted to fix 16px vertical overflow
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: MediaQuery.of(context).size.width > 900 ? 4 : 2,
+              mainAxisExtent: 180, // Fixed height to prevent overflow and maintain proportion
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
             children: [
               _buildStatCard(
                 title: "Stock Items",
@@ -725,16 +741,23 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
             const SizedBox(height: 12),
             Text(
               "No upcoming sessions",
-              style: TextStyle(color: Colors.grey.shade500),
+              style: TextStyle(color: Colors.grey.shade700),
             ),
           ],
         ),
       );
     }
 
-    return ListView.builder(
+    final isDesktop = MediaQuery.of(context).size.width > 900;
+    return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isDesktop ? 2 : 1,
+        mainAxisExtent: 110,
+        crossAxisSpacing: 24,
+        mainAxisSpacing: 16,
+      ),
       itemCount: sessions.length,
       itemBuilder: (context, index) {
         final session = sessions[index];
@@ -798,7 +821,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                       Text(
                         "${session.type} • ${isToday ? 'Today' : 'Tomorrow'}", // Simplified date logic
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: Colors.grey.shade800,
                           fontSize: 13,
                         ),
                       ),
@@ -1070,7 +1093,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   title,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade500,
+                    color: Colors.grey.shade700,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1134,7 +1157,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                 Icon(
                   Icons.arrow_forward_ios,
                   size: 14,
-                  color: Colors.grey.shade400,
+                  color: Colors.grey.shade800,
                 ),
               ],
             ),
@@ -1155,7 +1178,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   "Today",
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade500,
+                    color: Colors.grey.shade700,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1173,7 +1196,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   "This Week",
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade500,
+                    color: Colors.grey.shade700,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1201,15 +1224,21 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
             const SizedBox(height: 16),
             Text(
               "No Pending Requests",
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 16),
             ),
           ],
         ),
       );
     }
 
-    return ListView.builder(
+    return GridView.builder(
       padding: const EdgeInsets.all(24),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: MediaQuery.of(context).size.width > 900 ? 2 : 1,
+        mainAxisExtent: 280,
+        crossAxisSpacing: 24,
+        mainAxisSpacing: 16,
+      ),
       itemCount: list.length,
       itemBuilder: (context, index) {
         final order = list[index];
@@ -1254,7 +1283,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                       order.date.toString().substring(0, 16),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: Colors.grey.shade800,
                       ),
                     ),
                   ],
@@ -1272,7 +1301,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                         width: 70,
                         height: 70,
                         color: Colors.grey.shade200,
-                        child: Icon(Icons.image, color: Colors.grey.shade400),
+                        child: Icon(Icons.image, color: Colors.grey.shade800),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -1291,7 +1320,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                           Text(
                             "Ins: ${order.insuranceProvider ?? 'None'}",
                             style: TextStyle(
-                              color: Colors.grey.shade600,
+                              color: Colors.grey.shade800,
                               fontSize: 13,
                             ),
                           ),
@@ -1299,7 +1328,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                           Text(
                             "Loc: ${order.patientLocationName}",
                             style: TextStyle(
-                              color: Colors.grey.shade600,
+                              color: Colors.grey.shade800,
                               fontSize: 13,
                             ),
                             maxLines: 1,
@@ -1595,15 +1624,21 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                       const SizedBox(height: 16),
                       Text(
                         "No Orders Found matching your filters.",
-                        style: TextStyle(color: Colors.grey.shade500),
+                        style: TextStyle(color: Colors.grey.shade700),
                       ),
                     ],
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(24),
-                  itemCount: list.length,
-                  itemBuilder: (context, index) {
+              : GridView.builder(
+      padding: const EdgeInsets.all(24),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: MediaQuery.of(context).size.width > 900 ? 2 : 1,
+        mainAxisExtent: 280,
+        crossAxisSpacing: 24,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: list.length,
+      itemBuilder: (context, index) {
                     final order = list[index];
                     bool isPaymentPending =
                         order.status == OrderStatus.paymentPending;
@@ -1742,7 +1777,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                 Icon(
                                   Icons.person,
                                   size: 16,
-                                  color: Colors.grey.shade400,
+                                  color: Colors.grey.shade800,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
@@ -1759,7 +1794,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                 Icon(
                                   Icons.medication,
                                   size: 16,
-                                  color: Colors.grey.shade400,
+                                  color: Colors.grey.shade800,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
@@ -2059,7 +2094,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                 Text(
                                   "License: KGL-884R • ETA: 5 mins",
                                   style: TextStyle(
-                                    color: Colors.grey.shade600,
+                                    color: Colors.grey.shade800,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -2270,7 +2305,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                   fontWeight: FontWeight.bold,
                                   color: isActive
                                       ? Colors.black87
-                                      : Colors.grey.shade600,
+                                      : Colors.grey.shade800,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -2280,7 +2315,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                   fontSize: 12,
                                   color: isActive
                                       ? Colors.grey.shade800
-                                      : Colors.grey.shade500,
+                                      : Colors.grey.shade700,
                                 ),
                               ),
                             ],
@@ -2291,7 +2326,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                           size: 18,
                           color: isActive
                               ? _primaryGreen
-                              : Colors.grey.shade400,
+                              : Colors.grey.shade800,
                         ),
                       ],
                     ),
@@ -2344,7 +2379,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade600,
+                            color: Colors.grey.shade800,
                           ),
                         ),
                       ),
@@ -2483,13 +2518,18 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
               ? Center(
                   child: Text(
                     "No items found",
-                    style: TextStyle(color: Colors.grey.shade500),
+                    style: TextStyle(color: Colors.grey.shade700),
                   ),
                 )
-              : ListView.separated(
+              : GridView.builder(
                   padding: const EdgeInsets.all(24),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: MediaQuery.of(context).size.width > 900 ? 3 : 1,
+                    mainAxisExtent: 140, // Reduced from list item height
+                    crossAxisSpacing: 24,
+                    mainAxisSpacing: 16,
+                  ),
                   itemCount: _inventoryList.length,
-                  separatorBuilder: (c, i) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final med = _inventoryList[index];
                     final bool isPublished = !_unpublishedIds.contains(med.id);
@@ -2649,7 +2689,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                               icon: Icon(
                                 Icons.more_vert,
                                 size: 22,
-                                color: Colors.grey.shade500,
+                                color: Colors.grey.shade700,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -3232,9 +3272,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
         ),
-        trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
+        trailing: Icon(Icons.chevron_right, color: Colors.grey.shade800),
       ),
     );
   }

@@ -1,72 +1,30 @@
 import re
+file = 'lib/screens/pharmacist/pharmacist_dashboard_screen.dart'
+with open(file, 'r', encoding='utf-8') as f:
+    content = f.read()
 
-with open('lib/screens/driver_profile_screen.dart', 'r', encoding='utf-8') as f:
-    text = f.read()
+# 1
+content = content.replace('  Widget _buildOverviewTab() {\n    return SingleChildScrollView(',
+                          '  Widget _buildOverviewTab() {\n    return LayoutBuilder(builder: (context, constraints) { bool isWebWide = constraints.maxWidth >= 600; return SingleChildScrollView(')
+# 2
+content = content.replace('padding: const EdgeInsets.symmetric(horizontal: 24),',
+                          'padding: EdgeInsets.symmetric(horizontal: isWebWide ? 40 : 24, vertical: isWebWide ? 24 : 0),')
+                          
+# 3
+content = content.replace('crossAxisCount: 2,\n            childAspectRatio: 0.95, // Adjusted to fix 16px vertical overflow',
+                          'crossAxisCount: isWebWide ? 4 : 2,\n            childAspectRatio: isWebWide ? 2.5 : 0.95,')
 
-out_text = []
-idx = 0
+# 4: look for the end of the method
+end_str = '''          ],
+        ),
+      );
+    }'''
+end_replacement = '''          ],
+        ),
+      );\n    });\n  }'''
 
-while True:
-    match = re.search(r'body:\s*', text[idx:])
-    if not match:
-        out_text.append(text[idx:])
-        break
-    
-    match_start = idx + match.start()
-    out_text.append(text[idx:match_start])
-    
-    start_pos = idx + match.end()
-    
-    # We want to insert 'Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: '
-    out_text.append('body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: ')
-    
-    open_brackets = 0
-    in_string = False
-    escape = False
-    string_char = None
-    
-    body_end = -1
-    for i in range(start_pos, len(text)):
-        char = text[i]
-        
-        if escape:
-            escape = False
-            continue
-            
-        if char == '\\\\':
-            escape = True
-            continue
-            
-        if in_string:
-            if char == string_char:
-                in_string = False
-        else:
-            if char in ["'", '\"']:
-                in_string = True
-                string_char = char
-            elif char in ['(', '{', '[']:
-                open_brackets += 1
-            elif char in [')', '}', ']']:
-                open_brackets -= 1
-                if open_brackets < 0:
-                    body_end = i
-                    break
-            elif char == ',' and open_brackets == 0:
-                body_end = i
-                break
-                
-    if body_end == -1:
-        body_end = len(text)
-        
-    body_str = text[start_pos:body_end]
-    
-    out_text.append(body_str.strip())
-    out_text.append('))')
-    idx = body_end
+content = content.replace(end_str, end_replacement, 1)
 
-new_text = ''.join(out_text)
-
-with open('lib/screens/driver_profile_screen.dart', 'w', encoding='utf-8') as f:
-    f.write(new_text)
-
-print("Wrapped successfully!")
+with open(file, 'w', encoding='utf-8') as f:
+    f.write(content)
+print('Done!')
