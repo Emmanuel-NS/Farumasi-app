@@ -4,14 +4,14 @@ import '../models/models.dart';
 import 'checkout_screen.dart';
 import 'prescription_upload_screen.dart';
 
-class CartScreen extends StatelessWidget {
-  const CartScreen({super.key});
+class CartScreen extends StatelessWidget { final bool isEmbedded;
+  const CartScreen({super.key, this.isEmbedded = false});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
+      appBar: isEmbedded ? null : AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,

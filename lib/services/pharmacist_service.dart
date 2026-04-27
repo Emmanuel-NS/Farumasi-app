@@ -31,7 +31,7 @@ class PharmacistService extends ChangeNotifier {
       prescriptionImageUrl: "assets/rx_sample2.jpg",
       status: OrderStatus.pharmacyAccepted,
       assignedPharmacyId: "PH-01",
-      assignedPharmacyName: "Farumasi Pharmacy",
+      assignedPharmacyName: "FARUMASI Pharmacy",
       pharmacyPrice: 12000, 
       items: [dummyMedicines[0], dummyMedicines[2]],
       reviewedBy: "Pharmacist (You)",
@@ -211,7 +211,7 @@ class PharmacistService extends ChangeNotifier {
   List<Pharmacy> partnerPharmacies = [
     Pharmacy(
       id: "PH-01", 
-      name: "Farumasi Pharmacy", 
+      name: "FARUMASI Pharmacy", 
       locationName: "Kigali Heights", 
       coordinates: [-1.9540, 30.0926], 
       supportedInsurances: ["RSSB", "UAP", "MMI"]

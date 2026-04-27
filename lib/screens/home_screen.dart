@@ -33,6 +33,68 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isBottomBarVisible = true;
   bool _isSidebarCollapsed = false;
   double _sidebarWidth = 200.0;
+  String? _activeRightSidebar;
+
+
+  Widget _buildActiveRightSidebar({bool fullWidth = false}) {
+    if (_activeRightSidebar == null) return const SizedBox.shrink();
+    
+    Widget content;
+    switch (_activeRightSidebar) {
+      case 'notifications':
+        content = const NotificationScreen(isEmbedded: true);
+        break;
+      case 'cart':
+        content = const CartScreen(isEmbedded: true);
+        break;
+      case 'help':
+        content = const HelpScreen(isEmbedded: true);
+        break;
+      default:
+        content = const SizedBox.shrink();
+    }
+
+    return Container(
+      width: fullWidth ? double.infinity : 360,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(left: BorderSide(color: Colors.grey.shade200, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(-8, 0),
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _activeRightSidebar == 'cart' 
+                      ? 'Your Cart' 
+                      : (_activeRightSidebar == 'help' ? 'Help & Support' : 'Notifications'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => setState(() => _activeRightSidebar = null),
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: content),
+        ],
+      ),
+    );
+  }
 
   List<Widget> _buildPages(bool embedStoreInShell) {
     return [
@@ -223,14 +285,57 @@ class _HomeScreenState extends State<HomeScreen>
                               ),
                             ),
                             Expanded(
-                              child: ClipRRect(
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(32),
-                                ),
-                                child: Container(
-                                  color: const Color(0xFFF6F8FB),
-                                  child: pages[_currentIndex],
-                                ),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final bool canShowSideBySide = constraints.maxWidth >= 800; // Total width around 1200 considering left sidebar
+                                  
+                                  if (!canShowSideBySide && _activeRightSidebar != null) {
+                                    return ClipRRect(
+                                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(32)),
+                                      child: _buildActiveRightSidebar(fullWidth: true),
+                                    );
+                                  }
+                                  
+                                  return Row(
+                                    children: [
+                                      Expanded(
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 300),
+                                          curve: Curves.easeInOutCubic,
+                                          margin: EdgeInsets.only(
+                                            right: (_activeRightSidebar != null && canShowSideBySide) ? 12.0 : 0.0,
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.only(
+                                              topLeft: const Radius.circular(32),
+                                              topRight: (_activeRightSidebar != null && canShowSideBySide) 
+                                                  ? const Radius.circular(24) 
+                                                  : Radius.zero,
+                                              bottomRight: Radius.zero,
+                                            ),
+                                            child: Container(
+                                              color: const Color(0xFFF6F8FB),
+                                              child: pages[_currentIndex],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      AnimatedSize(
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeInOutCubic,
+                                        child: (_activeRightSidebar != null && canShowSideBySide)
+                                            ? ClipRRect(
+                                                borderRadius: const BorderRadius.only(
+                                                  topLeft: Radius.circular(24),
+                                                  topRight: Radius.circular(24),
+                                                ),
+                                                child: _buildActiveRightSidebar(fullWidth: false),
+                                              )
+                                            : const SizedBox.shrink(),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
                           ],
@@ -863,10 +968,9 @@ class _HomeScreenState extends State<HomeScreen>
             icon: Icons.help_outline,
             tooltip: 'Help',
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const HelpScreen()),
-              );
+              setState(() {
+                _activeRightSidebar = _activeRightSidebar == 'help' ? null : 'help';
+              });
             },
           ),
           const SizedBox(width: 8),
@@ -884,10 +988,9 @@ class _HomeScreenState extends State<HomeScreen>
                     icon: Icons.shopping_cart_outlined,
                     tooltip: 'Cart',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CartScreen()),
-                      );
+                      setState(() {
+                        _activeRightSidebar = _activeRightSidebar == 'cart' ? null : 'cart';
+                      });
                     },
                   ),
                   if (cartCount > 0)
@@ -916,10 +1019,9 @@ class _HomeScreenState extends State<HomeScreen>
               icon: Icons.notifications_none,
               tooltip: 'Notifications',
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const NotificationScreen()),
-                );
+                setState(() {
+                  _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
+                });
               },
             ),
             const SizedBox(width: 12),

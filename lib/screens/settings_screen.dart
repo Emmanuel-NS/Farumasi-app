@@ -171,11 +171,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: () {
                      showAboutDialog(
                       context: context,
-                      applicationName: 'Farumasi App',
+                      applicationName: 'FARUMASI App',
                       applicationVersion: '1.0.0',
                       applicationIcon: const Icon(Icons.local_pharmacy, size: 50, color: const Color(0xFF1E9E68)),
                       children: [
-                        const Text("Farumasi App connects you with trusted pharmacies and doctors for seamless healthcare delivery."),
+                        const Text("FARUMASI App connects you with trusted pharmacies and doctors for seamless healthcare delivery."),
                       ]
                     );
                   },

@@ -213,7 +213,7 @@ class NotificationService {
     const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
       'farumasi_channel_id',
-      'Farumasi Notifications',
+      'FARUMASI Notifications',
       channelDescription: 'Main channel for Farumasi app notifications',
       importance: Importance.max,
       priority: Priority.high,

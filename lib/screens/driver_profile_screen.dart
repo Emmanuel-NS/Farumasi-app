@@ -75,7 +75,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: const Color(0xFF1E9E68),
+                        color: Color(0xFF1E9E68),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.check, color: Colors.white, size: 20),
@@ -318,7 +318,7 @@ class _TipDriverScreenState extends State<TipDriverScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: const Color(0xFF1E9E68)),
+                CircularProgressIndicator(color: Color(0xFF1E9E68)),
                 SizedBox(height: 16),
                 Text("Processing Payment...", style: TextStyle(fontWeight: FontWeight.bold)),
               ],
@@ -339,7 +339,7 @@ class _TipDriverScreenState extends State<TipDriverScreen> {
        showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.check_circle, color: const Color(0xFF1E9E68), size: 48),
+          icon: const Icon(Icons.check_circle, color: Color(0xFF1E9E68), size: 48),
           title: const Text("Thank You!"),
           content: Text("You successfully tipped $amount RWF to John."),
           actions: [
@@ -440,9 +440,9 @@ class _TipDriverScreenState extends State<TipDriverScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: const Color(0xFF1E9E68), width: 2),
+                  borderSide: const BorderSide(color: Color(0xFF1E9E68), width: 2),
                 ),
-                suffixIcon: _isCustomAmount ? const Icon(Icons.edit, color: const Color(0xFF1E9E68)) : null,
+                suffixIcon: _isCustomAmount ? const Icon(Icons.edit, color: Color(0xFF1E9E68)) : null,
               ),
             ),
 

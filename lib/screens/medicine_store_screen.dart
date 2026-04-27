@@ -1124,7 +1124,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                 children: [
                                   const Expanded(
                                     child: Text(
-                                      'Farumasi Store',
+                                      'FARUMASI Store',
                                       style: TextStyle(
                                         fontSize: 26,
                                         fontWeight: FontWeight.w800,

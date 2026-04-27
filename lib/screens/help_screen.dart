@@ -3,7 +3,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class HelpScreen extends StatefulWidget {
-  const HelpScreen({super.key});
+  final bool isEmbedded;
+
+  const HelpScreen({super.key, this.isEmbedded = false});
 
   @override
   State<HelpScreen> createState() => _HelpScreenState();
@@ -119,7 +121,7 @@ class _HelpScreenState extends State<HelpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: widget.isEmbedded ? null : AppBar(
         title: const Text('Help & Support'),
         backgroundColor: const Color(0xFF1E9E68),
         foregroundColor: Colors.white,
