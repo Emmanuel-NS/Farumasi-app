@@ -21,7 +21,9 @@ class AppNotification {
 }
 
 class PharmacistNotificationsScreen extends StatefulWidget {
-  const PharmacistNotificationsScreen({super.key});
+  final bool isEmbedded;
+  const PharmacistNotificationsScreen({super.key, this.isEmbedded = false});
+
 
   @override
   State<PharmacistNotificationsScreen> createState() => _PharmacistNotificationsScreenState();
@@ -92,7 +94,7 @@ class _PharmacistNotificationsScreenState extends State<PharmacistNotificationsS
   Widget _buildIcon(NotificationType type) {
     switch (type) {
       case NotificationType.order:
-        return CircleAvatar(backgroundColor: const Color(0xFF1E9E68), child: const Icon(Icons.shopping_bag_outlined, color: const Color(0xFF1E9E68)));
+        return CircleAvatar(backgroundColor: const Color(0xFF1E9E68), child: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF1E9E68)));
       case NotificationType.consultation:
         return CircleAvatar(backgroundColor: Colors.blue.shade50, child: const Icon(Icons.video_camera_front_outlined, color: Colors.blue));
       case NotificationType.inventory:
@@ -122,7 +124,7 @@ class _PharmacistNotificationsScreenState extends State<PharmacistNotificationsS
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
+      appBar: widget.isEmbedded ? null : AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -235,7 +237,7 @@ class _PharmacistNotificationsScreenState extends State<PharmacistNotificationsS
                               width: 8,
                               height: 8,
                               decoration: const BoxDecoration(
-                                color: const Color(0xFF1E9E68),
+                                color: Color(0xFF1E9E68),
                                 shape: BoxShape.circle,
                               ),
                             ),

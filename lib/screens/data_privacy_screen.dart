@@ -12,7 +12,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
   bool _requirePasscodeForOrders = false;
   bool _hideSensitiveConditions = true;
   bool _shareAnonymousAnalytics = true;
-  bool _allowDoctorAccess = true;
+  final bool _allowDoctorAccess = true;
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +39,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                 subtitle: const Text('Require passcode to view past medicines'),
                 secondary: const Icon(Icons.lock_outline, color: Colors.indigo),
                 value: _requirePasscodeForOrders,
-                activeColor: const Color(0xFF1E9E68),
+                activeThumbColor: const Color(0xFF1E9E68),
                 onChanged: (val) {
                   if (val) {
                     _showSetupPasscodeDialog();
@@ -56,7 +56,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                   color: Colors.indigo,
                 ),
                 value: _hideSensitiveConditions,
-                activeColor: const Color(0xFF1E9E68),
+                activeThumbColor: const Color(0xFF1E9E68),
                 onChanged: (val) =>
                     setState(() => _hideSensitiveConditions = val),
               ),
@@ -73,7 +73,7 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                   color: Colors.orange,
                 ),
                 value: _shareAnonymousAnalytics,
-                activeColor: const Color(0xFF1E9E68),
+                activeThumbColor: const Color(0xFF1E9E68),
                 onChanged: (val) =>
                     setState(() => _shareAnonymousAnalytics = val),
               ),

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 class HelpCenterScreen extends StatelessWidget {
-  const HelpCenterScreen({super.key});
+  final bool isEmbedded;
+  const HelpCenterScreen({super.key, this.isEmbedded = false});
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: isEmbedded ? null : AppBar(
         title: const Text("Help & Support", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 1,
@@ -24,7 +26,7 @@ class HelpCenterScreen extends StatelessWidget {
           ),
           const Divider(),
           const ListTile(
-            leading: Icon(Icons.support_agent, color: const Color(0xFF1E9E68)),
+            leading: Icon(Icons.support_agent, color: Color(0xFF1E9E68)),
             title: Text("Contact Support", style: TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text("Live chat or email the support team."),
             trailing: Icon(Icons.arrow_forward_ios, size: 16),

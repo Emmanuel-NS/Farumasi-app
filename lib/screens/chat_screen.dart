@@ -96,7 +96,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     Navigator.pop(context);
                     _pickImage(ImageSource.camera);
                   },
-                  icon: const Icon(Icons.camera_alt, size: 30, color: const Color(0xFF1E9E68)),
+                  icon: const Icon(Icons.camera_alt, size: 30, color: Color(0xFF1E9E68)),
                 ),
                 const Text("Camera"),
               ],

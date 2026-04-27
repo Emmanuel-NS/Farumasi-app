@@ -36,7 +36,9 @@ class ChatSession {
 }
 
 class PharmacistChatScreen extends StatefulWidget {
-  const PharmacistChatScreen({super.key});
+  final bool isEmbedded;
+  const PharmacistChatScreen({super.key, this.isEmbedded = false});
+
 
   @override
   State<PharmacistChatScreen> createState() => _PharmacistChatScreenState();
@@ -110,7 +112,7 @@ class _PharmacistChatScreenState extends State<PharmacistChatScreen> with Single
     final generalChats = _sessions.where((s) => s.type == SessionType.general).toList();
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: widget.isEmbedded ? null : AppBar(
         title: const Text("Patient Messages", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,

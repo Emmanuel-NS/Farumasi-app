@@ -4,7 +4,7 @@ import '../../models/models.dart';
 class OrderDetailsScreen extends StatelessWidget {
   final PrescriptionOrder order;
 
-  const OrderDetailsScreen({Key? key, required this.order}) : super(key: key);
+  const OrderDetailsScreen({super.key, required this.order});
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +241,7 @@ class OrderDetailsScreen extends StatelessWidget {
           const Divider(),
           ListTile(
             title: const Text("Total Estimated Cost", style: TextStyle(fontWeight: FontWeight.bold)),
-            trailing: Text("RWF ${(order.totalPrice).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68))),
+            trailing: Text("RWF ${(order.totalPrice).toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E9E68))),
           )
         ],
       ),

@@ -238,7 +238,7 @@ class _HelpScreenState extends State<HelpScreen> {
                         ),
                       ),
                     )
-                    .toList(),
+                    ,
                 Center(
                   child: TextButton(
                     onPressed: () {
@@ -301,7 +301,7 @@ class _HelpScreenState extends State<HelpScreen> {
                 const SizedBox(height: 8),
                 ListTile(
                   leading: const CircleAvatar(
-                    backgroundColor: const Color(0xFF1E9E68),
+                    backgroundColor: Color(0xFF1E9E68),
                     child: Icon(Icons.email, color: Colors.white),
                   ),
                   title: const Text('Email Support'),
@@ -338,7 +338,7 @@ class _HelpScreenState extends State<HelpScreen> {
                 const Divider(),
                 ListTile(
                   leading: const CircleAvatar(
-                    backgroundColor: const Color(0xFF1E9E68),
+                    backgroundColor: Color(0xFF1E9E68),
                     child: Icon(FontAwesomeIcons.whatsapp, color: Colors.white),
                   ),
                   title: const Text('WhatsApp Chat'),

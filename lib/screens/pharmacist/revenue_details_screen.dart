@@ -195,11 +195,11 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: const Color(0xFF1E9E68),
-                    child: const Icon(Icons.arrow_downward, color: const Color(0xFF1E9E68), size: 20),
+                    child: const Icon(Icons.arrow_downward, color: Color(0xFF1E9E68), size: 20),
                   ),
                   title: const Text("Order Payment", style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text("Order ID: ${order.id}\n${order.completedAt?.toString().substring(0, 10) ?? 'N/A'}"),
-                  trailing: Text("+RWF ${order.totalPrice.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68), fontSize: 16)),
+                  trailing: Text("+RWF ${order.totalPrice.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E9E68), fontSize: 16)),
                   isThreeLine: true,
                 ),
               );

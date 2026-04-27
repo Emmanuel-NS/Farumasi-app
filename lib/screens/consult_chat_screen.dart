@@ -109,7 +109,7 @@ class _ConsultChatScreenState extends State<ConsultChatScreen> {
                   icon: const Icon(
                     Icons.camera_alt,
                     size: 30,
-                    color: const Color(0xFF1E9E68),
+                    color: Color(0xFF1E9E68),
                   ),
                 ),
                 const Text('Camera'),

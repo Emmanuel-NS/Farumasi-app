@@ -21,7 +21,7 @@ class ProfileManagementScreen extends StatelessWidget {
                 CircleAvatar(
                   radius: 50,
                   backgroundColor: const Color(0xFF1E9E68),
-                  child: const Icon(Icons.person, size: 50, color: const Color(0xFF1E9E68)),
+                  child: const Icon(Icons.person, size: 50, color: Color(0xFF1E9E68)),
                 ),
                 Positioned(
                   bottom: 0,
@@ -29,7 +29,7 @@ class ProfileManagementScreen extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: const BoxDecoration(
-                      color: const Color(0xFF1E9E68),
+                      color: Color(0xFF1E9E68),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.edit, size: 16, color: Colors.white),

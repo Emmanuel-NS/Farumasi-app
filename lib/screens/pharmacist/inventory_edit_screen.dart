@@ -7,7 +7,7 @@ import 'dart:io';
 class InventoryEditScreen extends StatefulWidget {
   final Medicine? medicine;
   
-  const InventoryEditScreen({Key? key, this.medicine}) : super(key: key);
+  const InventoryEditScreen({super.key, this.medicine});
 
   @override
   State<InventoryEditScreen> createState() => _InventoryEditScreenState();
@@ -39,6 +39,7 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
     "Personal Care": ["Skin Care", "Hair Care", "Oral Care", "Feminine Hygiene", "Deodorants"],
     "Medical Devices": ["Monitors", "Thermometers", "Supports & Braces", "Mobility Aids"],
     "Wellness": ["Sleeplessness", "Stress Relief", "Weight Management"],
+    "Others": ["General", "Miscellaneous", "Uncategorized"],
   };
 
   final Map<String, Set<String>> _selectedTaxonomy = {}; 
@@ -621,7 +622,7 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
                     // DROPDOWN for Adding Category
                     DropdownButtonFormField<String>(
                       key: UniqueKey(), // Force rebuild to reset internal state
-                      value: null, 
+                      initialValue: null, 
                       decoration: InputDecoration(
                         hintText: "Add a category...",
                         prefixIcon: const Icon(Icons.search, color: Colors.grey),
@@ -715,7 +716,7 @@ class _InventoryEditScreenState extends State<InventoryEditScreen> {
                       title: const Text("Prescription Required", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       value: _requiresPrescription,
                       onChanged: (val) => setState(() => _requiresPrescription = val),
-                      activeColor: _primaryGreen,
+                      activeThumbColor: _primaryGreen,
                     ),
                   ],
                 ),

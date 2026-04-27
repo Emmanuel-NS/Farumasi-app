@@ -198,7 +198,7 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
                             child: const Text(
                               "Open Now",
                               style: TextStyle(
-                                color: const Color(0xFF1E9E68),
+                                color: Color(0xFF1E9E68),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),

@@ -75,14 +75,14 @@ class PharmacistListScreen extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Row(
                     children: [
-                      const Icon(Icons.event_available, color: const Color(0xFF1E9E68)),
+                      const Icon(Icons.event_available, color: Color(0xFF1E9E68)),
                       const SizedBox(width: 8),
                       Text(
                         "Your Upcoming Sessions (${bookings.length})",
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E9E68),
+                          color: Color(0xFF1E9E68),
                         ),
                       ),
                     ],
@@ -112,7 +112,7 @@ class PharmacistListScreen extends StatelessWidget {
                                   children: [
                                     const CircleAvatar(
                                       radius: 16,
-                                      backgroundColor: const Color(0xFF1E9E68),
+                                      backgroundColor: Color(0xFF1E9E68),
                                       child: Icon(Icons.person, size: 20, color: Colors.white),
                                     ),
                                     const SizedBox(width: 8),
@@ -281,7 +281,7 @@ class PharmacistListScreen extends StatelessWidget {
                       // Chat Button Logic: Only active if AVAILABLE
                       if (pharmacist.status == PharmacistStatus.available)
                         IconButton(
-                          icon: const Icon(Icons.chat_bubble_outline, color: const Color(0xFF1E9E68)),
+                          icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF1E9E68)),
                           tooltip: "Chat with Pharmacist",
                           onPressed: () {
                              Navigator.push(
@@ -295,7 +295,7 @@ class PharmacistListScreen extends StatelessWidget {
                       else
                         IconButton(
                           icon: const Icon(Icons.lock_outline, color: Colors.grey),
-                          tooltip: "Chat Unavailable (${statusText})",
+                          tooltip: "Chat Unavailable ($statusText)",
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -353,11 +353,11 @@ class PharmacistListScreen extends StatelessWidget {
                           onPressed: () {
                              StateService().setPharmacyBlocked(pharmacy!.id, false);
                           },
-                          icon: const Icon(Icons.check_circle, color: const Color(0xFF1E9E68)),
+                          icon: const Icon(Icons.check_circle, color: Color(0xFF1E9E68)),
                           label: const Text("Unblock Pharmacy"),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF1E9E68),
-                            side: const BorderSide(color: const Color(0xFF1E9E68)),
+                            side: const BorderSide(color: Color(0xFF1E9E68)),
                             padding: const EdgeInsets.all(16),
                           ),
                         );

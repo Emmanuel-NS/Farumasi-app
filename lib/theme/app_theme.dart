@@ -9,7 +9,7 @@ class AppTheme {
       secondary: Colors.lightGreen,
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: const Color(0xFF1E9E68),
+      backgroundColor: Color(0xFF1E9E68),
       foregroundColor: Colors.white,
       elevation: 0,
     ),
@@ -21,7 +21,7 @@ class AppTheme {
     ),
     textTheme: const TextTheme(
       headlineMedium: TextStyle(
-        color: const Color(0xFF1E9E68),
+        color: Color(0xFF1E9E68),
         fontWeight: FontWeight.bold,
       ),
       titleLarge: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),

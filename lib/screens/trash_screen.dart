@@ -53,7 +53,7 @@ class _TrashScreenState extends State<TrashScreen> {
                   title: Text(notification['title'] ?? '', style: const TextStyle(decoration: TextDecoration.lineThrough)),
                   subtitle: Text(notification['body'] ?? ''),
                   trailing: IconButton(
-                    icon: const Icon(Icons.restore, color: const Color(0xFF1E9E68)),
+                    icon: const Icon(Icons.restore, color: Color(0xFF1E9E68)),
                     onPressed: () {
                       NotificationService().restoreNotification(notification['id']);
                       _loadTrash();

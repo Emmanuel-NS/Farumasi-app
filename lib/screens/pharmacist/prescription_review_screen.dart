@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math';
 import '../../models/models.dart';
@@ -8,7 +7,7 @@ import '../../data/dummy_data.dart'; // import dummy data for medicine list
 class PrescriptionReviewScreen extends StatefulWidget {
   final PrescriptionOrder order;
 
-  const PrescriptionReviewScreen({Key? key, required this.order}) : super(key: key);
+  const PrescriptionReviewScreen({super.key, required this.order});
 
   @override
   State<PrescriptionReviewScreen> createState() => _PrescriptionReviewScreenState();
@@ -17,7 +16,7 @@ class PrescriptionReviewScreen extends StatefulWidget {
 class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
   // Use a map to track selected medicines and their quantities
   final Map<Medicine, int> _selectedMedicines = {};
-  double _deliveryFee = 1500.0; // Default delivery fee
+  final double _deliveryFee = 1500.0; // Default delivery fee
 
   // -- Insurance & Form State --
   bool _isInsuranceApplicable = false;
@@ -435,7 +434,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
               if (_isInsuranceApplicable) ...[
                  const SizedBox(height: 12),
                  DropdownButtonFormField<String>(
-                   value: _selectedInsuranceProvider,
+                   initialValue: _selectedInsuranceProvider,
                    items: _insuranceProviders.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                    onChanged: (val) => setState(() => _selectedInsuranceProvider = val),
                    decoration: const InputDecoration(
@@ -525,14 +524,14 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
                     onPressed: () => _removeMedicine(medicine),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, color: const Color(0xFF1E9E68)),
+                    icon: const Icon(Icons.add_circle_outline, color: Color(0xFF1E9E68)),
                     onPressed: () => _addMedicine(medicine),
                   ),
                 ],
               ),
             ),
           );
-        }).toList(),
+        }),
 
         const Divider(),
 
@@ -650,7 +649,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
            Center(
              child: Column(
                children: [
-                 const Icon(Icons.check_circle_outline, size: 48, color: const Color(0xFF1E9E68)),
+                 const Icon(Icons.check_circle_outline, size: 48, color: Color(0xFF1E9E68)),
                  const SizedBox(height: 8),
                  Text("Order served by $_finalfulfillmentPharmacy", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                ],

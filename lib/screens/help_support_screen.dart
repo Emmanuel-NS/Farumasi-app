@@ -100,7 +100,7 @@ class HelpSupportScreen extends StatelessWidget {
           Center(
             child: TextButton(
               onPressed: () {}, 
-              child: const Text("View All Articles", style: TextStyle(color: const Color(0xFF1E9E68)))
+              child: const Text("View All Articles", style: TextStyle(color: Color(0xFF1E9E68)))
             ),
           ),
         ],

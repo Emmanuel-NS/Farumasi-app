@@ -431,7 +431,7 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> with Single
         const SizedBox(height: 8),
         Text(time, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
         const SizedBox(height: 4),
-        Text(isActive ? amount! : "-", style: TextStyle(color: isActive ? Colors.black : Colors.grey, fontSize: 12)),
+        Text(isActive ? amount : "-", style: TextStyle(color: isActive ? Colors.black : Colors.grey, fontSize: 12)),
       ],
     );
   }

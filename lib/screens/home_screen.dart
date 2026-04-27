@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
 import 'package:farumasi_app/screens/health_tips_screen.dart';
 import 'package:farumasi_app/screens/medicine_store_screen.dart'
@@ -244,8 +243,9 @@ class _HomeScreenState extends State<HomeScreen>
                                           200; // default for when re-opened
                                     } else {
                                       _isSidebarCollapsed = false;
-                                      if (_sidebarWidth > 400)
+                                      if (_sidebarWidth > 400) {
                                         _sidebarWidth = 400; // max width
+                                      }
                                     }
                                   });
                                 },
@@ -1073,7 +1073,7 @@ class _HomeScreenState extends State<HomeScreen>
                     children: [
                       Icon(
                         Icons.person_outline,
-                        color: const Color(0xFF1E9E68),
+                        color: Color(0xFF1E9E68),
                         size: 20,
                       ),
                       SizedBox(width: 12),

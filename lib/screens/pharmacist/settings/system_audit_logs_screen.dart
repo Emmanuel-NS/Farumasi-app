@@ -259,7 +259,7 @@ class _SystemAuditLogsScreenState extends State<SystemAuditLogsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildDetailRow("Order ID", event['orderId'].toString()),
-              _buildDetailRow("Timestamp", "${t.toIso8601String().substring(0, 19).replaceFirst('T', ' ')}"),
+              _buildDetailRow("Timestamp", t.toIso8601String().substring(0, 19).replaceFirst('T', ' ')),
               _buildDetailRow("Type", event['type']),
               const Divider(),
               _buildDetailRow("Description", event['description']),

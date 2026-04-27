@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../services/state_service.dart'; // Import StateService
 import 'security_screen.dart';
 import 'data_privacy_screen.dart';
@@ -16,7 +15,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   // Notification Preferences
-  Map<String, bool> _notificationCategories = {
+  final Map<String, bool> _notificationCategories = {
     'orders': true,
     'health_tips': true,
     'promotions': false,
@@ -24,7 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     'reminders': true,
   };
 
-  Map<String, bool> _notificationChannels = {
+  final Map<String, bool> _notificationChannels = {
     'push': true,
     'email': true,
     'sms': false,
@@ -94,7 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                    ListTile(
                     leading: Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: const Color(0xFF1E9E68).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.security, color: const Color(0xFF1E9E68)),
+                      decoration: BoxDecoration(color: const Color(0xFF1E9E68).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.security, color: Color(0xFF1E9E68)),
                     ),
                     title: const Text('Security Center'),
                      subtitle: const Text('2FA, Biometrics, Login history'),
@@ -177,7 +176,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       context: context,
                       applicationName: 'FARUMASI App',
                       applicationVersion: '1.0.0',
-                      applicationIcon: const Icon(Icons.local_pharmacy, size: 50, color: const Color(0xFF1E9E68)),
+                      applicationIcon: const Icon(Icons.local_pharmacy, size: 50, color: Color(0xFF1E9E68)),
                       children: [
                         const Text("FARUMASI App connects you with trusted pharmacies and doctors for seamless healthcare delivery."),
                       ]
@@ -246,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return SwitchListTile(
           title: Text(_formatKey(key)),
           value: _notificationChannels[key]!,
-          activeColor: const Color(0xFF1E9E68),
+          activeThumbColor: const Color(0xFF1E9E68),
           inactiveThumbColor: Colors.grey,
           inactiveTrackColor: Colors.grey.shade200,
           dense: true,
@@ -281,7 +280,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
       value: isLocked ? true : (_notificationCategories[key] ?? false),
-      activeColor: const Color(0xFF1E9E68),
+      activeThumbColor: const Color(0xFF1E9E68),
       inactiveThumbColor: Colors.grey,
       inactiveTrackColor: Colors.grey.shade200,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -342,14 +341,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ListTile(
-              leading: const Icon(Icons.email, color: const Color(0xFF1E9E68)),
+              leading: const Icon(Icons.email, color: Color(0xFF1E9E68)),
               title: const Text("Contact Support"),
               subtitle: const Text("support@farumasi.rw"),
               contentPadding: EdgeInsets.zero,
               onTap: () {}, // Launch email
             ),
             ListTile(
-              leading: const Icon(Icons.phone, color: const Color(0xFF1E9E68)),
+              leading: const Icon(Icons.phone, color: Color(0xFF1E9E68)),
               title: const Text("Call Center"),
               subtitle: const Text("+250 788 000 000"),
               contentPadding: EdgeInsets.zero,

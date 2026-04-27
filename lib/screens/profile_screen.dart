@@ -99,7 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
                           leading: const CircleAvatar(
-                            backgroundColor: const Color(0xFF1E9E68),
+                            backgroundColor: Color(0xFF1E9E68),
                             child: Icon(Icons.medical_services, color: Colors.white),
                           ),
                           title: Text(booking.pharmacistName),
@@ -139,7 +139,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             },
                           ),
                         ),
-                      )).toList(),
+                      )),
                       const SizedBox(height: 20),
                     ],
                   );
@@ -154,7 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     backgroundColor: const Color(0xFF1E9E68),
                     child: Text(
                       _nameController.text.isNotEmpty ? _nameController.text[0].toUpperCase() : "U",
-                      style: const TextStyle(fontSize: 40, color: const Color(0xFF1E9E68)),
+                      style: const TextStyle(fontSize: 40, color: Color(0xFF1E9E68)),
                     ),
                   ),
                   if (_isEditing)
@@ -166,7 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         backgroundColor: Colors.white,
                         child: IconButton(
                           padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.camera_alt, size: 20, color: const Color(0xFF1E9E68)),
+                          icon: const Icon(Icons.camera_alt, size: 20, color: Color(0xFF1E9E68)),
                           onPressed: () {
                             // enhance: Pick image
                           },
@@ -185,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (!_isEditing) ...[
                  Card(
                   child: ListTile(
-                    leading: const Icon(Icons.location_on, color: const Color(0xFF1E9E68)),
+                    leading: const Icon(Icons.location_on, color: Color(0xFF1E9E68)),
                     title: const Text("Manage Addresses"),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () {

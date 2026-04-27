@@ -429,7 +429,7 @@ class _PharmacistDeliveryManagementScreenState
                           backgroundColor: const Color(0xFF1E9E68),
                           child: const Icon(
                             Icons.two_wheeler,
-                            color: const Color(0xFF1E9E68),
+                            color: Color(0xFF1E9E68),
                           ),
                         ),
                         title: Text(driver.name),
@@ -708,7 +708,7 @@ class _PharmacistDeliveryManagementScreenState
                                   const Icon(
                                     Icons.medication_outlined,
                                     size: 16,
-                                    color: const Color(0xFF1E9E68),
+                                    color: Color(0xFF1E9E68),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -921,7 +921,7 @@ class _PharmacistDeliveryManagementScreenState
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.call, color: const Color(0xFF1E9E68)),
+                    icon: const Icon(Icons.call, color: Color(0xFF1E9E68)),
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text("Calling ${driver.name}...")),
@@ -1204,10 +1204,11 @@ class _PharmacistDeliveryManagementScreenState
 
   Widget _buildActiveOrdersTab() {
     final list = _filteredOrders;
-    if (list.isEmpty)
+    if (list.isEmpty) {
       return const Center(
         child: Text("No orders found", style: TextStyle(color: Colors.grey)),
       );
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -1324,7 +1325,7 @@ class _PharmacistDeliveryManagementScreenState
                               child: const Icon(
                                 Icons.sports_motorsports,
                                 size: 14,
-                                color: const Color(0xFF1E9E68),
+                                color: Color(0xFF1E9E68),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -1468,10 +1469,11 @@ class _PharmacistDeliveryManagementScreenState
 
   Widget _buildDriversTab() {
     final list = _filteredDrivers;
-    if (list.isEmpty)
+    if (list.isEmpty) {
       return const Center(
         child: Text("No drivers found", style: TextStyle(color: Colors.grey)),
       );
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),

@@ -35,7 +35,7 @@ class TermsConditionsScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1E9E68),
+                      color: Color(0xFF1E9E68),
                     ),
                   ),
                   const SizedBox(height: 16),

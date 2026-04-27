@@ -202,7 +202,7 @@ class _PharmacistBookingScreenState extends State<PharmacistBookingScreen> {
                 shape: BoxShape.circle,
               ),
               selectedDecoration: const BoxDecoration(
-                color: const Color(0xFF1E9E68),
+                color: Color(0xFF1E9E68),
                 shape: BoxShape.circle,
               ),
               // We'll customize each day using calendarBuilders below
@@ -387,7 +387,7 @@ class _PharmacistBookingScreenState extends State<PharmacistBookingScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("Booking Confirmed! View in My Appointments."),
-                  backgroundColor: const Color(0xFF1E9E68),
+                  backgroundColor: Color(0xFF1E9E68),
                 ),
               );
             },

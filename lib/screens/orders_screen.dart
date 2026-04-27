@@ -42,9 +42,9 @@ class OrdersScreen extends StatelessWidget {
           ),
           centerTitle: true,
           bottom: const TabBar(
-            labelColor: const Color(0xFF1E9E68),
+            labelColor: Color(0xFF1E9E68),
             unselectedLabelColor: Colors.grey,
-            indicatorColor: const Color(0xFF1E9E68),
+            indicatorColor: Color(0xFF1E9E68),
             tabs: [
               Tab(text: "Active Orders"),
               Tab(text: "Past Orders"),
@@ -139,7 +139,7 @@ class OrdersScreen extends StatelessWidget {
                         color: const Color(0xFF1E9E68),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.local_pharmacy_rounded, color: const Color(0xFF1E9E68), size: 24),
+                      child: const Icon(Icons.local_pharmacy_rounded, color: Color(0xFF1E9E68), size: 24),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -227,7 +227,7 @@ class OrdersScreen extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             order['total'] ?? "",
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF1E9E68)),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E9E68)),
                           ),
                         ],
                       ),

@@ -135,6 +135,100 @@ When stressed, your body releases glucagon and cortisol, hormones that cause blo
   ),
 ];
 
+final List<HealthArticle> _srh = [
+  HealthArticle(
+    id: "id_39",
+    source: "Medical Review Board",
+    title: "Understanding Family Planning Options",
+    subtitle: "Learn more about this topic",
+    summary: "Brief overview of the topic.",
+    fullContent: "There are multiple methods for family planning available today. Selecting the right birth control depends on your health, lifestyle, and how well it protects against sexually transmitted infections (STIs).\n\n**Condoms**: Provide dual protection against pregnancy and STIs.\n**Pills & Implants**: Hormonal methods with high effectiveness.\n**Natural Methods**: Tracking fertility awareness.",
+    imageUrl: "https://images.unsplash.com/photo-1549480112-9c17adfed579?w=600&q=80",
+    category: "SRH",
+  ),
+  HealthArticle(
+    id: "id_28",
+    source: "Medical Review Board",
+    title: "Menstrual Health & Hygiene",
+    subtitle: "Learn more about this topic",
+    summary: "Brief overview of the topic.",
+    fullContent: "Maintaining proper menstrual hygiene is critical to reproductive health. Changing pads/tampons every 4-6 hours, staying hydrated, and eating iron-rich foods can significantly reduce discomfort and prevent infections.",
+    imageUrl: "https://images.unsplash.com/photo-1510065098258-299f0e47fe20?w=600&q=80",
+    category: "SRH",
+  ),
+];
+
+final List<HealthArticle> _mentalHealth = [
+  HealthArticle(
+    id: "id_27",
+    source: "Medical Review Board",
+    title: "Managing Workplace Stress",
+    subtitle: "Learn more about this topic",
+    summary: "Brief overview of the topic.",
+    fullContent: "Burnout is a state of emotional, physical, and mental exhaustion caused by excessive and prolonged stress. Identifying the signs early is key.\n\n**Tip 1**: Take micro-breaks every 90 minutes.\n**Tip 2**: Set boundaries on your availability.\n**Tip 3**: Communicate with your team about workloads.",
+    imageUrl: "https://images.unsplash.com/photo-1555529733-0e670560f8e1?w=600&q=80",
+    category: "Mental Health",
+  ),
+  HealthArticle(
+    id: "id_26",
+    source: "Medical Review Board",
+    title: "The Power of Mindfulness",
+    subtitle: "Learn more about this topic",
+    summary: "Brief overview of the topic.",
+    fullContent: "Practicing mindfulness can reduce anxiety and depression. Simple 5-minute deep breathing exercises can lower heart rates and improve mental clarity throughout your day.",
+    imageUrl: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&q=80",
+    category: "Mental Health",
+  ),
+];
+
+final List<HealthArticle> _nutrition = [
+  HealthArticle(
+    id: "id_27",
+    source: "Medical Review Board",
+    title: "Building a Balanced Plate",
+    subtitle: "Learn more about this topic",
+    summary: "Brief overview of the topic.",
+    fullContent: "The foundation of a healthy diet is a balanced plate. Fill half your plate with vegetables and fruits, one quarter with lean protein, and one quarter with whole grains. Avoid highly processed sugars to maintain steady energy levels.",
+    imageUrl: "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&q=80",
+    category: "Nutrition",
+  ),
+  HealthArticle(
+    id: "id_22",
+    source: "Medical Review Board",
+    title: "Hydration Guidelines",
+    subtitle: "Learn more about this topic",
+    summary: "Brief overview of the topic.",
+    fullContent: "Drinking enough water allows your body to regulate temperature, process nutrients, and lubricate joints. Aim for at least 8 cups (2 liters) of water a day, adjusting based on your activity level and climate.",
+    imageUrl: "https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=600&q=80",
+    category: "Nutrition",
+  ),
+];
+
+final List<HealthArticle> _motherAndBabies = [
+  HealthArticle(
+    id: 'mb1',
+    title: "Postpartum Care Essentials",
+    subtitle: "Taking care of yourself after childbirth",
+    summary: "Key steps and symptoms to watch out for during postpartum recovery.",
+    fullContent: "Recovering from childbirth takes time and patience. Ensure you get plenty of rest, stay nutrient-rich, and monitor any concerning symptoms. Always speak with your healthcare provider about post-birth bleeding, physical recovery, and your mental well-being.",
+    category: "Mother & Babies",
+    readTimeMin: 4,
+    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?auto=format&fit=crop&q=80&w=800",
+    source: "Maternal Health Association",
+  ),
+  HealthArticle(
+    id: 'mb2',
+    title: "First Foods for Your Baby",
+    subtitle: "Navigating the transition to solids",
+    summary: "A quick guide on when and how to start feeding your baby solid foods safely.",
+    fullContent: "The American Academy of Pediatrics recommends starting solid foods around 6 months of age, when the baby shows signs of readiness (like sitting up and showing interest). Introduce one single-ingredient food at a time, such as pureed vegetables or iron-fortified cereals.",
+    category: "Mother & Babies",
+    readTimeMin: 3,
+    imageUrl: "https://images.unsplash.com/photo-1453227588063-bb302b62f50b?auto=format&fit=crop&q=80&w=800",
+    source: "Pediatrics Institute",
+  ),
+];
+
 final List<HealthArticle> _facts = [
   HealthArticle(
     id: 'f1',
@@ -204,7 +298,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
   }
 
   @override
@@ -326,10 +420,14 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
                     padding: EdgeInsets.zero,
                     labelPadding: EdgeInsets.symmetric(horizontal: 8),
                     tabs: [
-                      _buildTab("General Tips"),
-                      _buildTab("Remedies"),
-                      _buildTab("Did You Know?"),
-                    ],
+                        _buildTab("General Tips"),
+                        _buildTab("Remedies"),
+                        _buildTab("SRH"),
+                        _buildTab("Mental Health"),
+                        _buildTab("Nutrition"),
+                        _buildTab("Mother & Babies"),
+                        _buildTab("Did You Know?"),
+                      ],
                   ),
                 ),
               ),
@@ -337,13 +435,17 @@ class _HealthTipsScreenState extends State<HealthTipsScreen>
           ];
         },
         body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildArticleList(_filterArticles(_articles)),
-            _buildArticleList(_filterArticles(_remedies)),
-            _buildArticleList(_filterArticles(_facts), isFact: true),
-          ],
-        ),
+            controller: _tabController,
+            children: [
+              _buildArticleList(_filterArticles(_articles)),
+              _buildArticleList(_filterArticles(_remedies)),
+              _buildArticleList(_filterArticles(_srh)),
+              _buildArticleList(_filterArticles(_mentalHealth)),
+              _buildArticleList(_filterArticles(_nutrition)),
+              _buildArticleList(_filterArticles(_motherAndBabies)),
+              _buildArticleList(_filterArticles(_facts), isFact: true),
+            ],
+          ),
       ),
     ),
     ),

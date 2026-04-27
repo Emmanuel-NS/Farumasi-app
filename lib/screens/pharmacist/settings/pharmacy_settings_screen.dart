@@ -14,7 +14,7 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
   bool _pushNotifications = true;
   bool _afterHoursEnabled = false;
   double _operatingCapacity = 150;
-  String _selectedTheme = "System Default";
+  final String _selectedTheme = "System Default";
   
   @override
   Widget build(BuildContext context) {
@@ -30,7 +30,7 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Settings Saved.")));
               Navigator.pop(context);
             },
-            child: const Text("Save", style: TextStyle(color: const Color(0xFF1E9E68), fontWeight: FontWeight.bold)),
+            child: const Text("Save", style: TextStyle(color: Color(0xFF1E9E68), fontWeight: FontWeight.bold)),
           )
         ],
       ),
@@ -44,7 +44,7 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
                subtitle: const Text("Automatically assign orders matching your license schedule."),
                value: _autoAssignOrders,
                onChanged: (val) => setState(() => _autoAssignOrders = val),
-               activeColor: const Color(0xFF1E9E68),
+               activeThumbColor: const Color(0xFF1E9E68),
           ),
           const Divider(),
           _buildSectionHeader("Notifications & Alerts"),
@@ -53,14 +53,14 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
                subtitle: const Text("App alerts for high priority reviews."),
                value: _pushNotifications,
                onChanged: (val) => setState(() => _pushNotifications = val),
-               activeColor: const Color(0xFF1E9E68),
+               activeThumbColor: const Color(0xFF1E9E68),
           ),
           SwitchListTile(
                title: const Text("SMS Fallback Alerts", style: TextStyle(fontWeight: FontWeight.w600)),
                subtitle: const Text("Send text messages for critical delays."),
                value: _smsAlerts,
                onChanged: (val) => setState(() => _smsAlerts = val),
-               activeColor: const Color(0xFF1E9E68),
+               activeThumbColor: const Color(0xFF1E9E68),
           ),
           const Divider(),
           _buildSectionHeader("Operational Limits"),
@@ -73,7 +73,7 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text("Daily Order Capacity Limit", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                    Text("${_operatingCapacity.toInt()} orders", style: const TextStyle(fontWeight: FontWeight.bold, color: const Color(0xFF1E9E68))),
+                    Text("${_operatingCapacity.toInt()} orders", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E9E68))),
                   ],
                 ),
                 Slider(
@@ -92,7 +92,7 @@ class _PharmacySettingsScreenState extends State<PharmacySettingsScreen> {
             title: const Text("Accept After-Hours Emergency Prescriptions", style: TextStyle(fontWeight: FontWeight.w600)),
             value: _afterHoursEnabled,
             onChanged: (val) => setState(() => _afterHoursEnabled = val),
-            activeColor: Colors.red,
+            activeThumbColor: Colors.red,
           ),
           const Divider(),
           _buildSectionHeader("System Preferences"),

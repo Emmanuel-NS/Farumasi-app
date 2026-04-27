@@ -33,7 +33,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 title: const Text('Two-Factor Authentication (2FA)'),
                 subtitle: const Text('Extra layer of security for logins'),
                 value: _twoFactorEnabled,
-                activeColor: const Color(0xFF1E9E68),
+                activeThumbColor: const Color(0xFF1E9E68),
                 onChanged: (val) {
                   setState(() => _twoFactorEnabled = val);
                   // enhance: Show confirm dialog/enter code
@@ -43,7 +43,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 title: const Text('Biometric Login'),
                 subtitle: const Text('Use FaceID/Fingerprint'),
                 value: _biometricEnabled,
-                activeColor: const Color(0xFF1E9E68),
+                activeThumbColor: const Color(0xFF1E9E68),
                 onChanged: (val) {
                   setState(() => _biometricEnabled = val);
                   // enhance: Authenticate biometric
@@ -63,10 +63,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
               ListTile(
                 title: const Text('Data Encryption Status'),
                 subtitle: const Text('Active (AES-256)'),
-                leading: const Icon(Icons.lock, color: const Color(0xFF1E9E68)),
+                leading: const Icon(Icons.lock, color: Color(0xFF1E9E68)),
                 trailing: const Icon(
                   Icons.check_circle,
-                  color: const Color(0xFF1E9E68),
+                  color: Color(0xFF1E9E68),
                 ),
               ),
               ListTile(
@@ -245,7 +245,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
       ),
       child: Row(
         children: const [
-          Icon(Icons.shield, color: const Color(0xFF1E9E68)),
+          Icon(Icons.shield, color: Color(0xFF1E9E68)),
           SizedBox(width: 12),
           Expanded(
             child: Text(

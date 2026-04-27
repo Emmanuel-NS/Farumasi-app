@@ -800,7 +800,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                     const Icon(
                       Icons.check_circle_outline,
                       size: 16,
-                      color: const Color(0xFF1E9E68),
+                      color: Color(0xFF1E9E68),
                     ),
                     const SizedBox(width: 8),
                     Text(item.toString(), style: const TextStyle(fontSize: 15)),
@@ -808,7 +808,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                 ),
               ),
             )
-            .toList(),
+            ,
       ],
     );
   }

@@ -30,6 +30,7 @@ class PharmacistDashboardScreen extends StatefulWidget {
 
 class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
   int _selectedIndex = 0;
+  String? _activeRightSidebar;
   bool _isSidebarCollapsed = false;
   double _sidebarWidth = 200.0;
   static const Color _shellGreen = Color(0xFF1E9E68);
@@ -59,6 +60,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
     "Orders",
     "Inventory",
     "More",
+    "Fleet Management",
+    "Audit Logs",
+    "Settings",
   ];
 
   @override
@@ -79,7 +83,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
           return LayoutBuilder(
             builder: (context, constraints) {
               final bool isWebWide = constraints.maxWidth >= 900;
-              final contentArea = Center(
+              final contentArea = (_activeRightSidebar != null && !isWebWide)
+                  ? _buildRightContextSidebar(context, fullWidth: true)
+                  : Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1100),
                   child: Column(
@@ -94,6 +100,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                             _buildOrdersTab(),
                             _buildInventoryTab(),
                             _buildMoreTab(),
+                            const PharmacistDeliveryManagementScreen(),
+                            const SystemAuditLogsScreen(),
+                            const PharmacySettingsScreen(),
                           ],
                         ),
                       ),
@@ -196,17 +205,53 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                               Expanded(
                                 child: ClipRRect(
                                   borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(16),
+                                    topLeft: Radius.circular(32),
                                   ),
-                                  child: Scaffold(
-                                    backgroundColor: _bgWhite,
-                                    body: Row(
+                                  child: Container(
+                                    color: _bgWhite,
+                                    child: Row(
                                       children: [
-                                        Expanded(child: contentArea),
-                                        _buildRightContextSidebar(context),
+                                        Expanded(
+                                          child: AnimatedContainer(
+                                            duration: const Duration(milliseconds: 300),
+                                            curve: Curves.easeInOutCubic,
+                                            margin: EdgeInsets.only(
+                                              right: (_activeRightSidebar != null) ? 12.0 : 0.0,
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.only(
+                                                topLeft: const Radius.circular(32),
+                                                topRight: (_activeRightSidebar != null)
+                                                    ? const Radius.circular(24)
+                                                    : Radius.zero,
+                                                bottomRight: Radius.zero,
+                                              ),
+                                              child: Container(
+                                                color: const Color(0xFFF6F8FB),
+                                                child: Scaffold(
+                                                  backgroundColor: Colors.transparent,
+                                                  body: contentArea,
+                                                  floatingActionButton: fab,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        AnimatedSize(
+                                          duration: const Duration(milliseconds: 300),
+                                          curve: Curves.easeInOutCubic,
+                                          child: (_activeRightSidebar != null)
+                                              ? ClipRRect(
+                                                  borderRadius: const BorderRadius.only(
+                                                    topLeft: Radius.circular(24),
+                                                    topRight: Radius.circular(24),
+                                                  ),
+                                                  child: _buildRightContextSidebar(context, fullWidth: false),
+                                                )
+                                              : const SizedBox.shrink(),
+                                        ),
                                       ],
                                     ),
-                                    floatingActionButton: fab,
                                   ),
                                 ),
                               ),
@@ -327,10 +372,11 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
               size: 24,
             ),
             tooltip: 'Help & Support',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const HelpCenterScreen()),
-            ),
+            onPressed: () {
+              setState(() {
+                _activeRightSidebar = _activeRightSidebar == 'help' ? null : 'help';
+              });
+            },
           ),
           const SizedBox(width: 8),
           Stack(
@@ -344,12 +390,16 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                 ),
                 tooltip: 'Consulting',
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PharmacistChatScreen(),
-                    ),
-                  );
+                  if (!isWebWide) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PharmacistChatScreen()),
+                      );
+                    } else {
+                      setState(() {
+                        _activeRightSidebar = _activeRightSidebar == 'consulting' ? null : 'consulting';
+                      });
+                    }
                 },
               ),
               Positioned(
@@ -380,12 +430,16 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
               IconButton(
                 icon: const Icon(Icons.notifications_none, color: Colors.white),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PharmacistNotificationsScreen(),
-                    ),
-                  );
+                  if (!isWebWide) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PharmacistNotificationsScreen()),
+                      );
+                    } else {
+                      setState(() {
+                        _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
+                      });
+                    }
                 },
               ),
               Positioned(
@@ -743,12 +797,16 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                         color: Color(0xFF2E7D32),
                       ),
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const PharmacistChatScreen(),
-                          ),
-                        );
+                        if (!isWebWide) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PharmacistChatScreen()),
+                      );
+                    } else {
+                      setState(() {
+                        _activeRightSidebar = _activeRightSidebar == 'consulting' ? null : 'consulting';
+                      });
+                    }
                       },
                     ),
                   ),
@@ -774,13 +832,16 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                             color: _primaryGreen,
                           ),
                           onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const PharmacistNotificationsScreen(),
-                              ),
-                            );
+                            if (!isWebWide) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const PharmacistNotificationsScreen()),
+                                );
+                              } else {
+                                setState(() {
+                                  _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
+                                });
+                              }
                           },
                         ),
                         Positioned(
@@ -812,55 +873,80 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
     );
   }
 
-  Widget _buildRightContextSidebar(BuildContext context) {
-    final viewportWidth = MediaQuery.of(context).size.width;
-    final panelWidth = viewportWidth >= 1400
-        ? 320.0
-        : viewportWidth >= 1100
-        ? 280.0
-        : 220.0;
+  Widget _buildRightContextSidebar(BuildContext context, {bool fullWidth = false}) {
+    if (_activeRightSidebar != null) {
+      Widget content;
+      switch (_activeRightSidebar) {
+        case 'help':
+          content = const HelpCenterScreen(isEmbedded: true);
+          break;
+        case 'consulting':
+          content = const PharmacistChatScreen(isEmbedded: true);
+          break;
+        case 'notifications':
+          content = const PharmacistNotificationsScreen(isEmbedded: true);
+          break;
+        default:
+          content = const SizedBox.shrink();
+      }
 
-    return Container(
-      width: panelWidth,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(left: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: SafeArea(
-        left: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+      final viewportWidth = MediaQuery.of(context).size.width;
+      final panelWidth = fullWidth 
+          ? double.infinity 
+          : 360.0;
+
+      return Container(
+        width: panelWidth,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(left: BorderSide(color: Colors.grey.shade200, width: 1)),
+          boxShadow: [
+            BoxShadow(
+              // ignore: deprecated_member_use
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(-2, 0),
+            )
+          ]
+        ),
+        child: SafeArea(
+          left: false,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                "${_titles[_selectedIndex]} Panel",
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black87,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Text(
+                        _activeRightSidebar == 'help'
+                            ? 'Help & Support'
+                            : _activeRightSidebar == 'consulting'
+                                ? 'Consulting'
+                                : 'Notifications',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => setState(() => _activeRightSidebar = null),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                "Top navigation context",
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: _buildRightContextContent(),
-                ),
-              ),
+              Expanded(child: content),
             ],
           ),
         ),
-      ),
-    );
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   Widget _buildRightContextContent() {
@@ -897,12 +983,16 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
             const Spacer(),
             TextButton(
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const PharmacistNotificationsScreen(),
-                  ),
-                );
+                if (!isWebWide) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PharmacistNotificationsScreen()),
+                      );
+                    } else {
+                      setState(() {
+                        _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
+                      });
+                    }
               },
               child: const Text("View all"),
             ),

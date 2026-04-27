@@ -77,7 +77,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   
                   // City Dropdown
                   DropdownButtonFormField<String>(
-                    value: _selectedCity,
+                    initialValue: _selectedCity,
                     decoration: const InputDecoration(
                       labelText: 'City',
                       border: OutlineInputBorder(),
@@ -275,7 +275,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 builder: (c) => AlertDialog(
                   title: const Column(
                     children: [
-                     Icon(Icons.check_circle, size: 50, color: const Color(0xFF1E9E68)),
+                     Icon(Icons.check_circle, size: 50, color: Color(0xFF1E9E68)),
                      SizedBox(height: 8),
                      Text("Payment Successful"),
                     ],
@@ -346,7 +346,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.location_on, color: const Color(0xFF1E9E68)),
+                          Icon(Icons.location_on, color: Color(0xFF1E9E68)),
                           SizedBox(width: 8),
                           Text(
                             "Delivery Location",

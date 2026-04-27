@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'dart:async'; // For Typewriter animation timer
 import '../models/models.dart';
@@ -75,15 +74,17 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
         if (_scrollController.position.userScrollDirection ==
             ScrollDirection.reverse) {
           if (!_showCategories) setState(() => _showCategories = true);
-          if (!_showFloatingActions)
+          if (!_showFloatingActions) {
             setState(() => _showFloatingActions = true);
+          }
         }
         // Scrolling UP (forward) -> HIDE
         else if (_scrollController.position.userScrollDirection ==
             ScrollDirection.forward) {
           if (_showCategories) setState(() => _showCategories = false);
-          if (_showFloatingActions)
+          if (_showFloatingActions) {
             setState(() => _showFloatingActions = false);
+          }
         }
         _lastScrollOffset = _scrollController.offset;
       }
@@ -107,7 +108,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   Set<String> _selectedCategories = {}; // Revert to set for multi-selection
   String? _selectedSubCategory;
   RangeValues _priceRange = const RangeValues(0, 50000);
-  Set<String> _availableSubCategories = {}; // Dynamic subcategories
+  final Set<String> _availableSubCategories = {}; // Dynamic subcategories
 
   double _minRating = 0.0;
   String _sortBy = 'Name'; // 'Name' or 'Price'
@@ -333,7 +334,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
           v0[j] + cost,
         ].reduce((a, b) => a < b ? a : b);
       }
-      for (int j = 0; j < v0.length; j++) v0[j] = v1[j];
+      for (int j = 0; j < v0.length; j++) {
+        v0[j] = v1[j];
+      }
     }
     return v1[t.length];
   }
@@ -367,8 +370,14 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     return list;
   }
 
-  List<String> get _categories =>
-      dummyMedicines.map((e) => e.category).toSet().toList();
+  List<String> get _categories {
+    final cats = dummyMedicines.map((e) => e.category).toSet().toList();
+    if (cats.contains('Others')) {
+      cats.remove('Others');
+      cats.add('Others'); // Force 'Others' to be the last element
+    }
+    return cats;
+  }
 
   List<String> get _currentSubCategories {
     if (_selectedCategories.isEmpty) return [];
@@ -408,8 +417,8 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
         return Icons.medication_liquid;
       case 'Nutrition':
         return Icons.fitness_center;
-      case 'Herbal Medicines':
-        return Icons.spa;
+      case 'Others':
+        return Icons.more_horiz;
       default:
         return Icons.category;
     }
@@ -704,8 +713,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                   onDeleted: () {
                                     setModalState(() {
                                       _selectedCategories.remove(cat);
-                                      if (_selectedCategories.isEmpty)
+                                      if (_selectedCategories.isEmpty) {
                                         _selectedSubCategory = null;
+                                      }
                                     });
                                     setState(() {});
                                   },
@@ -791,7 +801,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           Text(
                             '${_priceRange.start.round()} - ${_priceRange.end.round()} RWF',
                             style: const TextStyle(
-                              color: const Color(0xFF1E9E68),
+                              color: Color(0xFF1E9E68),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -2129,7 +2139,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                             children: [
                                               Icon(
                                                 Icons.person_outline,
-                                                color: const Color(0xFF1E9E68),
+                                                color: Color(0xFF1E9E68),
                                                 size: 20,
                                               ),
                                               SizedBox(width: 12),
@@ -2143,7 +2153,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                             children: [
                                               Icon(
                                                 Icons.shopping_bag_outlined,
-                                                color: const Color(0xFF1E9E68),
+                                                color: Color(0xFF1E9E68),
                                                 size: 20,
                                               ),
                                               SizedBox(width: 12),
@@ -2157,7 +2167,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                             children: [
                                               Icon(
                                                 Icons.settings_outlined,
-                                                color: const Color(0xFF1E9E68),
+                                                color: Color(0xFF1E9E68),
                                                 size: 20,
                                               ),
                                               SizedBox(width: 12),
@@ -2198,7 +2208,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                                     .toUpperCase()
                                               : 'U',
                                           style: const TextStyle(
-                                            color: const Color(0xFF1E9E68),
+                                            color: Color(0xFF1E9E68),
                                             fontWeight: FontWeight.bold,
                                             fontSize: 20,
                                           ),
@@ -2323,7 +2333,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                     suffixIcon: IconButton(
                                       icon: const Icon(
                                         Icons.sort, // Changed icon to sort
-                                        color: const Color(0xFF1E9E68),
+                                        color: Color(0xFF1E9E68),
                                         size: 24,
                                       ),
                                       onPressed: _showFilterModal,
@@ -3284,7 +3294,7 @@ class _TypewriterSloganState extends State<TypewriterSlogan> {
         ],
       ),
       style: const TextStyle(
-        color: const Color(0xFF1E9E68),
+        color: Color(0xFF1E9E68),
         fontSize: 22,
         fontWeight: FontWeight.w900,
         letterSpacing: 1.0,
@@ -3300,7 +3310,6 @@ class _SearchableListDialog extends StatefulWidget {
   final List<String> items;
 
   const _SearchableListDialog({
-    super.key,
     required this.title,
     required this.items,
   });
@@ -3391,7 +3400,7 @@ class _SearchableListDialogState extends State<_SearchableListDialog> {
                         'All Categories',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E9E68),
+                          color: Color(0xFF1E9E68),
                         ),
                       ),
                       onTap: () => Navigator.pop(context, 'All Categories'),
@@ -3424,7 +3433,6 @@ class _SearchableMultiSelectDialog extends StatefulWidget {
   final List<String> selectedItems;
 
   const _SearchableMultiSelectDialog({
-    super.key,
     required this.title,
     required this.items,
     required this.selectedItems,
@@ -3539,7 +3547,7 @@ class _SearchableMultiSelectDialogState
                   Navigator.pop(context, _tempSelected.toList());
                 },
                 child: Text(
-                  'Done (\)',
+                  'Done ()',
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ),
