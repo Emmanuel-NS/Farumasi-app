@@ -105,6 +105,8 @@ class _HomeScreenState extends State<HomeScreen>
       HealthTipsScreen(),
       ConsultChatScreen(), // Replaced CartScreen with PharmacistList
       OrdersScreen(),
+      const PrescriptionUploadScreen(),
+      const SettingsScreen(),
     ];
   }
 
@@ -394,12 +396,7 @@ class _HomeScreenState extends State<HomeScreen>
                             );
                             return;
                           }
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PrescriptionUploadScreen(),
-                            ),
-                          );
+                          setState(() => _currentIndex = 4);
                         },
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -792,16 +789,8 @@ class _HomeScreenState extends State<HomeScreen>
             4,
             restricted: !isLoggedIn,
             restrictedMessage: 'Please log in to upload a prescription.',
-            closeDrawerOnTap: false,
+            closeDrawerOnTap: true,
             collapsed: _isSidebarCollapsed,
-            onTapOverride: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const PrescriptionUploadScreen(),
-                ),
-              );
-            },
           ),
           const Spacer(),
           _buildDrawerItem(
@@ -810,14 +799,8 @@ class _HomeScreenState extends State<HomeScreen>
             'Settings',
             5,
             restricted: false,
-            closeDrawerOnTap: false,
+            closeDrawerOnTap: true,
             collapsed: _isSidebarCollapsed,
-            onTapOverride: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-            },
           ),
           if (isLoggedIn)
             _buildDrawerItem(
