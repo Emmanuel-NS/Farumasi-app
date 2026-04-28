@@ -40,8 +40,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
 
   // Enhanced Search & Sort State
   String _searchQuery = "";
-  String _sortBy =
-      "Newest"; // Options: Newest, Oldest, Price: High-Low, Price: Low-High, Status
+  String _selectedCategoryFilter = 'All';
+  String _sortBy = "Newest"; 
+  final ScrollController _categoryScrollController = ScrollController();
 
   final PharmacistService _service = PharmacistService();
 
@@ -3115,45 +3116,154 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
 
   // --- TAB 3: INVENTORY ---
   Widget _buildInventoryTab() {
+    final Set<String> allCategoriesSet = {'All'};
+    for (var med in _inventoryList) {
+      if (med.allCategories.isNotEmpty) {
+        allCategoriesSet.addAll(med.allCategories);
+      } else {
+        allCategoriesSet.add(med.category.isNotEmpty ? med.category : 'Uncategorized');
+      }
+    }
+
+    final sortedCategories = allCategoriesSet.toList()
+      ..sort((a, b) => a == 'All' ? -1 : (b == 'All' ? 1 : a.compareTo(b)));
+
+    final filteredList = _inventoryList.where((m) {
+      final q = _searchQuery.toLowerCase();
+      final matchesSearch = _searchQuery.isEmpty ||
+          m.name.toLowerCase().contains(q) ||
+          m.manufacturer.toLowerCase().contains(q) ||
+          m.category.toLowerCase().contains(q);
+
+      final matchesCategory = _selectedCategoryFilter == 'All' ||
+          m.allCategories.contains(_selectedCategoryFilter) ||
+          m.category == _selectedCategoryFilter ||
+          (m.category.isEmpty && _selectedCategoryFilter == 'Uncategorized');
+
+      return matchesSearch && matchesCategory;
+    }).toList();
+
     return Column(
       children: [
         // Filter Header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           color: Colors.white,
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Container(
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const TextField(
-                    decoration: InputDecoration(
-                      prefixIcon: Icon(Icons.search, size: 20),
-                      hintText: "Search stock...",
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.only(top: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: TextField(
+                        onChanged: (val) => setState(() => _searchQuery = val),
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search, size: 20),
+                          hintText: "Search stock...",
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.only(top: 8),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _primaryGreen.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.filter_list, color: _primaryGreen),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: _primaryGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.filter_list, color: _primaryGreen),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.chevron_left, color: _primaryGreen),
+                    onPressed: () {
+                      _categoryScrollController.animateTo(
+                        _categoryScrollController.offset - 150,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                  ),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(
+                          dragDevices: {
+                            ui.PointerDeviceKind.touch,
+                            ui.PointerDeviceKind.mouse,
+                            ui.PointerDeviceKind.trackpad,
+                          },
+                        ),
+                        child: ListView.builder(
+                          controller: _categoryScrollController,
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: sortedCategories.length,
+                          itemBuilder: (context, index) {
+                            final category = sortedCategories[index];
+                            final isSelected = _selectedCategoryFilter == category;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12.0),
+                              child: ChoiceChip(
+                                label: Text(category),
+                                selected: isSelected,
+                                selectedColor: _primaryGreen.withOpacity(0.2),
+                                backgroundColor: Colors.white,
+                                elevation: isSelected ? 2 : 0,
+                                pressElevation: 3,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                    color: isSelected ? _primaryGreen : Colors.grey.shade300,
+                                    width: 1,
+                                  ),
+                                ),
+                                labelStyle: TextStyle(
+                                  color: isSelected ? _primaryGreen : Colors.black87,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ),
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    setState(() => _selectedCategoryFilter = category);
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.chevron_right, color: _primaryGreen),
+                    onPressed: () {
+                      _categoryScrollController.animateTo(
+                        _categoryScrollController.offset + 150,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),
         ),
         Expanded(
-          child: _inventoryList.isEmpty
+          child: filteredList.isEmpty
               ? Center(
                   child: Text(
                     "No items found",
@@ -3163,329 +3273,300 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
               : GridView.builder(
                   padding: const EdgeInsets.all(24),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: MediaQuery.of(context).size.width > 900
+                    crossAxisCount: MediaQuery.of(context).size.width > 1200
                         ? 3
-                        : 1,
-                    mainAxisExtent: 140, // Reduced from list item height
-                    crossAxisSpacing: 24,
+                        : (MediaQuery.of(context).size.width > 800 ? 2 : 1),
+                    mainAxisExtent: 110, // Adjusted nicely for the card
+                    crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),
-                  itemCount: _inventoryList.length,
+                  itemCount: filteredList.length,
                   itemBuilder: (context, index) {
-                    final med = _inventoryList[index];
-                    final bool isPublished = !_unpublishedIds.contains(med.id);
+                    final med = filteredList[index];
+                    final bool isPublished =
+                        !_unpublishedIds.contains(med.id);
                     final bool isLowStock = index % 3 == 0; // Fake logic
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Opacity(
-                        opacity: isPublished ? 1.0 : 0.5,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          InventoryEditScreen(medicine: med),
-                                    ),
-                                  );
-                                  if (result != null && result is Medicine) {
-                                    setState(() {
-                                      final index = _inventoryList.indexWhere(
-                                        (m) => m.id == result.id,
-                                      );
-                                      if (index != -1) {
-                                        _inventoryList[index] = result;
-                                      }
-                                    });
-                                  }
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 50,
-                                        height: 50,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          color: Colors.grey.shade100,
-                                          image: DecorationImage(
-                                            image: NetworkImage(med.imageUrl),
-                                            fit: BoxFit.cover,
-                                            colorFilter: !isPublished
-                                                ? const ColorFilter.mode(
-                                                    Colors.grey,
-                                                    BlendMode.saturation,
-                                                  )
-                                                : null,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              med.name,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                decoration: !isPublished
-                                                    ? TextDecoration.lineThrough
-                                                    : null,
-                                              ),
-                                            ),
-                                            Text(
-                                              med.manufacturer,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey,
-                                              ),
-                                            ),
-                                            if (!isPublished)
-                                              Container(
-                                                margin: const EdgeInsets.only(
-                                                  top: 4,
-                                                ),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 6,
-                                                      vertical: 2,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey.shade300,
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
-                                                child: const Text(
-                                                  "UNPUBLISHED",
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.black54,
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            "RWF ${med.price.toInt()}",
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: isLowStock
-                                                  ? Colors.orange.withOpacity(
-                                                      0.1,
-                                                    )
-                                                  : const Color(
-                                                      0xFF1E9E68,
-                                                    ).withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              isLowStock
-                                                  ? "Low Stock"
-                                                  : "In Stock",
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: isLowStock
-                                                    ? Colors.orange
-                                                    : const Color(0xFF1E9E68),
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            PopupMenuButton<String>(
-                              icon: Icon(
-                                Icons.more_vert,
-                                size: 22,
-                                color: Colors.grey.shade700,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              onSelected: (value) async {
-                                if (value == 'edit') {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          InventoryEditScreen(medicine: med),
-                                    ),
-                                  );
-                                  if (result != null && result is Medicine) {
-                                    setState(() {
-                                      final index = _inventoryList.indexWhere(
-                                        (m) => m.id == result.id,
-                                      );
-                                      if (index != -1) {
-                                        _inventoryList[index] = result;
-                                      }
-                                    });
-                                  }
-                                } else if (value == 'delete') {
-                                  showDialog(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: const Text("Delete Product"),
-                                      content: Text(
-                                        "Are you sure you want to delete '${med.name}'?",
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(ctx),
-                                          child: const Text(
-                                            "Cancel",
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            setState(() {
-                                              _inventoryList.removeAt(index);
-                                            });
-                                            Navigator.pop(ctx);
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  "${med.name} deleted",
-                                                ),
-                                                backgroundColor: Colors.red,
-                                              ),
-                                            );
-                                          },
-                                          child: const Text(
-                                            "Delete",
-                                            style: TextStyle(
-                                              color: Colors.red,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                } else if (value == 'publish') {
-                                  setState(() {
-                                    if (isPublished) {
-                                      _unpublishedIds.add(med.id);
-                                    } else {
-                                      _unpublishedIds.remove(med.id);
-                                    }
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        isPublished
-                                            ? "${med.name} unpublished"
-                                            : "${med.name} published",
-                                      ),
-                                      backgroundColor: isPublished
-                                          ? Colors.grey
-                                          : _primaryGreen,
-                                      duration: const Duration(
-                                        milliseconds: 1500,
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                              itemBuilder: (BuildContext context) =>
-                                  <PopupMenuEntry<String>>[
-                                    const PopupMenuItem<String>(
-                                      value: 'edit',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.edit, size: 18),
-                                          SizedBox(width: 8),
-                                          Text('Edit'),
-                                        ],
-                                      ),
-                                    ),
-                                    PopupMenuItem<String>(
-                                      value: 'publish',
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            isPublished
-                                                ? Icons.visibility_off
-                                                : Icons.visibility,
-                                            size: 18,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            isPublished
-                                                ? 'Unpublish'
-                                                : 'Publish',
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const PopupMenuDivider(),
-                                    const PopupMenuItem<String>(
-                                      value: 'delete',
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.delete_outline,
-                                            size: 18,
-                                            color: Colors.red,
-                                          ),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            'Delete',
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
+                    return _buildInventoryCard(med, isPublished, isLowStock);
                   },
                 ),
         ),
       ],
     );
   }
+
+  Widget _buildInventoryCard(Medicine med, bool isPublished, bool isLowStock) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      color: Colors.white,
+      margin: EdgeInsets.zero,
+      child: Opacity(
+        opacity: isPublished ? 1.0 : 0.6,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => InventoryEditScreen(medicine: med),
+              ),
+            );
+            if (result != null && result is Medicine) {
+              setState(() {
+                final index = _inventoryList.indexWhere(
+                  (m) => m.id == result.id,
+                );
+                if (index != -1) {
+                  _inventoryList[index] = result;
+                }
+              });
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    color: Colors.grey.shade100,
+                    child: Image.network(
+                      med.imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Icon(Icons.inventory_2, color: Colors.grey.shade400, size: 30),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        med.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: isPublished ? Colors.black87 : Colors.grey.shade600,
+                          decoration: !isPublished ? TextDecoration.lineThrough : null,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        med.manufacturer,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (!isPublished)
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            "UNPUBLISHED",
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isLowStock ? Colors.orange.shade50 : const Color(0xFF1E9E68).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: isLowStock ? Colors.orange.withOpacity(0.3) : const Color(0xFF1E9E68).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        isLowStock ? "Low Stock" : "In Stock",
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isLowStock ? Colors.orange.shade800 : const Color(0xFF1E9E68),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: 60,
+                      child: Text(
+                        "RWF ${med.price.toInt()}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
+                        textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                // Replace popupmenu button
+                _buildActionMenu(med, isPublished),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionMenu(Medicine med, bool isPublished) {
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.more_vert, size: 20, color: Colors.grey.shade600),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: EdgeInsets.zero,
+      onSelected: (value) async {
+        if (value == 'edit') {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => InventoryEditScreen(medicine: med),
+            ),
+          );
+          if (result != null && result is Medicine) {
+            setState(() {
+              final index = _inventoryList.indexWhere(
+                (m) => m.id == result.id,
+              );
+              if (index != -1) {
+                _inventoryList[index] = result;
+              }
+            });
+          }
+        } else if (value == 'delete') {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text("Delete Product"),
+              content: Text(
+                "Are you sure you want to delete '${med.name}'?",
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _inventoryList.removeWhere((m) => m.id == med.id);
+                    });
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("${med.name} deleted"),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    "Delete",
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else if (value == 'publish') {
+          setState(() {
+            if (isPublished) {
+              _unpublishedIds.add(med.id);
+            } else {
+              _unpublishedIds.remove(med.id);
+            }
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isPublished
+                    ? "${med.name} unpublished"
+                    : "${med.name} published",
+              ),
+              backgroundColor: isPublished ? Colors.grey : _primaryGreen,
+              duration: const Duration(milliseconds: 1500),
+            ),
+          );
+        }
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit, size: 18),
+              SizedBox(width: 8),
+              Text('Edit'),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'publish',
+          child: Row(
+            children: [
+              Icon(
+                isPublished ? Icons.visibility_off : Icons.visibility,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(isPublished ? 'Unpublish' : 'Publish'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete_outline, size: 18, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
 
   void _showAllSessions(BuildContext context) {
     showModalBottomSheet(
