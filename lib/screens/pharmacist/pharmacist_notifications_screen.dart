@@ -124,7 +124,8 @@ class _PharmacistNotificationsScreenState extends State<PharmacistNotificationsS
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: widget.isEmbedded ? null : AppBar(
+      appBar: AppBar(
+        automaticallyImplyLeading: !widget.isEmbedded,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

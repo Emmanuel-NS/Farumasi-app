@@ -46,6 +46,7 @@ class PharmacistChatScreen extends StatefulWidget {
 
 class _PharmacistChatScreenState extends State<PharmacistChatScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  ChatSession? _selectedSession;
 
   final List<ChatSession> _sessions = [
     ChatSession(
@@ -108,10 +109,30 @@ class _PharmacistChatScreenState extends State<PharmacistChatScreen> with Single
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isEmbedded && _selectedSession != null) {
+      return ChatDetailScreen(
+        session: _selectedSession!,
+        onBack: () {
+          setState(() {
+            _selectedSession = null;
+          });
+        },
+      );
+    }
+
     final consultations = _sessions.where((s) => s.type == SessionType.consultation).toList();
     final generalChats = _sessions.where((s) => s.type == SessionType.general).toList();
 
+    final body = TabBarView(
+      controller: _tabController,
+      children: [
+        _buildChatList(consultations),
+        _buildChatList(generalChats),
+      ],
+    );
+
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: widget.isEmbedded ? null : AppBar(
         title: const Text("Patient Messages", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
@@ -128,14 +149,24 @@ class _PharmacistChatScreenState extends State<PharmacistChatScreen> with Single
           ],
         ),
       ),
-      backgroundColor: Colors.grey.shade50,
-      body: TabBarView(
-        controller: _tabController,
+      body: widget.isEmbedded ? Column(
         children: [
-          _buildChatList(consultations),
-          _buildChatList(generalChats),
+          Container(
+            color: Colors.white,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: const Color(0xFF1E9E68),
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: const Color(0xFF1E9E68),
+              tabs: const [
+                Tab(text: "Consultations"),
+                Tab(text: "General Inquiries"),
+              ],
+            ),
+          ),
+          Expanded(child: body),
         ],
-      ),
+      ) : body,
     );
   }
 
@@ -154,7 +185,13 @@ class _PharmacistChatScreenState extends State<PharmacistChatScreen> with Single
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade200)),
           child: InkWell(
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => ChatDetailScreen(session: session)));
+              if (widget.isEmbedded) {
+                setState(() {
+                  _selectedSession = session;
+                });
+              } else {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => ChatDetailScreen(session: session)));
+              }
             },
             borderRadius: BorderRadius.circular(16),
             child: Padding(
@@ -242,7 +279,8 @@ class _PharmacistChatScreenState extends State<PharmacistChatScreen> with Single
 
 class ChatDetailScreen extends StatefulWidget {
   final ChatSession session;
-  const ChatDetailScreen({super.key, required this.session});
+  final VoidCallback? onBack;
+  const ChatDetailScreen({super.key, required this.session, this.onBack});
 
   @override
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
@@ -277,6 +315,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         backgroundColor: Colors.white,
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
+        leading: widget.onBack != null ? IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onBack,
+        ) : null,
         title: Row(
           children: [
             CircleAvatar(

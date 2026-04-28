@@ -30,7 +30,7 @@ class PharmacistDashboardScreen extends StatefulWidget {
 
 class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
   int _selectedIndex = 0;
-  String? _activeRightSidebar;
+  String? _activeRightSidebar = 'consulting';
   bool _isSidebarCollapsed = false;
   double _sidebarWidth = 200.0;
   static const Color _shellGreen = Color(0xFF1E9E68);
@@ -390,16 +390,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                 ),
                 tooltip: 'Consulting',
                 onPressed: () {
-                  if (!isWebWide) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PharmacistChatScreen()),
-                      );
-                    } else {
-                      setState(() {
+                  setState(() {
                         _activeRightSidebar = _activeRightSidebar == 'consulting' ? null : 'consulting';
                       });
-                    }
                 },
               ),
               Positioned(
@@ -430,16 +423,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
               IconButton(
                 icon: const Icon(Icons.notifications_none, color: Colors.white),
                 onPressed: () {
-                  if (!isWebWide) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PharmacistNotificationsScreen()),
-                      );
-                    } else {
-                      setState(() {
+                  setState(() {
                         _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
                       });
-                    }
                 },
               ),
               Positioned(
@@ -565,40 +551,21 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   Icons.two_wheeler_outlined,
                   Icons.two_wheeler,
                   "Fleet",
-                  4,
-                  onTapOverride: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          const PharmacistDeliveryManagementScreen(),
-                    ),
-                  ),
+                  5,
                 ),
                 _buildDrawerItem(
                   context,
                   Icons.history_edu_outlined,
                   Icons.history_edu,
                   "Audit Logs",
-                  5,
-                  onTapOverride: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SystemAuditLogsScreen(),
-                    ),
-                  ),
+                  6,
                 ),
                 _buildDrawerItem(
                   context,
                   Icons.settings_outlined,
                   Icons.settings,
                   "Settings",
-                  6,
-                  onTapOverride: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PharmacySettingsScreen(),
-                    ),
-                  ),
+                  7,
                 ),
               ],
             ),
@@ -614,7 +581,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   Icons.logout,
                   Icons.logout,
                   "Logout",
-                  7,
+                  99,
                   onTapOverride: () => Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (_) => const AuthScreen()),
@@ -797,16 +764,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                         color: Color(0xFF2E7D32),
                       ),
                       onPressed: () {
-                        if (!isWebWide) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PharmacistChatScreen()),
-                      );
-                    } else {
-                      setState(() {
+                        setState(() {
                         _activeRightSidebar = _activeRightSidebar == 'consulting' ? null : 'consulting';
                       });
-                    }
                       },
                     ),
                   ),
@@ -832,16 +792,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                             color: _primaryGreen,
                           ),
                           onPressed: () {
-                            if (!isWebWide) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const PharmacistNotificationsScreen()),
-                                );
-                              } else {
-                                setState(() {
+                            setState(() {
                                   _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
                                 });
-                              }
                           },
                         ),
                         Positioned(
@@ -983,16 +936,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
             const Spacer(),
             TextButton(
               onPressed: () {
-                if (!isWebWide) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PharmacistNotificationsScreen()),
-                      );
-                    } else {
-                      setState(() {
+                setState(() {
                         _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
                       });
-                    }
               },
               child: const Text("View all"),
             ),
@@ -3809,12 +3755,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
           "Fleet & Deliveries",
           "Manage drivers, assign orders, and live track routes",
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PharmacistDeliveryManagementScreen(),
-              ),
-            );
+            setState(() => _selectedIndex = 5);
           },
         ),
         _buildMoreMenuItem(
@@ -3822,10 +3763,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
           "System Audit Logs",
           "View detailed chain of custody and system records",
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SystemAuditLogsScreen()),
-            );
+            setState(() => _selectedIndex = 6);
           },
         ),
         _buildMoreMenuItem(
@@ -3833,10 +3771,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
           "Pharmacy Settings",
           "Manage operating hours, notifications, and preferences",
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PharmacySettingsScreen()),
-            );
+            setState(() => _selectedIndex = 7);
           },
         ),
 
@@ -3855,10 +3790,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
           "Help & Support",
           "Contact system administrator",
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const HelpCenterScreen()),
-            );
+            setState(() => _activeRightSidebar = 'help');
           },
         ),
         _buildMoreMenuItem(
