@@ -30,6 +30,8 @@ class PharmacistDashboardScreen extends StatefulWidget {
 
 class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
   int _selectedIndex = 0;
+  bool _isEditingInventoryItem = false;
+  Medicine? _editingMedicine;
   String? _activeRightSidebar = 'consulting';
   bool _isSidebarCollapsed = false;
   double _sidebarWidth = 200.0;
@@ -41,7 +43,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
   // Enhanced Search & Sort State
   String _searchQuery = "";
   String _selectedCategoryFilter = 'All';
-  String _sortBy = "Newest"; 
+  String _sortBy = "Newest";
   final ScrollController _categoryScrollController = ScrollController();
 
   final PharmacistService _service = PharmacistService();
@@ -87,32 +89,32 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
               final contentArea = (_activeRightSidebar != null && !isWebWide)
                   ? _buildRightContextSidebar(context, fullWidth: true)
                   : Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1100),
-                  child: Column(
-                    children: [
-                      if (!isWebWide) _buildHeader(),
-                      Expanded(
-                        child: IndexedStack(
-                          index: _selectedIndex,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: Column(
                           children: [
-                            _buildOverviewTab(),
-                            _buildRequestsTab(),
-                            _buildOrdersTab(),
-                            _buildInventoryTab(),
-                            _buildMoreTab(),
-                            const PharmacistDeliveryManagementScreen(),
-                            const SystemAuditLogsScreen(),
-                            const PharmacySettingsScreen(),
+                            if (!isWebWide) _buildHeader(),
+                            Expanded(
+                              child: IndexedStack(
+                                index: _selectedIndex,
+                                children: [
+                                  _buildOverviewTab(),
+                                  _buildRequestsTab(),
+                                  _buildOrdersTab(),
+                                  _buildInventoryTab(),
+                                  _buildMoreTab(),
+                                  const PharmacistDeliveryManagementScreen(),
+                                  const SystemAuditLogsScreen(),
+                                  const PharmacySettingsScreen(),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              );
+                    );
 
-              final fab = _selectedIndex == 3
+              final fab = (_selectedIndex == 3 && !_isEditingInventoryItem)
                   ? FloatingActionButton.extended(
                       backgroundColor: _primaryGreen,
                       icon: const Icon(Icons.add, color: Colors.white),
@@ -120,15 +122,11 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                         "New Product",
                         style: TextStyle(color: Colors.white),
                       ),
-                      onPressed: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (c) => const InventoryEditScreen(),
-                          ),
-                        );
-                        if (result != null && result is Medicine)
-                          setState(() => _inventoryList.insert(0, result));
+                      onPressed: () {
+                        setState(() {
+                          _editingMedicine = null;
+                          _isEditingInventoryItem = true;
+                        });
                       },
                     )
                   : null;
@@ -214,15 +212,24 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                       children: [
                                         Expanded(
                                           child: AnimatedContainer(
-                                            duration: const Duration(milliseconds: 300),
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
                                             curve: Curves.easeInOutCubic,
                                             margin: EdgeInsets.only(
-                                              right: (_activeRightSidebar != null) ? 12.0 : 0.0,
+                                              right:
+                                                  (_activeRightSidebar != null)
+                                                  ? 12.0
+                                                  : 0.0,
                                             ),
                                             child: ClipRRect(
                                               borderRadius: BorderRadius.only(
-                                                topLeft: const Radius.circular(32),
-                                                topRight: (_activeRightSidebar != null)
+                                                topLeft: const Radius.circular(
+                                                  32,
+                                                ),
+                                                topRight:
+                                                    (_activeRightSidebar !=
+                                                        null)
                                                     ? const Radius.circular(24)
                                                     : Radius.zero,
                                                 bottomRight: Radius.zero,
@@ -230,7 +237,8 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                               child: Container(
                                                 color: const Color(0xFFF6F8FB),
                                                 child: Scaffold(
-                                                  backgroundColor: Colors.transparent,
+                                                  backgroundColor:
+                                                      Colors.transparent,
                                                   body: contentArea,
                                                   floatingActionButton: fab,
                                                 ),
@@ -239,15 +247,24 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                           ),
                                         ),
                                         AnimatedSize(
-                                          duration: const Duration(milliseconds: 300),
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
                                           curve: Curves.easeInOutCubic,
                                           child: (_activeRightSidebar != null)
                                               ? ClipRRect(
-                                                  borderRadius: const BorderRadius.only(
-                                                    topLeft: Radius.circular(24),
-                                                    topRight: Radius.circular(24),
-                                                  ),
-                                                  child: _buildRightContextSidebar(context, fullWidth: false),
+                                                  borderRadius:
+                                                      const BorderRadius.only(
+                                                        topLeft:
+                                                            Radius.circular(24),
+                                                        topRight:
+                                                            Radius.circular(24),
+                                                      ),
+                                                  child:
+                                                      _buildRightContextSidebar(
+                                                        context,
+                                                        fullWidth: false,
+                                                      ),
                                                 )
                                               : const SizedBox.shrink(),
                                         ),
@@ -375,7 +392,9 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
             tooltip: 'Help & Support',
             onPressed: () {
               setState(() {
-                _activeRightSidebar = _activeRightSidebar == 'help' ? null : 'help';
+                _activeRightSidebar = _activeRightSidebar == 'help'
+                    ? null
+                    : 'help';
               });
             },
           ),
@@ -392,8 +411,10 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                 tooltip: 'Consulting',
                 onPressed: () {
                   setState(() {
-                        _activeRightSidebar = _activeRightSidebar == 'consulting' ? null : 'consulting';
-                      });
+                    _activeRightSidebar = _activeRightSidebar == 'consulting'
+                        ? null
+                        : 'consulting';
+                  });
                 },
               ),
               Positioned(
@@ -425,8 +446,10 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                 icon: const Icon(Icons.notifications_none, color: Colors.white),
                 onPressed: () {
                   setState(() {
-                        _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
-                      });
+                    _activeRightSidebar = _activeRightSidebar == 'notifications'
+                        ? null
+                        : 'notifications';
+                  });
                 },
               ),
               Positioned(
@@ -766,8 +789,11 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                       ),
                       onPressed: () {
                         setState(() {
-                        _activeRightSidebar = _activeRightSidebar == 'consulting' ? null : 'consulting';
-                      });
+                          _activeRightSidebar =
+                              _activeRightSidebar == 'consulting'
+                              ? null
+                              : 'consulting';
+                        });
                       },
                     ),
                   ),
@@ -794,8 +820,11 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                           ),
                           onPressed: () {
                             setState(() {
-                                  _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
-                                });
+                              _activeRightSidebar =
+                                  _activeRightSidebar == 'notifications'
+                                  ? null
+                                  : 'notifications';
+                            });
                           },
                         ),
                         Positioned(
@@ -827,7 +856,10 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
     );
   }
 
-  Widget _buildRightContextSidebar(BuildContext context, {bool fullWidth = false}) {
+  Widget _buildRightContextSidebar(
+    BuildContext context, {
+    bool fullWidth = false,
+  }) {
     if (_activeRightSidebar != null) {
       Widget content;
       switch (_activeRightSidebar) {
@@ -843,25 +875,23 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
         default:
           content = const SizedBox.shrink();
       }
-
-      final viewportWidth = MediaQuery.of(context).size.width;
-      final panelWidth = fullWidth 
-          ? double.infinity 
-          : 360.0;
+      final panelWidth = fullWidth ? double.infinity : 360.0;
 
       return Container(
         width: panelWidth,
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(left: BorderSide(color: Colors.grey.shade200, width: 1)),
+          border: Border(
+            left: BorderSide(color: Colors.grey.shade200, width: 1),
+          ),
           boxShadow: [
             BoxShadow(
               // ignore: deprecated_member_use
               color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
               offset: const Offset(-2, 0),
-            )
-          ]
+            ),
+          ],
         ),
         child: SafeArea(
           left: false,
@@ -879,8 +909,8 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                         _activeRightSidebar == 'help'
                             ? 'Help & Support'
                             : _activeRightSidebar == 'consulting'
-                                ? 'Consulting'
-                                : 'Notifications',
+                            ? 'Consulting'
+                            : 'Notifications',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -889,7 +919,8 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () => setState(() => _activeRightSidebar = null),
+                      onPressed: () =>
+                          setState(() => _activeRightSidebar = null),
                     ),
                   ],
                 ),
@@ -901,284 +932,6 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
       );
     }
     return const SizedBox.shrink();
-  }
-
-  Widget _buildRightContextContent() {
-    final notifications = List<PrescriptionOrder>.from(_service.orders)
-      ..sort((a, b) => b.date.compareTo(a.date));
-
-    final cartOrders =
-        _service.orders
-            .where(
-              (o) =>
-                  o.items.isNotEmpty &&
-                  [
-                    OrderStatus.pharmacyAccepted,
-                    OrderStatus.paymentPending,
-                    OrderStatus.readyForPickup,
-                    OrderStatus.driverAssigned,
-                    OrderStatus.outForDelivery,
-                  ].contains(o.status),
-            )
-            .toList()
-          ..sort((a, b) => b.date.compareTo(a.date));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.notifications_none, size: 18),
-            const SizedBox(width: 6),
-            const Text(
-              "Notifications",
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                        _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
-                      });
-              },
-              child: const Text("View all"),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (notifications.isEmpty)
-          _buildContextEmptyState(
-            icon: Icons.notifications_off_outlined,
-            text: "No notifications yet.",
-          )
-        else
-          ...notifications.take(5).map((order) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _buildContextItemCard(
-                title: _notificationTitle(order),
-                subtitle: "${order.id} • ${_relativeTimeLabel(order.date)}",
-                trailing: const Icon(Icons.chevron_right, size: 18),
-              ),
-            );
-          }),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            const Icon(Icons.shopping_cart_outlined, size: 18),
-            const SizedBox(width: 6),
-            const Text(
-              "Cart List",
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _selectedIndex = 2;
-                  _ordersFilterIndex = 5;
-                });
-              },
-              child: const Text("Open"),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (cartOrders.isEmpty)
-          _buildContextEmptyState(
-            icon: Icons.remove_shopping_cart_outlined,
-            text: "No active cart items.",
-          )
-        else
-          ...cartOrders.take(5).map((order) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _buildContextItemCard(
-                title: order.patientName,
-                subtitle:
-                    "${order.items.length} item(s) • ${order.totalPrice.toStringAsFixed(0)} RWF • ${_orderStatusLabel(order.status)}",
-                trailing: const Icon(Icons.chevron_right, size: 18),
-              ),
-            );
-          }),
-      ],
-    );
-  }
-
-  String _notificationTitle(PrescriptionOrder order) {
-    switch (order.status) {
-      case OrderStatus.pendingReview:
-        return "New prescription request";
-      case OrderStatus.paymentPending:
-        return "Payment waiting confirmation";
-      case OrderStatus.readyForPickup:
-        return "Ready for pickup";
-      case OrderStatus.outForDelivery:
-        return "Order out for delivery";
-      case OrderStatus.delivered:
-        return "Order delivered";
-      case OrderStatus.cancelled:
-        return "Order cancelled";
-      default:
-        return "Order status updated";
-    }
-  }
-
-  String _relativeTimeLabel(DateTime value) {
-    final diff = DateTime.now().difference(value);
-    if (diff.inMinutes < 1) return "Just now";
-    if (diff.inMinutes < 60) return "${diff.inMinutes} min ago";
-    if (diff.inHours < 24) return "${diff.inHours} hr ago";
-    return "${diff.inDays} day ago";
-  }
-
-  String _orderStatusLabel(OrderStatus status) {
-    switch (status) {
-      case OrderStatus.pendingReview:
-        return "Pending";
-      case OrderStatus.findingPharmacy:
-        return "Finding Pharmacy";
-      case OrderStatus.pharmacyAccepted:
-        return "Accepted";
-      case OrderStatus.paymentPending:
-        return "Payment Pending";
-      case OrderStatus.readyForPickup:
-        return "Ready";
-      case OrderStatus.driverAssigned:
-        return "Driver Assigned";
-      case OrderStatus.outForDelivery:
-        return "Out For Delivery";
-      case OrderStatus.delivered:
-        return "Delivered";
-      case OrderStatus.cancelled:
-        return "Cancelled";
-    }
-  }
-
-  Widget _buildContextMetricCard({
-    required IconData icon,
-    required String title,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContextItemCard({
-    required String title,
-    required String subtitle,
-    Widget? trailing,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade700,
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (trailing != null) ...[const SizedBox(width: 8), trailing],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContextEmptyState({
-    required IconData icon,
-    required String text,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: Colors.grey.shade400, size: 22),
-          const SizedBox(height: 8),
-          Text(
-            text,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-          ),
-        ],
-      ),
-    );
   }
 
   // --- TAB 0: OVERVIEW ---
@@ -3116,12 +2869,42 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
 
   // --- TAB 3: INVENTORY ---
   Widget _buildInventoryTab() {
+    if (_isEditingInventoryItem) {
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: InventoryEditScreen(
+          medicine: _editingMedicine,
+          onCancel: () => setState(() => _isEditingInventoryItem = false),
+          onSave: (updatedMed) {
+            setState(() {
+              if (_editingMedicine == null) {
+                // adding a new drug, need to get a new ID in real app.
+              } else {
+                // update existing
+              }
+              _isEditingInventoryItem = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Product saved successfully',
+                  style: TextStyle(color: Colors.white),
+                ),
+                backgroundColor: Color(0xFF1E9E68),
+              ),
+            );
+          },
+        ),
+      );
+    }
     final Set<String> allCategoriesSet = {'All'};
     for (var med in _inventoryList) {
       if (med.allCategories.isNotEmpty) {
         allCategoriesSet.addAll(med.allCategories);
       } else {
-        allCategoriesSet.add(med.category.isNotEmpty ? med.category : 'Uncategorized');
+        allCategoriesSet.add(
+          med.category.isNotEmpty ? med.category : 'Uncategorized',
+        );
       }
     }
 
@@ -3130,12 +2913,14 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
 
     final filteredList = _inventoryList.where((m) {
       final q = _searchQuery.toLowerCase();
-      final matchesSearch = _searchQuery.isEmpty ||
+      final matchesSearch =
+          _searchQuery.isEmpty ||
           m.name.toLowerCase().contains(q) ||
           m.manufacturer.toLowerCase().contains(q) ||
           m.category.toLowerCase().contains(q);
 
-      final matchesCategory = _selectedCategoryFilter == 'All' ||
+      final matchesCategory =
+          _selectedCategoryFilter == 'All' ||
           m.allCategories.contains(_selectedCategoryFilter) ||
           m.category == _selectedCategoryFilter ||
           (m.category.isEmpty && _selectedCategoryFilter == 'Uncategorized');
@@ -3214,7 +2999,8 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                           itemCount: sortedCategories.length,
                           itemBuilder: (context, index) {
                             final category = sortedCategories[index];
-                            final isSelected = _selectedCategoryFilter == category;
+                            final isSelected =
+                                _selectedCategoryFilter == category;
                             return Padding(
                               padding: const EdgeInsets.only(right: 12.0),
                               child: ChoiceChip(
@@ -3227,17 +3013,25 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   side: BorderSide(
-                                    color: isSelected ? _primaryGreen : Colors.grey.shade300,
+                                    color: isSelected
+                                        ? _primaryGreen
+                                        : Colors.grey.shade300,
                                     width: 1,
                                   ),
                                 ),
                                 labelStyle: TextStyle(
-                                  color: isSelected ? _primaryGreen : Colors.black87,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected
+                                      ? _primaryGreen
+                                      : Colors.black87,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                                 onSelected: (selected) {
                                   if (selected) {
-                                    setState(() => _selectedCategoryFilter = category);
+                                    setState(
+                                      () => _selectedCategoryFilter = category,
+                                    );
                                   }
                                 },
                               ),
@@ -3283,8 +3077,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   itemCount: filteredList.length,
                   itemBuilder: (context, index) {
                     final med = filteredList[index];
-                    final bool isPublished =
-                        !_unpublishedIds.contains(med.id);
+                    final bool isPublished = !_unpublishedIds.contains(med.id);
                     final bool isLowStock = index % 3 == 0; // Fake logic
 
                     return _buildInventoryCard(med, isPublished, isLowStock);
@@ -3340,8 +3133,11 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                     child: Image.network(
                       med.imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Icon(Icons.inventory_2, color: Colors.grey.shade400, size: 30),
+                      errorBuilder: (context, error, stackTrace) => Icon(
+                        Icons.inventory_2,
+                        color: Colors.grey.shade400,
+                        size: 30,
+                      ),
                     ),
                   ),
                 ),
@@ -3356,8 +3152,12 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
-                          color: isPublished ? Colors.black87 : Colors.grey.shade600,
-                          decoration: !isPublished ? TextDecoration.lineThrough : null,
+                          color: isPublished
+                              ? Colors.black87
+                              : Colors.grey.shade600,
+                          decoration: !isPublished
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -3401,19 +3201,28 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: isLowStock ? Colors.orange.shade50 : const Color(0xFF1E9E68).withOpacity(0.1),
+                        color: isLowStock
+                            ? Colors.orange.shade50
+                            : const Color(0xFF1E9E68).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                          color: isLowStock ? Colors.orange.withOpacity(0.3) : const Color(0xFF1E9E68).withOpacity(0.3),
+                          color: isLowStock
+                              ? Colors.orange.withOpacity(0.3)
+                              : const Color(0xFF1E9E68).withOpacity(0.3),
                         ),
                       ),
                       child: Text(
                         isLowStock ? "Low Stock" : "In Stock",
                         style: TextStyle(
                           fontSize: 10,
-                          color: isLowStock ? Colors.orange.shade800 : const Color(0xFF1E9E68),
+                          color: isLowStock
+                              ? Colors.orange.shade800
+                              : const Color(0xFF1E9E68),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -3448,9 +3257,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
   Widget _buildActionMenu(Medicine med, bool isPublished) {
     return PopupMenuButton<String>(
       icon: Icon(Icons.more_vert, size: 20, color: Colors.grey.shade600),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       padding: EdgeInsets.zero,
       onSelected: (value) async {
         if (value == 'edit') {
@@ -3462,9 +3269,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
           );
           if (result != null && result is Medicine) {
             setState(() {
-              final index = _inventoryList.indexWhere(
-                (m) => m.id == result.id,
-              );
+              final index = _inventoryList.indexWhere((m) => m.id == result.id);
               if (index != -1) {
                 _inventoryList[index] = result;
               }
@@ -3475,13 +3280,14 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
             context: context,
             builder: (ctx) => AlertDialog(
               title: const Text("Delete Product"),
-              content: Text(
-                "Are you sure you want to delete '${med.name}'?",
-              ),
+              content: Text("Are you sure you want to delete '${med.name}'?"),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+                  child: const Text(
+                    "Cancel",
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ),
                 TextButton(
                   onPressed: () {
@@ -3566,7 +3372,6 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
       ],
     );
   }
-
 
   void _showAllSessions(BuildContext context) {
     showModalBottomSheet(
@@ -4023,3 +3828,8 @@ class _DashedLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+
+
+
+
