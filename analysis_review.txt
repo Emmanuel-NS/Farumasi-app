@@ -6,10 +6,8 @@ import '../../data/dummy_data.dart'; // import dummy data for medicine list
 
 class PrescriptionReviewScreen extends StatefulWidget {
   final PrescriptionOrder order;
-  final VoidCallback? onCancel;
-  final VoidCallback? onComplete;
 
-  const PrescriptionReviewScreen({super.key, required this.order, this.onCancel, this.onComplete});
+  const PrescriptionReviewScreen({super.key, required this.order});
 
   @override
   State<PrescriptionReviewScreen> createState() => _PrescriptionReviewScreenState();
@@ -302,55 +300,15 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
   @override
   Widget build(BuildContext context) {
     String typeLabel = widget.order.prescriptionImageUrl != null ? "Request" : "Order";
-    return Container(
-      color: Colors.grey.shade50,
-      child: SingleChildScrollView(
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('$typeLabel #${widget.order.id}'),
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 16,
-              runSpacing: 16,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Price Quoting', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text('Request ID: ${widget.order.id}', style: TextStyle(color: Colors.grey.shade600)),
-                  ],
-                ),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: widget.onCancel ?? () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                      label: const Text('Cancel / Back'),
-                    ),
-                    if (_workflowStep == 0)
-                      ElevatedButton.icon(
-                        onPressed: _submitForFulfillment,
-                        icon: const Icon(Icons.send),
-                        label: const Text('Send Quote & Complete'),
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-                      ),
-                    if (_workflowStep == 3)
-                      ElevatedButton.icon(
-                        onPressed: widget.onComplete ?? () => Navigator.pop(context),
-                        icon: const Icon(Icons.check),
-                        label: const Text('Close'),
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-                      ),
-                  ],
-                )
-              ],
-            ),
-            const SizedBox(height: 32),
             // 1. Patient Info
             Row(
               children: [
@@ -363,7 +321,18 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
                     ),
                   ),
                 ),
-                
+                if (_workflowStep == 0)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (val) {
+                      if (val == 'reject') {
+                        _showRejectOrderDialog();
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(value: 'reject', child: Text('Reject Order', style: TextStyle(color: Colors.red))),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -569,6 +538,37 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
         // Totals
         const SizedBox(height: 24),
 
+        // Action Button
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            onPressed: _selectedMedicines.isEmpty ? null : _submitForFulfillment,
+            icon: const Icon(Icons.broadcast_on_personal),
+            label: const Text("BROADCAST TO PHARMACY NETWORK"), // Updated Label
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+              textStyle: const TextStyle(fontWeight: FontWeight.bold)
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Reject Button at the bottom
+         SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: OutlinedButton.icon(
+            onPressed: () => _showRejectOrderDialog(),
+            icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+            label: const Text("REJECT PRESCRIPTION", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Colors.red),
+            ),
+          ),
+        ),
       ],
     );
   }

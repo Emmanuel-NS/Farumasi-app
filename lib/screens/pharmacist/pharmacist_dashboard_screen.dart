@@ -1600,177 +1600,246 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
   }
 
   // --- TAB 1: REQUESTS (Prescription Review) ---
+  PrescriptionOrder? _selectedRequest;
+  bool _isQuotingRequest = false;
+
   Widget _buildRequestsTab() {
     final list = _service.incomingRequests;
+
     if (list.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.assignment_turned_in_outlined,
-              size: 80,
-              color: Colors.grey.shade300,
-            ),
+            Icon(Icons.assignment_turned_in_outlined, size: 80, color: Colors.grey.shade300),
             const SizedBox(height: 16),
-            Text(
-              "No Pending Requests",
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 16),
-            ),
+            Text('No Pending Requests', style: TextStyle(color: Colors.grey.shade700, fontSize: 16)),
           ],
         ),
       );
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(24),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: MediaQuery.of(context).size.width > 900 ? 2 : 1,
-        mainAxisExtent: 280,
-        crossAxisSpacing: 24,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final order = list[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
+    // Auto-select first if none selected
+    if (_selectedRequest == null && list.isNotEmpty) {
+      _selectedRequest = list.first;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left Column: Request Queue
+        Container(
+          width: 380,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.shade200,
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border(right: BorderSide(color: Colors.grey.shade300)),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: _lightGreenErrors,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
-                  ),
-                ),
+              Padding(
+                padding: const EdgeInsets.all(20.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      "New Prescription",
-                      style: TextStyle(
-                        color: _primaryGreen,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      order.date.toString().substring(0, 16),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade800,
-                      ),
-                    ),
+                    const Text('Pending Reviews', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(12)),
+                      child: Text('${list.length} new', style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold, fontSize: 12)),
+                    )
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Prescription Image Thumbnail
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+              Divider(height: 1, color: Colors.grey.shade200),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: list.length,
+                  separatorBuilder: (c, i) => Divider(height: 1, color: Colors.grey.shade100),
+                  itemBuilder: (context, index) {
+                    final req = list[index];
+                    final isSelected = _selectedRequest?.id == req.id;
+                    return InkWell(
+                      onTap: () => setState(() { _selectedRequest = req; _isQuotingRequest = false; }),
                       child: Container(
-                        width: 70,
-                        height: 70,
-                        color: Colors.grey.shade200,
-                        child: Icon(Icons.image, color: Colors.grey.shade800),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            order.patientName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                        color: isSelected ? _primaryGreen.withOpacity(0.05) : Colors.transparent,
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48, height: 48,
+                              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                              child: Icon(Icons.receipt_long, color: isSelected ? _primaryGreen : Colors.grey.shade600),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Ins: ${order.insuranceProvider ?? 'None'}",
-                            style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontSize: 13,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(req.patientName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                                  const SizedBox(height: 4),
+                                  Text('Uploaded ${req.date.toString().substring(0, 16)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Loc: ${order.patientLocationName}",
-                            style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontSize: 13,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {}, // Reject Logic
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
+                            if (isSelected)
+                              Icon(Icons.chevron_right, color: _primaryGreen)
+                          ],
                         ),
-                        child: const Text("Reject"),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => _handleAcceptRequest(order),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryGreen,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                        ),
-                        child: const Text("Review & Price"),
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ],
           ),
-        );
-      },
+        ),
+        
+        // Right Column: Preview & Action
+        Expanded(
+          child: Container(
+            color: Colors.grey.shade50,
+            child: _selectedRequest == null
+                ? const SizedBox.shrink()
+                : _isQuotingRequest
+                    ? PrescriptionReviewScreen(
+                        order: _selectedRequest!,
+                        onCancel: () => setState(() => _isQuotingRequest = false),
+                        onComplete: () => setState(() {
+                          _isQuotingRequest = false;
+                          _service.incomingRequests.remove(_selectedRequest);
+                          _selectedRequest = null;
+                        }),
+                      )
+                    : _buildRequestPreviewPanel(_selectedRequest!),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRequestPreviewPanel(PrescriptionOrder req) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Prescription Review', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('Request ID: ${req.id}', style: TextStyle(color: Colors.grey.shade600)),
+                ],
+              ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.close),
+                    label: const Text('Reject'),
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _handleAcceptRequest(req),
+                    icon: const Icon(Icons.price_check),
+                    label: const Text('Provide Quote & Complete'),
+                    style: ElevatedButton.styleFrom(backgroundColor: _primaryGreen, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+                  ),
+                ],
+              )
+            ],
+          ),
+          const SizedBox(height: 32),
+          
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Image Viewer
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
+                      child: const Text('Prescription Document', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    const Divider(height: 1),
+                    Container(
+                      height: 400,
+                      decoration: const BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(12))
+                      ),
+                      child: req.prescriptionImageUrl != null
+                          ? const Center(child: Text('Image goes here', style: TextStyle(color: Colors.white)))
+                          : Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.image_search, size: 64, color: Colors.grey.shade600),
+                                  const SizedBox(height: 16),
+                                  Text('Preview Generation Active', style: TextStyle(color: Colors.grey.shade400)),
+                                ],
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Meta Data
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Patient Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 24),
+                      _buildInfoRow(Icons.person, 'Name', req.patientName),
+                      const SizedBox(height: 16),
+                      _buildInfoRow(Icons.location_on, 'Delivery Address', req.patientLocationName),
+                      const SizedBox(height: 16),
+                      _buildInfoRow(Icons.health_and_safety, 'Insurance', req.insuranceProvider ?? 'None (Out of Pocket)'),
+                      
+                      const Divider(height: 48),
+                      
+                      const Text('Action Required', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Review the attached prescription document, extract the required medication items, input your pharmacy\'s pricing, and submit the proposal back to the patient for payment.',
+                        style: TextStyle(color: Colors.black54, height: 1.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   void _handleAcceptRequest(PrescriptionOrder order) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => PrescriptionReviewScreen(order: order)),
-    ).then((_) => setState(() {}));
+    setState(() {
+      _selectedRequest = order;
+      _isQuotingRequest = true;
+    });
   }
 
   // --- TAB 2: ORDERS (Active Processing) ---
