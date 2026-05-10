@@ -1,3 +1,39 @@
+enum AgeRange {
+  infantToddler,
+  toddler,
+  child,
+  adolescent,
+  adult,
+}
+
+class AgeDosage {
+  final AgeRange ageRange;
+  final String dosageInstructions;
+
+  AgeDosage({
+    required this.ageRange,
+    required this.dosageInstructions,
+  });
+}
+
+enum StockStatus {
+  available,
+  lowStock,
+  unavailable,
+}
+
+class MarketingPharmacy {
+  final String pharmacyName;
+  final StockStatus stockStatus;
+  final double price;
+
+  MarketingPharmacy({
+    required this.pharmacyName,
+    required this.stockStatus,
+    required this.price,
+  });
+}
+
 class Medicine {
   final String id;
   final String name;
@@ -25,6 +61,9 @@ class Medicine {
   final String? doseAfternoon; // e.g. "None"
   final String? doseEvening;   // e.g. "1 Tablet"
   final String? doseTimeInterval; // e.g. "Every 8 hours"
+  
+  final List<AgeDosage> ageDosages;
+  final List<MarketingPharmacy> marketingPharmacies;
 
   List<String> get allCategories => {category, ...additionalCategories}.toList();
   List<String> get allSubCategories => {(subCategory ?? ""), ...additionalSubCategories}.where((s) => s.isNotEmpty).toList();
@@ -50,6 +89,8 @@ class Medicine {
     this.doseAfternoon,
     this.doseEvening,
     this.doseTimeInterval,
+    this.ageDosages = const [],
+    this.marketingPharmacies = const [],
   });
 }
 

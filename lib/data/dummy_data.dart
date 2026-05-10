@@ -9,7 +9,8 @@ final List<Medicine> dummyMedicines = [
     price: 500,
     maxPrice: 800, // Price range: 500 - 800
     expiryDate: '12/2026',
-    imageUrl: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=80',
     category: 'Pain Relief',
     subCategory: 'Headache & Fever',
     rating: 4.8,
@@ -19,11 +20,46 @@ final List<Medicine> dummyMedicines = [
     sideEffects:
         'Rare: Allergic reactions, skin rash. High doses may cause liver damage.',
     manufacturer: 'HealthLive Pharma',
-    keywords: ['headache', 'fever', 'flu', 'pain', 'body ache', 'temperature', 'cold'],
+    keywords: [
+      'headache',
+      'fever',
+      'flu',
+      'pain',
+      'body ache',
+      'temperature',
+      'cold',
+    ],
     doseMorning: '1 Tablet',
-    doseAfternoon: '1 Tablet', 
+    doseAfternoon: '1 Tablet',
     doseEvening: '1 Tablet',
     doseTimeInterval: 'Every 8 hours',
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm2',
@@ -33,7 +69,8 @@ final List<Medicine> dummyMedicines = [
     price: 2500,
     maxPrice: 3200,
     expiryDate: '06/2025',
-    imageUrl: 'https://images.unsplash.com/photo-1585435557343-3b092031a831?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1585435557343-3b092031a831?w=600&q=80',
     category: 'Antibiotics',
     subCategory: 'Bacterial Infections',
     requiresPrescription: true,
@@ -45,7 +82,34 @@ final List<Medicine> dummyMedicines = [
     keywords: ['infection', 'bacteria', 'throat', 'chest', 'pneumonia'],
     doseMorning: '1-2 Tablets',
     doseEvening: '1-2 Tablets',
-    doseTimeInterval: '12 Hours', 
+    doseTimeInterval: '12 Hours',
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm3',
@@ -55,7 +119,8 @@ final List<Medicine> dummyMedicines = [
     price: 8000,
     maxPrice: 9500,
     expiryDate: '11/2026',
-    imageUrl: 'https://images.unsplash.com/photo-1616671276445-169d9e3b2e36?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1616671276445-169d9e3b2e36?w=600&q=80',
     category: 'Vitamins',
     subCategory: 'Immunity',
     isPopular: true,
@@ -64,6 +129,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'High doses may cause stomach upset or kidney stones.',
     manufacturer: 'VitaBoost Inc.',
     keywords: ['immune', 'flu', 'cold', 'supplement', 'energy', 'vitality'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm4',
@@ -73,7 +165,8 @@ final List<Medicine> dummyMedicines = [
     price: 3500,
     // No maxPrice -> Fixed Price
     expiryDate: '01/2027',
-    imageUrl: 'https://images.unsplash.com/photo-1598454519524-8f0a1c87607a?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1598454519524-8f0a1c87607a?w=600&q=80',
     category: 'Cold & Flu',
     subCategory: 'Cough Syrups',
     rating: 4.2,
@@ -81,6 +174,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'May cause drowsiness or dizziness.',
     manufacturer: 'CureWell Labs',
     keywords: ['cough', 'throat', 'chest', 'congestion', 'mucus', 'cold'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm5',
@@ -90,7 +210,8 @@ final List<Medicine> dummyMedicines = [
     price: 1500,
     maxPrice: 2000,
     expiryDate: '08/2026',
-    imageUrl: 'https://images.unsplash.com/photo-1512069772995-ec65ed45afd6?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1512069772995-ec65ed45afd6?w=600&q=80',
     category: 'Pain Relief',
     subCategory: 'Muscle Pain',
     isPopular: true,
@@ -98,7 +219,41 @@ final List<Medicine> dummyMedicines = [
     dosage: 'Take with food. 1 tablet every 6-8 hours as needed.',
     sideEffects: 'Stomach pain, heartburn. Prolonged use risks stomach ulcers.',
     manufacturer: 'Relief Meds',
-    keywords: ['inflammation', 'swelling', 'back pain', 'period pain', 'headache', 'pain'],
+    keywords: [
+      'inflammation',
+      'swelling',
+      'back pain',
+      'period pain',
+      'headache',
+      'pain',
+    ],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm6',
@@ -108,7 +263,8 @@ final List<Medicine> dummyMedicines = [
     price: 6000,
     maxPrice: 7500,
     expiryDate: '12/2025',
-    imageUrl: 'https://images.unsplash.com/photo-1620916773340-753bc9f77651?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1620916773340-753bc9f77651?w=600&q=80',
     category: 'Skincare',
     subCategory: 'Moisturizers',
     rating: 4.6,
@@ -116,6 +272,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'Rarely causes allergic dermatitis in sensitive individuals.',
     manufacturer: 'Nature\'s Touch',
     keywords: ['skin', 'sunburn', 'moisturizer', 'burn', 'rash', 'soothing'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm7',
@@ -125,7 +308,8 @@ final List<Medicine> dummyMedicines = [
     price: 12000,
     maxPrice: 15000,
     expiryDate: '05/2027',
-    imageUrl: 'https://images.unsplash.com/photo-1576073719676-aa95576db207?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1576073719676-aa95576db207?w=600&q=80',
     category: 'Vitamins',
     subCategory: 'Supplements',
     isPopular: true,
@@ -134,6 +318,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'Generally well tolerated. Check ingredients for allergens.',
     manufacturer: 'DailyVits',
     keywords: ['energy', 'health', 'daily', 'supplement', 'minerals'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm8',
@@ -143,7 +354,8 @@ final List<Medicine> dummyMedicines = [
     price: 2000,
     maxPrice: 3000,
     expiryDate: '10/2025',
-    imageUrl: 'https://images.unsplash.com/photo-1584744982491-6652d3d3a778?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1584744982491-6652d3d3a778?w=600&q=80',
     category: 'Hygiene',
     subCategory: 'Hand Hygiene',
     rating: 4.5,
@@ -151,6 +363,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'May cause skin dryness with frequent use.',
     manufacturer: 'CleanHands Co.',
     keywords: ['germs', 'bacteria', 'clean', 'virus', 'alcohol', 'hands'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm9',
@@ -160,7 +399,8 @@ final List<Medicine> dummyMedicines = [
     price: 1000,
     maxPrice: 1500,
     expiryDate: 'N/A', // Consumable
-    imageUrl: 'https://images.unsplash.com/photo-1585776245991-cf79dd4e5e40?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1585776245991-cf79dd4e5e40?w=600&q=80',
     category: 'Hygiene',
     subCategory: 'Protective Gear',
     isPopular: true,
@@ -169,6 +409,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'None known.',
     manufacturer: 'SafeBreath',
     keywords: ['mask', 'protection', 'virus', 'dust', 'pollution'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm10',
@@ -178,7 +445,8 @@ final List<Medicine> dummyMedicines = [
     price: 8500,
     maxPrice: 10000,
     expiryDate: '03/2026',
-    imageUrl: 'https://images.unsplash.com/photo-1526947425960-945c6e72858f?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1526947425960-945c6e72858f?w=600&q=80',
     category: 'Skincare',
     subCategory: 'Sun Protection',
     rating: 4.7,
@@ -186,6 +454,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'Avoid contact with eyes.',
     manufacturer: 'SunGuard',
     keywords: ['sun', 'protection', 'burn', 'spf', 'uv', 'skin'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   // New Categories
   Medicine(
@@ -195,7 +490,8 @@ final List<Medicine> dummyMedicines = [
     price: 45000,
     maxPrice: 60000,
     expiryDate: '09/2026',
-    imageUrl: 'https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=600&q=80',
     category: 'Nutrition',
     subCategory: 'Supplements',
     rating: 4.8,
@@ -203,6 +499,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'May cause bloating in lactose intolerant individuals.',
     manufacturer: 'MuscleMax',
     keywords: ['gym', 'workout', 'muscle', 'protein', 'supplement'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm20',
@@ -211,7 +534,8 @@ final List<Medicine> dummyMedicines = [
     price: 15000,
     maxPrice: 18500,
     expiryDate: '04/2027',
-    imageUrl: 'https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=600&q=80',
     category: 'Nutrition',
     subCategory: 'Supplements',
     rating: 4.7,
@@ -220,6 +544,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'Fishy aftertaste.',
     manufacturer: 'OceanPure',
     keywords: ['heart', 'brain', 'omega', 'fish', 'supplement'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm21',
@@ -228,7 +579,8 @@ final List<Medicine> dummyMedicines = [
     price: 12000,
     maxPrice: 14000,
     expiryDate: '12/2026',
-    imageUrl: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&q=80',
     category: 'Others',
     subCategory: 'Supplements',
     rating: 4.6,
@@ -236,6 +588,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'Generally safe. Consult doctor if pregnant.',
     manufacturer: 'HerbalLife',
     keywords: ['herb', 'joint', 'pain', 'natural', 'spice'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm22',
@@ -244,7 +623,8 @@ final List<Medicine> dummyMedicines = [
     price: 18000,
     maxPrice: 22000,
     expiryDate: '11/2025',
-    imageUrl: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=600&q=80',
     category: 'Others',
     subCategory: 'Supplements',
     rating: 4.5,
@@ -252,6 +632,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'May cause insomnia if taken late.',
     manufacturer: 'RootsOrganic',
     keywords: ['energy', 'herb', 'focus', 'brain', 'stimulant'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm11',
@@ -260,7 +667,8 @@ final List<Medicine> dummyMedicines = [
     price: 1500,
     maxPrice: 2000,
     expiryDate: '01/2028',
-    imageUrl: 'https://images.unsplash.com/photo-1629198728256-654bd7f8e329?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1629198728256-654bd7f8e329?w=600&q=80',
     category: 'Sexual Health',
     subCategory: 'Contraceptives',
     rating: 4.5,
@@ -268,6 +676,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'Latex allergy.',
     manufacturer: 'SafeLove',
     keywords: ['sex', 'protection', 'contraceptive', 'safe', 'latex'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm12',
@@ -276,7 +711,8 @@ final List<Medicine> dummyMedicines = [
     price: 2500,
     maxPrice: 3500,
     expiryDate: '03/2026',
-    imageUrl: 'https://images.unsplash.com/photo-1629868744577-be804a621cda?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1629868744577-be804a621cda?w=600&q=80',
     category: 'Sexual Health',
     subCategory: 'Diagnostics',
     rating: 4.8,
@@ -284,6 +720,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'None.',
     manufacturer: 'QuickCheck',
     keywords: ['test', 'pregnancy', 'baby', 'home test', 'check'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm13',
@@ -293,7 +756,8 @@ final List<Medicine> dummyMedicines = [
     price: 150000,
     maxPrice: 180000,
     expiryDate: 'N/A',
-    imageUrl: 'https://images.unsplash.com/photo-1582648792078-4384a22c1611?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1582648792078-4384a22c1611?w=600&q=80',
     category: 'Mobility Aids',
     subCategory: 'Equipment',
     requiresPrescription: true,
@@ -302,6 +766,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'N/A',
     manufacturer: 'OrthoMove',
     keywords: ['mobility', 'chair', 'disabled', 'walking', 'aid'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm14',
@@ -310,7 +801,8 @@ final List<Medicine> dummyMedicines = [
     price: 15000,
     maxPrice: 20000,
     expiryDate: 'N/A',
-    imageUrl: 'https://images.unsplash.com/photo-1533618467263-9a6d5ae5844c?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1533618467263-9a6d5ae5844c?w=600&q=80',
     category: 'Mobility Aids',
     subCategory: 'Walking Aids',
     rating: 4.6,
@@ -318,6 +810,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'N/A',
     manufacturer: 'OrthoMove',
     keywords: ['walking', 'stick', 'cane', 'aid', 'mobility'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm15',
@@ -326,7 +845,8 @@ final List<Medicine> dummyMedicines = [
     price: 18000,
     maxPrice: 21000,
     expiryDate: 'N/A',
-    imageUrl: 'https://images.unsplash.com/photo-1581093583449-ed25213bc51c?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1581093583449-ed25213bc51c?w=600&q=80',
     category: 'Mother & Baby',
     subCategory: 'Baby Care',
     isPopular: true,
@@ -335,6 +855,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'Diaper rash if not changed frequently.',
     manufacturer: 'SoftBums',
     keywords: ['baby', 'diaper', 'nappy', 'infant', 'care'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm16',
@@ -343,7 +890,8 @@ final List<Medicine> dummyMedicines = [
     price: 35000,
     maxPrice: 42000,
     expiryDate: 'N/A',
-    imageUrl: 'https://images.unsplash.com/photo-1628348068358-11d354eaaf6e?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1628348068358-11d354eaaf6e?w=600&q=80',
     category: 'Devices',
     subCategory: 'Monitors',
     rating: 4.7,
@@ -351,6 +899,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'N/A',
     manufacturer: 'MediTech',
     keywords: ['bp', 'blood', 'pressure', 'heart', 'monitor', 'test'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm17',
@@ -359,7 +934,8 @@ final List<Medicine> dummyMedicines = [
     price: 22000,
     maxPrice: 28000,
     expiryDate: '01/2026',
-    imageUrl: 'https://images.unsplash.com/photo-1603398938378-e54eab446dde?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1603398938378-e54eab446dde?w=600&q=80',
     category: 'First Aid',
     subCategory: 'Kits',
     rating: 4.9,
@@ -367,6 +943,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'N/A',
     manufacturer: 'EmergencyReady',
     keywords: ['emergency', 'bandage', 'kit', 'aid', 'safety'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm18',
@@ -375,7 +978,8 @@ final List<Medicine> dummyMedicines = [
     price: 5000,
     maxPrice: 6500,
     expiryDate: '06/2028',
-    imageUrl: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=600&q=80',
+    imageUrl:
+        'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=600&q=80',
     category: 'Chronic Care',
     subCategory: 'Diabetes Care',
     requiresPrescription: true,
@@ -384,15 +988,44 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'N/A',
     manufacturer: 'DiabeticCare',
     keywords: ['diabetes', 'insulin', 'needle', 'syringe', 'injection'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm23',
     name: 'Aspirin 81mg (Low Dose)',
-    description: 'Pain reliever and anti-inflammatory. Often used for heart health under medical advice.',
+    description:
+        'Pain reliever and anti-inflammatory. Often used for heart health under medical advice.',
     price: 3000,
     maxPrice: 4000,
     expiryDate: '08/2027',
-    imageUrl: 'https://images.unsplash.com/photo-1626240228809-54157d079419?auto=format&fit=crop&q=80&w=600',
+    imageUrl:
+        'https://images.unsplash.com/photo-1626240228809-54157d079419?auto=format&fit=crop&q=80&w=600',
     category: 'Pain Relief',
     subCategory: 'Headache & Fever',
     rating: 4.7,
@@ -400,15 +1033,44 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'Stomach irritation. bleeding risk.',
     manufacturer: 'Bayer',
     keywords: ['pain', 'heart', 'headache', 'blood thinner'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm24',
     name: 'Cetirizine 10mg',
-    description: 'Relief from allergy symptoms like sneezing, runny nose, and itchy eyes.',
+    description:
+        'Relief from allergy symptoms like sneezing, runny nose, and itchy eyes.',
     price: 2500,
     maxPrice: 3500,
     expiryDate: '05/2026',
-    imageUrl: 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&q=80&w=600',
+    imageUrl:
+        'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&q=80&w=600',
     category: 'Cold & Flu',
     subCategory: 'Allergies',
     rating: 4.6,
@@ -416,6 +1078,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'May cause drowsiness.',
     manufacturer: 'AllerEze',
     keywords: ['allergy', 'sneeze', 'itch', 'hay fever'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
   Medicine(
     id: 'm25',
@@ -424,7 +1113,8 @@ final List<Medicine> dummyMedicines = [
     price: 12000,
     maxPrice: 16000,
     expiryDate: '11/2026',
-    imageUrl: 'https://images.unsplash.com/photo-1608248597279-f99d160bfbc8?auto=format&fit=crop&q=80&w=600',
+    imageUrl:
+        'https://images.unsplash.com/photo-1608248597279-f99d160bfbc8?auto=format&fit=crop&q=80&w=600',
     category: 'Skincare',
     subCategory: 'Moisturizers',
     rating: 4.8,
@@ -432,6 +1122,33 @@ final List<Medicine> dummyMedicines = [
     sideEffects: 'None known.',
     manufacturer: 'GlowSkin',
     keywords: ['face', 'cream', 'dry skin', 'sensitive'],
+    ageDosages: [
+      AgeDosage(
+        ageRange: AgeRange.adult,
+        dosageInstructions: '1 tablet twice daily after meals',
+      ),
+      AgeDosage(
+        ageRange: AgeRange.child,
+        dosageInstructions: 'Half a tablet once daily',
+      ),
+    ],
+    marketingPharmacies: [
+      MarketingPharmacy(
+        pharmacyName: 'Kigali Pharmacy Center',
+        stockStatus: StockStatus.available,
+        price: 3500.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Vine Pharmacy',
+        stockStatus: StockStatus.lowStock,
+        price: 3700.0,
+      ),
+      MarketingPharmacy(
+        pharmacyName: 'Kipharma',
+        stockStatus: StockStatus.unavailable,
+        price: 3200.0,
+      ),
+    ],
   ),
 ];
 
@@ -469,7 +1186,8 @@ final List<Pharmacy> dummyPharmacies = [
     locationName: "Kigali Heights, KG 7 Ave",
     coordinates: [-1.9540, 30.0926],
     supportedInsurances: ["RSSB", "UAP", "MMI"],
-    imageUrl: "https://images.unsplash.com/photo-1585435557343-3b092031a831?w=600&q=80",
+    imageUrl:
+        "https://images.unsplash.com/photo-1585435557343-3b092031a831?w=600&q=80",
     province: "Kigali City",
     district: "Gasabo",
     sector: "Kimihurura",
@@ -481,7 +1199,8 @@ final List<Pharmacy> dummyPharmacies = [
     locationName: "UTC Building, City Center",
     coordinates: [-1.9441, 30.0619],
     supportedInsurances: ["RSSB", "RADIANT"],
-    imageUrl: "https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=600&q=80",
+    imageUrl:
+        "https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=600&q=80",
     province: "Kigali City",
     district: "Nyarugenge",
     sector: "Nyarugenge",
@@ -493,7 +1212,8 @@ final List<Pharmacy> dummyPharmacies = [
     locationName: "Nyamirambo Market",
     coordinates: [-1.9804, 30.0416],
     supportedInsurances: ["RSSB", "UAP"],
-    imageUrl: "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=600&q=80",
+    imageUrl:
+        "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=600&q=80",
     province: "Kigali City",
     district: "Nyarugenge",
     sector: "Nyamirambo",
@@ -505,7 +1225,8 @@ final List<Pharmacy> dummyPharmacies = [
     locationName: "Giporoso, Remera",
     coordinates: [-1.9610, 30.1118],
     supportedInsurances: ["RSSB", "MMI"],
-    imageUrl: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&q=80",
+    imageUrl:
+        "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&q=80",
     province: "Kigali City",
     district: "Gasabo",
     sector: "Remera",
@@ -524,7 +1245,7 @@ final dummyPharmacists = [
     yearsExperience: 8,
   ),
   Pharmacist(
-    id: '2', 
+    id: '2',
     name: 'Dr. Sarah Smith',
     specialty: 'Pediatric Specialist',
     imageUrl: 'https://cdn-icons-png.flaticon.com/512/387/387569.png',
