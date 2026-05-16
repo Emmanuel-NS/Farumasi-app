@@ -1037,30 +1037,50 @@ class _PharmacistDeliveryManagementScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text(
-          "Fleet & Deliveries",
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Fleet & Deliveries", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 24)),
+                      const SizedBox(height: 4),
+                      Text("Manage active fulfillment and driver logistics", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TabBar(
+                controller: _tabController,
+                labelColor: const Color(0xFF1E9E68),
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: const Color(0xFF1E9E68),
+                isScrollable: true,
+                tabs: const [
+                  Tab(text: "Active Orders"),
+                  Tab(text: "Order History"),
+                  Tab(text: "Riders & Fleet"),
+                ],
+              ),
+            ],
+          ),
         ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFF1E9E68),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFF1E9E68),
-          isScrollable: true,
-          tabs: const [
-            Tab(text: "Active Orders"),
-            Tab(text: "Order History"),
-            Tab(text: "Riders & Fleet"),
-          ],
-        ),
-      ),
-      body: Column(
+        Expanded(
+          child: Column(
         children: [
           // Filter & Search Bar Area
           Container(
@@ -1199,6 +1219,8 @@ class _PharmacistDeliveryManagementScreenState
           ),
         ],
       ),
+        ),
+      ],
     );
   }
 

@@ -5,6 +5,7 @@ import '../../models/models.dart';
 import '../../services/pharmacist_service.dart';
 import 'package:fl_chart/fl_chart.dart'; // Import for charts
 import '../../data/dummy_data.dart'; // For inventory access
+import 'pharmacist_health_posts_screen.dart';
 import 'inventory_edit_screen.dart';
 import 'prescription_review_screen.dart';
 import 'order_details_screen.dart'; // Import the new screen
@@ -67,6 +68,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
     "Overview",
     "Requests",
     "Orders",
+    "Health Posts",
     "Inventory",
     "More",
     "Fleet Management",
@@ -107,6 +109,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                                   _buildOverviewTab(),
                                   _buildRequestsTab(),
                                   _buildOrdersTab(),
+                                  _buildHealthPostsTab(),
                                   _buildInventoryTab(),
                                   _buildMoreTab(),
                                   const PharmacistDeliveryManagementScreen(),
@@ -120,7 +123,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                       ),
                     );
 
-              final fab = (_selectedIndex == 3 && !_isEditingInventoryItem)
+              final fab = (_selectedIndex == 4 && !_isEditingInventoryItem)
                   ? FloatingActionButton.extended(
                       backgroundColor: _primaryGreen,
                       icon: const Icon(Icons.add, color: Colors.white),
@@ -300,7 +303,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   body: SafeArea(child: contentArea),
                   floatingActionButton: fab,
                   bottomNavigationBar: BottomNavigationBar(
-                    currentIndex: _selectedIndex,
+                    currentIndex: _selectedIndex > 5 ? 5 : _selectedIndex,
                     onTap: (index) => setState(() => _selectedIndex = index),
                     type: BottomNavigationBarType.fixed,
                     backgroundColor: Colors.white,
@@ -331,6 +334,11 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                         icon: Icon(Icons.shopping_bag_outlined),
                         activeIcon: Icon(Icons.shopping_bag),
                         label: "Orders",
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.monitor_heart_outlined),
+                        activeIcon: Icon(Icons.monitor_heart),
+                        label: "Health",
                       ),
                       BottomNavigationBarItem(
                         icon: Icon(Icons.inventory_2_outlined),
@@ -570,10 +578,17 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                 ),
                 _buildDrawerItem(
                   context,
+                  Icons.monitor_heart_outlined,
+                  Icons.monitor_heart,
+                  "Health",
+                  3,
+                ),
+                _buildDrawerItem(
+                  context,
                   Icons.inventory_2_outlined,
                   Icons.inventory_2,
                   "Stock",
-                  3,
+                  4,
                 ),
                 const Divider(color: Colors.white24, height: 32, thickness: 1),
                 _buildDrawerItem(
@@ -581,7 +596,7 @@ class _PharmacistDashboardScreenState extends State<PharmacistDashboardScreen> {
                   Icons.two_wheeler_outlined,
                   Icons.two_wheeler,
                   "Fleet",
-                  5,
+                  6,
                 ),
                 _buildDrawerItem(
                   context,
@@ -3022,6 +3037,10 @@ void _showAdvanceStatusDialog(PrescriptionOrder order) {
   }
 
   // --- TAB 4: MORE (Profile, Logs, Settings) ---
+  Widget _buildHealthPostsTab() {
+    return const PharmacistHealthPostsScreen();
+  }
+
   Widget _buildMoreTab() {
     return ListView(
       padding: const EdgeInsets.all(24),
@@ -3083,7 +3102,7 @@ void _showAdvanceStatusDialog(PrescriptionOrder order) {
           "Fleet & Deliveries",
           "Manage drivers, assign orders, and live track routes",
           onTap: () {
-            setState(() => _selectedIndex = 5);
+            setState(() => _selectedIndex = 8);
           },
         ),
         _buildMoreMenuItem(
@@ -3091,7 +3110,7 @@ void _showAdvanceStatusDialog(PrescriptionOrder order) {
           "System Audit Logs",
           "View detailed chain of custody and system records",
           onTap: () {
-            setState(() => _selectedIndex = 6);
+            setState(() => _selectedIndex = 8);
           },
         ),
         _buildMoreMenuItem(
@@ -3099,7 +3118,7 @@ void _showAdvanceStatusDialog(PrescriptionOrder order) {
           "Pharmacy Settings",
           "Manage operating hours, notifications, and preferences",
           onTap: () {
-            setState(() => _selectedIndex = 7);
+            setState(() => _selectedIndex = 8);
           },
         ),
 
