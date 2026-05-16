@@ -8,12 +8,17 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  // CORS — restrict origins via env in production
+  // CORS — allow all localhost origins in dev, restrict via env in production
+  const allowedOrigins = process.env.CORS_ORIGINS?.split(',');
   app.enableCors({
-    origin: process.env.CORS_ORIGINS?.split(',') ?? [
-      'http://localhost:3000',
-      'http://localhost:5173',
-    ],
+    origin: allowedOrigins ?? ((origin, cb) => {
+      // Allow requests with no origin (mobile, curl) or any localhost port
+      if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+        cb(null, true);
+      } else {
+        cb(new Error('CORS: origin not allowed'));
+      }
+    }),
     credentials: true,
   });
 

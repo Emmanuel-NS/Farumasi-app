@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:farumasi_app/screens/health_tips_screen.dart';
 import 'package:farumasi_app/screens/medicine_store_screen.dart'
     as store_screen;
 import 'package:farumasi_app/screens/consult_chat_screen.dart'; // Direct consultation
 import 'package:farumasi_app/screens/orders_screen.dart';
-import 'package:farumasi_app/screens/auth_screen.dart';
 import 'package:farumasi_app/screens/prescription_upload_screen.dart';
 import 'package:farumasi_app/screens/help_screen.dart';
 import 'package:farumasi_app/screens/notification_screen.dart';
@@ -14,15 +15,17 @@ import 'package:farumasi_app/screens/cart_screen.dart';
 import 'package:farumasi_app/screens/profile_screen.dart';
 import 'package:farumasi_app/screens/settings_screen.dart';
 import 'package:farumasi_app/services/state_service.dart';
+import 'package:farumasi_app/providers/auth_provider.dart';
+import 'package:farumasi_app/core/router.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
+class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   static const Color _shellGreen = Color(0xFF1E9E68); // Match category avatars
   static const Color _shellGreenDark = Color(0xFF167B51); // Darker variant
@@ -182,6 +185,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final isLoggedIn = authState.status == AuthStatus.authenticated;
     final isWideScreen = MediaQuery.of(context).size.width >= 600;
     final showDesktopShellHeader = isWideScreen;
     final pages = _buildPages(isWideScreen);
@@ -350,80 +355,58 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         floatingActionButton: isWideScreen
             ? null
-            : ListenableBuilder(
-                listenable: StateService(),
-                builder: (context, _) {
-                  final isLoggedIn = StateService().isLoggedIn;
-                  return ScaleTransition(
-                    scale: _hideBottomBarController,
-                    child: SizedBox(
-                      height: 70,
-                      width: 70,
-                      child: FloatingActionButton(
-                        backgroundColor: isLoggedIn
-                            ? Colors.white
-                            : Colors.grey[300],
-                        elevation: 4,
-                        shape: CircleBorder(), // Ensure it's circular
-                        onPressed: () {
-                          if (!isLoggedIn) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  "Please log in to upload a prescription.",
-                                ),
-                                action: SnackBarAction(
-                                  label: "Login",
-                                  onPressed: () {
-                                    // Navigate to login/auth screen
-                                    // Usually we might have a dedicated route or method
-                                    // For now basic prompt reference
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/auth',
-                                    ); // Or direct builder if named routes not set up, but let's stick to what we know works elsewhere or just prompt.
-                                    // Actually, let's look at how we handled login navigation before.
-                                    // Often just a message is enough for "muted". Or navigate to AuthScreen.
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const AuthScreen(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-                          setState(() => _currentIndex = 4);
-                        },
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.document_scanner_outlined,
-                              color: isLoggedIn
-                                  ? const Color(0xFF1E9E68)
-                                  : Colors.grey,
-                              size: 28,
+            : ScaleTransition(
+                scale: _hideBottomBarController,
+                child: SizedBox(
+                  height: 70,
+                  width: 70,
+                  child: FloatingActionButton(
+                    backgroundColor: isLoggedIn
+                        ? Colors.white
+                        : Colors.grey[300],
+                    elevation: 4,
+                    shape: const CircleBorder(),
+                    onPressed: () {
+                      if (!isLoggedIn) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                              "Please log in to upload a prescription.",
                             ),
-                            Text(
-                              "Upload Rx",
-                              style: TextStyle(
-                                color: isLoggedIn
-                                    ? const Color(0xFF1E9E68)
-                                    : Colors.grey,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 8,
-                              ),
+                            action: SnackBarAction(
+                              label: "Login",
+                              onPressed: () => context.go(AppRoutes.auth),
                             ),
-                          ],
+                          ),
+                        );
+                        return;
+                      }
+                      setState(() => _currentIndex = 4);
+                    },
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.document_scanner_outlined,
+                          color: isLoggedIn
+                              ? const Color(0xFF1E9E68)
+                              : Colors.grey,
+                          size: 28,
                         ),
-                      ),
+                        Text(
+                          "Upload Rx",
+                          style: TextStyle(
+                            color: isLoggedIn
+                                ? const Color(0xFF1E9E68)
+                                : Colors.grey,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 8,
+                          ),
+                        ),
+                      ],
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
         floatingActionButtonLocation: isWideScreen
             ? FloatingActionButtonLocation.endFloat
@@ -433,32 +416,27 @@ class _HomeScreenState extends State<HomeScreen>
             : SizeTransition(
                 sizeFactor: _hideBottomBarController,
                 axisAlignment: -1.0,
-                child: ListenableBuilder(
-                  listenable: StateService(),
-                  builder: (context, _) {
-                    return BottomAppBar(
-                      color: const Color(0xFF1E9E68),
-                      shape: const CircularNotchedRectangle(),
-                      notchMargin: 8.0,
-                      child: SizedBox(
-                        height: 60,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildNavItem(Icons.store, 'Home', 0),
-                            _buildNavItem(Icons.health_and_safety, 'Health', 1),
-                            const SizedBox(width: 48), // Gap for FAB
-                            _buildNavItem(
-                              Icons.chat_bubble_outline,
-                              'Consult',
-                              2,
-                            ),
-                            _buildNavItem(Icons.history, 'Orders', 3),
-                          ],
+                child: BottomAppBar(
+                  color: const Color(0xFF1E9E68),
+                  shape: const CircularNotchedRectangle(),
+                  notchMargin: 8.0,
+                  child: SizedBox(
+                    height: 60,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildNavItem(Icons.store, 'Home', 0),
+                        _buildNavItem(Icons.health_and_safety, 'Health', 1),
+                        const SizedBox(width: 48), // Gap for FAB
+                        _buildNavItem(
+                          Icons.chat_bubble_outline,
+                          'Consult',
+                          2,
                         ),
-                      ),
-                    );
-                  },
+                        _buildNavItem(Icons.history, 'Orders', 3),
+                      ],
+                    ),
+                  ),
                 ),
               ),
       ),
@@ -471,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen>
     int index, {
     bool isCart = false,
   }) {
-    final isLoggedIn = StateService().isLoggedIn;
+    final isLoggedIn = ref.read(authProvider).status == AuthStatus.authenticated;
     // Index 2 is Consult/Chat, Index 3 is Orders
     final isRestricted = (index == 2 || index == 3) && !isLoggedIn;
 
@@ -511,12 +489,7 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               action: SnackBarAction(
                 label: "Login",
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AuthScreen()),
-                  );
-                },
+                onPressed: () => context.go(AppRoutes.auth),
               ),
             ),
           );
@@ -669,8 +642,8 @@ class _HomeScreenState extends State<HomeScreen>
     BuildContext context, {
     bool showInlineToggle = true,
   }) {
-    final isLoggedIn = StateService().isLoggedIn;
-    final userName = StateService().userName ?? 'User';
+    final authState = ref.watch(authProvider);
+    final isLoggedIn = authState.status == AuthStatus.authenticated;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
@@ -812,7 +785,7 @@ class _HomeScreenState extends State<HomeScreen>
               closeDrawerOnTap: false,
               collapsed: _isSidebarCollapsed,
               onTapOverride: () {
-                StateService().logout();
+                ref.read(authProvider.notifier).logout();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Logged out successfully')),
                 );
@@ -847,8 +820,9 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildDesktopShellHeader(BuildContext context) {
-    final isLoggedIn = StateService().isLoggedIn;
-    final userName = StateService().userName ?? 'Guest';
+    final authState = ref.watch(authProvider);
+    final isLoggedIn = authState.status == AuthStatus.authenticated;
+    final userName = authState.user?.name ?? authState.user?.email ?? 'Guest';
 
     return Container(
       height: 72,
@@ -1043,7 +1017,7 @@ class _HomeScreenState extends State<HomeScreen>
                     MaterialPageRoute(builder: (_) => const ProfileScreen()),
                   );
                 } else if (value == 'logout') {
-                  StateService().logout();
+                  ref.read(authProvider.notifier).logout();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Logged out successfully")),
                   );
@@ -1103,10 +1077,7 @@ class _HomeScreenState extends State<HomeScreen>
                   vertical: 12,
                 ),
               ),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AuthScreen()),
-              ),
+              onPressed: () => context.go(AppRoutes.auth),
               child: const Text(
                 'Log In',
                 style: TextStyle(fontWeight: FontWeight.w600),
@@ -1126,10 +1097,7 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
                 elevation: 0,
               ),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AuthScreen()),
-              ),
+              onPressed: () => context.go(AppRoutes.auth),
               child: const Text(
                 'Sign Up',
                 style: TextStyle(fontWeight: FontWeight.w700),

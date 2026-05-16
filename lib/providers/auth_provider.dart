@@ -9,11 +9,13 @@ class AuthState {
   final AuthStatus status;
   final AuthUser? user;
   final String? error;
+  final bool isLoading;
 
   const AuthState({
     required this.status,
     this.user,
     this.error,
+    this.isLoading = false,
   });
 
   const AuthState.unknown() : this(status: AuthStatus.unknown);
@@ -22,6 +24,14 @@ class AuthState {
       : this(status: AuthStatus.authenticated, user: user);
   const AuthState.error(String message)
       : this(status: AuthStatus.unauthenticated, error: message);
+  AuthState copyWith({bool? isLoading, AuthUser? user, AuthStatus? status, String? error}) {
+    return AuthState(
+      status: status ?? this.status,
+      user: user ?? this.user,
+      error: error ?? this.error,
+      isLoading: isLoading ?? this.isLoading,
+    );
+  }
 }
 
 // ─── Auth notifier ─────────────────────────────────────────────────────────────
@@ -53,15 +63,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String emailOrPhone,
     required String password,
   }) async {
+    state = state.copyWith(isLoading: true, error: null);
     try {
-      state = const AuthState.unknown();
       final result = await _repo.login(
         emailOrPhone: emailOrPhone,
         password: password,
       );
       state = AuthState.authenticated(result.user!);
     } catch (e) {
-      state = AuthState.error(_parseError(e));
+      state = state.copyWith(isLoading: false, error: _parseError(e));
     }
   }
 
@@ -72,8 +82,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? phone,
     String role = 'PATIENT',
   }) async {
+    state = state.copyWith(isLoading: true, error: null);
     try {
-      state = const AuthState.unknown();
       final result = await _repo.register(
         name: name,
         email: email,
@@ -83,7 +93,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = AuthState.authenticated(result.user!);
     } catch (e) {
-      state = AuthState.error(_parseError(e));
+      state = state.copyWith(isLoading: false, error: _parseError(e));
     }
   }
 

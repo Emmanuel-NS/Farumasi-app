@@ -22,8 +22,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   void initState() {
     super.initState();
     // Default fill for User
-    _emailController.text = 'user@farumasi.rw';
-    _passwordController.text = 'password123';
+    _emailController.text = 'test@farumasi.rw';
+    _passwordController.text = 'Test1234!';
   }
 
   void _switchRole(String role) {
@@ -31,13 +31,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       _selectedRole = role;
       if (role == 'Pharmacist') {
         _emailController.text = 'pharmacist@farumasi.rw';
-        _passwordController.text = 'admin123';
+        _passwordController.text = 'Admin1234!';
       } else if (role == 'Rider') {
         _emailController.text = 'rider@farumasi.rw';
-        _passwordController.text = 'rider123';
+        _passwordController.text = 'Rider1234!';
       } else {
-        _emailController.text = 'user@farumasi.rw';
-        _passwordController.text = 'password123';
+        _emailController.text = 'test@farumasi.rw';
+        _passwordController.text = 'Test1234!';
       }
     });
   }
@@ -58,9 +58,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             );
       }
 
+      if (!mounted) return;
       final authState = ref.read(authProvider);
-      if (authState.status == AuthStatus.unauthenticated && authState.error != null) {
-        if (!mounted) return;
+      if (authState.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authState.error!),
@@ -321,7 +321,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: _submit,
+                              onPressed: ref.watch(authProvider).isLoading ? null : _submit,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF1E9E68),
                                 foregroundColor: Colors.white,
@@ -331,13 +331,22 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                 ),
                                 elevation: 2,
                               ),
-                              child: Text(
-                                _isLogin ? 'LOGIN' : 'SIGN UP',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
+                              child: ref.watch(authProvider).isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      _isLogin ? 'LOGIN' : 'SIGN UP',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
                             ),
                           ),
                           SizedBox(height: 16),

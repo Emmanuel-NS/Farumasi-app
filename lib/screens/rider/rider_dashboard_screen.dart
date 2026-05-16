@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/models.dart';
 import '../../services/pharmacist_service.dart';
-import '../auth_screen.dart';
+import '../../providers/auth_provider.dart';
 
-class RiderDashboardScreen extends StatefulWidget {
+class RiderDashboardScreen extends ConsumerStatefulWidget {
   const RiderDashboardScreen({super.key});
 
   @override
-  State<RiderDashboardScreen> createState() => _RiderDashboardScreenState();
+  ConsumerState<RiderDashboardScreen> createState() => _RiderDashboardScreenState();
 }
 
-class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
+class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
   int _currentIndex = 0;
   bool _isOnline = true;
 
@@ -1094,13 +1095,13 @@ class _HistoryTab extends StatelessWidget {
 // -----------------------------------------------------------------------------
 // TAB 4: ACCOUNT
 // -----------------------------------------------------------------------------
-class _AccountTab extends StatelessWidget {
+class _AccountTab extends ConsumerWidget {
   final String riderName;
 
   const _AccountTab({required this.riderName});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
@@ -1180,10 +1181,7 @@ class _AccountTab extends StatelessWidget {
               ),
             ),
             onTap: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const AuthScreen()),
-                (route) => false,
-              );
+              ref.read(authProvider.notifier).logout();
             },
           ),
         ],

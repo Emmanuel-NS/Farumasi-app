@@ -490,10 +490,7 @@ class _PharmacistDashboardScreenState extends ConsumerState<PharmacistDashboardS
                   ),
                 );
               } else if (value == 'logout') {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AuthScreen()),
-                );
+                ref.read(authProvider.notifier).logout();
               }
             },
             offset: const Offset(0, 48),
@@ -3966,13 +3963,8 @@ class _PharmacistDashboardScreenState extends ConsumerState<PharmacistDashboardS
                   ),
                   TextButton(
                     onPressed: () {
-                      // Pop dialog
                       Navigator.pop(ctx);
-                      // Replace with AuthScreen and clear stack
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const AuthScreen()),
-                        (route) => false,
-                      );
+                      ref.read(authProvider.notifier).logout();
                     },
                     child: const Text(
                       "Logout",

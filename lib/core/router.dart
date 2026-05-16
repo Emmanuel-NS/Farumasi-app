@@ -18,35 +18,54 @@ abstract class AppRoutes {
   static const riderDashboard = '/rider';
 }
 
-// ─── Router provider ──────────────────────────────────────────────────────────
+// ─── Router notifier — created once, reads auth state at redirect time ────────
 
-final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+class _RouterNotifier extends ChangeNotifier {
+  final Ref _ref;
 
-  return GoRouter(
-    initialLocation: AppRoutes.splash,
-    refreshListenable: _AuthStateListenable(ref),
-    redirect: (context, state) {
-      final status = authState.status;
-      final location = state.matchedLocation;
+  _RouterNotifier(this._ref) {
+    // Whenever auth state changes, tell GoRouter to re-evaluate redirect.
+    _ref.listen<AuthState>(authProvider, (__, _) => notifyListeners());
+  }
 
-      // Still initializing — show splash
-      if (status == AuthStatus.unknown) {
-        return location == AppRoutes.splash ? null : AppRoutes.splash;
-      }
+  String? redirect(BuildContext context, GoRouterState state) {
+    // Always read the current value — never watch (that would cause loops).
+    final authState = _ref.read(authProvider);
+    final status = authState.status;
+    final location = state.matchedLocation;
 
-      // Not authenticated — send to auth screen
-      if (status == AuthStatus.unauthenticated) {
-        return location == AppRoutes.auth ? null : AppRoutes.auth;
-      }
+    // Still initializing — stay on splash
+    if (status == AuthStatus.unknown) {
+      return location == AppRoutes.splash ? null : AppRoutes.splash;
+    }
 
-      // Authenticated — redirect from splash/auth to role-appropriate home
+    // Authenticated — leave privileged screens alone; bounce splash/auth to role home
+    if (status == AuthStatus.authenticated) {
       if (location == AppRoutes.splash || location == AppRoutes.auth) {
         return _homeForRole(authState.user?.role);
       }
+      return null;
+    }
 
-      return null; // No redirect needed
-    },
+    // Unauthenticated — send splash/protected routes → home (guest)
+    if (location == AppRoutes.splash) return AppRoutes.home;
+    if (location == AppRoutes.pharmacistDashboard ||
+        location == AppRoutes.riderDashboard) {
+      return AppRoutes.home;
+    }
+
+    return null; // /home and /auth are freely accessible
+  }
+}
+
+// ─── Router provider — GoRouter instance is created ONCE ─────────────────────
+
+final routerProvider = Provider<GoRouter>((ref) {
+  final notifier = _RouterNotifier(ref);
+  return GoRouter(
+    initialLocation: AppRoutes.splash,
+    refreshListenable: notifier,
+    redirect: notifier.redirect,
     routes: [
       GoRoute(
         path: AppRoutes.splash,
@@ -84,12 +103,5 @@ String _homeForRole(String? role) {
       return AppRoutes.riderDashboard;
     default:
       return AppRoutes.home;
-  }
-}
-
-/// Bridges Riverpod auth state changes → GoRouter redirect refreshes
-class _AuthStateListenable extends ChangeNotifier {
-  _AuthStateListenable(Ref ref) {
-    ref.listen(authProvider, (_, __) => notifyListeners());
   }
 }
