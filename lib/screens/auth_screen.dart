@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
-import '../services/state_service.dart';
-import 'pharmacist/pharmacist_dashboard_screen.dart';
-import 'rider/rider_dashboard_screen.dart';
-import 'home_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_provider.dart';
 
-class AuthScreen extends StatefulWidget {
+class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _isLogin = true;
   String _selectedRole = 'User'; // 'User', 'Pharmacist', or 'Rider'
   final _formKey = GlobalKey<FormState>();
@@ -44,52 +42,32 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      // 1. Check for Pharmacist Credentials based on Role
-      if (_selectedRole == 'Pharmacist') {
-         // Simple validation for demo
-         if (_emailController.text == 'pharmacist@farumasi.rw' && _passwordController.text == 'admin123') {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const PharmacistDashboardScreen()),
-              (route) => false,
+      if (_isLogin) {
+        await ref.read(authProvider.notifier).login(
+              emailOrPhone: _emailController.text,
+              password: _passwordController.text,
             );
-            return;
-         } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Pharmacist Credentials')));
-            return;
-         }
-      }
-
-      // Check for Rider Credentials based on Role
-      if (_selectedRole == 'Rider') {
-         if (_emailController.text == 'rider@farumasi.rw' && _passwordController.text == 'rider123') {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const RiderDashboardScreen()),
-              (route) => false,
-            );
-            return;
-         } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Rider Credentials')));
-            return;
-         }
-      }
-
-      // 2. Regular User Login
-      StateService().login(
-        _emailController.text,
-        name: _isLogin ? null : _nameController.text,
-      );
-      
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
       } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        await ref.read(authProvider.notifier).register(
+              name: _nameController.text,
+              email: _emailController.text,
+              password: _passwordController.text,
+              role: _selectedRole.toUpperCase(),
+            );
+      }
+
+      final authState = ref.read(authProvider);
+      if (authState.status == AuthStatus.unauthenticated && authState.error != null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authState.error!),
+            backgroundColor: Colors.red.shade800,
+          ),
         );
       }
-      // If AuthScreen was pushed on top of Home, pop is fine. 
-      // If Home checks auth state, it will update.
     }
   }
 

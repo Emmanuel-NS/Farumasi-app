@@ -2,47 +2,61 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'dart:io'; // Import dart:io
-import 'screens/splash_screen.dart'; // Import Splash Screen
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/router.dart';
 import 'theme/app_theme.dart';
-import 'services/notification_service.dart'; // Import NotificationService
+import 'services/notification_service.dart';
 
-// --- VISUAL FIX: SSL Bypass for Emulators ---
-class  MyHttpOverrides extends HttpOverrides {
-  @override
-  HttpClient createHttpClient(SecurityContext? context) {
-    return super.createHttpClient(context)
-      ..badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
-  }
-}
+// Supabase keys injected via --dart-define at build time
+// dart-define=SUPABASE_URL=https://xxx.supabase.co
+// dart-define=SUPABASE_ANON_KEY=your_anon_key
+const _supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: '',
+);
+const _supabaseAnonKey = String.fromEnvironment(
+  'SUPABASE_ANON_KEY',
+  defaultValue: '',
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Apply the override before running the app (not for web)
-  if (!kIsWeb) {
-    HttpOverrides.global = MyHttpOverrides();
+
+  // Initialize Supabase (Auth + Storage)
+  if (_supabaseUrl.isNotEmpty && _supabaseAnonKey.isNotEmpty) {
+    await Supabase.initialize(
+      url: _supabaseUrl,
+      anonKey: _supabaseAnonKey,
+    );
   }
 
-  // Initialize Notification Service
+  // Initialize local notifications
   try {
     await NotificationService().init();
   } catch (e) {
     debugPrint('Failed to init notifications: $e');
   }
 
-  runApp(const FarumasiApp());
+  runApp(
+    const ProviderScope(
+      child: FarumasiApp(),
+    ),
+  );
 }
 
-class FarumasiApp extends StatelessWidget {
+class FarumasiApp extends ConsumerWidget {
   const FarumasiApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+
+    return MaterialApp.router(
       title: 'Farumasi',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
+      routerConfig: router,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
@@ -52,7 +66,6 @@ class FarumasiApp extends StatelessWidget {
       supportedLocales: const [
         Locale('en', 'US'),
       ],
-      home: const SplashScreen(),
     );
   }
 }

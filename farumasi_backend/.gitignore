@@ -1,0 +1,19 @@
+# compiled output
+/dist
+/node_modules
+
+# environment — NEVER commit secrets
+.env
+.env.local
+.env.production
+
+# Prisma
+prisma/migrations/dev.db
+
+# logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
