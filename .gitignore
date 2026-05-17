@@ -43,3 +43,32 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ─── VS Code ──────────────────────────────────────────────────────────────────
+.vscode/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+build.log
+flutter_*.log
+
+# ─── Python patch / utility scripts (dev-only, not part of the app) ───────────
+*.py
+
+# ─── Temporary working / analysis text files ──────────────────────────────────
+analysis_checkout.txt
+analysis_requests.txt
+analysis_review.txt
+analysis_store.txt
+orders_tab_code.txt
+out_agent.txt
+temp_modal.txt
+temp_pharmacies.txt
+
+# ─── OS artefacts ─────────────────────────────────────────────────────────────
+Thumbs.db
+Desktop.ini
+
+# ─── Secrets / environment ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
