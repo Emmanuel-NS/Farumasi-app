@@ -1,0 +1,17 @@
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+.pub-cache/
+.pub/
+/build/
+
+# IntelliJ / Android Studio
+*.iml
+.idea/
+
+# OS artefacts
+.DS_Store
+Thumbs.db

@@ -1,0 +1,70 @@
+src/app/(portal)/analytics/page.tsx(12,7): error TS2451: Cannot redeclare block-scoped variable 'TABS'.
+src/app/(portal)/analytics/page.tsx(13,6): error TS2300: Duplicate identifier 'Tab'.
+src/app/(portal)/analytics/page.tsx(15,25): error TS2323: Cannot redeclare exported variable 'default'.
+src/app/(portal)/analytics/page.tsx(15,25): error TS2393: Duplicate function implementation.
+src/app/(portal)/analytics/page.tsx(146,7): error TS2451: Cannot redeclare block-scoped variable 'TABS'.
+src/app/(portal)/analytics/page.tsx(147,6): error TS2300: Duplicate identifier 'Tab'.
+src/app/(portal)/analytics/page.tsx(149,25): error TS2323: Cannot redeclare exported variable 'default'.
+src/app/(portal)/analytics/page.tsx(149,25): error TS2393: Duplicate function implementation.
+src/app/(portal)/analytics/page.tsx(154,24): error TS2551: Property 'totalPrescriptions' does not exist on type 'AnalyticsRecord'. Did you mean 'prescriptions'?
+src/app/(portal)/analytics/page.tsx(155,20): error TS2339: Property 'fulfilledPrescriptions' does not exist on type 'AnalyticsRecord'.
+src/app/(portal)/analytics/page.tsx(157,23): error TS2339: Property 'newPatients' does not exist on type 'AnalyticsRecord'.
+src/app/(portal)/analytics/page.tsx(158,25): error TS2339: Property 'activeDoctors' does not exist on type 'AnalyticsRecord'.
+src/app/(portal)/analytics/page.tsx(168,91): error TS2551: Property 'totalPrescriptions' does not exist on type 'AnalyticsRecord'. Did you mean 'prescriptions'?
+src/app/(portal)/analytics/page.tsx(170,86): error TS2339: Property 'newPatients' does not exist on type 'AnalyticsRecord'.
+src/app/(portal)/analytics/page.tsx(171,97): error TS2339: Property 'activeDoctors' does not exist on type 'AnalyticsRecord'.
+src/app/(portal)/analytics/page.tsx(240,8): error TS2367: This comparison appears to be unintentional because the types '"Prescriptions" | "Fulfillment" | "Processing" | "Insurance"' and '"Patients"' have no overlap.
+src/app/(portal)/analytics/page.tsx(257,8): error TS2367: This comparison appears to be unintentional because the types '"Prescriptions" | "Fulfillment" | "Processing" | "Insurance"' and '"Doctors"' have no overlap.
+src/app/(portal)/compliance/page.tsx(13,25): error TS2323: Cannot redeclare exported variable 'default'.
+src/app/(portal)/compliance/page.tsx(13,25): error TS2393: Duplicate function implementation.
+src/app/(portal)/compliance/page.tsx(93,25): error TS2323: Cannot redeclare exported variable 'default'.
+src/app/(portal)/compliance/page.tsx(93,25): error TS2393: Duplicate function implementation.
+src/app/(portal)/compliance/page.tsx(99,33): error TS2339: Property 'framework' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(99,74): error TS2339: Property 'department' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(99,116): error TS2339: Property 'category' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(153,67): error TS2339: Property 'framework' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(154,61): error TS2339: Property 'category' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(155,61): error TS2339: Property 'department' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(159,66): error TS2339: Property 'score' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(159,101): error TS2339: Property 'score' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(159,169): error TS2339: Property 'score' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(161,66): error TS2339: Property 'score' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(167,72): error TS2339: Property 'lastAudit' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(168,72): error TS2339: Property 'nextAudit' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/compliance/page.tsx(169,61): error TS2339: Property 'auditor' does not exist on type 'ComplianceRecord'.
+src/app/(portal)/dashboard/page.tsx(108,30): error TS2322: Type '(v: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType> & ((value: ValueType, name: NameType, item: TooltipPayloadEntry, index: number, payload: TooltipPayload) => ReactNode | [...])'.
+  Type '(v: number) => [string, string]' is not assignable to type 'Formatter<ValueType, NameType>'.
+    Types of parameters 'v' and 'value' are incompatible.
+      Type 'ValueType | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/app/(portal)/doctors/page.tsx(93,16): error TS2741: Property 'children' is missing in type '{}' but required in type '{ children: ReactNode; className?: string | undefined; }'.
+src/app/(portal)/fulfillment/page.tsx(13,25): error TS2323: Cannot redeclare exported variable 'default'.
+src/app/(portal)/fulfillment/page.tsx(13,25): error TS2393: Duplicate function implementation.
+src/app/(portal)/fulfillment/page.tsx(97,25): error TS2323: Cannot redeclare exported variable 'default'.
+src/app/(portal)/fulfillment/page.tsx(97,25): error TS2393: Duplicate function implementation.
+src/app/(portal)/fulfillment/page.tsx(163,65): error TS2304: Cannot find name 'formatRWF'.
+src/app/(portal)/fulfillment/page.tsx(163,77): error TS2339: Property 'totalCost' does not exist on type 'FulfillmentRecord'.
+src/app/(portal)/fulfillment/page.tsx(164,50): error TS2339: Property 'items' does not exist on type 'FulfillmentRecord'.
+src/app/(portal)/fulfillment/page.tsx(165,61): error TS2339: Property 'dispatchedAt' does not exist on type 'FulfillmentRecord'.
+src/app/(portal)/fulfillment/page.tsx(165,93): error TS2339: Property 'dispatchedAt' does not exist on type 'FulfillmentRecord'.
+src/app/(portal)/fulfillment/page.tsx(166,61): error TS2339: Property 'estimatedDelivery' does not exist on type 'FulfillmentRecord'.
+src/app/(portal)/fulfillment/page.tsx(166,92): error TS2339: Property 'estimatedDelivery' does not exist on type 'FulfillmentRecord'.
+src/app/(portal)/insurance/page.tsx(12,25): error TS2323: Cannot redeclare exported variable 'default'.
+src/app/(portal)/insurance/page.tsx(12,25): error TS2393: Duplicate function implementation.
+src/app/(portal)/insurance/page.tsx(98,25): error TS2323: Cannot redeclare exported variable 'default'.
+src/app/(portal)/insurance/page.tsx(98,25): error TS2393: Duplicate function implementation.
+src/app/(portal)/insurance/page.tsx(109,67): error TS2339: Property 'claimedAmount' does not exist on type 'InsuranceClaim'.
+src/app/(portal)/insurance/page.tsx(110,123): error TS2339: Property 'approvedAmount' does not exist on type 'InsuranceClaim'.
+src/app/(portal)/insurance/page.tsx(120,77): error TS2304: Cannot find name 'DollarSign'.
+src/app/(portal)/insurance/page.tsx(164,77): error TS2339: Property 'claimedAmount' does not exist on type 'InsuranceClaim'.
+src/app/(portal)/insurance/page.tsx(165,69): error TS2339: Property 'approvedAmount' does not exist on type 'InsuranceClaim'.
+src/app/(portal)/insurance/page.tsx(165,102): error TS2339: Property 'approvedAmount' does not exist on type 'InsuranceClaim'.
+src/app/(portal)/insurance/page.tsx(167,37): error TS2367: This comparison appears to be unintentional because the types '"Pending" | "Under Review" | "Approved" | "Rejected"' and '"Paid"' have no overlap.
+src/app/(portal)/notifications/page.tsx(53,15): error TS2322: Type '{ children: Element[]; key: string; className: string; onClick: () => void; }' is not assignable to type 'IntrinsicAttributes & CardProps'.
+  Property 'onClick' does not exist on type 'IntrinsicAttributes & CardProps'.
+src/app/(portal)/operations/page.tsx(92,71): error TS2367: This comparison appears to be unintentional because the types 'InsightImpact' and '"Critical"' have no overlap.
+src/app/(portal)/operations/page.tsx(96,35): error TS2367: This comparison appears to be unintentional because the types 'InsightImpact' and '"Critical"' have no overlap.
+src/app/(portal)/operations/page.tsx(98,64): error TS2339: Property 'description' does not exist on type 'OperationalInsight'.
+src/app/(portal)/operations/page.tsx(99,69): error TS2339: Property 'recommendation' does not exist on type 'OperationalInsight'.
+src/app/(portal)/operations/page.tsx(101,82): error TS2339: Property 'detectedAt' does not exist on type 'OperationalInsight'.
+

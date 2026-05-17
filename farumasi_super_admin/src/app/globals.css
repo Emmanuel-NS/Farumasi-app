@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── FARUMASI brand palette — primary #1E9E68 ── */
+  --color-farumasi-50:  #edfdf6;
+  --color-farumasi-100: #d4f7e9;
+  --color-farumasi-200: #acefd4;
+  --color-farumasi-300: #70e2b5;
+  --color-farumasi-400: #3cce95;
+  --color-farumasi-500: #20b278;
+  --color-farumasi-600: #1e9e68;
+  --color-farumasi-700: #167b51;
+  --color-farumasi-800: #135f40;
+  --color-farumasi-900: #104d34;
+  --color-farumasi-950: #062c1e;
+
+  /* ── Sidebar design tokens (green sidebar — all portals) ── */
+  --color-sidebar:              #1e9e68;
+  --color-sidebar-active:       rgba(255,255,255,0.20);
+  --color-sidebar-border:       rgba(255,255,255,0.10);
+  --color-sidebar-text:         rgba(255,255,255,0.75);
+  --color-sidebar-text-active:  #ffffff;
+
+  /* ── Surface tokens ── */
+  --color-surface:        #f8fafc;
+  --color-surface-muted:  #f1f5f9;
+  --color-surface-card:   #ffffff;
+
+  /* ── Typography ── */
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  /* ── Radius ── */
+  --radius: 0.5rem;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", system-ui, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.25s ease-out;
+}

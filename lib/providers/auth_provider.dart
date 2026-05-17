@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/repositories/auth_repository.dart';
 
@@ -44,19 +46,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final _repo = AuthRepository();
 
   Future<void> _checkPersistedSession() async {
+    // In debug mode skip the network check — go straight to login screen.
+    if (kDebugMode) {
+      state = const AuthState.unauthenticated();
+      return;
+    }
     final hasToken = await _repo.isLoggedIn;
     if (hasToken) {
-      final user = await _repo.getMe();
-      if (user != null) {
-        state = AuthState.authenticated(user);
-      } else {
-        // Token was invalid or expired
-        await _repo.logout();
-        state = const AuthState.unauthenticated();
+      try {
+        final user = await _repo.getMe();
+        if (user != null) {
+          state = AuthState.authenticated(user);
+          return;
+        }
+      } catch (_) {
+        // Backend unreachable — clear stale token and go to login
       }
-    } else {
-      state = const AuthState.unauthenticated();
+      await _repo.logout();
     }
+    state = const AuthState.unauthenticated();
   }
 
   Future<void> login({
@@ -64,15 +72,47 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String password,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
+
+    // In debug mode: mock-known credentials log in instantly — no network hit.
+    if (kDebugMode) {
+      final mock = _mockLogin(emailOrPhone, password);
+      if (mock != null) {
+        state = AuthState.authenticated(mock);
+        return;
+      }
+    }
+
     try {
       final result = await _repo.login(
         emailOrPhone: emailOrPhone,
         password: password,
       );
       state = AuthState.authenticated(result.user!);
+    } on DioException catch (e) {
+      state = state.copyWith(isLoading: false, error: _parseError(e));
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _parseError(e));
     }
+  }
+
+  /// Returns a mock user when the backend is down (debug only).
+  AuthUser? _mockLogin(String emailOrPhone, String password) {
+    const mockUsers = {
+      'test@farumasi.rw':
+          ('Test User', 'PATIENT', 'mock-user-001'),
+      'pharmacist@farumasi.rw':
+          ('Demo Pharmacist', 'PHARMACIST', 'mock-pharma-001'),
+      'rider@farumasi.rw':
+          ('Demo Rider', 'RIDER', 'mock-rider-001'),
+    };
+    final entry = mockUsers[emailOrPhone.toLowerCase()];
+    if (entry == null) return null;
+    return AuthUser(
+      id: entry.$3,
+      name: entry.$1,
+      email: emailOrPhone,
+      role: entry.$2,
+    );
   }
 
   Future<void> register({

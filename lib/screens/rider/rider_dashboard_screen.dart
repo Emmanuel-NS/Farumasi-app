@@ -1,300 +1,354 @@
-import 'package:flutter/material.dart';
+// lib/screens/rider/rider_dashboard_screen.dart
+// FARUMASI Rider Dashboard – main shell with 4 tabs.
+// Designed for low-tech riders: large buttons, clear status, step-by-step flow.
+
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/models.dart';
-import '../../services/pharmacist_service.dart';
+import 'package:intl/intl.dart';
+import '../../models/rider_models.dart';
+import '../../providers/rider_provider.dart';
 import '../../providers/auth_provider.dart';
+import 'rider_active_delivery_screen.dart';
+import 'rider_notifications_screen.dart';
+import 'rider_help_screen.dart';
+
+// ─── Shell ────────────────────────────────────────────────────────────────────
 
 class RiderDashboardScreen extends ConsumerStatefulWidget {
   const RiderDashboardScreen({super.key});
 
   @override
-  ConsumerState<RiderDashboardScreen> createState() => _RiderDashboardScreenState();
+  ConsumerState<RiderDashboardScreen> createState() =>
+      _RiderDashboardScreenState();
 }
 
 class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
-  int _currentIndex = 0;
-  bool _isOnline = true;
-
-  // Rider Context
-  final String _riderId = "DR-01";
-  final String _riderName = "Jean Paul";
+  int _tabIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    final unread = ref.watch(riderProvider).unreadNotificationCount;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      body: _buildBody(),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
+      backgroundColor: const Color(0xFFF6F8F7),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        toolbarHeight: 48,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/app_logo.png',
+              width: 28,
+              height: 28,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'FARUMASI',
+              style: TextStyle(
+                color: Color(0xFF1E9E68),
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
             ),
           ],
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          selectedItemColor: const Color(0xFF1E9E68),
-          unselectedItemColor: Colors.grey.shade500,
-          backgroundColor: Colors.white,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          onTap: (idx) => setState(() => _currentIndex = idx),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_rounded),
-              label: "Dashboard",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_rounded),
-              label: "Earnings",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_rounded),
-              label: "History",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_rounded),
-              label: "Account",
+        centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFEEEEEE)),
+        ),
+      ),
+      body: IndexedStack(
+        index: _tabIndex,
+        children: const [
+          _HomeTab(),
+          _EarningsTab(),
+          _HistoryTab(),
+          _ProfileTab(),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
             ),
           ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: BottomNavigationBar(
+            currentIndex: _tabIndex,
+            selectedItemColor: const Color(0xFF1E9E68),
+            unselectedItemColor: Colors.grey.shade400,
+            backgroundColor: Colors.transparent,
+            type: BottomNavigationBarType.fixed,
+            elevation: 0,
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+            unselectedLabelStyle: const TextStyle(fontSize: 11),
+            onTap: (i) => setState(() => _tabIndex = i),
+            items: [
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.home_rounded),
+                label: 'Home',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.account_balance_wallet_rounded),
+                label: 'Earnings',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.history_rounded),
+                label: 'History',
+              ),
+              BottomNavigationBarItem(
+                icon: Stack(
+                  children: [
+                    const Icon(Icons.person_rounded),
+                    if (unread > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                label: 'Profile',
+              ),
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  Widget _buildBody() {
-    switch (_currentIndex) {
-      case 0:
-        return _DashboardTab(
-          isOnline: _isOnline,
-          onToggleOnline: (v) => setState(() => _isOnline = v),
-          riderId: _riderId,
-          riderName: _riderName,
-        );
-      case 1:
-        return _EarningsTab(riderId: _riderId, riderName: _riderName);
-      case 2:
-        return _HistoryTab(riderId: _riderId, riderName: _riderName);
-      case 3:
-      default:
-        return _AccountTab(riderName: _riderName);
-    }
   }
 }
 
-// -----------------------------------------------------------------------------
-// TAB 1: DASHBOARD
-// -----------------------------------------------------------------------------
-class _DashboardTab extends StatelessWidget {
-  final bool isOnline;
-  final ValueChanged<bool> onToggleOnline;
-  final String riderId;
-  final String riderName;
+// ─── Tab 0: Home ──────────────────────────────────────────────────────────────
 
-  const _DashboardTab({
-    required this.isOnline,
-    required this.onToggleOnline,
-    required this.riderId,
-    required this.riderName,
-  });
+class _HomeTab extends ConsumerWidget {
+  const _HomeTab();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(riderProvider);
+
     return SafeArea(
-      child: ListenableBuilder(
-        listenable: PharmacistService(),
-        builder: (context, _) {
-          final allOrders = PharmacistService().orders;
-
-          // Compute Tasks Data
-          final activeTask = allOrders
-              .where(
-                (o) =>
-                    o.assignedDriverName == riderName &&
-                    (o.status == OrderStatus.driverAssigned ||
-                        o.status == OrderStatus.outForDelivery),
-              )
-              .firstOrNull;
-
-          // Pull real orders that need a driver (Status = readyForPickup)
-          final newRequests = allOrders
-              .where((o) => o.status == OrderStatus.readyForPickup)
-              .toList();
-
-          final completedCount = allOrders
-              .where(
-                (o) =>
-                    o.assignedDriverName == riderName &&
-                    o.status == OrderStatus.delivered,
-              )
-              .length;
-
-          return CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.all(20),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildHeader(context),
-                    const SizedBox(height: 24),
-                    _buildStatusCard(),
-                    const SizedBox(height: 24),
-                    _buildMetricsGrid(completedCount),
-                    const SizedBox(height: 32),
-
-                    if (activeTask != null) ...[
-                      const Text(
-                        "Active Delivery",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildActiveTripCard(context, activeTask),
-                      const SizedBox(height: 32),
-                    ],
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "New Requests",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        if (isOnline && newRequests.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E9E68),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              "${newRequests.length} Available",
-                              style: TextStyle(
-                                color: const Color(0xFF1E9E68),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (!isOnline)
-                      _buildOfflineNotice()
-                    else if (newRequests.isEmpty)
-                      _buildEmptyRequestsNotice()
-                    else
-                      ...newRequests.map(
-                        (req) => _buildRequestCard(context, req),
-                      ),
-                  ]),
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _buildHeader(context, ref, state),
+                const SizedBox(height: 20),
+                _OnlineToggleCard(
+                  isOnline: state.isOnline,
+                  onToggle: (v) =>
+                      ref.read(riderProvider.notifier).setOnline(v),
                 ),
-              ),
-            ],
-          );
-        },
+                const SizedBox(height: 20),
+                _TodayStatsRow(state: state),
+                const SizedBox(height: 24),
+                if (state.activeDelivery != null) ...[
+                  _SectionHeader(
+                    label: 'Active Delivery',
+                    badge: 'Live',
+                    badgeColor: Colors.green.shade600,
+                  ),
+                  const SizedBox(height: 12),
+                  _ActiveDeliveryBanner(order: state.activeDelivery!),
+                  const SizedBox(height: 24),
+                ],
+                if (state.isOnline) ...[
+                  _SectionHeader(
+                    label: 'New Requests',
+                    badge: state.pendingRequests.isNotEmpty
+                        ? '${state.pendingRequests.length}'
+                        : null,
+                    badgeColor: const Color(0xFF1E9E68),
+                  ),
+                  const SizedBox(height: 12),
+                  if (state.pendingRequests.isEmpty)
+                    const _EmptyRequestsState()
+                  else
+                    ...state.pendingRequests.map(
+                      (req) => _DeliveryRequestCard(order: req),
+                    ),
+                ] else
+                  const _OfflineState(),
+              ]),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(
+      BuildContext context, WidgetRef ref, RiderState state) {
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning'
+        : hour < 17
+            ? 'Good afternoon'
+            : 'Good evening';
+
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Welcome back,",
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-            ),
-            Text(
-              riderName,
-              style: TextStyle(
-                color: const Color(0xFF1E9E68),
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$greeting,',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
               ),
-            ),
-          ],
-        ),
-        Stack(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: const Icon(
-                CupertinoIcons.bell,
-                color: Colors.black87,
-                size: 22,
-              ),
-            ),
-            Positioned(
-              right: 0,
-              top: 0,
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
+              const SizedBox(height: 2),
+              Text(
+                state.profile.name,
+                style: const TextStyle(
+                  color: Color(0xFF1E9E68),
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F5EE),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  state.profile.riderTypeLabel,
+                  style: const TextStyle(
+                    color: Color(0xFF1E9E68),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => const RiderNotificationsScreen()),
+          ),
+          child: Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: const Icon(CupertinoIcons.bell,
+                    size: 22, color: Colors.black87),
+              ),
+              if (state.unreadNotificationCount > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${state.unreadNotificationCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildStatusCard() {
+// ─── Online toggle card ───────────────────────────────────────────────────────
+
+class _OnlineToggleCard extends StatelessWidget {
+  final bool isOnline;
+  final ValueChanged<bool> onToggle;
+
+  const _OnlineToggleCard(
+      {required this.isOnline, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: isOnline ? const Color(0xFF1E9E68) : Colors.grey.shade100,
+              color: isOnline
+                  ? const Color(0xFFE8F5EE)
+                  : Colors.grey.shade100,
               shape: BoxShape.circle,
             ),
             child: Icon(
               isOnline
                   ? Icons.motorcycle_rounded
                   : Icons.power_settings_new_rounded,
-              color: isOnline ? const Color(0xFF1E9E68) : Colors.grey.shade500,
-              size: 28,
+              color: isOnline
+                  ? const Color(0xFF1E9E68)
+                  : Colors.grey.shade500,
+              size: 26,
             ),
           ),
           const SizedBox(width: 16),
@@ -304,18 +358,21 @@ class _DashboardTab extends StatelessWidget {
               children: [
                 Text(
                   isOnline ? "You're Online" : "You're Offline",
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: isOnline ? Colors.black87 : Colors.grey.shade600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
                   isOnline
-                      ? "Searching for nearby orders..."
-                      : "Go online to receive orders",
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      ? 'Ready to receive delivery requests'
+                      : 'Go online to start receiving orders',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                  ),
                 ),
               ],
             ),
@@ -323,45 +380,76 @@ class _DashboardTab extends StatelessWidget {
           Switch(
             value: isOnline,
             activeTrackColor: const Color(0xFF1E9E68),
-            inactiveThumbColor: Colors.grey.shade400,
-            inactiveTrackColor: Colors.grey.shade200,
-            onChanged: onToggleOnline,
+            activeColor: Colors.white,
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: Colors.grey.shade300,
+            onChanged: onToggle,
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildMetricsGrid(int completedCount) {
+// ─── Today stats row ──────────────────────────────────────────────────────────
+
+class _TodayStatsRow extends StatelessWidget {
+  final RiderState state;
+
+  const _TodayStatsRow({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final earnings = state.earnings;
+    final riderType = state.profile.riderType;
+    final isPerTrip = riderType == RiderType.perTrip;
+    final hasTarget = earnings.tripTarget > 0;
+
     return Row(
       children: [
         Expanded(
-          child: _buildMetricCard(
-            "Today's Earnings",
-            "18,500 RWF",
-            Icons.account_balance_wallet_outlined,
-            Colors.blue,
+          child: _StatCard(
+            icon: isPerTrip
+                ? Icons.account_balance_wallet_outlined
+                : Icons.assignment_turned_in_outlined,
+            color: const Color(0xFF1E9E68),
+            label: isPerTrip ? "Today's Earnings" : 'Period Trips',
+            value: isPerTrip
+                ? '${earnings.todayEarnings.toInt()} RWF'
+                : hasTarget
+                    ? '${earnings.periodTripsCompleted} / ${earnings.tripTarget}'
+                    : '${earnings.periodTripsCompleted}',
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         Expanded(
-          child: _buildMetricCard(
-            "Completed",
-            "$completedCount Trips",
-            Icons.check_circle_outline,
-            Colors.orange,
+          child: _StatCard(
+            icon: Icons.check_circle_outline_rounded,
+            color: Colors.blue.shade600,
+            label: 'Completed Today',
+            value: '${earnings.todayTrips} trips',
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildMetricCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+
+  const _StatCard({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -369,196 +457,496 @@ class _DashboardTab extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(height: 12),
           Text(
             value,
             style: const TextStyle(
-              color: Colors.black87,
               fontSize: 18,
               fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildActiveTripCard(BuildContext context, PrescriptionOrder task) {
-    bool toPharmacy = task.status == OrderStatus.driverAssigned;
+// ─── Active delivery banner ───────────────────────────────────────────────────
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF1E9E68), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E9E68).withValues(alpha: 0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
+class _ActiveDeliveryBanner extends StatelessWidget {
+  final RiderDeliveryOrder order;
+
+  const _ActiveDeliveryBanner({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final stepIndex = order.activeStep?.index ?? 0;
+    final stepLabels = [
+      'Going to Pharmacy',
+      'At Pharmacy',
+      'Delivering',
+      'At Destination',
+    ];
+    final currentLabel =
+        stepLabels[stepIndex.clamp(0, stepLabels.length - 1)];
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => const RiderActiveDeliveryScreen()),
       ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: toPharmacy
-                      ? Colors.orange.shade100
-                      : Colors.blue.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      toPharmacy ? Icons.storefront : Icons.person_pin,
-                      size: 14,
-                      color: toPharmacy
-                          ? Colors.orange.shade800
-                          : Colors.blue.shade800,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      toPharmacy ? "Heading to Pharmacy" : "Out for Delivery",
-                      style: TextStyle(
-                        color: toPharmacy
-                            ? Colors.orange.shade800
-                            : Colors.blue.shade800,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF1E9E68), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1E9E68).withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.circle,
+                          size: 8, color: Colors.orange.shade600),
+                      const SizedBox(width: 6),
+                      Text(
+                        currentLabel,
+                        style: TextStyle(
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+                Text(
+                  order.orderCode,
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _miniRow(Icons.store_rounded, Colors.orange.shade600,
+                'Pickup: ${order.pickupName}',
+                dim: stepIndex > 1),
+            Padding(
+              padding: const EdgeInsets.only(left: 9),
+              child: Container(
+                  width: 2,
+                  height: 16,
+                  color: stepIndex > 1
+                      ? const Color(0xFF1E9E68)
+                      : Colors.grey.shade200),
+            ),
+            _miniRow(Icons.location_on_rounded, Colors.blue.shade600,
+                'Deliver: ${order.destinationAddress.split(',').first}'),
+            const SizedBox(height: 14),
+            _DeliveryTimer(
+                acceptedAt: order.acceptedAt ?? order.createdAt),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E9E68),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.play_arrow_rounded,
+                      color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Continue Delivery',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
                     ),
-                  ],
-                ),
-              ),
-              Text(
-                "#${task.id}",
-                style: TextStyle(
-                  color: Colors.grey.shade500,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Timeline logic
-          _buildProgressTimeline(
-            title: toPharmacy ? "Pickup at" : "Pick up from",
-            subtitle: task.assignedPharmacyName ?? "Pharmacy",
-            isCompleted: !toPharmacy,
-            isCurrent: toPharmacy,
-          ),
-          _buildProgressTimelineLine(isCompleted: !toPharmacy),
-          _buildProgressTimeline(
-            title: "Drop off at",
-            subtitle: task.patientLocationName,
-            isCompleted: task.status == OrderStatus.delivered,
-            isCurrent: !toPharmacy,
-          ),
-
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E9E68),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => TripMapScreen(task: task)),
-                );
-              },
-              child: const Text(
-                "View Route Details",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildProgressTimeline({
-    required String title,
-    required String subtitle,
-    required bool isCompleted,
-    required bool isCurrent,
-  }) {
-    Color dotColor = isCompleted
-        ? const Color(0xFF1E9E68)
-        : (isCurrent ? const Color(0xFF1E9E68) : Colors.grey.shade300);
+  Widget _miniRow(IconData icon, Color color, String text,
+      {bool dim = false}) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          margin: const EdgeInsets.only(top: 4, right: 16, left: 2),
-          width: 16,
-          height: 16,
+          margin: const EdgeInsets.only(right: 10),
+          padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
-            color: isCurrent ? Colors.white : dotColor,
-            border: isCurrent
-                ? Border.all(color: const Color(0xFF1E9E68), width: 4)
-                : null,
+            color: color.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
+          child: Icon(icon, size: 12, color: color),
+        ),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: dim ? Colors.grey.shade400 : Colors.black87,
+              fontWeight: dim ? FontWeight.normal : FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Live delivery timer ──────────────────────────────────────────────────────
+
+class _DeliveryTimer extends StatefulWidget {
+  final DateTime acceptedAt;
+
+  const _DeliveryTimer({required this.acceptedAt});
+
+  @override
+  State<_DeliveryTimer> createState() => _DeliveryTimerState();
+}
+
+class _DeliveryTimerState extends State<_DeliveryTimer> {
+  late Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(
+        const Duration(seconds: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final elapsed = DateTime.now().difference(widget.acceptedAt);
+    final m = elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final h = elapsed.inHours;
+    final label = h > 0 ? '${h}h ${m}m ${s}s' : '${m}m ${s}s';
+
+    return Row(
+      children: [
+        Icon(Icons.timer_outlined, color: Colors.grey.shade500, size: 15),
+        const SizedBox(width: 6),
+        Text(
+          'Elapsed: $label',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Delivery request card ────────────────────────────────────────────────────
+
+class _DeliveryRequestCard extends ConsumerWidget {
+  final RiderDeliveryOrder order;
+
+  const _DeliveryRequestCard({required this.order});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isPerTrip =
+        ref.read(riderProvider).profile.riderType == RiderType.perTrip;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5EE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.local_hospital_rounded,
+                      color: Color(0xFF1E9E68), size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        order.orderCode,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        '${order.estimatedDistanceKm} km  •  ~${order.estimatedTimeMinutes} min',
+                        style: TextStyle(
+                            color: Colors.grey.shade500, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isPerTrip)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5EE),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${order.riderEarning.toInt()} RWF',
+                      style: const TextStyle(
+                        color: Color(0xFF1E9E68),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Divider(height: 1),
+          ),
+          const SizedBox(height: 14),
+
+          // Locations
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                _locationRow(
+                  Icons.store_rounded,
+                  Colors.orange.shade600,
+                  'Pickup',
+                  order.pickupName,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 10),
+                  child: Container(
+                    width: 2,
+                    height: 14,
+                    color: Colors.grey.shade200,
+                  ),
+                ),
+                _locationRow(
+                  Icons.location_on_rounded,
+                  Colors.blue.shade600,
+                  'Deliver to',
+                  order.destinationAddress.split(',').first,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Info chips
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                _infoChip(Icons.inventory_2_outlined,
+                    '${order.packageCount} ${order.packageCount == 1 ? 'item' : 'items'}'),
+                const SizedBox(width: 8),
+                if (order.specialNote != null)
+                  _infoChip(Icons.info_outline, order.specialNote!,
+                      color: Colors.orange.shade700),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Icon(Icons.medical_services_outlined,
+                    size: 13, color: Colors.grey.shade400),
+                const SizedBox(width: 6),
+                Text(
+                  'Medical items – handle with care',
+                  style:
+                      TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Divider(height: 1),
+          ),
+          const SizedBox(height: 14),
+
+          // Buttons
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => _showRejectionSheet(context, ref, order),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 22, vertical: 14),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Reject',
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _onAccept(context, ref, order),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E9E68),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_rounded,
+                              color: Colors.white, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Accept Delivery',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _locationRow(
+      IconData icon, Color color, String type, String name) {
+    return Row(
+      children: [
+        Container(
+          margin: const EdgeInsets.only(right: 10),
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 12, color: color),
         ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(type,
+                  style: TextStyle(
+                      color: Colors.grey.shade500, fontSize: 11)),
               Text(
-                title,
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
+                name,
                 style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
                   color: Colors.black87,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -567,18 +955,847 @@ class _DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressTimelineLine({required bool isCompleted}) {
+  Widget _infoChip(IconData icon, String label, {Color? color}) {
     return Container(
-      margin: const EdgeInsets.only(left: 9, top: 4, bottom: 4),
-      width: 2,
-      height: 24,
-      color: isCompleted ? const Color(0xFF1E9E68) : Colors.grey.shade300,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color ?? Colors.grey.shade500),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+                fontSize: 11, color: color ?? Colors.grey.shade600),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildRequestCard(BuildContext context, PrescriptionOrder req) {
+  void _onAccept(
+      BuildContext context, WidgetRef ref, RiderDeliveryOrder order) {
+    ref.read(riderProvider.notifier).acceptDelivery(order);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => const RiderActiveDeliveryScreen()),
+    );
+  }
+
+  void _showRejectionSheet(
+      BuildContext context, WidgetRef ref, RiderDeliveryOrder order) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _RejectionReasonSheet(
+        order: order,
+        onConfirm: (reason, custom) {
+          ref
+              .read(riderProvider.notifier)
+              .rejectDelivery(order.id, reason, customReason: custom);
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+}
+
+// ─── Rejection reason bottom sheet ───────────────────────────────────────────
+
+class _RejectionReasonSheet extends StatefulWidget {
+  final RiderDeliveryOrder order;
+  final void Function(String reason, String? customReason) onConfirm;
+
+  const _RejectionReasonSheet({
+    required this.order,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_RejectionReasonSheet> createState() =>
+      _RejectionReasonSheetState();
+}
+
+class _RejectionReasonSheetState extends State<_RejectionReasonSheet> {
+  String? _selected;
+  final _otherCtrl = TextEditingController();
+
+  static const _reasons = [
+    'Too far',
+    'Bike / vehicle issue',
+    'Not available right now',
+    'Bad weather',
+    'Emergency',
+    'Location problem',
+    'Other',
+  ];
+
+  @override
+  void dispose() {
+    _otherCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      maxChildSize: 0.9,
+      minChildSize: 0.5,
+      builder: (_, scrollCtrl) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: scrollCtrl,
+            padding: const EdgeInsets.all(24),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Why are you rejecting?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Order ${widget.order.orderCode} • Select a reason',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 20),
+              ..._reasons.map(
+                (r) => GestureDetector(
+                  onTap: () => setState(() => _selected = r),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: _selected == r
+                          ? const Color(0xFFE8F5EE)
+                          : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _selected == r
+                            ? const Color(0xFF1E9E68)
+                            : Colors.grey.shade200,
+                        width: _selected == r ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _selected == r
+                                ? const Color(0xFF1E9E68)
+                                : Colors.grey.shade200,
+                          ),
+                          child: _selected == r
+                              ? const Icon(Icons.check,
+                                  color: Colors.white, size: 14)
+                              : null,
+                        ),
+                        const SizedBox(width: 14),
+                        Text(
+                          r,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: _selected == r
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (_selected == 'Other') ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _otherCtrl,
+                  maxLines: 2,
+                  maxLength: 100,
+                  decoration: InputDecoration(
+                    hintText: 'Describe the issue briefly...',
+                    hintStyle:
+                        TextStyle(color: Colors.grey.shade400),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                          color: Color(0xFF1E9E68), width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.all(14),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _selected != null
+                        ? Colors.red.shade600
+                        : Colors.grey.shade300,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: _selected == null
+                      ? null
+                      : () => widget.onConfirm(
+                            _selected!,
+                            _selected == 'Other' &&
+                                    _otherCtrl.text.isNotEmpty
+                                ? _otherCtrl.text.trim()
+                                : null,
+                          ),
+                  child: const Text(
+                    'Confirm Rejection',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── Empty / offline states ───────────────────────────────────────────────────
+
+class _EmptyRequestsState extends StatelessWidget {
+  const _EmptyRequestsState();
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8F5EE),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_outline_rounded,
+              size: 48,
+              color: Color(0xFF1E9E68),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "You're ready!",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'New delivery requests\nwill appear here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+          ),
+          const SizedBox(height: 20),
+          const SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: Color(0xFF1E9E68),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OfflineState extends StatelessWidget {
+  const _OfflineState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 16),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          Icon(Icons.location_off_rounded,
+              size: 64, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text(
+            'You are offline',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Toggle the switch above to\nstart receiving deliveries.',
+            textAlign: TextAlign.center,
+            style:
+                TextStyle(fontSize: 14, color: Colors.grey.shade400),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Section header ───────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  final String? badge;
+  final Color? badgeColor;
+
+  const _SectionHeader(
+      {required this.label, this.badge, this.badgeColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        if (badge != null) ...[
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: (badgeColor ?? const Color(0xFF1E9E68))
+                  .withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              badge!,
+              style: TextStyle(
+                color: badgeColor ?? const Color(0xFF1E9E68),
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ─── Tab 1: Earnings ──────────────────────────────────────────────────────────
+
+class _EarningsTab extends ConsumerWidget {
+  const _EarningsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(riderProvider);
+    final isPerTrip = state.profile.riderType == RiderType.perTrip;
+
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        physics: const BouncingScrollPhysics(),
+        children: [
+          const Text(
+            'Earnings',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (isPerTrip)
+            _PerTripEarningsView(state: state)
+          else
+            _SalaryEarningsView(state: state),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Per-Trip Earnings View ───────────────────────────────────────────────────
+
+class _PerTripEarningsView extends StatelessWidget {
+  final RiderState state;
+  const _PerTripEarningsView({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final earnings = state.earnings;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Pending payout card
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E9E68), Color(0xFF16875A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1E9E68).withValues(alpha: 0.25),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.account_balance_wallet,
+                    color: Colors.white70, size: 15),
+                const SizedBox(width: 6),
+                const Text('Pending Payout',
+                    style: TextStyle(color: Colors.white70, fontSize: 13)),
+              ]),
+              const SizedBox(height: 8),
+              Text(
+                '${earnings.pendingPayout.toInt()} RWF',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Available for withdrawal',
+                style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: _EarningsStatCard(
+                label: "Today's Earnings",
+                value: '${earnings.todayEarnings.toInt()} RWF',
+                subValue: '${earnings.todayTrips} trips',
+                color: const Color(0xFF1E9E68),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _EarningsStatCard(
+                label: 'This Week',
+                value: '${earnings.weeklyEarnings.toInt()} RWF',
+                subValue: '${earnings.weeklyTrips} trips',
+                color: Colors.blue.shade600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Recent Deliveries',
+          style: TextStyle(
+              fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const SizedBox(height: 12),
+        if (earnings.recentEntries.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text('No completed deliveries yet.',
+                  style: TextStyle(color: Colors.grey.shade500)),
+            ),
+          )
+        else
+          ...earnings.recentEntries
+              .map((e) => _EarningEntryTile(entry: e, showAmount: true)),
+      ],
+    );
+  }
+}
+
+// ─── Salary Earnings View (weekly / monthly) ──────────────────────────────────
+
+class _SalaryEarningsView extends StatelessWidget {
+  final RiderState state;
+  const _SalaryEarningsView({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final earnings = state.earnings;
+    final isMonthly = state.profile.riderType == RiderType.monthly;
+    final periodLabel = isMonthly ? 'Monthly' : 'Weekly';
+    final bonus = earnings.bonusEarned;
+    final hasTarget = earnings.tripTarget > 0;
+    final tripsLeft = hasTarget
+        ? (earnings.tripTarget - earnings.periodTripsCompleted).clamp(0, 999)
+        : 0;
+    final aboveTarget = hasTarget &&
+        earnings.periodTripsCompleted > earnings.tripTarget;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Salary card ────────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E9E68), Color(0xFF16875A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1E9E68).withValues(alpha: 0.25),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$periodLabel Salary',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _statusColor(earnings.paymentStatus)
+                          .withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      earnings.paymentStatus,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '${_fmt(earnings.fixedSalary)} RWF',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 34,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              if (bonus > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '+ ${_fmt(bonus)} RWF bonus',
+                  style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                ),
+              ],
+              const SizedBox(height: 14),
+              const Divider(color: Colors.white24, height: 1),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Icon(Icons.calendar_today_rounded,
+                      color: Colors.white70, size: 14),
+                  const SizedBox(width: 6),
+                  Text(
+                    earnings.paymentPeriodLabel,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                  const Spacer(),
+                  if (earnings.nextPayDate != null) ...[
+                    const Icon(Icons.payments_outlined,
+                        color: Colors.white70, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Pay: ${DateFormat('d MMM').format(earnings.nextPayDate!)}',
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 13),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Pay period progress ────────────────────────────────────────────
+        if (earnings.nextPayDate != null) _PayPeriodProgress(earnings: earnings),
+        const SizedBox(height: 16),
+
+        // ── Trip target stats ──────────────────────────────────────────────
+        Row(
+          children: [
+            Expanded(
+              child: _EarningsStatCard(
+                label: hasTarget ? 'Trips vs Target' : 'Trips This Period',
+                value: hasTarget
+                    ? '${earnings.periodTripsCompleted} / ${earnings.tripTarget}'
+                    : '${earnings.periodTripsCompleted}',
+                subValue: hasTarget
+                    ? (aboveTarget
+                        ? '${earnings.periodTripsCompleted - earnings.tripTarget} above target 🎯'
+                        : '$tripsLeft more to hit target')
+                    : 'completed',
+                color: aboveTarget
+                    ? Colors.orange.shade700
+                    : const Color(0xFF1E9E68),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _EarningsStatCard(
+                label: 'Bonus Earned',
+                value: bonus > 0 ? '+${_fmt(bonus)} RWF' : '—',
+                subValue: earnings.bonusPerExtraTrip > 0
+                    ? '${_fmt(earnings.bonusPerExtraTrip)} RWF/extra trip'
+                    : 'No bonus structure',
+                color:
+                    bonus > 0 ? Colors.orange.shade700 : Colors.grey.shade400,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // ── Today summary ──────────────────────────────────────────────────
+        Row(
+          children: [
+            Expanded(
+              child: _EarningsStatCard(
+                label: "Today's Trips",
+                value: '${earnings.todayTrips}',
+                subValue: 'completed today',
+                color: Colors.blue.shade600,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _EarningsStatCard(
+                label: "Total + Bonus",
+                value: '${_fmt(earnings.totalSalaryEarned)} RWF',
+                subValue: 'projected this period',
+                color: Colors.purple.shade600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // ── Delivery log ───────────────────────────────────────────────────
+        const Text(
+          'Delivery Log',
+          style: TextStyle(
+              fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const SizedBox(height: 12),
+        if (earnings.recentEntries.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text('No completed deliveries yet.',
+                  style: TextStyle(color: Colors.grey.shade500)),
+            ),
+          )
+        else
+          ...earnings.recentEntries
+              .map((e) => _EarningEntryTile(entry: e, showAmount: false)),
+      ],
+    );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'Paid':
+        return Colors.greenAccent;
+      case 'Processing':
+        return Colors.orangeAccent;
+      default:
+        return Colors.white;
+    }
+  }
+
+  String _fmt(double v) => NumberFormat('#,##0', 'en_US').format(v.toInt());
+}
+
+// ─── Pay Period Progress Bar ─────────────────────────────────────────────────
+
+class _PayPeriodProgress extends StatelessWidget {
+  final RiderEarnings earnings;
+  const _PayPeriodProgress({required this.earnings});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final payDate = earnings.nextPayDate!;
+
+    // Infer period start from the label (e.g. "May 1 – May 31, 2026")
+    // Fall back to 30 days before payDate
+    final periodStart = DateTime(payDate.year, payDate.month, 1);
+    final totalDays = payDate.difference(periodStart).inDays + 1;
+    final elapsedDays = now.difference(periodStart).inDays.clamp(0, totalDays);
+    final progress = totalDays > 0 ? elapsedDays / totalDays : 0.0;
+    final daysLeft = (payDate.difference(now).inDays).clamp(0, totalDays);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03), blurRadius: 8),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Period Progress',
+                style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              Text(
+                '$daysLeft day${daysLeft == 1 ? '' : 's'} until pay',
+                style: const TextStyle(
+                    color: Color(0xFF1E9E68),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress.toDouble(),
+              minHeight: 8,
+              backgroundColor: Colors.grey.shade100,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                progress > 0.85
+                    ? Colors.orange.shade500
+                    : const Color(0xFF1E9E68),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Day $elapsedDays of $totalDays  •  ${(progress * 100).toStringAsFixed(0)}% complete',
+            style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EarningsStatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String subValue;
+  final Color color;
+
+  const _EarningsStatCard({
+    required this.label,
+    required this.value,
+    required this.subValue,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -587,384 +1804,207 @@ class _DashboardTab extends StatelessWidget {
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
-            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.inventory_2,
-                      color: const Color(0xFF1E9E68),
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "#${req.id}",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      Text(
-                        "Distance: ~4.2 km",
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Text(
-                "${req.deliveryFee.toInt()} RWF",
-                style: TextStyle(
-                  color: const Color(0xFF1E9E68),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Icon(Icons.store, size: 16, color: Colors.grey.shade400),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  req.assignedPharmacyName ?? "Pharmacy",
-                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
+          Text(label,
+              style: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                Icons.person_pin_circle,
-                size: 16,
-                color: Colors.grey.shade400,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  req.patientLocationName,
-                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E9E68),
-                foregroundColor: const Color(0xFF1E9E68),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () {
-                // Mock Driver Object
-                final mockDriver = Driver(
-                  id: riderId,
-                  name: riderName,
-                  phoneNumber: "+250788000111",
-                  currentCoordinates: [-1.95, 30.1],
-                );
-                PharmacistService().assignDriver(req, mockDriver);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Order Accepted!")),
-                );
-              },
-              child: const Text(
-                "Accept Delivery",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOfflineNotice() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      alignment: Alignment.center,
-      child: Column(
-        children: [
-          Icon(
-            Icons.location_off_rounded,
-            size: 64,
-            color: Colors.grey.shade300,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            "You are offline",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black54,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Toggle your status to start receiving orders",
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyRequestsNotice() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      alignment: Alignment.center,
-      child: Column(
-        children: [
-          Icon(
-            Icons.check_circle_outline,
-            size: 64,
-            color: Colors.grey.shade300,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            "All caught up!",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black54,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Waiting for new delivery requests...",
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-          ),
-          const SizedBox(height: 24),
-          const CircularProgressIndicator(strokeWidth: 2),
+          Text(value,
+              style: TextStyle(
+                  color: color,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 3),
+          Text(subValue,
+              style:
+                  TextStyle(color: Colors.grey.shade500, fontSize: 12)),
         ],
       ),
     );
   }
 }
 
-// -----------------------------------------------------------------------------
-// TAB 2: EARNINGS
-// -----------------------------------------------------------------------------
-class _EarningsTab extends StatelessWidget {
-  final String riderId;
-  final String riderName;
+class _EarningEntryTile extends StatelessWidget {
+  final EarningEntry entry;
+  final bool showAmount;
 
-  const _EarningsTab({required this.riderId, required this.riderName});
+  const _EarningEntryTile(
+      {required this.entry, required this.showAmount});
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(20),
-        physics: const BouncingScrollPhysics(),
-        children: [
-          const Text(
-            "Wallet & Earnings",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [const Color(0xFF1E9E68), const Color(0xFF1E9E68)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1E9E68).withValues(alpha: 0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Available Balance",
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  "18,500 RWF",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF1E9E68),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: () {},
-                        icon: const Icon(
-                          Icons.account_balance_wallet,
-                          size: 18,
-                        ),
-                        label: const Text("Withdraw"),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Recent Transactions",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black87,
-                ),
-              ),
-              TextButton(
-                onPressed: () {},
-                child: Text(
-                  "See All",
-                  style: TextStyle(color: const Color(0xFF1E9E68)),
-                ),
-              ),
-            ],
-          ),
-
-          _buildTransactionItem(
-            "Delivery #RX-1002",
-            "Today, 10:30 AM",
-            1500,
-            true,
-          ),
-          _buildTransactionItem(
-            "Delivery #RX-1005",
-            "Yesterday, 3:15 PM",
-            2500,
-            true,
-          ),
-          _buildTransactionItem(
-            "Withdrawal to MoMo",
-            "Mon, 1:00 PM",
-            -14500,
-            false,
-          ),
-          _buildTransactionItem(
-            "Delivery #ORD-2001",
-            "Mon, 12:30 PM",
-            1500,
-            true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTransactionItem(
-    String title,
-    String subtitle,
-    int amount,
-    bool isCredit,
-  ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: isCredit ? const Color(0xFF1E9E68) : Colors.red.shade50,
-              shape: BoxShape.circle,
+              color: const Color(0xFFE8F5EE),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-              color: isCredit ? const Color(0xFF1E9E68) : Colors.red,
-              size: 20,
-            ),
+            child: const Icon(Icons.check_circle_rounded,
+                color: Color(0xFF1E9E68), size: 18),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  entry.orderCode,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    fontSize: 14,
+                    color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Text(
-                  subtitle,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                  '${entry.destinationArea}  •  ${DateFormat('d MMM, h:mm a').format(entry.date)}',
+                  style: TextStyle(
+                      color: Colors.grey.shade500, fontSize: 12),
                 ),
               ],
             ),
           ),
-          Text(
-            "${isCredit ? '+' : ''}$amount RWF",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isCredit ? const Color(0xFF1E9E68) : Colors.red.shade800,
-              fontSize: 15,
+          if (showAmount)
+            Text(
+              '+${entry.amount.toInt()} RWF',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E9E68),
+                fontSize: 14,
+              ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Tab 2: History ───────────────────────────────────────────────────────────
+
+class _HistoryTab extends ConsumerStatefulWidget {
+  const _HistoryTab();
+
+  @override
+  ConsumerState<_HistoryTab> createState() => _HistoryTabState();
+}
+
+class _HistoryTabState extends ConsumerState<_HistoryTab> {
+  int _filter = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final history = ref.watch(riderProvider).history;
+    final now = DateTime.now();
+
+    final filtered = history.where((o) {
+      final date = o.deliveredAt ?? o.createdAt;
+      switch (_filter) {
+        case 0:
+          return date.day == now.day &&
+              date.month == now.month &&
+              date.year == now.year;
+        case 1:
+          return now.difference(date).inDays < 7;
+        case 2:
+          return date.month == now.month &&
+              date.year == now.year;
+        default:
+          return true;
+      }
+    }).toList();
+
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Row(
+              children: [
+                const Text(
+                  'Delivery History',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${history.length} total',
+                  style:
+                      TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                _FilterChip(
+                  label: 'Today',
+                  selected: _filter == 0,
+                  onTap: () => setState(() => _filter = 0),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'This Week',
+                  selected: _filter == 1,
+                  onTap: () => setState(() => _filter = 1),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'This Month',
+                  selected: _filter == 2,
+                  onTap: () => setState(() => _filter = 2),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: filtered.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.history_rounded,
+                            size: 56, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No deliveries for this period.',
+                          style:
+                              TextStyle(color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) =>
+                        _HistoryItemTile(order: filtered[i]),
+                  ),
           ),
         ],
       ),
@@ -972,143 +2012,180 @@ class _EarningsTab extends StatelessWidget {
   }
 }
 
-// -----------------------------------------------------------------------------
-// TAB 3: HISTORY
-// -----------------------------------------------------------------------------
-class _HistoryTab extends StatelessWidget {
-  final String riderId;
-  final String riderName;
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
-  const _HistoryTab({required this.riderId, required this.riderName});
+  const _FilterChip(
+      {required this.label,
+      required this.selected,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: ListenableBuilder(
-        listenable: PharmacistService(),
-        builder: (context, _) {
-          final allOrders = PharmacistService().orders;
-          final pastTasks = allOrders
-              .where(
-                (o) =>
-                    o.assignedDriverName == riderName &&
-                    o.status == OrderStatus.delivered,
-              )
-              .toList();
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-                child: Text(
-                  "Delivery History",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              if (pastTasks.isEmpty)
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      "No completed deliveries yet.",
-                      style: TextStyle(color: Colors.grey.shade500),
-                    ),
-                  ),
-                )
-              else
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(20),
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: pastTasks.length,
-                    itemBuilder: (context, index) {
-                      final task = pastTasks[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E9E68),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                Icons.check_circle_rounded,
-                                color: const Color(0xFF1E9E68),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "To: ${task.patientName}",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    "ID: #${task.id} • ${task.patientLocationName.split(',').first}",
-                                    style: TextStyle(
-                                      color: Colors.grey.shade500,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              "${task.deliveryFee.toInt()} RWF",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1E9E68),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-            ],
-          );
-        },
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color:
+              selected ? const Color(0xFF1E9E68) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF1E9E68)
+                : Colors.grey.shade300,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color:
+                selected ? Colors.white : Colors.grey.shade700,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
       ),
     );
   }
 }
 
-// -----------------------------------------------------------------------------
-// TAB 4: ACCOUNT
-// -----------------------------------------------------------------------------
-class _AccountTab extends ConsumerWidget {
-  final String riderName;
+class _HistoryItemTile extends StatelessWidget {
+  final RiderDeliveryOrder order;
 
-  const _AccountTab({required this.riderName});
+  const _HistoryItemTile({required this.order});
+
+  Color get _statusColor {
+    switch (order.status) {
+      case RiderDeliveryStatus.delivered:
+        return const Color(0xFF1E9E68);
+      case RiderDeliveryStatus.rejected:
+        return Colors.orange.shade600;
+      case RiderDeliveryStatus.cancelled:
+        return Colors.red.shade600;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData get _statusIcon {
+    switch (order.status) {
+      case RiderDeliveryStatus.delivered:
+        return Icons.check_circle_rounded;
+      case RiderDeliveryStatus.rejected:
+        return Icons.cancel_rounded;
+      case RiderDeliveryStatus.cancelled:
+        return Icons.do_not_disturb_rounded;
+      default:
+        return Icons.circle_outlined;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final date = order.deliveredAt ?? order.createdAt;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(_statusIcon, color: _statusColor, size: 18),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${order.orderCode}  •  ${order.pickupName}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '→ ${order.destinationAddress.split(',').first}',
+                  style: TextStyle(
+                      color: Colors.grey.shade500, fontSize: 12),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  DateFormat('d MMM yyyy, h:mm a').format(date),
+                  style: TextStyle(
+                      color: Colors.grey.shade400, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  order.statusLabel,
+                  style: TextStyle(
+                    color: _statusColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+              if (order.status == RiderDeliveryStatus.delivered) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '+${order.riderEarning.toInt()} RWF',
+                  style: const TextStyle(
+                    color: Color(0xFF1E9E68),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Tab 3: Profile ───────────────────────────────────────────────────────────
+
+class _ProfileTab extends ConsumerWidget {
+  const _ProfileTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(riderProvider).profile;
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
         physics: const BouncingScrollPhysics(),
         children: [
           const Text(
-            "Account Details",
+            'My Profile',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -1120,420 +2197,258 @@ class _AccountTab extends ConsumerWidget {
           Center(
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 45,
-                  backgroundColor: const Color(0xFF1E9E68),
-                  child: Text(
-                    riderName[0],
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1E9E68),
+                Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    CircleAvatar(
+                      radius: 48,
+                      backgroundColor: const Color(0xFFE8F5EE),
+                      child: Text(
+                        profile.name.isNotEmpty
+                            ? profile.name[0].toUpperCase()
+                            : 'R',
+                        style: const TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E9E68),
+                        ),
+                      ),
                     ),
-                  ),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1E9E68),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.verified_rounded,
+                          color: Colors.white, size: 16),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 Text(
-                  riderName,
+                  profile.name,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  "+250 788 123 456",
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  profile.phone,
+                  style: TextStyle(
+                      color: Colors.grey.shade500, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5EE),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    profile.riderTypeLabel,
+                    style: const TextStyle(
+                      color: Color(0xFF1E9E68),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
 
-          _buildSettingsTile(
-            Icons.pedal_bike,
-            "Vehicle Information",
-            "Motorcycle - RAC 123 A",
+          _ProfileTile(
+            icon: Icons.motorcycle_rounded,
+            label: 'Vehicle',
+            value: '${profile.vehicleType} – ${profile.vehiclePlate}',
           ),
-          _buildSettingsTile(
-            Icons.support_agent,
-            "Help & Support",
-            "Contact our dispatch team",
+          _ProfileTile(
+            icon: Icons.location_on_rounded,
+            label: 'Assigned Area',
+            value: profile.assignedArea,
           ),
-          _buildSettingsTile(
-            Icons.description,
-            "Legal Documents",
-            "License & Registration",
+          _ProfileTile(
+            icon: Icons.verified_user_rounded,
+            label: 'Verification',
+            value: profile.isVerified ? 'Verified' : 'Pending',
+            valueColor: profile.isVerified
+                ? const Color(0xFF1E9E68)
+                : Colors.orange,
+          ),
+          _ProfileTile(
+            icon: Icons.payment_rounded,
+            label: 'Payout Method',
+            value: profile.payoutMethod,
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+
+          _ActionTile(
+            icon: Icons.notifications_outlined,
+            label: 'Notifications',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) =>
+                      const RiderNotificationsScreen()),
+            ),
+          ),
+          _ActionTile(
+            icon: Icons.help_outline_rounded,
+            label: 'Help & Emergency Support',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const RiderHelpScreen()),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── Demo: switch rider type ──────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Demo: Switch Rider Type',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: RiderType.values.map((type) {
+                    final isSelected = profile.riderType == type;
+                    final label = switch (type) {
+                      RiderType.perTrip => 'Per-Trip',
+                      RiderType.weekly => 'Weekly',
+                      RiderType.monthly => 'Monthly',
+                    };
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => ref
+                            .read(riderProvider.notifier)
+                            .switchRiderTypeDemo(type),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF1E9E68)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF1E9E68)
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           ListTile(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
             ),
             tileColor: Colors.red.shade50,
-            leading: Icon(Icons.logout, color: Colors.red.shade600),
+            leading:
+                Icon(Icons.logout_rounded, color: Colors.red.shade600),
             title: Text(
-              "Log Out",
+              'Log Out',
               style: TextStyle(
                 color: Colors.red.shade600,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            onTap: () {
-              ref.read(authProvider.notifier).logout();
-            },
+            onTap: () => ref.read(authProvider.notifier).logout(),
           ),
+          const SizedBox(height: 16),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsTile(IconData icon, String title, String subtitle) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: const Color(0xFF1E9E68), size: 20),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-        onTap: () {},
       ),
     );
   }
 }
 
-// -----------------------------------------------------------------------------
-// MAP SCREEN (GREEN + WHITE THEME)
-// -----------------------------------------------------------------------------
-class TripMapScreen extends StatelessWidget {
-  final PrescriptionOrder task;
+class _ProfileTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? valueColor;
 
-  const TripMapScreen({super.key, required this.task});
+  const _ProfileTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
 
   @override
   Widget build(BuildContext context) {
-    bool isGoingToPharmacy = task.status == OrderStatus.driverAssigned;
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
         children: [
-          // Simulated Light Map background
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.5,
-              child: Image.network(
-                "https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=3000&auto=format&fit=crop",
-                fit: BoxFit.cover,
-                color: Colors.white, // Bleach it out slightly
-                colorBlendMode: BlendMode.screen,
-              ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5EE),
+              borderRadius: BorderRadius.circular(8),
             ),
+            child: Icon(icon, color: const Color(0xFF1E9E68), size: 18),
           ),
-
-          // Route Polyline CustomPainter
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(painter: MockRoutePainter()),
-            ),
-          ),
-
-          SafeArea(
+          const SizedBox(width: 14),
+          Expanded(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Clean White Search / Top Bar
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.black87,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 16),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(30),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            isGoingToPharmacy
-                                ? "Navigating to Pharmacy..."
-                                : "Navigating to Patient...",
-                            style: TextStyle(
-                              color: const Color(0xFF1E9E68),
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          CupertinoIcons.map_fill,
-                          color: Colors.black87,
-                          size: 20,
-                        ),
-                      ),
-                    ],
-                  ),
+                Text(
+                  label,
+                  style: TextStyle(
+                      color: Colors.grey.shade500, fontSize: 11),
                 ),
-
-                // Bottom Tracking Card (White Theme)
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(30),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Pull handle indicator
-                      Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundColor: const Color(0xFF1E9E68),
-                            child: Icon(
-                              isGoingToPharmacy ? Icons.store : Icons.person,
-                              color: const Color(0xFF1E9E68),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isGoingToPharmacy
-                                      ? (task.assignedPharmacyName ??
-                                            "Pharmacy")
-                                      : task.patientName,
-                                  style: const TextStyle(
-                                    color: Colors.black87,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  isGoingToPharmacy
-                                      ? "Order #${task.id}"
-                                      : "${task.deliveryFee.toInt()} RWF (Cash collection)",
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E9E68),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              CupertinoIcons.phone_fill,
-                              color: const Color(0xFF1E9E68),
-                              size: 22,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      const Divider(height: 1),
-                      const SizedBox(height: 16),
-
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            color: Colors.grey.shade400,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Destination",
-                                  style: TextStyle(
-                                    color: Colors.grey.shade500,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  isGoingToPharmacy
-                                      ? "Pharmacy Location"
-                                      : task.patientLocationName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                "Est. time",
-                                style: TextStyle(
-                                  color: Colors.grey.shade500,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                "12 mins",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E9E68),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: 0,
-                          ),
-                          onPressed: () {
-                            if (isGoingToPharmacy) {
-                              PharmacistService().updateDriverOrderStatus(
-                                task,
-                                OrderStatus.outForDelivery,
-                              );
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    "Picked up order! Proceeding to patient.",
-                                  ),
-                                ),
-                              );
-                            } else {
-                              PharmacistService().updateDriverOrderStatus(
-                                task,
-                                OrderStatus.delivered,
-                              );
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    "Delivery Successful! Great job.",
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                          child: Text(
-                            isGoingToPharmacy
-                                ? "Confirm Pickup"
-                                : "Complete Delivery",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: valueColor ?? Colors.black87,
                   ),
                 ),
               ],
@@ -1545,60 +2460,41 @@ class TripMapScreen extends StatelessWidget {
   }
 }
 
-// Draw a route line (Green variant)
-class MockRoutePainter extends CustomPainter {
+class _ActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF1E9E68)
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    path.moveTo(size.width * 0.3, size.height * 0.6);
-    path.lineTo(size.width * 0.6, size.height * 0.45);
-    path.lineTo(size.width * 0.55, size.height * 0.35);
-    path.lineTo(size.width * 0.8, size.height * 0.2);
-
-    // Setup shadow for the path
-    canvas.drawShadow(path, const Color(0xFF1E9E68), 4.0, false);
-
-    // Draw the green path
-    canvas.drawPath(path, paint);
-
-    // Draw origin dot (Driver)
-    final originPaint = Paint()..color = Colors.black87;
-    canvas.drawCircle(
-      Offset(size.width * 0.3, size.height * 0.6),
-      8,
-      originPaint,
-    );
-
-    final innerOrigin = Paint()..color = Colors.white;
-    canvas.drawCircle(
-      Offset(size.width * 0.3, size.height * 0.6),
-      4,
-      innerOrigin,
-    );
-
-    // Draw destination dot (Pharmacy / House)
-    final destPaint = Paint()..color = const Color(0xFF1E9E68);
-    canvas.drawCircle(
-      Offset(size.width * 0.8, size.height * 0.2),
-      10,
-      destPaint,
-    );
-
-    final innerDest = Paint()..color = Colors.white;
-    canvas.drawCircle(
-      Offset(size.width * 0.8, size.height * 0.2),
-      4,
-      innerDest,
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8F5EE),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: const Color(0xFF1E9E68), size: 18),
+        ),
+        title: Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: onTap,
+      ),
     );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

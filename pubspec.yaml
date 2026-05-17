@@ -56,6 +56,7 @@ dependencies:
   flutter_riverpod: ^2.6.1           # State management
   riverpod_annotation: ^2.3.5        # Riverpod code-gen annotations
   go_router: ^14.6.1                 # Named routing + deep links
+  mobile_scanner: ^6.0.0             # QR / barcode scanning for rider delivery confirmation
 
   # ── NEW: Supabase (Storage for prescriptions) ───────────────
   supabase_flutter: ^2.8.1
