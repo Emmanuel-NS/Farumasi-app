@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── FARUMASI brand palette ─── primary #1E9E68 */
+  --color-farumasi-50:  #edfdf6;
+  --color-farumasi-100: #d4f7e9;
+  --color-farumasi-200: #acefd4;
+  --color-farumasi-300: #70e2b5;
+  --color-farumasi-400: #3cce95;
+  --color-farumasi-500: #20b278;
+  --color-farumasi-600: #1e9e68;
+  --color-farumasi-700: #167b51;
+  --color-farumasi-800: #135f40;
+  --color-farumasi-900: #104d34;
+  --color-farumasi-950: #062c1e;
+
+  /* ── Clinical severity palette ── */
+  --color-clinical-critical: #dc2626;
+  --color-clinical-warning:  #d97706;
+  --color-clinical-caution:  #ca8a04;
+  --color-clinical-safe:     #16a34a;
+  --color-clinical-info:     #0284c7;
+  --color-clinical-neutral:  #64748b;
+
+  /* ── Sidebar design tokens (farumasi-600 bg) ── */
+  --color-sidebar:              #1e9e68;
+  --color-sidebar-hover:        #179e68;
+  --color-sidebar-active:       rgba(255,255,255,0.20);
+  --color-sidebar-border:       rgba(255,255,255,0.10);
+  --color-sidebar-text:         rgba(255,255,255,0.70);
+  --color-sidebar-text-active:  #ffffff;
+  --color-sidebar-text-hover:   #ffffff;
+
+  /* ── Surface tokens ── */
+  --color-surface:        #f8fafc;
+  --color-surface-muted:  #f1f5f9;
+  --color-surface-card:   #ffffff;
+
+  /* ── Typography ── */
+  --font-sans: var(--font-inter);
+
+  /* ── Radius ── */
+  --radius: 0.5rem;
+}
+
+/* ── Scrollbar hide utility ── */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* ── Fade-in animation ── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.25s ease-out;
+}
+
+body {
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: var(--font-sans, "Inter", sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; }
+
