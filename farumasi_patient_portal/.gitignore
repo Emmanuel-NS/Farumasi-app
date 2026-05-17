@@ -38,10 +38,3 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-tsc_output.txt
-next-env.d.ts
-tsc_output.txt
-
-# AI agent instruction files (dev tooling, not part of the app)
-AGENTS.md
-CLAUDE.md

@@ -66,6 +66,11 @@ out_agent.txt
 temp_modal.txt
 temp_pharmacies.txt
 
+# ─── TypeScript compiler output text files ────────────────────────────────────
+tsc_errors.txt
+tsc_out.txt
+tsc_pharmacist.txt
+
 # ─── OS artefacts ─────────────────────────────────────────────────────────────
 Thumbs.db
 Desktop.ini
