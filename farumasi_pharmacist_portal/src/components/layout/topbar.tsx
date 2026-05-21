@@ -151,7 +151,3 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
     </header>
   );
 }
-
-    </header>
-  );
-}

@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   title: "FARUMASI — Patient Portal",
   description: "Your trusted pharmacy and healthcare coordination platform",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

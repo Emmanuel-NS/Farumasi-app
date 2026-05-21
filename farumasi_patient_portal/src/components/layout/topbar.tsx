@@ -3,16 +3,17 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { mockUser, mockNotifications } from "@/data/mock";
 import { getInitials } from "@/lib/utils";
 import { useSearchStore } from "@/store/search-store";
 import { useCartStore } from "@/store/cart-store";
+import { useAuthStore } from "@/store/auth-store";
 import { useTranslation } from "@/lib/translations";
 import {
   Menu, Bell, ShoppingCart, HelpCircle,
-  Search, LogOut, User, Settings, X,
+  Search, LogOut, LogIn, User, Settings, X,
 } from "lucide-react";
 
 const notifCategoryColor: Record<string, string> = {
@@ -35,12 +36,21 @@ interface TopbarProps {
 
 export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpClick, activePanel }: TopbarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { query, setQuery, clear } = useSearchStore();
   const cartItemCount = Object.values(useCartStore((s) => s.items)).reduce((acc, e) => acc + e.qty, 0);
   const [showProfile, setShowProfile] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const unread = mockNotifications.filter((n) => !n.isRead).length;
   const t = useTranslation();
+  const isGuest = useAuthStore((s) => s.isGuest);
+  const logout = useAuthStore((s) => s.logout);
+
+  const handleLogout = () => {
+    setShowProfile(false);
+    logout();
+    router.push("/store");
+  };
 
   const routeLabels: Record<string, string> = {
     store:         t.nav_store,
@@ -178,45 +188,56 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
 
         {/* Profile */}
         <div ref={profileRef} className="relative ml-2">
-          <button
-            onClick={() => setShowProfile(!showProfile)}
-            className="w-9 h-9 rounded-full bg-[#2B7C5E] border-2 border-white/40 flex items-center justify-center hover:bg-[#1e6b50] transition-colors"
-          >
-            <span className="text-sm font-bold text-[#EFFFB5]">{getInitials(mockUser.name)}</span>
-          </button>
-          {showProfile && (
-            <div className="absolute right-0 top-11 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-fade-in">
-              <div className="px-4 py-2 border-b border-slate-100">
-                <p className="text-sm font-semibold text-slate-900">{mockUser.name}</p>
-                <p className="text-xs text-slate-500">{mockUser.email}</p>
-              </div>
-              <Link
-                href="/profile"
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                onClick={() => setShowProfile(false)}
+          {isGuest ? (
+            <Link
+              href="/auth/login"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors"
+            >
+              <LogIn className="w-4 h-4 text-white" />
+              <span className="text-sm font-semibold text-white hidden sm:inline">Sign In</span>
+            </Link>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowProfile(!showProfile)}
+                className="w-9 h-9 rounded-full bg-[#2B7C5E] border-2 border-white/40 flex items-center justify-center hover:bg-[#1e6b50] transition-colors"
               >
-                <User className="w-4 h-4 text-farumasi-600" />
-                My Profile
-              </Link>
-              <Link
-                href="/settings"
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                onClick={() => setShowProfile(false)}
-              >
-                <Settings className="w-4 h-4 text-farumasi-600" />
-                Settings
-              </Link>
-              <div className="border-t border-slate-100 mt-1 pt-1">
-                <Link
-                  href="/auth/login"
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                  onClick={() => setShowProfile(false)}
-                >
-                  <LogOut className="w-4 h-4" />
-                  Logout
-                </Link>
-              </div>
-            </div>
+                <span className="text-sm font-bold text-[#EFFFB5]">{getInitials(mockUser.name)}</span>
+              </button>
+              {showProfile && (
+                <div className="absolute right-0 top-11 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-fade-in">
+                  <div className="px-4 py-2 border-b border-slate-100">
+                    <p className="text-sm font-semibold text-slate-900">{mockUser.name}</p>
+                    <p className="text-xs text-slate-500">{mockUser.email}</p>
+                  </div>
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    onClick={() => setShowProfile(false)}
+                  >
+                    <User className="w-4 h-4 text-farumasi-600" />
+                    My Profile
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    onClick={() => setShowProfile(false)}
+                  >
+                    <Settings className="w-4 h-4 text-farumasi-600" />
+                    Settings
+                  </Link>
+                  <div className="border-t border-slate-100 mt-1 pt-1">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

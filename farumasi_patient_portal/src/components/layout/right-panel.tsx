@@ -10,6 +10,7 @@ import { mockNotifications } from "@/data/mock";
 import { localizeNotification } from "@/data/mock-i18n";
 import { useLanguageStore } from "@/store/language-store";
 import { useCartStore } from "@/store/cart-store";
+import { useAuthStore } from "@/store/auth-store";
 
 interface RightPanelProps {
   activePanel: string;
@@ -142,12 +143,17 @@ function CartPanel({ onClose }: { onClose: () => void }) {
   const t = useTranslation();
   const router = useRouter();
   const { items: cartItems, setQty, remove } = useCartStore();
+  const isGuest = useAuthStore((s) => s.isGuest);
   const enriched = Object.values(cartItems);
   const total = enriched.reduce((s, e) => s + e.medicine.price * e.qty, 0);
 
   const goToCheckout = () => {
     onClose();
-    router.push("/cart");
+    if (isGuest) {
+      router.push("/auth/login");
+    } else {
+      router.push("/cart");
+    }
   };
 
   if (enriched.length === 0) {
@@ -211,7 +217,7 @@ function CartPanel({ onClose }: { onClose: () => void }) {
           className="flex items-center justify-center gap-2 w-full h-11 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors"
         >
           <ShoppingCart className="w-4 h-4" />
-          {t.panel_checkout}
+          {isGuest ? "Sign In to Checkout" : t.panel_checkout}
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
         </button>
       </div>

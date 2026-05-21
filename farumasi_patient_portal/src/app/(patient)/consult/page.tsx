@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { mockPharmacists, mockUser } from "@/data/mock";
 import { cn, getInitials } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
+import { GuestGate } from "@/components/shared/guest-gate";
 import type { Pharmacist, ChatMessage } from "@/types";
 import {
   Send, Paperclip, ChevronLeft, Star, Building2,
@@ -354,6 +355,7 @@ export default function ConsultPage() {
   const availableCount = mockPharmacists.filter((p) => p.status === "available").length;
 
   return (
+    <GuestGate feature="Consult">
     <div className="p-4 md:p-6 max-w-[1100px] mx-auto">
       {/* Header */}
       <div className="mb-6">
@@ -414,5 +416,6 @@ export default function ConsultPage() {
         </div>
       )}
     </div>
+    </GuestGate>
   );
 }

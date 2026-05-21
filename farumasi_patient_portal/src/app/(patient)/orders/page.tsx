@@ -5,6 +5,7 @@ import Link from "next/link";
 import { mockActiveOrders, mockPastOrders } from "@/data/mock";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { GuestGate } from "@/components/shared/guest-gate";
 import { useTranslation } from "@/lib/translations";
 import { Package, ChevronRight, Clock, Store } from "lucide-react";
 import type { Order } from "@/types";
@@ -14,6 +15,7 @@ export default function OrdersPage() {
   const t = useTranslation();
 
   return (
+    <GuestGate feature="your orders">
     /* Flutter: white Scaffold, AppBar "My Orders" centered, TabBar with green indicator */
     <div className="flex flex-col h-full bg-white">
 
@@ -63,6 +65,7 @@ export default function OrdersPage() {
         )}
       </div>
     </div>
+    </GuestGate>
   );
 }
 

@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { Upload, Camera, FileText, Image, CheckCircle, X, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
+import { GuestGate } from "@/components/shared/guest-gate";
 
 type UploadState = "idle" | "preview" | "success";
 
@@ -56,6 +57,7 @@ export default function PrescriptionsPage() {
   };
 
   return (
+    <GuestGate feature="prescriptions">
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">{t.rx_title}</h1>
@@ -97,6 +99,7 @@ export default function PrescriptionsPage() {
         </ul>
       </div>
     </div>
+    </GuestGate>
   );
 }
 

@@ -9,15 +9,20 @@ import { Topbar } from "@/components/layout/topbar";
 import { RightPanel } from "@/components/layout/right-panel";
 import { Store, HeartPulse, MessageCircle, ShoppingBag, FileText } from "lucide-react";
 import { hydrateLanguage } from "@/store/language-store";
+import { useAuthStore } from "@/store/auth-store";
 import { useTranslation } from "@/lib/translations";
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [activePanel, setActivePanel] = useState<string | null>(null);
   const t = useTranslation();
+  const hydrateAuth = useAuthStore((s) => s.hydrateAuth);
 
-  // Hydrate language preference from localStorage once on client mount
-  useEffect(() => { hydrateLanguage(); }, []);
+  // Hydrate language + auth preference from localStorage once on client mount
+  useEffect(() => {
+    hydrateLanguage();
+    hydrateAuth();
+  }, [hydrateAuth]);
 
   const togglePanel = (panel: string) => {
     setActivePanel((prev) => (prev === panel ? null : panel));

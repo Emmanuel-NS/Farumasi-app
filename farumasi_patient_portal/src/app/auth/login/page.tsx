@@ -5,16 +5,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 import { Eye, EyeOff, User, Briefcase } from "lucide-react";
+import { useAuthStore } from "@/store/auth-store";
 
 type Tab = "login" | "register";
 type Role = "patient" | "pharmacist";
 
 export default function LoginPage() {
   const router = useRouter();
+  const login = useAuthStore((s) => s.login);
   const [tab, setTab] = useState<Tab>("login");
   const [role, setRole] = useState<Role>("patient");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("amina.uwase@email.rw");
+  const [password, setPassword] = useState("password123");
   const [name, setName] = useState("");
   const [showPass, setShowPass] = useState(false);
 
@@ -23,6 +25,7 @@ export default function LoginPage() {
     if (role === "pharmacist") {
       router.push("http://localhost:3003");
     } else {
+      login();
       router.push("/store");
     }
   };
@@ -103,6 +106,9 @@ export default function LoginPage() {
                 placeholder="you@example.com"
                 className="w-full h-11 rounded-xl border border-slate-200 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/40 focus:border-farumasi-500 transition-all"
               />
+              {tab === "login" && (
+                <p className="text-[11px] text-slate-400 mt-1">Demo: amina.uwase@email.rw / password123</p>
+              )}
             </div>
 
             <div>
