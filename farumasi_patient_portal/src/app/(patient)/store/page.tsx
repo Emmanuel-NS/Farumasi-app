@@ -3,8 +3,14 @@
 import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { mockMedicines, mockPharmacies } from "@/data/mock";
+import { localizeMedicine } from "@/data/mock-i18n";
+import { useLanguageStore } from "@/store/language-store";
 import { cn, formatPrice } from "@/lib/utils";
 import { useSearchStore } from "@/store/search-store";
+import { useCartStore } from "@/store/cart-store";
+import type { Medicine } from "@/types";
+import { toast } from "sonner";
+import { useTranslation, tf } from "@/lib/translations";
 import {
   SlidersHorizontal,
   ShoppingCart,
@@ -15,6 +21,11 @@ import {
   ChevronUp,
   ChevronDown,
   MapPin,
+  Sunrise,
+  Moon,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
   // Category icons — mirrors Flutter _getCategoryIcon
   Stethoscope,     // Pain Relief   (Icons.healing)
   FlaskConical,    // Antibiotics   (Icons.science)
@@ -77,11 +88,28 @@ const CATEGORIES: string[] = [
 export default function StorePage() {
   // ── Search from topbar via Zustand — mirrors Flutter StateService searchQuery ──
   const { query } = useSearchStore();
+  const t = useTranslation();
+  const lang = useLanguageStore((s) => s.lang);
+
+  // Category label lookup using current language
+  const getCatLabel = (cat: string): string => {
+    const map: Record<string, string> = {
+      "All": t.cat_all, "Pain Relief": t.cat_pain_relief, "Antibiotics": t.cat_antibiotics,
+      "Vitamins": t.cat_vitamins, "Cold & Flu": t.cat_cold_flu, "Skincare": t.cat_skincare,
+      "Hygiene": t.cat_hygiene, "Nutrition": t.cat_nutrition, "Sexual Health": t.cat_sexual_health,
+      "Mobility Aids": t.cat_mobility_aids, "Mother & Baby": t.cat_mother_baby,
+      "Devices": t.cat_devices, "First Aid": t.cat_first_aid, "Chronic Care": t.cat_chronic_care,
+      "Diabetes": t.cat_diabetes, "Allergy": t.cat_allergy, "Malaria": t.cat_malaria,
+      "Digestive Health": t.cat_digestive, "Others": t.cat_others,
+    };
+    return map[cat] ?? cat;
+  };
 
   // ── Multi-select categories — mirrors Flutter Set<String> _selectedCategories ──
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [sort, setSort]       = useState<"default" | "price_asc" | "price_desc" | "rating">("default");
-  const [cart, setCart]       = useState<Record<string, number>>({});
+  const { items: cartItems, add: cartAdd, remove: cartRemove } = useCartStore();
+  const [quickView, setQuickView] = useState<Medicine | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [hideCategories, setHideCategories] = useState(false);
   const [canScrollLeft, setCanScrollLeft]   = useState(false);
@@ -139,51 +167,36 @@ export default function StorePage() {
     if (sort === "price_asc")  list.sort((a, b) => a.price - b.price);
     if (sort === "price_desc") list.sort((a, b) => b.price - a.price);
     if (sort === "rating")     list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    return list;
-  }, [query, selectedCategories, selectedPharmacy, sort]);
+    return list.map((m) => localizeMedicine(m, lang));
+  }, [query, selectedCategories, selectedPharmacy, sort, lang]);
 
   // Dynamic heading — mirrors Flutter's conditional title
   const sectionTitle = selectedPharmacy
-    ? `Medicines at ${selectedPharmacy}`
+    ? `${t.store_at} ${selectedPharmacy}`
     : query.trim()
-    ? "Search Results"
+    ? t.store_results
     : selectedCategories.size > 0
-    ? "Filtered Results"
-    : "Explore Medicines";
+    ? t.store_filtered
+    : t.store_explore;
 
   // Pharmacies shown when no search and no category filter active (or pharmacy selected)
   const showPharmacies = query.trim() === "" && selectedCategories.size === 0;
 
-  const addToCart = (id: string) => setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
-  const removeFromCart = (id: string) =>
-    setCart((c) => {
-      const qty = (c[id] ?? 0) - 1;
-      if (qty <= 0) { const n = { ...c }; delete n[id]; return n; }
-      return { ...c, [id]: qty };
-    });
-  const totalCartItems = Object.values(cart).reduce((a, b) => a + b, 0);
+  // Cart count drives topbar badge (via useCartStore in topbar)
 
   return (
     <div className="p-4 md:p-6 max-w-[1280px] mx-auto">
       {/* ── Page header ──────────────────────────────────── */}
       <div className="flex items-start justify-between mb-5 gap-4">
+        {/* page header only — no cart button; use topbar cart icon */}
         <div>
           <h1 className="text-[26px] font-extrabold text-[#0F172A] tracking-tight leading-tight">
             FARUMASI Store
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            Your trusted digital pharmacy partner in Rwanda
+            {t.store_subtitle}
           </p>
         </div>
-        {totalCartItems > 0 && (
-          <Link
-            href="/cart"
-            className="flex items-center gap-2 bg-farumasi-600 text-white px-4 py-2.5 rounded-2xl text-sm font-semibold hover:bg-farumasi-700 transition-colors shrink-0 shadow-sm"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            Cart ({totalCartItems})
-          </Link>
-        )}
       </div>
 
       {/* ── Filter bar (no inline search — topbar handles search) ── */}
@@ -191,12 +204,12 @@ export default function StorePage() {
         <div className="flex-1 flex items-center gap-2 min-w-0">
           {selectedCategories.size > 0 ? (
             <span className="text-sm text-slate-600">
-              <span className="font-semibold text-farumasi-700">{selectedCategories.size}</span> categor{selectedCategories.size > 1 ? "ies" : "y"} selected
+              {tf(t.store_cats_selected, { n: selectedCategories.size })}
             </span>
           ) : query.trim() ? (
-            <span className="text-sm text-slate-500">Showing results for <span className="font-semibold text-slate-700">&quot;{query}&quot;</span></span>
+            <span className="text-sm text-slate-500">{t.store_showing_for} <span className="font-semibold text-slate-700">&quot;{query}&quot;</span></span>
           ) : (
-            <span className="text-sm text-slate-400">Select a category or search above</span>
+            <span className="text-sm text-slate-400">{t.store_select_cat}</span>
           )}
         </div>
         {(selectedCategories.size > 0 || query.trim()) && (
@@ -204,7 +217,7 @@ export default function StorePage() {
             onClick={() => { setSelectedCategories(new Set()); useSearchStore.getState().clear(); }}
             className="flex items-center gap-1 text-xs text-slate-500 hover:text-red-500 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 shrink-0"
           >
-            <X className="w-3.5 h-3.5" /> Clear all
+            <X className="w-3.5 h-3.5" /> {t.store_clear_all}
           </button>
         )}
         <button
@@ -224,13 +237,13 @@ export default function StorePage() {
       {/* ── Sort options (when filters open) ─────────────── */}
       {showFilters && (
         <div className="flex items-center gap-3 mb-5 flex-wrap bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <span className="text-sm font-medium text-slate-600 shrink-0">Sort by:</span>
+          <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_sort_by}</span>
           {(
             [
-              { val: "default",    label: "Default" },
-              { val: "price_asc",  label: "Price: Low → High" },
-              { val: "price_desc", label: "Price: High → Low" },
-              { val: "rating",     label: "Top Rated" },
+              { val: "default",    label: t.store_sort_default },
+              { val: "price_asc",  label: t.store_sort_price_asc },
+              { val: "price_desc", label: t.store_sort_price_desc },
+              { val: "rating",     label: t.store_sort_rating },
             ] as { val: typeof sort; label: string }[]
           ).map(({ val, label }) => (
             <button
@@ -260,7 +273,7 @@ export default function StorePage() {
         {/* Header row */}
         <div className={cn("flex items-center mb-2", hideCategories ? "justify-end" : "justify-between")}>
           {!hideCategories && (
-            <h2 className="text-[19px] font-bold text-[#0F172A]">Browse Categories</h2>
+            <h2 className="text-[19px] font-bold text-[#0F172A]">{t.store_categories}</h2>
           )}
           <button
             onClick={() => setHideCategories((h) => !h)}
@@ -271,7 +284,7 @@ export default function StorePage() {
                 : "p-1.5 hover:bg-slate-100"
             )}
           >
-            {hideCategories && <span className="text-[13px] font-semibold">Categories</span>}
+            {hideCategories && <span className="text-[13px] font-semibold">{t.store_cats_toggle}</span>}
             {hideCategories ? (
               <ChevronDown className="w-5 h-5" />
             ) : (
@@ -336,7 +349,7 @@ export default function StorePage() {
                           : "font-medium text-[#334155]"
                       )}
                     >
-                      {cat}
+                      {getCatLabel(cat)}
                     </span>
                   </button>
                 );
@@ -362,7 +375,7 @@ export default function StorePage() {
       {showPharmacies && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[19px] font-bold text-[#0F172A]">Pharmacies we work with</h2>
+            <h2 className="text-[19px] font-bold text-[#0F172A]">{t.store_pharmacies}</h2>
             {selectedPharmacy && (
               <button
                 onClick={() => setSelectedPharmacy(null)}
@@ -424,7 +437,7 @@ export default function StorePage() {
                     </p>
                     {isSelected && (
                       <span className="inline-block mt-1 text-[10px] font-bold text-farumasi-700 bg-farumasi-50 px-2 py-0.5 rounded-full w-fit">
-                        Viewing products
+                        {t.store_viewing}
                       </span>
                     )}
                   </div>
@@ -447,8 +460,8 @@ export default function StorePage() {
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24">
           <LayoutGrid className="w-14 h-14 text-slate-200 mb-3" />
-          <p className="text-slate-600 font-semibold">No medicines found</p>
-          <p className="text-slate-400 text-sm mt-1">Try a different search or category</p>
+          <p className="text-slate-600 font-semibold">{t.store_no_medicines}</p>
+          <p className="text-slate-400 text-sm mt-1">{t.store_try_search}</p>
         </div>
       ) : (
         /* Flutter: SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent:~220, mainAxisExtent:~300, crossAxisSpacing:14, mainAxisSpacing:14) */
@@ -457,18 +470,28 @@ export default function StorePage() {
           style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}
         >
           {filtered.map((med) => {
-            const isInCart = (cart[med.id] ?? 0) > 0;
+            const isInCart = (cartItems[med.id]?.qty ?? 0) > 0;
             // Pharmacy-specific price — mirrors Flutter PharmacyDetailScreen showing per-pharmacy pricing
             const pharmacyEntry = selectedPharmacy
               ? med.marketingPharmacies.find((p) => p.pharmacyName === selectedPharmacy)
               : null;
             const displayPrice = pharmacyEntry?.price ?? med.price;
-            const toggleCart = () => {
-              if (med.requiresPrescription) return;
+
+            // Image click: add to cart immediately, or show Rx denial
+            const handleImageClick = () => {
+              if (med.requiresPrescription) {
+                toast.error(
+                  tf(t.toast_rx_toast, { name: med.name }),
+                  { duration: 4000 }
+                );
+                return;
+              }
               if (isInCart) {
-                setCart((c) => { const n = { ...c }; delete n[med.id]; return n; });
+                cartRemove(med.id);
+                toast(tf(t.toast_removed, { name: med.name }), { icon: undefined });
               } else {
-                addToCart(med.id);
+                cartAdd(med);
+                toast.success(tf(t.toast_added, { name: med.name }));
               }
             };
             return (
@@ -478,10 +501,11 @@ export default function StorePage() {
                 className="bg-white rounded-[12px] shadow-md overflow-hidden flex flex-col m-2"
                 style={{ height: 310 }}
               >
-                {/* Image area — Flutter Expanded: tap to toggle cart, overlay when in cart */}
+                {/* Image area — click to add/remove from cart instantly */}
                 <div
-                  className="relative flex-1 bg-slate-100 overflow-hidden cursor-pointer"
-                  onClick={toggleCart}
+                  className="relative flex-1 bg-slate-100 overflow-hidden cursor-pointer select-none"
+                  onClick={handleImageClick}
+                  title={med.requiresPrescription ? "Prescription required" : isInCart ? "Click to remove from cart" : "Click to add to cart"}
                 >
                   {med.imageUrl ? (
                     <img
@@ -494,8 +518,17 @@ export default function StorePage() {
                       <Pill className="w-14 h-14 text-slate-200" />
                     </div>
                   )}
+                  {/* Rx lock overlay */}
+                  {med.requiresPrescription && (
+                    <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center rounded-t-[12px] gap-1">
+                      <div className="w-10 h-10 rounded-full bg-amber-500/90 border-2 border-white flex items-center justify-center">
+                        <AlertCircle className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-white text-[9px] font-bold bg-black/40 px-2 py-0.5 rounded-full">{t.store_rx_badge}</span>
+                    </div>
+                  )}
                   {/* In-cart overlay — green checkmark circle */}
-                  {isInCart && (
+                  {!med.requiresPrescription && isInCart && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-t-[12px]">
                       <div className="w-12 h-12 rounded-full bg-farumasi-600 border-2 border-white flex items-center justify-center">
                         <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -510,8 +543,8 @@ export default function StorePage() {
                 <div className="p-[10px] flex flex-col">
                   {/* Name — 13px bold, 1-line ellipsis */}
                   <p
-                    className="text-[13px] font-bold text-[#0F172A] truncate cursor-pointer"
-                    onClick={toggleCart}
+                    className="text-[13px] font-bold text-[#0F172A] truncate cursor-pointer hover:text-farumasi-700"
+                    onClick={() => setQuickView(med)}
                   >
                     {med.name}
                   </p>
@@ -529,14 +562,19 @@ export default function StorePage() {
                   {med.requiresPrescription && (
                     <p className="text-[10px] text-amber-500 font-bold flex items-center gap-1 mt-1">
                       <AlertCircle className="w-2.5 h-2.5" />
-                      Rx Required
+                      {t.store_rx_badge}
                     </p>
                   )}
                   {/* Description peek + Read more */}
                   <p className="text-[11px] text-slate-500 line-clamp-2 leading-[1.2] mt-1">
                     {med.description}
                   </p>
-                  <p className="text-[10px] text-blue-500 font-bold mt-0.5">Read more...</p>
+                  <button
+                    onClick={() => setQuickView(med)}
+                    className="text-[10px] text-farumasi-600 font-bold mt-0.5 hover:underline text-left"
+                  >
+                    {t.store_read_more}
+                  </button>
 
                   {/* Bottom row: About > link + cart icon button */}
                   <div className="flex items-center justify-between mt-2">
@@ -544,17 +582,30 @@ export default function StorePage() {
                       href={`/store/${med.id}`}
                       className="text-[15px] font-bold text-farumasi-600 underline underline-offset-2 hover:text-farumasi-700"
                     >
-                      About &gt;
+                      {t.store_about}
                     </Link>
                     <button
-                      onClick={(e) => { e.stopPropagation(); if (!med.requiresPrescription) addToCart(med.id); }}
-                      disabled={med.requiresPrescription}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (med.requiresPrescription) {
+                          toast.error(
+                            tf(t.toast_rx_toast, { name: med.name }),
+                            { duration: 4000 }
+                          );
+                          return;
+                        }
+                        cartAdd(med);
+                        toast.success(tf(t.toast_added, { name: med.name }));
+                      }}
                       className={cn(
                         "rounded-[4px] p-[6px] transition-colors",
                         med.requiresPrescription
-                          ? "bg-slate-300 cursor-not-allowed"
+                          ? "bg-amber-400 hover:bg-amber-500"
+                          : isInCart
+                          ? "bg-farumasi-700"
                           : "bg-farumasi-600 hover:bg-farumasi-700"
                       )}
+                      title={med.requiresPrescription ? "Prescription required" : "Add to cart"}
                     >
                       <ShoppingCart className="w-4 h-4 text-white" />
                     </button>
@@ -563,6 +614,143 @@ export default function StorePage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Quick View Modal ─────────────────────────────── */}
+      {quickView && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6"
+          onClick={() => setQuickView(null)}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
+            className="relative w-full sm:max-w-md bg-white rounded-t-[32px] sm:rounded-[28px] overflow-hidden shadow-2xl z-10 max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header image */}
+            <div className="relative h-48 bg-slate-100 shrink-0">
+              {quickView.imageUrl ? (
+                <img src={quickView.imageUrl} alt={quickView.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Pill className="w-16 h-16 text-slate-200" />
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+              <button
+                onClick={() => setQuickView(null)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="absolute bottom-3 left-4 right-12">
+                <span className="text-xs font-semibold text-white/70 bg-white/15 px-2 py-0.5 rounded-full">{quickView.category}</span>
+                <h2 className="text-white font-extrabold text-lg leading-snug mt-1">{quickView.name}</h2>
+                {quickView.manufacturer && (
+                  <p className="text-xs text-white/70 mt-0.5">by {quickView.manufacturer}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="overflow-y-auto flex-1 p-5 space-y-4">
+              <p className="text-sm text-slate-600 leading-relaxed">{quickView.description}</p>
+
+              {(quickView.doseMorning || quickView.doseAfternoon || quickView.doseEvening) && (
+                <div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t.store_dosing}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {quickView.doseMorning && quickView.doseMorning !== "None" && (
+                      <span className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold px-3 py-1.5 rounded-full">
+                        <Sunrise className="w-3 h-3" /> {t.store_morning} &middot; {quickView.doseMorning}
+                      </span>
+                    )}
+                    {quickView.doseAfternoon && quickView.doseAfternoon !== "None" && (
+                      <span className="flex items-center gap-1.5 bg-sky-50 border border-sky-200 text-sky-800 text-xs font-semibold px-3 py-1.5 rounded-full">
+                        <Sun className="w-3 h-3" /> {t.store_afternoon} &middot; {quickView.doseAfternoon}
+                      </span>
+                    )}
+                    {quickView.doseEvening && quickView.doseEvening !== "None" && (
+                      <span className="flex items-center gap-1.5 bg-violet-50 border border-violet-200 text-violet-800 text-xs font-semibold px-3 py-1.5 rounded-full">
+                        <Moon className="w-3 h-3" /> {t.store_evening} &middot; {quickView.doseEvening}
+                      </span>
+                    )}
+                    {quickView.doseTimeInterval && (
+                      <span className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold px-3 py-1.5 rounded-full">
+                        <Clock className="w-3 h-3" /> {quickView.doseTimeInterval}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {quickView.sideEffects && (
+                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3.5">
+                  <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3 h-3" /> {t.store_side_effects}
+                  </p>
+                  <p className="text-sm text-amber-800 leading-relaxed">{quickView.sideEffects}</p>
+                </div>
+              )}
+
+              {quickView.marketingPharmacies.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t.store_available_at}</p>
+                  <div className="space-y-1.5">
+                    {quickView.marketingPharmacies.slice(0, 3).map((p, i) => (
+                      <div key={i} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                        <span className="text-sm text-slate-700 font-medium">{p.pharmacyName}</span>
+                        <span className={cn(
+                          "text-xs font-bold",
+                          p.stockStatus === "available" ? "text-farumasi-600" :
+                          p.stockStatus === "low_stock"  ? "text-amber-600" : "text-red-500"
+                        )}>
+                          {p.stockStatus === "available" ? t.store_in_stock : p.stockStatus === "low_stock" ? t.store_low_stock : t.store_out_of_stock}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 flex gap-3 shrink-0">
+              <Link
+                href={`/store/${quickView.id}`}
+                onClick={() => setQuickView(null)}
+                className="flex-1 h-11 rounded-2xl border-2 border-farumasi-600 text-farumasi-700 font-bold text-sm flex items-center justify-center hover:bg-farumasi-50 transition-colors"
+              >
+                {t.store_full_details}
+              </Link>
+              <button
+                onClick={() => {
+                  if (quickView.requiresPrescription) {
+                    toast.error(
+                      tf(t.toast_rx_modal, { name: quickView.name }),
+                      { duration: 5000 }
+                    );
+                    return;
+                  }
+                  cartAdd(quickView);
+                  toast.success(tf(t.toast_added, { name: quickView.name }));
+                  setQuickView(null);
+                }}
+                className={cn(
+                  "flex-1 h-11 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors",
+                  quickView.requiresPrescription
+                    ? "bg-amber-500 hover:bg-amber-600"
+                    : "bg-farumasi-600 hover:bg-farumasi-700"
+                )}
+              >
+                {quickView.requiresPrescription
+                  ? <><AlertCircle className="w-4 h-4" /> {t.store_rx_btn}</>
+                  : <><ShoppingCart className="w-4 h-4" /> {t.store_add_cart}</>
+                }
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

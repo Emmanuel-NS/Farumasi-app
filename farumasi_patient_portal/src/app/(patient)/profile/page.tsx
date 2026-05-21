@@ -3,9 +3,17 @@
 import { useState } from "react";
 import { mockUser, mockBookings } from "@/data/mock";
 import { getInitials, formatDate } from "@/lib/utils";
+import { useTranslation } from "@/lib/translations";
+import type { T } from "@/lib/translations";
 import { Edit2, Save, X, Calendar, MapPin, Clock, CheckCircle } from "lucide-react";
 
+function getBookingStatusLabel(status: string, t: T): string {
+  const key = `status_${status.toLowerCase()}` as keyof T;
+  return (t[key] as string) ?? status;
+}
+
 export default function ProfilePage() {
+  const t = useTranslation();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     name: mockUser.name,
@@ -23,8 +31,8 @@ export default function ProfilePage() {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">My Profile</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Manage your personal information</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t.profile_title}</h1>
+        <p className="text-slate-500 text-sm mt-0.5">{t.profile_subtitle}</p>
       </div>
 
       {/* Avatar + name */}
@@ -35,25 +43,25 @@ export default function ProfilePage() {
           </div>
           <div>
             <h2 className="text-xl font-bold text-slate-900">{form.name}</h2>
-            <p className="text-sm text-farumasi-600 font-medium mt-0.5">Patient</p>
+            <p className="text-sm text-farumasi-600 font-medium mt-0.5">{t.profile_patient}</p>
             <div className="flex items-center gap-1.5 mt-1.5">
               <div className="w-2 h-2 rounded-full bg-farumasi-500" />
-              <span className="text-xs text-slate-500">Active</span>
+              <span className="text-xs text-slate-500">{t.profile_active}</span>
             </div>
           </div>
         </div>
 
         {/* Form */}
         <div className="space-y-4">
-          <FormField label="Full Name" value={form.name} editing={editing} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-          <FormField label="Email Address" value={form.email} editing={editing} type="email" onChange={(v) => setForm((f) => ({ ...f, email: v }))} />
-          <FormField label="Phone Number" value={form.phone} editing={editing} type="tel" onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
+          <FormField label={t.profile_full_name} value={form.name} editing={editing} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
+          <FormField label={t.profile_email} value={form.email} editing={editing} type="email" onChange={(v) => setForm((f) => ({ ...f, email: v }))} />
+          <FormField label={t.profile_phone} value={form.phone} editing={editing} type="tel" onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
         </div>
 
         {saved && (
           <div className="mt-4 flex items-center gap-2 text-farumasi-700 bg-farumasi-50 border border-farumasi-100 rounded-2xl px-4 py-2.5">
             <CheckCircle className="w-4 h-4" />
-            <span className="text-sm font-medium">Profile updated successfully</span>
+            <span className="text-sm font-medium">{t.profile_updated}</span>
           </div>
         )}
 
@@ -65,14 +73,14 @@ export default function ProfilePage() {
                 className="flex-1 h-10 rounded-2xl border-2 border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
               >
                 <X className="w-4 h-4" />
-                Cancel
+                {t.profile_cancel}
               </button>
               <button
                 onClick={handleSave}
                 className="flex-1 h-10 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
               >
                 <Save className="w-4 h-4" />
-                Save Changes
+                {t.profile_save}
               </button>
             </>
           ) : (
@@ -81,7 +89,7 @@ export default function ProfilePage() {
               className="flex items-center gap-2 h-10 px-5 rounded-2xl border-2 border-farumasi-200 text-farumasi-700 text-sm font-semibold hover:bg-farumasi-50 transition-colors"
             >
               <Edit2 className="w-4 h-4" />
-              Edit Profile
+              {t.profile_edit}
             </button>
           )}
         </div>
@@ -91,10 +99,10 @@ export default function ProfilePage() {
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 mb-5">
         <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
           <Calendar className="w-5 h-5 text-farumasi-600" />
-          Appointments
+          {t.profile_appointments}
         </h3>
         {mockBookings.length === 0 ? (
-          <p className="text-sm text-slate-500">No scheduled appointments.</p>
+          <p className="text-sm text-slate-500">{t.profile_no_appts}</p>
         ) : (
           <div className="space-y-3">
             {mockBookings.map((b) => (
@@ -109,8 +117,8 @@ export default function ProfilePage() {
                     {new Date(b.date).toLocaleDateString()} at {b.time}
                   </p>
                 </div>
-                <span className="text-xs font-bold text-farumasi-700 bg-farumasi-100 px-2 py-0.5 rounded-full capitalize shrink-0">
-                  {b.status}
+                <span className="text-xs font-bold text-farumasi-700 bg-farumasi-100 px-2 py-0.5 rounded-full shrink-0">
+                  {getBookingStatusLabel(b.status, t)}
                 </span>
               </div>
             ))}
@@ -120,12 +128,12 @@ export default function ProfilePage() {
 
       {/* Quick links */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-        <h3 className="text-base font-bold text-slate-900 mb-4">Quick Links</h3>
+        <h3 className="text-base font-bold text-slate-900 mb-4">{t.profile_quick_links}</h3>
         <div className="grid grid-cols-2 gap-3">
-          <QuickLink href="/orders" icon="📦" label="My Orders" />
-          <QuickLink href="/prescriptions" icon="📄" label="Prescriptions" />
-          <QuickLink href="/settings" icon="⚙️" label="Settings" />
-          <QuickLink href="/consult" icon="💬" label="Consult" />
+          <QuickLink href="/orders" icon="📦" label={t.profile_my_orders} />
+          <QuickLink href="/prescriptions" icon="📄" label={t.profile_prescriptions} />
+          <QuickLink href="/settings" icon="⚙️" label={t.nav_settings} />
+          <QuickLink href="/consult" icon="💬" label={t.nav_consult} />
         </div>
       </div>
     </div>

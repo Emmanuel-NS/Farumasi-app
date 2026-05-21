@@ -2,29 +2,18 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 import { mockUser, mockNotifications } from "@/data/mock";
 import { getInitials } from "@/lib/utils";
 import { useSearchStore } from "@/store/search-store";
+import { useCartStore } from "@/store/cart-store";
+import { useTranslation } from "@/lib/translations";
 import {
   Menu, Bell, ShoppingCart, HelpCircle,
   Search, LogOut, User, Settings, X,
 } from "lucide-react";
-
-const routeLabels: Record<string, string> = {
-  store: "Medicine Store",
-  health: "Health Tips",
-  consult: "Consult Pharmacist",
-  orders: "My Orders",
-  prescriptions: "Prescriptions",
-  settings: "Settings",
-  notifications: "Notifications",
-  cart: "Your Cart",
-  profile: "My Profile",
-  help: "Help & Support",
-};
 
 const notifCategoryColor: Record<string, string> = {
   order: "text-farumasi-600",
@@ -47,9 +36,24 @@ interface TopbarProps {
 export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpClick, activePanel }: TopbarProps) {
   const pathname = usePathname();
   const { query, setQuery, clear } = useSearchStore();
+  const cartItemCount = Object.values(useCartStore((s) => s.items)).reduce((acc, e) => acc + e.qty, 0);
   const [showProfile, setShowProfile] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const unread = mockNotifications.filter((n) => !n.isRead).length;
+  const t = useTranslation();
+
+  const routeLabels: Record<string, string> = {
+    store:         t.nav_store,
+    health:        t.nav_health,
+    consult:       t.nav_consult,
+    orders:        t.nav_orders,
+    prescriptions: t.nav_prescriptions,
+    settings:      t.nav_settings,
+    notifications: t.nav_notifications,
+    cart:          t.nav_cart,
+    profile:       t.nav_profile,
+    help:          t.nav_help,
+  };
 
   const segments = pathname.split("/").filter(Boolean);
   const currentLabel = segments.map((s) => routeLabels[s] ?? (s.charAt(0).toUpperCase() + s.slice(1))).join(" / ");
@@ -76,12 +80,19 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
         <Menu className="w-6 h-6" />
       </button>
 
-      {/* Logo + Brand — "Farumasi" title case matching Flutter */}
+      {/* Logo + Brand */}
       <Link href="/store" className="flex items-center gap-2.5 shrink-0">
-        <FarumasiLogo size={26} onDark />
-        <span className="text-white font-semibold text-[22px] tracking-[0.05em] hidden sm:block">
-          Farumasi
-        </span>
+        <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0">
+          <Image src="/logo.png" alt="FARUMASI" width={28} height={28} className="object-contain" />
+        </div>
+        <div className="flex flex-col leading-none">
+          <span className="text-white font-extrabold text-[16px] tracking-wide">
+            FARUMASI
+          </span>
+          <span className="text-white/60 text-[9px] font-medium tracking-[0.12em] uppercase hidden sm:block">
+            Digital Pharmacy
+          </span>
+        </div>
       </Link>
 
       {/* Spacer */}
@@ -133,12 +144,17 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
         <button
           onClick={onCartClick}
           className={cn(
-            "p-2 rounded-lg transition-colors",
+            "relative p-2 rounded-lg transition-colors",
             activePanel === "cart" ? "bg-white/20 text-white" : "text-white/80 hover:text-white hover:bg-white/10"
           )}
           title="Cart"
         >
           <ShoppingCart className="w-5 h-5" />
+          {cartItemCount > 0 && (
+            <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] bg-amber-400 text-[10px] font-extrabold text-white rounded-full flex items-center justify-center px-1 leading-none">
+              {cartItemCount > 99 ? "99+" : cartItemCount}
+            </span>
+          )}
         </button>
 
         {/* Notifications */}

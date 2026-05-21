@@ -290,6 +290,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ignore: unused_element
   void _showTermsDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -331,6 +332,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ignore: unused_element
   void _showHelpDialog(BuildContext context) {
     showDialog(
       context: context,

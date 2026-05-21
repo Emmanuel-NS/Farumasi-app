@@ -53,6 +53,10 @@ export interface Medicine {
   expiryDate?: string;
   ageDosages: AgeRange[];
   marketingPharmacies: MarketingPharmacy[];
+  warnings?: string;
+  storage?: string;
+  composition?: string;
+  interactions?: string;
 }
 
 // ── Cart ──────────────────────────────────────
@@ -150,6 +154,7 @@ export interface HealthArticle {
   summary: string;
   fullContent: string;
   imageUrl: string;
+  videoUrl?: string;        // optional YouTube/video URL — shown as embedded player in detail view
   source: string;
   category: ArticleCategory;
   readTimeMin: number;

@@ -879,7 +879,6 @@ class _PharmacistDashboardScreenState extends ConsumerState<PharmacistDashboardS
           content = const SizedBox.shrink();
       }
 
-      final viewportWidth = MediaQuery.of(context).size.width;
       final panelWidth = fullWidth ? double.infinity : 360.0;
 
       return Container(
@@ -939,6 +938,7 @@ class _PharmacistDashboardScreenState extends ConsumerState<PharmacistDashboardS
     return const SizedBox.shrink();
   }
 
+  // ignore: unused_element
   Widget _buildRightContextContent() {
     final notifications = List<PrescriptionOrder>.from(_service.orders)
       ..sort((a, b) => b.date.compareTo(a.date));
@@ -1093,6 +1093,7 @@ class _PharmacistDashboardScreenState extends ConsumerState<PharmacistDashboardS
     }
   }
 
+  // ignore: unused_element
   Widget _buildContextMetricCard({
     required IconData icon,
     required String title,

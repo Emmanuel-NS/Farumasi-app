@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 import { mockUser } from "@/data/mock";
 import { getInitials } from "@/lib/utils";
+import { useTranslation } from "@/lib/translations";
 import {
   Store,
   HeartPulse,
@@ -24,24 +25,25 @@ interface NavItem {
   icon: React.ElementType;
 }
 
-const navItems: NavItem[] = [
-  { label: "Home",                href: "/store",          icon: Store },
-  { label: "Health",              href: "/health",         icon: HeartPulse },
-  { label: "Consult",             href: "/consult",        icon: MessageCircle },
-  { label: "Orders",              href: "/orders",         icon: ShoppingBag },
-  { label: "Upload Prescription", href: "/prescriptions",  icon: FileText },
-];
-
-const bottomItems: NavItem[] = [
-  { label: "Settings", href: "/settings", icon: Settings },
-];
-
 interface SidebarProps {
   collapsed: boolean;
 }
 
 export function Sidebar({ collapsed }: SidebarProps) {
   const pathname = usePathname();
+  const t = useTranslation();
+
+  const navItems: NavItem[] = [
+    { label: t.nav_home,        href: "/store",         icon: Store        },
+    { label: t.nav_health,      href: "/health",        icon: HeartPulse   },
+    { label: t.nav_consult,     href: "/consult",       icon: MessageCircle },
+    { label: t.nav_orders,      href: "/orders",        icon: ShoppingBag  },
+    { label: t.nav_prescriptions, href: "/prescriptions", icon: FileText   },
+  ];
+
+  const bottomItems: NavItem[] = [
+    { label: t.nav_settings, href: "/settings", icon: Settings },
+  ];
 
   const isActive = (href: string) => {
     if (href === "/store") return pathname === "/store" || pathname.startsWith("/store/");

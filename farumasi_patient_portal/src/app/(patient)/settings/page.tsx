@@ -2,43 +2,54 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useLanguageStore, type LangCode } from "@/store/language-store";
+import { useTranslation, type T } from "@/lib/translations";
 import {
   Bell, Shield, Eye, Globe, ChevronDown, ChevronUp,
   Smartphone, Mail, MessageSquare, Phone,
-  Lock, FileText, HelpCircle, Info,
+  Lock, FileText, HelpCircle, Info, Check,
 } from "lucide-react";
 
 type Section = "notifications" | "security" | "transparency" | "preferences";
 
-const NOTIF_CHANNELS = [
-  { key: "push", label: "Push Notifications", icon: Smartphone },
-  { key: "email", label: "Email", icon: Mail },
-  { key: "sms", label: "SMS", icon: MessageSquare },
-  { key: "whatsapp", label: "WhatsApp", icon: Phone },
-];
-
-const NOTIF_EVENTS = [
-  { key: "orders", label: "Order updates" },
-  { key: "health_tips", label: "Health tips & articles" },
-  { key: "promotions", label: "Promotions & offers" },
-  { key: "app_updates", label: "App announcements" },
-  { key: "reminders", label: "Medication reminders" },
+const LANG_OPTIONS: { code: LangCode; label: string; native: string }[] = [
+  { code: "en", label: "English",     native: "English"     },
+  { code: "rw", label: "Kinyarwanda", native: "Kinyarwanda" },
+  { code: "fr", label: "Français",    native: "Français"    },
+  { code: "sw", label: "Swahili",     native: "Swahili"     },
 ];
 
 export default function SettingsPage() {
+  const { lang, setLang } = useLanguageStore();
+  const t = useTranslation();
+
   const [open, setOpen] = useState<Section | null>("notifications");
   const [channels, setChannels] = useState({ push: true, email: true, sms: false, whatsapp: false });
   const [events, setEvents] = useState({ orders: true, health_tips: true, promotions: false, app_updates: true, reminders: true });
-  const [language, setLanguage] = useState("en");
   const [theme, setTheme] = useState("light");
 
   const toggle = (section: Section) => setOpen((o) => o === section ? null : section);
 
+  const notifChannels = [
+    { key: "push",      label: t.settings_push,      icon: Smartphone },
+    { key: "email",     label: t.settings_email,     icon: Mail        },
+    { key: "sms",       label: t.settings_sms,       icon: MessageSquare },
+    { key: "whatsapp",  label: t.settings_whatsapp,  icon: Phone       },
+  ];
+
+  const notifEvents = [
+    { key: "orders",       label: t.settings_order_updates },
+    { key: "health_tips",  label: t.settings_health_tips   },
+    { key: "promotions",   label: t.settings_promotions    },
+    { key: "app_updates",  label: t.settings_app_updates   },
+    { key: "reminders",    label: t.settings_reminders     },
+  ];
+
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Manage your account preferences</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t.settings_title}</h1>
+        <p className="text-slate-500 text-sm mt-0.5">{t.settings_subtitle}</p>
       </div>
 
       <div className="space-y-3">
@@ -47,14 +58,14 @@ export default function SettingsPage() {
           open={open === "notifications"}
           onToggle={() => toggle("notifications")}
           icon={Bell}
-          title="Notifications"
-          subtitle="Manage how you receive alerts"
+          title={t.settings_notif}
+          subtitle={t.settings_notif_sub}
         >
           <div className="pt-4 space-y-5">
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Channels</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{t.settings_channels}</p>
               <div className="space-y-3">
-                {NOTIF_CHANNELS.map(({ key, label, icon: Icon }) => (
+                {notifChannels.map(({ key, label, icon: Icon }) => (
                   <div key={key} className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <Icon className="w-4 h-4 text-slate-500" />
@@ -69,9 +80,9 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="border-t border-slate-100 pt-4">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Notification Types</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{t.settings_notif_types}</p>
               <div className="space-y-3">
-                {NOTIF_EVENTS.map(({ key, label }) => (
+                {notifEvents.map(({ key, label }) => (
                   <div key={key} className="flex items-center justify-between">
                     <span className="text-sm text-slate-700">{label}</span>
                     <Toggle
@@ -90,14 +101,14 @@ export default function SettingsPage() {
           open={open === "security"}
           onToggle={() => toggle("security")}
           icon={Shield}
-          title="Security"
-          subtitle="Password, access & data protection"
+          title={t.settings_security}
+          subtitle={t.settings_security_sub}
         >
           <div className="pt-4 space-y-2">
-            <SettingsLink icon={Lock} label="Change Password" />
-            <SettingsLink icon={Shield} label="Two-Factor Authentication" badge="Disabled" badgeColor="text-red-500" />
-            <SettingsLink icon={FileText} label="Data Privacy & GDPR" />
-            <SettingsLink icon={Eye} label="Active Sessions" />
+            <SettingsLink icon={Lock}        label={t.settings_change_password} />
+            <SettingsLink icon={Shield}      label={t.settings_2fa}             badge="Disabled" badgeColor="text-red-500" />
+            <SettingsLink icon={FileText}    label={t.settings_data_privacy} />
+            <SettingsLink icon={Eye}         label={t.settings_active_sessions} />
           </div>
         </AccordionSection>
 
@@ -106,15 +117,15 @@ export default function SettingsPage() {
           open={open === "transparency"}
           onToggle={() => toggle("transparency")}
           icon={Eye}
-          title="Transparency & Control"
-          subtitle="Permissions, terms, and data use"
+          title={t.settings_transparency}
+          subtitle={t.settings_transparency_sub}
         >
           <div className="pt-4 space-y-2">
-            <SettingsLink icon={Smartphone} label="App Permissions" />
-            <SettingsLink icon={FileText} label="Terms of Service" />
-            <SettingsLink icon={Shield} label="Privacy Policy" />
-            <SettingsLink icon={HelpCircle} label="Help & Support" href="/help" />
-            <SettingsLink icon={Info} label="About FARUMASI" />
+            <SettingsLink icon={Smartphone}  label={t.settings_app_permissions} />
+            <SettingsLink icon={FileText}    label={t.settings_terms} />
+            <SettingsLink icon={Shield}      label={t.settings_privacy_policy} />
+            <SettingsLink icon={HelpCircle}  label={t.settings_help_support}  href="/help" />
+            <SettingsLink icon={Info}        label={t.settings_about} />
           </div>
         </AccordionSection>
 
@@ -123,36 +134,48 @@ export default function SettingsPage() {
           open={open === "preferences"}
           onToggle={() => toggle("preferences")}
           icon={Globe}
-          title="Preferences"
-          subtitle="Language and display settings"
+          title={t.settings_preferences}
+          subtitle={t.settings_preferences_sub}
         >
-          <div className="pt-4 space-y-4">
+          <div className="pt-4 space-y-5">
+            {/* Language selector — card grid */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Language</label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 transition-all"
-              >
-                <option value="en">English</option>
-                <option value="rw">Kinyarwanda</option>
-                <option value="fr">Français</option>
-                <option value="sw">Swahili</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Theme</label>
-              <div className="flex gap-3">
-                {(["light", "dark", "system"] as const).map((t) => (
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{t.settings_language}</p>
+              <div className="grid grid-cols-2 gap-2">
+                {LANG_OPTIONS.map(({ code, native }) => (
                   <button
-                    key={t}
-                    onClick={() => setTheme(t)}
+                    key={code}
+                    onClick={() => setLang(code)}
                     className={cn(
-                      "flex-1 py-2 rounded-xl border text-sm font-semibold capitalize transition-all",
-                      theme === t ? "border-farumasi-600 bg-farumasi-50 text-farumasi-700" : "border-slate-200 text-slate-500 hover:border-farumasi-300"
+                      "flex items-center justify-between px-4 py-3 rounded-2xl border text-sm font-semibold transition-all",
+                      lang === code
+                        ? "border-farumasi-600 bg-farumasi-50 text-farumasi-700 shadow-sm"
+                        : "border-slate-200 text-slate-600 hover:border-farumasi-300 hover:bg-slate-50"
                     )}
                   >
-                    {t}
+                    <span>{native}</span>
+                    {lang === code && <Check className="w-4 h-4 text-farumasi-600" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Theme selector */}
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{t.settings_theme}</p>
+              <div className="flex gap-3">
+                {(["light", "dark", "system"] as const).map((themeOpt) => (
+                  <button
+                    key={themeOpt}
+                    onClick={() => setTheme(themeOpt)}
+                    className={cn(
+                      "flex-1 py-2 rounded-xl border text-sm font-semibold transition-all",
+                      theme === themeOpt
+                        ? "border-farumasi-600 bg-farumasi-50 text-farumasi-700"
+                        : "border-slate-200 text-slate-500 hover:border-farumasi-300"
+                    )}
+                  >
+                    {themeOpt === "light" ? t.theme_light : themeOpt === "dark" ? t.theme_dark : t.theme_system}
                   </button>
                 ))}
               </div>

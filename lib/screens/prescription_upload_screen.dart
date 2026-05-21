@@ -468,7 +468,4 @@ class _PrescriptionUploadScreenState extends State<PrescriptionUploadScreen> {
     );
   }
 
-  void _simulateUpload(String source) async {
-    // Deprecated - replaced by _confirmUpload
-  }
 }

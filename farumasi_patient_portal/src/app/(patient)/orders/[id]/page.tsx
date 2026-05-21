@@ -1,40 +1,62 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { mockActiveOrders, mockPastOrders } from "@/data/mock";
-import { cn, formatPrice, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ArrowLeft, MapPin, Phone, MessageCircle, Package, Store, Clock, CheckCircle } from "lucide-react";
+import { useTranslation } from "@/lib/translations";
+import { ArrowLeft, MapPin, Phone, MessageCircle, Package, Store, CheckCircle, Truck, Clock } from "lucide-react";
 
-const STATUS_STEPS = [
-  { key: "pending", label: "Order Placed", icon: "📋" },
-  { key: "confirmed", label: "Confirmed", icon: "✅" },
-  { key: "preparing", label: "Preparing", icon: "🏥" },
-  { key: "ready_for_pickup", label: "Ready", icon: "📦" },
-  { key: "out_for_delivery", label: "Out for Delivery", icon: "🚚" },
-  { key: "delivered", label: "Delivered", icon: "🏠" },
-];
+// Dynamically import the Leaflet map — must be client-only, no SSR
+const TrackingMap = dynamic(
+  () => import("@/components/shared/tracking-map"),
+  { ssr: false, loading: () => <div className="h-[280px] bg-farumasi-50 animate-pulse rounded-b-3xl" /> }
+);
+
+// Kigali waypoints now live in tracking-map.tsx — kept for reference
 
 export default function OrderTrackingPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const t = useTranslation();
+
+  const STATUS_STEPS = [
+    { key: "pending",          label: t.order_step_placed },
+    { key: "confirmed",        label: t.order_step_confirmed },
+    { key: "preparing",        label: t.order_step_preparing },
+    { key: "ready_for_pickup", label: t.order_step_ready },
+    { key: "out_for_delivery", label: t.order_step_delivering },
+    { key: "delivered",        label: t.order_step_delivered },
+  ];
+
   const allOrders = [...mockActiveOrders, ...mockPastOrders];
   const order = allOrders.find((o) => o.id === id);
 
   if (!order) {
     return (
       <div className="p-6 text-center py-24">
-        <p className="text-slate-500">Order not found.</p>
+        <p className="text-slate-500">{t.order_not_found}</p>
         <button onClick={() => router.push("/orders")} className="text-farumasi-600 font-medium hover:underline mt-2 block mx-auto">
-          Back to Orders
+          {t.order_back_orders}
         </button>
       </div>
     );
   }
 
   const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === order.status);
-  const isCancelled = order.status === "cancelled" || order.status === "failed";
+  const isCancelled = order.status === "cancelled";
+
+  const [eta, setEta] = useState(18);
+
+  useEffect(() => {
+    if (order.status !== "out_for_delivery") return;
+    const etaTimer = setInterval(() => {
+      setEta((prev) => Math.max(prev - 1, 1));
+    }, 60000);
+    return () => clearInterval(etaTimer);
+  }, [order.status]);
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -44,26 +66,34 @@ export default function OrderTrackingPage() {
         className="flex items-center gap-2 text-sm text-slate-500 hover:text-farumasi-700 mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Orders
+        {t.order_back}
       </button>
 
       {/* Header */}
       <div className="flex items-start justify-between mb-6 gap-3">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">Order #{order.id}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{order.pharmacyName} · {formatDate(order.createdAt)}</p>
+          <p className="text-sm text-slate-500 mt-0.5">{order.pharmacy} · {order.date}</p>
         </div>
         <StatusBadge status={order.status} />
       </div>
 
-      {/* Map placeholder */}
+      {/* Map — real Leaflet OSM map when out_for_delivery */}
       {order.status === "out_for_delivery" && (
-        <div className="bg-farumasi-50 border border-farumasi-100 rounded-3xl h-52 flex flex-col items-center justify-center mb-6 relative overflow-hidden">
-          {/* Fake map pattern */}
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_50%_50%,#1e9e68_1px,transparent_1px)] bg-[length:32px_32px]" />
-          <MapPin className="w-12 h-12 text-farumasi-600 mb-2" />
-          <p className="text-sm font-semibold text-farumasi-800">Driver en route</p>
-          <p className="text-xs text-farumasi-600 mt-0.5">Kigali, Rwanda</p>
+        <div className="rounded-3xl overflow-hidden border border-farumasi-100 mb-6 shadow-sm">
+          {/* Live indicator bar */}
+          <div className="bg-farumasi-600 px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <span className="text-white text-xs font-bold uppercase tracking-wider">{t.order_live}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-farumasi-50 text-sm font-bold">
+              <Clock className="w-3.5 h-3.5" />
+              {eta} {t.order_eta_min}
+            </div>
+          </div>
+          {/* Real OSM map */}
+          <TrackingMap pharmacyName={order.pharmacy} eta={eta} />
         </div>
       )}
 
@@ -75,7 +105,7 @@ export default function OrderTrackingPage() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-slate-900">Jean Kayitare</p>
-            <p className="text-xs text-slate-500">Your delivery driver</p>
+            <p className="text-xs text-slate-500">{t.order_driver}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center hover:bg-farumasi-100 transition-colors">
@@ -91,7 +121,7 @@ export default function OrderTrackingPage() {
       {/* Status timeline */}
       {!isCancelled ? (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
-          <h2 className="text-sm font-bold text-slate-700 mb-4">Order Progress</h2>
+          <h2 className="text-sm font-bold text-slate-700 mb-4">{t.order_progress}</h2>
           <div className="space-y-0">
             {STATUS_STEPS.map((step, i) => {
               const done = i <= currentStepIndex;
@@ -114,9 +144,9 @@ export default function OrderTrackingPage() {
                   {/* Label */}
                   <div className={cn("pb-5 pt-1 min-w-0 flex-1", last && "pb-0")}>
                     <p className={cn("text-sm font-semibold", active ? "text-farumasi-700" : done ? "text-slate-700" : "text-slate-400")}>
-                      {step.icon} {step.label}
+                      {step.label}
                     </p>
-                    {active && <p className="text-xs text-farumasi-600 mt-0.5 font-medium">Current status</p>}
+                    {active && <p className="text-xs text-farumasi-600 mt-0.5 font-medium">{t.order_current}</p>}
                   </div>
                 </div>
               );
@@ -125,8 +155,8 @@ export default function OrderTrackingPage() {
         </div>
       ) : (
         <div className="bg-red-50 border border-red-100 rounded-3xl p-5 mb-5 text-center">
-          <p className="text-red-600 font-bold text-base">Order {order.status === "cancelled" ? "Cancelled" : "Failed"}</p>
-          <p className="text-sm text-red-500 mt-1">This order was not completed.</p>
+          <p className="text-red-600 font-bold text-base">{order.status === "cancelled" ? t.order_cancelled : t.order_failed}</p>
+          <p className="text-sm text-red-500 mt-1">{t.order_not_completed}</p>
         </div>
       )}
 
@@ -134,18 +164,17 @@ export default function OrderTrackingPage() {
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
         <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
           <Package className="w-4 h-4 text-farumasi-600" />
-          Order Summary
+          {t.order_summary}
         </h2>
         <div className="space-y-2">
-          {order.items.map((item, i) => (
+          {order.items.split(",").map((item, i) => (
             <div key={i} className="flex justify-between text-sm">
-              <span className="text-slate-700">{item.medicineName} <span className="text-slate-400">×{item.quantity}</span></span>
-              <span className="font-medium text-slate-900">{formatPrice(item.totalPrice)} RWF</span>
+              <span className="text-slate-700">{item.trim()}</span>
             </div>
           ))}
           <div className="border-t border-slate-100 pt-2 mt-2 flex justify-between">
-            <span className="text-sm font-bold text-slate-900">Total</span>
-            <span className="text-base font-extrabold text-farumasi-700">{formatPrice(order.totalAmount)} RWF</span>
+            <span className="text-sm font-bold text-slate-900">{t.order_total}</span>
+            <span className="text-base font-extrabold text-farumasi-700">{order.total}</span>
           </div>
         </div>
       </div>
@@ -156,8 +185,8 @@ export default function OrderTrackingPage() {
           <Store className="w-5 h-5 text-farumasi-600" />
         </div>
         <div>
-          <p className="text-sm font-bold text-slate-900">{order.pharmacyName}</p>
-          <p className="text-xs text-slate-500">Kigali, Rwanda</p>
+          <p className="text-sm font-bold text-slate-900">{order.pharmacy}</p>
+          <p className="text-xs text-slate-500">{t.order_location}</p>
         </div>
       </div>
     </div>

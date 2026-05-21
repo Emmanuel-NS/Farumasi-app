@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { mockHealthArticles } from "@/data/mock";
+import { localizeArticle } from "@/data/mock-i18n";
+import { useLanguageStore } from "@/store/language-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/translations";
 import { X, Search, Lightbulb, ChevronRight, BookOpen, Clock } from "lucide-react";
 import type { HealthArticle } from "@/types";
 
@@ -31,9 +35,21 @@ const TAB_CATEGORIES: Record<Tab, string[]> = {
 };
 
 export default function HealthPage() {
+  const router = useRouter();
+  const t = useTranslation();
+  const lang = useLanguageStore((s) => s.lang);
   const [activeTab, setActiveTab] = useState<Tab>("General Tips");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selected, setSelected] = useState<HealthArticle | null>(null);
+
+  const TAB_LABELS: Record<Tab, string> = {
+    "General Tips":    t.health_tab_general,
+    "Remedies":        t.health_tab_remedies,
+    "SRH":             t.health_tab_srh,
+    "Mental Health":   t.health_tab_mental,
+    "Nutrition":       t.health_tab_nutrition,
+    "Mother & Babies": t.health_tab_mother,
+    "Did You Know?":   t.health_tab_diyk,
+  };
 
   const articles = useMemo(() => {
     const cats = TAB_CATEGORIES[activeTab];
@@ -47,8 +63,8 @@ export default function HealthPage() {
           a.category.toLowerCase().includes(q)
       );
     }
-    return list;
-  }, [activeTab, searchQuery]);
+    return list.map((a) => localizeArticle(a, lang));
+  }, [activeTab, searchQuery, lang]);
 
   return (
     <div className="flex flex-col h-full bg-[#F9FAFB]">
@@ -57,7 +73,7 @@ export default function HealthPage() {
         {/* Title */}
         <div className="px-5 pt-6 pb-3">
           <h1 className="text-[22px] font-bold text-farumasi-600 leading-tight">
-            Discover Wellness
+            {t.health_title}
           </h1>
         </div>
 
@@ -68,7 +84,7 @@ export default function HealthPage() {
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tips, remedies, facts..."
+              placeholder={t.health_search_ph}
               className="flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none"
             />
             {searchQuery && (
@@ -92,7 +108,7 @@ export default function HealthPage() {
                   : "text-farumasi-600 border-farumasi-600 bg-transparent hover:bg-farumasi-50"
               )}
             >
-              {tab}
+              {TAB_LABELS[tab]}
             </button>
           ))}
         </div>
@@ -103,38 +119,34 @@ export default function HealthPage() {
         {articles.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24">
             <Search className="w-16 h-16 text-slate-200 mb-4" />
-            <p className="text-slate-500 font-medium">No results found</p>
-            <p className="text-slate-400 text-sm mt-1">Try a different search term</p>
+            <p className="text-slate-500 font-medium">{t.health_no_articles}</p>
+            <p className="text-slate-400 text-sm mt-1">{t.health_search_ph}</p>
           </div>
         ) : activeTab === "Did You Know?" ? (
           /* Did You Know? card style */
           <div className="max-w-[600px] mx-auto space-y-5">
             {articles.map((article) => (
-              <DidYouKnowCard key={article.id} article={article} onSelect={setSelected} />
+              <DidYouKnowCard key={article.id} article={article} onSelect={(a) => router.push(`/health/${a.id}`)} />
             ))}
           </div>
         ) : (
-          /* _ModernArticleCard grid */
-          <div
-            className="grid gap-5"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(450px, 100%), 1fr))" }}
-          >
+          /* Uniform 2-column grid — all cards share the same 3:2 aspect ratio */
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {articles.map((article) => (
-              <ModernArticleCard key={article.id} article={article} onSelect={setSelected} />
+              <ModernArticleCard
+                key={article.id}
+                article={article}
+                onSelect={(a) => router.push(`/health/${a.id}`)}
+              />
             ))}
           </div>
         )}
       </div>
-
-      {/* Article detail modal */}
-      {selected && (
-        <ArticleDetailModal article={selected} onClose={() => setSelected(null)} />
-      )}
     </div>
   );
 }
 
-/* ── _ModernArticleCard — Flutter: 260px tall, full cover image + gradient + bottom text ── */
+/* ── ModernArticleCard — uniform 3:2 aspect ratio ───────────────────────── */
 function ModernArticleCard({
   article,
   onSelect,
@@ -142,17 +154,18 @@ function ModernArticleCard({
   article: HealthArticle;
   onSelect: (a: HealthArticle) => void;
 }) {
+  const hasVideo = Boolean(article.videoUrl);
   return (
     <button
       onClick={() => onSelect(article)}
-      className="relative w-full text-left overflow-hidden rounded-[24px] shadow-[0_8px_15px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_24px_rgba(0,0,0,0.10)] transition-shadow bg-white"
-      style={{ height: 260 }}
+      className="group relative w-full text-left overflow-hidden rounded-[22px] shadow-[0_6px_18px_rgba(0,0,0,0.07)] hover:shadow-[0_14px_32px_rgba(0,0,0,0.13)] transition-all duration-300 hover:-translate-y-0.5"
+      style={{ aspectRatio: "3/2" }}
     >
       {article.imageUrl ? (
         <img
           src={article.imageUrl}
           alt={article.title}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500"
         />
       ) : (
         <div className="absolute inset-0 bg-farumasi-100 flex items-center justify-center">
@@ -160,21 +173,35 @@ function ModernArticleCard({
         </div>
       )}
 
-      {/* Gradient overlay — black85% at bottom → transparent at 60% */}
+      {/* Gradient overlay */}
       <div
         className="absolute inset-0"
-        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 60%)" }}
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0) 80%)" }}
       />
 
-      {/* Bottom text overlay */}
-      <div className="absolute bottom-5 left-5 right-5">
-        <span className="inline-block bg-white/20 rounded-[8px] px-2.5 py-1 text-[11px] font-bold text-white leading-none mb-2">
+      {/* Top badges */}
+      <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+        {hasVideo && (
+          <span className="flex items-center gap-1.5 bg-red-600 rounded-full px-2.5 py-1">
+            <svg className="w-3 h-3 text-white fill-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <span className="text-[10px] font-bold text-white uppercase tracking-wide">Video</span>
+          </span>
+        )}
+        <div className={cn("flex items-center gap-1 bg-black/30 backdrop-blur-sm rounded-full px-2.5 py-1", !hasVideo && "ml-auto")}>
+          <Clock className="w-3 h-3 text-white/80" />
+          <span className="text-[11px] text-white/90 font-semibold">{article.readTimeMin} min</span>
+        </div>
+      </div>
+
+      {/* Bottom text */}
+      <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-10">
+        <span className="inline-block bg-white/15 border border-white/25 backdrop-blur-sm rounded-[6px] px-2 py-0.5 text-[10px] font-bold text-white/90 uppercase tracking-wider leading-none mb-2">
           {article.category}
         </span>
-        <p className="text-white text-[22px] font-bold leading-snug line-clamp-2 mb-1">
+        <p className="text-white text-[16px] font-bold leading-snug line-clamp-2 mb-1">
           {article.title}
         </p>
-        <p className="text-white/70 text-[14px] truncate">{article.subtitle}</p>
+        <p className="text-white/65 text-[12px] truncate">{article.subtitle}</p>
       </div>
     </button>
   );
@@ -213,77 +240,5 @@ function DidYouKnowCard({
         )}
       </div>
     </button>
-  );
-}
-
-/* ── ArticleDetailModal — matches Flutter ArticleDetailScreen ─────────────── */
-function ArticleDetailModal({
-  article,
-  onClose,
-}: {
-  article: HealthArticle;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {article.imageUrl && (
-          <div className="h-52 sm:h-64 relative shrink-0">
-            <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover" />
-            <button
-              onClick={onClose}
-              className="absolute top-3 left-3 w-9 h-9 rounded-full bg-white/90 flex items-center justify-center text-farumasi-600 hover:bg-white transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-
-        <div className="overflow-y-auto scrollbar-hide flex-1">
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-5">
-              <span className="bg-farumasi-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wide">
-                {article.category}
-              </span>
-              <div className="flex items-center gap-1 text-slate-400">
-                <Clock className="w-4 h-4" />
-                <span className="text-[13px]">{article.readTimeMin} min read</span>
-              </div>
-            </div>
-
-            <h2 className="text-[28px] font-bold text-slate-900 leading-snug mb-2">{article.title}</h2>
-            <p className="text-[18px] text-slate-500 leading-relaxed mb-6">{article.subtitle}</p>
-
-            <div className="border-t border-slate-100 my-6" />
-
-            <div className="text-[17px] text-slate-600 leading-[1.8] whitespace-pre-line">
-              {article.fullContent ?? article.summary}
-            </div>
-
-            <div className="mt-10 bg-slate-50 rounded-[12px] border border-slate-200 p-4 flex items-start gap-3 mb-8">
-              <BookOpen className="w-5 h-5 text-farumasi-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[12px] text-slate-400">Source</p>
-                <p className="font-bold text-slate-800">{article.source}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {!article.imageUrl && (
-          <div className="border-t border-slate-100 px-6 py-4 shrink-0">
-            <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700">
-              ← Back
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }

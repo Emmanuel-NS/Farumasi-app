@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { Upload, Camera, FileText, Image, CheckCircle, X, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/translations";
 
 type UploadState = "idle" | "preview" | "success";
 
@@ -14,6 +15,7 @@ interface UploadedFile {
 }
 
 export default function PrescriptionsPage() {
+  const t = useTranslation();
   const [state, setState] = useState<UploadState>("idle");
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<UploadedFile | null>(null);
@@ -56,8 +58,8 @@ export default function PrescriptionsPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Upload Prescription</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Upload a clear photo or PDF of your prescription</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t.rx_title}</h1>
+        <p className="text-slate-500 text-sm mt-0.5">{t.rx_subtitle}</p>
       </div>
 
       {state === "success" ? (
@@ -85,13 +87,13 @@ export default function PrescriptionsPage() {
       <div className="mt-6 bg-farumasi-50 border border-farumasi-100 rounded-3xl p-5">
         <h3 className="text-sm font-bold text-farumasi-800 mb-3 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-farumasi-600" />
-          Tips for a valid prescription upload
+          {t.rx_tips_title}
         </h3>
         <ul className="space-y-1.5 text-xs text-farumasi-700">
-          <li>• Photo must be clear and all text legible</li>
-          <li>• Include doctor's name, signature, and date</li>
-          <li>• Full prescription page — do not crop edges</li>
-          <li>• JPEG, PNG or PDF · Max 10 MB</li>
+          <li>• {t.rx_tip_1}</li>
+          <li>• {t.rx_tip_2}</li>
+          <li>• {t.rx_tip_3}</li>
+          <li>• {t.rx_tip_4}</li>
         </ul>
       </div>
     </div>
@@ -104,9 +106,10 @@ function IdleState({ dragging, onDragOver, onDragLeave, onDrop, onBrowse, fileIn
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
   onBrowse: () => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const t = useTranslation();
   return (
     <div>
       {/* Drop zone */}
@@ -127,10 +130,10 @@ function IdleState({ dragging, onDragOver, onDragLeave, onDrop, onBrowse, fileIn
           <Upload className={cn("w-8 h-8", dragging ? "text-farumasi-600" : "text-slate-400")} />
         </div>
         <p className="text-base font-bold text-slate-800 mb-1">
-          {dragging ? "Drop it here!" : "Drag & drop your prescription"}
+          {dragging ? t.rx_drop_here : t.rx_drop_title}
         </p>
-        <p className="text-sm text-slate-500">or <span className="text-farumasi-600 font-medium">browse files</span></p>
-        <p className="text-xs text-slate-400 mt-3">JPEG · PNG · PDF · Max 10 MB</p>
+        <p className="text-sm text-slate-500">{t.rx_or} <span className="text-farumasi-600 font-medium">{t.rx_or_browse}</span></p>
+        <p className="text-xs text-slate-400 mt-3">{t.rx_formats}</p>
       </div>
 
       <input
@@ -147,13 +150,13 @@ function IdleState({ dragging, onDragOver, onDragLeave, onDrop, onBrowse, fileIn
           <div className="w-full border-t border-slate-100" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-[#F6F8FB] px-3 text-xs text-slate-400">or</span>
+          <span className="bg-[#F6F8FB] px-3 text-xs text-slate-400">{t.rx_or}</span>
         </div>
       </div>
 
       <button className="w-full h-12 rounded-2xl border-2 border-farumasi-200 text-farumasi-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-farumasi-50 transition-colors">
         <Camera className="w-5 h-5" />
-        Take a Photo
+        {t.rx_take_photo}
       </button>
     </div>
   );
@@ -165,6 +168,7 @@ function PreviewState({ file, uploading, onUpload, onRemove }: {
   onUpload: () => void;
   onRemove: () => void;
 }) {
+  const t = useTranslation();
   const isImage = file.type.startsWith("image/");
   const sizeKb = Math.round(file.size / 1024);
 
@@ -199,7 +203,7 @@ function PreviewState({ file, uploading, onUpload, onRemove }: {
 
       <div className="flex gap-3">
         <button onClick={onRemove} className="flex-1 h-11 rounded-2xl border-2 border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors">
-          Cancel
+          {t.rx_remove}
         </button>
         <button
           onClick={onUpload}
@@ -207,9 +211,9 @@ function PreviewState({ file, uploading, onUpload, onRemove }: {
           className="flex-1 h-11 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white text-sm font-bold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {uploading ? (
-            <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Uploading…</>
+            <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{t.rx_uploading}</>
           ) : (
-            <><Upload className="w-4 h-4" />Upload Prescription</>
+            <><Upload className="w-4 h-4" />{t.rx_upload_btn}</>
           )}
         </button>
       </div>
@@ -218,20 +222,21 @@ function PreviewState({ file, uploading, onUpload, onRemove }: {
 }
 
 function SuccessState({ onReset }: { onReset: () => void }) {
+  const t = useTranslation();
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm py-16 flex flex-col items-center text-center px-8">
       <div className="w-20 h-20 rounded-full bg-farumasi-100 flex items-center justify-center mb-4">
         <CheckCircle className="w-10 h-10 text-farumasi-600" />
       </div>
-      <h2 className="text-xl font-extrabold text-slate-900 mb-2">Prescription Uploaded!</h2>
+      <h2 className="text-xl font-extrabold text-slate-900 mb-2">{t.rx_success_title}</h2>
       <p className="text-sm text-slate-500 max-w-xs">
-        Our pharmacist team will review it shortly. You'll receive a notification once it's verified.
+        {t.rx_success_sub}
       </p>
       <button
         onClick={onReset}
         className="mt-6 px-6 py-2.5 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors"
       >
-        Upload Another
+        {t.rx_upload_another}
       </button>
     </div>
   );

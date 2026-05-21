@@ -12,7 +12,6 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
   bool _requirePasscodeForOrders = false;
   bool _hideSensitiveConditions = true;
   bool _shareAnonymousAnalytics = true;
-  final bool _allowDoctorAccess = true;
 
   @override
   Widget build(BuildContext context) {

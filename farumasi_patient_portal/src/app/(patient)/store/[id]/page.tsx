@@ -4,10 +4,15 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { mockMedicines } from "@/data/mock";
-import { formatPrice } from "@/lib/utils";
+import { localizeMedicine } from "@/data/mock-i18n";
+import { useLanguageStore } from "@/store/language-store";
+import { cn, formatPrice } from "@/lib/utils";
+import { useCartStore } from "@/store/cart-store";
+import { toast } from "sonner";
 import {
   ArrowLeft, Star, AlertCircle, ShoppingCart, Upload,
   MapPin, CheckCircle, XCircle, Clock, ChevronRight,
+  Sunrise, Sun, Moon, AlertTriangle, ShieldAlert, Package, Pill as PillIcon,
 } from "lucide-react";
 
 const TABS = ["Description", "Dosage by Age", "Pharmacies"] as const;
@@ -16,12 +21,14 @@ type Tab = (typeof TABS)[number];
 export default function MedicineDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const lang = useLanguageStore((s) => s.lang);
   const [tab, setTab] = useState<Tab>("Description");
   const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
+  const { add: cartAdd, items: cartItems } = useCartStore();
 
-  const med = mockMedicines.find((m) => m.id === id);
-
-  if (!med) {
+  const rawMed = mockMedicines.find((m) => m.id === id);
+  if (!rawMed) {
     return (
       <div className="p-6 text-center py-24">
         <p className="text-slate-500 text-lg">Medicine not found.</p>
@@ -31,6 +38,8 @@ export default function MedicineDetailPage() {
       </div>
     );
   }
+
+  const med = localizeMedicine(rawMed, lang);
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -91,6 +100,7 @@ export default function MedicineDetailPage() {
 
           <p className="text-3xl font-extrabold text-farumasi-700 mb-1">
             {formatPrice(med.price)}{med.maxPrice ? ` – ${formatPrice(med.maxPrice)}` : ""}
+          </p>
 
           {/* Quantity */}
           <div className="flex items-center gap-4 mb-6">
@@ -104,9 +114,23 @@ export default function MedicineDetailPage() {
 
           {/* CTAs */}
           <div className="flex flex-col gap-3">
-            <button className="w-full h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold transition-colors flex items-center justify-center gap-2">
-              <ShoppingCart className="w-5 h-5" />
-              Add to Cart
+            <button
+              onClick={() => {
+                cartAdd(med, qty);
+                setAdded(true);
+                toast.success(`${med.name} ×${qty} added to cart`);
+                setTimeout(() => setAdded(false), 2000);
+              }}
+              className={cn(
+                "w-full h-12 rounded-2xl text-white font-bold transition-all flex items-center justify-center gap-2",
+                added ? "bg-farumasi-700 scale-[0.98]" : "bg-farumasi-600 hover:bg-farumasi-700"
+              )}
+            >
+              {added ? (
+                <><CheckCircle className="w-5 h-5" /> Added to Cart {(cartItems[id]?.qty ?? 0) > 0 ? `(×${cartItems[id]?.qty})` : ""}</>
+              ) : (
+                <><ShoppingCart className="w-5 h-5" /> Add to Cart {(cartItems[id]?.qty ?? 0) > 0 ? `(×${cartItems[id]?.qty} in cart)` : ""}</>
+              )}
             </button>
             {med.requiresPrescription && (
               <Link
@@ -138,13 +162,98 @@ export default function MedicineDetailPage() {
         </div>
 
         {tab === "Description" && (
-          <div className="bg-white rounded-3xl border border-slate-100 p-6">
-            <h3 className="font-bold text-slate-900 mb-3">About {med.name}</h3>
-            <p className="text-sm text-slate-600 leading-relaxed">{med.description ?? "No description available."}</p>
-            {med.sideEffects && (
-              <div className="mt-5">
-                <p className="text-sm font-semibold text-slate-800 mb-1.5">Possible Side Effects</p>
-                <p className="text-sm text-slate-600 leading-relaxed">{med.sideEffects}</p>
+          <div className="space-y-4">
+            {/* About */}
+            <div className="bg-white rounded-3xl border border-slate-100 p-6">
+              <h3 className="font-bold text-slate-900 mb-3">About {med.name}</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">{med.description ?? "No description available."}</p>
+              {med.composition && (
+                <div className="mt-4 p-3.5 bg-slate-50 rounded-2xl">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Active Ingredients</p>
+                  <p className="text-sm text-slate-700">{med.composition}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Dosing schedule */}
+            {(med.doseMorning || med.doseAfternoon || med.doseEvening || med.dosage) && (
+              <div className="bg-white rounded-3xl border border-slate-100 p-6">
+                <h3 className="font-bold text-slate-900 mb-4">Dosing Schedule</h3>
+                {med.dosage && (
+                  <p className="text-sm text-slate-500 mb-4 leading-relaxed bg-slate-50 rounded-2xl px-4 py-3">{med.dosage}</p>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {med.doseMorning && med.doseMorning !== "None" && (
+                    <div className="flex flex-col items-center bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
+                      <Sunrise className="w-6 h-6 text-amber-500 mb-1" />
+                      <p className="text-xs font-bold text-amber-600 uppercase tracking-wide">Morning</p>
+                      <p className="text-sm font-extrabold text-amber-900 mt-1">{med.doseMorning}</p>
+                    </div>
+                  )}
+                  {med.doseAfternoon && med.doseAfternoon !== "None" && (
+                    <div className="flex flex-col items-center bg-sky-50 border border-sky-100 rounded-2xl p-4 text-center">
+                      <Sun className="w-6 h-6 text-sky-500 mb-1" />
+                      <p className="text-xs font-bold text-sky-600 uppercase tracking-wide">Afternoon</p>
+                      <p className="text-sm font-extrabold text-sky-900 mt-1">{med.doseAfternoon}</p>
+                    </div>
+                  )}
+                  {med.doseEvening && med.doseEvening !== "None" && (
+                    <div className="flex flex-col items-center bg-violet-50 border border-violet-100 rounded-2xl p-4 text-center">
+                      <Moon className="w-6 h-6 text-violet-500 mb-1" />
+                      <p className="text-xs font-bold text-violet-600 uppercase tracking-wide">Evening</p>
+                      <p className="text-sm font-extrabold text-violet-900 mt-1">{med.doseEvening}</p>
+                    </div>
+                  )}
+                </div>
+                {med.doseTimeInterval && (
+                  <p className="text-xs text-slate-400 mt-3 flex items-center justify-center gap-1.5">
+                    <Clock className="w-3 h-3" /> {med.doseTimeInterval}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Side Effects + Warnings */}
+            {(med.sideEffects || med.warnings) && (
+              <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-4">
+                {med.sideEffects && (
+                  <div>
+                    <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" /> Side Effects
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">{med.sideEffects}</p>
+                  </div>
+                )}
+                {med.warnings && (
+                  <div className="pt-4 border-t border-slate-100">
+                    <h3 className="font-bold text-red-700 mb-2 flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4" /> Warnings
+                    </h3>
+                    <p className="text-sm text-red-600 leading-relaxed">{med.warnings}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Storage + Drug Interactions */}
+            {(med.storage || med.interactions) && (
+              <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-4">
+                {med.storage && (
+                  <div>
+                    <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                      <Package className="w-4 h-4 text-slate-500" /> Storage
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">{med.storage}</p>
+                  </div>
+                )}
+                {med.interactions && (
+                  <div className="pt-4 border-t border-slate-100">
+                    <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                      <PillIcon className="w-4 h-4 text-slate-500" /> Drug Interactions
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">{med.interactions}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

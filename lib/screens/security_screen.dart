@@ -154,6 +154,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
     );
   }
 
+  // ignore: unused_element
   void _showPolicyDialog(BuildContext context, String title, String content) {
     showModalBottomSheet(
       context: context,

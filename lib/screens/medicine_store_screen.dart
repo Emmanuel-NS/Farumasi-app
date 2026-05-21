@@ -104,11 +104,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
   // Search & Filter State
   String _searchQuery = '';
-  String? _suggestedQuery; // New: For "Did you mean?"
   Set<String> _selectedCategories = {}; // Revert to set for multi-selection
   String? _selectedSubCategory;
   RangeValues _priceRange = const RangeValues(0, 50000);
-  final Set<String> _availableSubCategories = {}; // Dynamic subcategories
 
   double _minRating = 0.0;
   String _sortBy = 'Name'; // 'Name' or 'Price'
@@ -155,6 +153,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   }
 
   // Helper to determine if we are showing corrected results
+  // ignore: unused_element
   bool get _isShowigCorrectedResults {
     if (_searchQuery.isEmpty) return false;
     if (_getMedicinesForQuery(_searchQuery).isNotEmpty) return false;
@@ -163,6 +162,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     return _filteredMedicines.isNotEmpty;
   }
 
+  // ignore: unused_element
   String? get _correctionTerm {
     if (_searchQuery.isEmpty) return null;
     return _findBestMatch(_searchQuery);
@@ -948,7 +948,6 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
       260.0,
     )).toDouble();
     final desktopCardHeight = (desktopCardWidth * 1.18).toDouble();
-    final pharmacyColumns = contentWidth >= 1280 ? 4 : 3;
     final showHeroHeader = !widget.embeddedInHomeShell;
 
     return GestureDetector(

@@ -41,6 +41,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
     return total;
   }
 
+  // ignore: unused_element
   double get _totalPrice => _pharmacySubtotal + _deliveryFee;
 
   @override
@@ -74,6 +75,7 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
 
   // --- Actions ---
 
+  // ignore: unused_element
   void _showRejectOrderDialog() {
     final TextEditingController reasonController = TextEditingController();
     showDialog(
@@ -301,7 +303,6 @@ class _PrescriptionReviewScreenState extends State<PrescriptionReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String typeLabel = widget.order.prescriptionImageUrl != null ? "Request" : "Order";
     return Container(
       color: Colors.grey.shade50,
       child: SingleChildScrollView(

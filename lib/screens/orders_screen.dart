@@ -95,7 +95,6 @@ class OrdersScreen extends StatelessWidget {
     BuildContext context,
     Map<String, dynamic> order,
   ) {
-    final statusColor = order['status'] == 'Out for Delivery' ? Colors.orange : const Color(0xFF1E9E68);
     final statusBg = order['status'] == 'Out for Delivery' ? Colors.orange.shade50 : const Color(0xFF1E9E68).withOpacity(0.1);
     final statusText = order['status'] == 'Out for Delivery' ? Colors.orange.shade800 : const Color(0xFF1E9E68);
 

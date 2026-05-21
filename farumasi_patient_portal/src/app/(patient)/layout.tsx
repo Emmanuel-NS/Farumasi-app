@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -8,10 +8,16 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { RightPanel } from "@/components/layout/right-panel";
 import { Store, HeartPulse, MessageCircle, ShoppingBag, FileText } from "lucide-react";
+import { hydrateLanguage } from "@/store/language-store";
+import { useTranslation } from "@/lib/translations";
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [activePanel, setActivePanel] = useState<string | null>(null);
+  const t = useTranslation();
+
+  // Hydrate language preference from localStorage once on client mount
+  useEffect(() => { hydrateLanguage(); }, []);
 
   const togglePanel = (panel: string) => {
     setActivePanel((prev) => (prev === panel ? null : panel));
@@ -65,11 +71,11 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
       {/* Mobile bottom nav — hidden above sm (640px ≈ Flutter's 600px isWideScreen) */}
       <nav className="sm:hidden flex items-center justify-around bg-farumasi-600 shrink-0 px-2 h-[60px]">
-        <MobileNavItem href="/store"         label="Home"      Icon={Store} />
-        <MobileNavItem href="/health"        label="Health"    Icon={HeartPulse} />
-        <MobileNavItem href="/prescriptions" label="Upload Rx" Icon={FileText} primary />
-        <MobileNavItem href="/consult"       label="Consult"   Icon={MessageCircle} />
-        <MobileNavItem href="/orders"        label="Orders"    Icon={ShoppingBag} />
+        <MobileNavItem href="/store"         label={t.nav_home}      Icon={Store} />
+        <MobileNavItem href="/health"        label={t.nav_health}    Icon={HeartPulse} />
+        <MobileNavItem href="/prescriptions" label={t.nav_upload_rx} Icon={FileText} primary />
+        <MobileNavItem href="/consult"       label={t.nav_consult}   Icon={MessageCircle} />
+        <MobileNavItem href="/orders"        label={t.nav_orders}    Icon={ShoppingBag} />
       </nav>
     </div>
   );

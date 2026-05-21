@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { mockNotifications } from "@/data/mock";
-import { cn, timeAgo } from "@/lib/utils";
+import { localizeNotification } from "@/data/mock-i18n";
+import { useLanguageStore } from "@/store/language-store";
+import { cn } from "@/lib/utils";
+import { useTranslation, tf, useTimeAgo } from "@/lib/translations";
 import { Bell, Trash2, X } from "lucide-react";
 import type { AppNotification } from "@/types";
 
@@ -29,6 +32,12 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<AppNotification[]>(mockNotifications);
   const [filter, setFilter] = useState<"All" | "Read" | "Unread">("All");
   const [cat, setCat] = useState("All");
+  const t = useTranslation();
+  const lang = useLanguageStore((s) => s.lang);
+  const timeAgoLocal = useTimeAgo();
+
+  const FILTER_LABELS = [t.notif_filter_all, t.notif_filter_unread, t.notif_filter_read];
+  const CAT_FILTER_LABELS = [t.notif_cat_all, t.notif_cat_order, t.notif_cat_health, t.notif_cat_promo, t.notif_cat_reminder];
 
   const filtered = notifications.filter((n) => {
     const readOk = filter === "All" || (filter === "Read" ? n.isRead : !n.isRead);
@@ -44,17 +53,17 @@ export default function NotificationsPage() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6 gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{notifications.filter(n => !n.isRead).length} unread</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t.notif_title}</h1>
+          <p className="text-slate-500 text-sm mt-0.5">{tf(t.notif_unread, { n: notifications.filter(n => !n.isRead).length })}</p>
         </div>
         <button onClick={markAllRead} className="text-sm text-farumasi-600 font-medium hover:underline shrink-0">
-          Mark all read
+          {t.notif_mark_all}
         </button>
       </div>
 
       {/* Read/Unread filter */}
       <div className="flex bg-slate-100 rounded-2xl p-1 w-fit mb-4">
-        {(["All", "Unread", "Read"] as const).map((f) => (
+        {(["All", "Unread", "Read"] as const).map((f, i) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -63,14 +72,14 @@ export default function NotificationsPage() {
               filter === f ? "bg-white text-farumasi-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
             )}
           >
-            {f}
+            {FILTER_LABELS[i]}
           </button>
         ))}
       </div>
 
       {/* Category chips */}
       <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-5">
-        {CAT_FILTERS.map((c) => (
+        {CAT_FILTERS.map((c, i) => (
           <button
             key={c}
             onClick={() => setCat(c)}
@@ -81,7 +90,7 @@ export default function NotificationsPage() {
                 : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300"
             )}
           >
-            {c}
+            {CAT_FILTER_LABELS[i]}
           </button>
         ))}
       </div>
@@ -90,11 +99,13 @@ export default function NotificationsPage() {
       {filtered.length === 0 ? (
         <div className="py-24 flex flex-col items-center text-center">
           <Bell className="w-14 h-14 text-slate-200 mb-3" />
-          <p className="text-slate-600 font-semibold">No notifications</p>
+          <p className="text-slate-600 font-semibold">{t.notif_empty}</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((n) => (
+          {filtered.map((n) => {
+            const ln = localizeNotification(n, lang);
+            return (
             <div
               key={n.id}
               onClick={() => markRead(n.id)}
@@ -105,9 +116,9 @@ export default function NotificationsPage() {
             >
               <span className="text-2xl shrink-0">{catIcon[n.category] ?? "🔔"}</span>
               <div className="flex-1 min-w-0">
-                <p className={cn("text-sm text-slate-900", !n.isRead ? "font-bold" : "font-medium")}>{n.title}</p>
-                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{n.message}</p>
-                <p className="text-[10px] text-slate-400 mt-1.5">{timeAgo(n.time)}</p>
+                <p className={cn("text-sm text-slate-900", !n.isRead ? "font-bold" : "font-medium")}>{ln.title}</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{ln.message}</p>
+                <p className="text-[10px] text-slate-400 mt-1.5">{timeAgoLocal(n.time)}</p>
               </div>
               <div className="flex flex-col items-end gap-1.5 shrink-0">
                 {!n.isRead && <div className="w-2 h-2 rounded-full bg-farumasi-500" />}
@@ -119,7 +130,8 @@ export default function NotificationsPage() {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

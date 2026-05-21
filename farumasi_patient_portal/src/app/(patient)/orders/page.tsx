@@ -5,11 +5,13 @@ import Link from "next/link";
 import { mockActiveOrders, mockPastOrders } from "@/data/mock";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { useTranslation } from "@/lib/translations";
 import { Package, ChevronRight, Clock, Store } from "lucide-react";
 import type { Order } from "@/types";
 
 export default function OrdersPage() {
   const [tab, setTab] = useState<"active" | "past">("active");
+  const t = useTranslation();
 
   return (
     /* Flutter: white Scaffold, AppBar "My Orders" centered, TabBar with green indicator */
@@ -17,23 +19,23 @@ export default function OrdersPage() {
 
       {/* Flutter AppBar simulation — white bg, centered title */}
       <div className="flex items-center justify-center px-5 py-4 bg-white border-b border-slate-100 shrink-0">
-        <h1 className="text-lg font-bold text-slate-900">My Orders</h1>
+        <h1 className="text-lg font-bold text-slate-900">{t.orders_title}</h1>
       </div>
 
       {/* Flutter TabBar — indicator style (underline), NOT pill/bg style */}
       <div className="flex border-b border-slate-200 bg-white shrink-0">
-        {(["active", "past"] as const).map((t) => (
+        {(["active", "past"] as const).map((tabKey) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabKey}
+            onClick={() => setTab(tabKey)}
             className={cn(
               "flex-1 py-3 text-sm font-semibold transition-colors relative",
-              tab === t ? "text-farumasi-600" : "text-slate-500 hover:text-slate-700"
+              tab === tabKey ? "text-farumasi-600" : "text-slate-500 hover:text-slate-700"
             )}
           >
-            {t === "active" ? `Active Orders` : `Past Orders`}
+            {tabKey === "active" ? t.orders_active : t.orders_past}
             {/* Flutter TabBar green underline indicator */}
-            {tab === t && (
+            {tab === tabKey && (
               <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-farumasi-600 rounded-t-full" />
             )}
           </button>
@@ -44,7 +46,7 @@ export default function OrdersPage() {
       <div className="flex-1 overflow-y-auto p-6">
         {tab === "active" ? (
           mockActiveOrders.length === 0 ? (
-            <EmptyOrders message="No active orders" />
+            <EmptyOrders message={t.orders_no_active} />
           ) : (
             <div className="space-y-4 max-w-3xl mx-auto">
               {mockActiveOrders.map((order) => <ActiveOrderCard key={order.id} order={order} />)}
@@ -52,7 +54,7 @@ export default function OrdersPage() {
           )
         ) : (
           mockPastOrders.length === 0 ? (
-            <EmptyOrders message="No past orders" />
+            <EmptyOrders message={t.orders_no_past} />
           ) : (
             <div className="space-y-3 max-w-3xl mx-auto">
               {mockPastOrders.map((order) => <PastOrderCard key={order.id} order={order} />)}
@@ -65,6 +67,7 @@ export default function OrdersPage() {
 }
 
 function ActiveOrderCard({ order }: { order: Order }) {
+  const t = useTranslation();
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4 gap-3">
@@ -90,14 +93,14 @@ function ActiveOrderCard({ order }: { order: Order }) {
 
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-slate-500">Total</p>
+          <p className="text-xs text-slate-500">{t.cart_total}</p>
           <p className="text-lg font-extrabold text-farumasi-700">{order.total}</p>
         </div>
         <Link
           href={`/orders/${order.id}`}
           className="flex items-center gap-2 bg-farumasi-600 hover:bg-farumasi-700 text-white px-5 py-2.5 rounded-2xl text-sm font-semibold transition-colors"
         >
-          Track Order
+          {t.orders_track}
           <ChevronRight className="w-4 h-4" />
         </Link>
       </div>
