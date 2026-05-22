@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -41,6 +41,7 @@ const DURATION_OPTIONS = [
 
 function NewPrescriptionInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const preselectedPatientId = searchParams.get("patientId");
 
   const [step, setStep] = useState<"patient" | "medicines" | "review">("patient");
@@ -150,10 +151,11 @@ function NewPrescriptionInner() {
       return;
     }
     const rxNum = generatePrescriptionNumber();
-    toast.success(`Prescription ${rxNum} created successfully`, {
-      description: `Sent to ${selectedPatient.fullName}`,
+    toast.success(`Prescription ${rxNum} issued`, {
+      description: `Sent to ${selectedPatient.fullName}. They'll be notified to view and order.`,
     });
-  }, [selectedPatient, items, diagnosis]);
+    router.push("/prescriptions");
+  }, [selectedPatient, items, diagnosis, router]);
 
   // ── Patient was preselected → skip to medicines step ─────────────────────
   const canProceedToMedicines = selectedPatient && diagnosis.length > 3 && chiefComplaint.length > 3;

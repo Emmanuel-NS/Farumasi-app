@@ -7,6 +7,7 @@ import type {
   PharmacistBooking,
   Pharmacy,
   AuthUser,
+  DigitalPrescription,
 } from "@/types";
 
 // ── Current User ──────────────────────────────
@@ -1199,5 +1200,41 @@ export const mockPharmacies: Pharmacy[] = [
     imageUrl: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&q=80",
     province: "Kigali City",
     district: "Gasabo",
+  },
+];
+
+// ── Mock Digital Prescriptions ────────────────
+export const mockDigitalPrescriptions: DigitalPrescription[] = [
+  {
+    id: "rx-002",
+    patientId: "u1",
+    doctorName: "Dr. Eric Nshimiyimana",
+    hospitalName: "King Faisal Hospital",
+    diagnosis: "Upper Respiratory Tract Infection",
+    items: [
+      { id: "rxi-001", medicineName: "Amoxicillin", strength: "500mg", dose: "1 capsule", frequency: "3x daily", duration: "7 days", quantity: 21 },
+      { id: "rxi-002", medicineName: "Paracetamol", strength: "500mg", dose: "2 tablets", frequency: "3x daily", duration: "5 days", quantity: 30 },
+    ],
+    status: "sent_to_patient",
+    issuedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
+    qrCode: "RX-002-QR",
+  },
+  {
+    id: "rx-004",
+    patientId: "u1",
+    doctorName: "Dr. Solange Ingabire",
+    hospitalName: "CHUK",
+    diagnosis: "Asthma — Maintenance",
+    items: [
+      { id: "rxi-003", medicineName: "Salbutamol Inhaler", strength: "100mcg", dose: "2 puffs", frequency: "As needed", duration: "30 days", quantity: 1 },
+      { id: "rxi-004", medicineName: "Beclomethasone Inhaler", strength: "50mcg", dose: "2 puffs", frequency: "2x daily", duration: "30 days", quantity: 1 },
+    ],
+    status: "fulfilled",
+    issuedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    qrCode: "RX-004-QR",
+    selectedPharmacyId: "p1",
+    orderId: "ord-004",
   },
 ];

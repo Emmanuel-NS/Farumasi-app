@@ -108,6 +108,42 @@ export interface UploadedPrescription {
   orderId?: string;
 }
 
+export type DigitalPrescriptionStatus =
+  | "draft"
+  | "active"
+  | "sent_to_patient"
+  | "patient_viewing"
+  | "order_placed"
+  | "partially_fulfilled"
+  | "fulfilled"
+  | "expired"
+  | "cancelled";
+
+export interface DigitalPrescriptionItem {
+  id: string;
+  medicineName: string;
+  strength: string;
+  dose: string;
+  frequency: string;
+  duration: string;
+  quantity: number;
+}
+
+export interface DigitalPrescription {
+  id: string;
+  patientId: string;
+  doctorName: string;
+  hospitalName?: string;
+  diagnosis?: string;
+  items: DigitalPrescriptionItem[];
+  status: DigitalPrescriptionStatus;
+  issuedAt: string;
+  expiresAt: string;
+  qrCode?: string;
+  selectedPharmacyId?: string;
+  orderId?: string;
+}
+
 // ── Pharmacists ───────────────────────────────
 export type PharmacistStatus = "available" | "busy" | "offline";
 

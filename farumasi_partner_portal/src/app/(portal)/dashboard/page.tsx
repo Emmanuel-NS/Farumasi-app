@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   DollarSign, ShoppingCart, Package, AlertTriangle, TrendingUp,
-  Bell, Clock, CheckCircle2, XCircle, ArrowRight, Boxes
+  Bell, Clock, CheckCircle2, XCircle, ArrowRight, Boxes, LayoutDashboard
 } from "lucide-react";
 import Link from "next/link";
 import { KpiCard } from "@/components/shared/kpi-card";
@@ -250,5 +250,4 @@ export default function DashboardPage() {
   );
 }
 
-// Import needed here since we reference it inline
-import { LayoutDashboard } from "lucide-react";
+

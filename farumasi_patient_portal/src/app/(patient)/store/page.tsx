@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { mockMedicines, mockPharmacies } from "@/data/mock";
+import { mockMedicines, mockPharmacies, mockDigitalPrescriptions } from "@/data/mock";
 import { localizeMedicine } from "@/data/mock-i18n";
 import { useLanguageStore } from "@/store/language-store";
 import { cn, formatPrice } from "@/lib/utils";
@@ -86,6 +87,20 @@ const CATEGORIES: string[] = [
 ];
 
 export default function StorePage() {
+  return (
+    <Suspense>
+      <StorePageInner />
+    </Suspense>
+  );
+}
+
+function StorePageInner() {
+  const searchParams = useSearchParams();
+  const prescriptionId = searchParams.get("prescription");
+  const activePrescription = prescriptionId
+    ? mockDigitalPrescriptions.find((rx) => rx.id === prescriptionId) ?? null
+    : null;
+
   // ── Search from topbar via Zustand — mirrors Flutter StateService searchQuery ──
   const { query } = useSearchStore();
   const t = useTranslation();
@@ -186,6 +201,50 @@ export default function StorePage() {
 
   return (
     <div className="p-4 md:p-6 max-w-[1280px] mx-auto">
+      {/* ── Prescription Recommendation Banner ───────────────── */}
+      {activePrescription && (
+        <div className="mb-5 bg-farumasi-50 border border-farumasi-200 rounded-3xl p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-farumasi-800">
+                Finding pharmacies for your prescription
+              </p>
+              <p className="text-xs text-farumasi-600 mt-0.5">
+                {activePrescription.diagnosis} · {activePrescription.items.length} medicine{activePrescription.items.length !== 1 ? "s" : ""}
+              </p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {activePrescription.items.map((item) => (
+                  <span
+                    key={item.id}
+                    className="inline-flex items-center gap-1 text-[11px] bg-white border border-farumasi-200 text-farumasi-700 px-2 py-0.5 rounded-full"
+                  >
+                    {item.medicineName} {item.strength}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            {mockPharmacies.slice(0, 3).map((pharmacy) => (
+              <div
+                key={pharmacy.id}
+                className="flex-1 min-w-0 bg-white rounded-2xl border border-farumasi-100 p-3 text-center"
+              >
+                <p className="text-xs font-bold text-slate-800 truncate">{pharmacy.name}</p>
+                <p className="text-[10px] text-slate-400 truncate">{pharmacy.locationName}</p>
+                <div className="flex flex-wrap gap-1 justify-center mt-1.5">
+                  {pharmacy.supportedInsurances.slice(0, 2).map((ins) => (
+                    <span key={ins} className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                      {ins}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Page header ──────────────────────────────────── */}
       <div className="flex items-start justify-between mb-5 gap-4">
         {/* page header only — no cart button; use topbar cart icon */}

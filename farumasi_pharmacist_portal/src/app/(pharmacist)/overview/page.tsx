@@ -21,13 +21,6 @@ const weeklyData = [
   { day: "Sun", orders: 21, revenue: 11000 },
 ];
 
-const upcomingSessions = [
-  { id: 1, patient: "Amina Uwase",   type: "Consultation", time: "Today, 2:00 PM" },
-  { id: 2, patient: "Jean Bosco",    type: "Follow-up",    time: "Today, 3:30 PM" },
-  { id: 3, patient: "Diane Ingabire",type: "General",      time: "Tomorrow, 10 AM" },
-  { id: 4, patient: "Patrick N.",    type: "Consultation", time: "Tomorrow, 1 PM"  },
-];
-
 export default function OverviewPage() {
   const recentOrders  = mockOrders.slice(0, 4);
   const activeRequests = mockRequests.filter(
@@ -85,28 +78,44 @@ export default function OverviewPage() {
         </ResponsiveContainer>
       </div>
 
-      {/* Upcoming Sessions */}
+      {/* Pending Prescription Reviews */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-slate-900">Upcoming Sessions</h2>
-          <Link href="/chat" className="text-xs text-farumasi-600 font-medium hover:underline flex items-center gap-1">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Pending Prescription Reviews</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Prescriptions awaiting pharmacist safety review</p>
+          </div>
+          <Link href="/requests" className="text-xs text-farumasi-600 font-medium hover:underline flex items-center gap-1">
             View all <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          {upcomingSessions.map((s) => (
-            <div key={s.id} className="flex items-center gap-3 p-3 rounded-2xl bg-farumasi-50 border border-farumasi-100">
-              <div className="w-9 h-9 rounded-xl bg-farumasi-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                {s.patient.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-900 truncate">{s.patient}</p>
-                <p className="text-xs text-farumasi-600 font-medium">{s.type}</p>
-                <p className="text-[11px] text-slate-400">{s.time}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        {activeRequests.length > 0 ? (
+          <div className="grid sm:grid-cols-2 gap-3">
+            {activeRequests.slice(0, 4).map((req) => (
+              <Link
+                key={req.id}
+                href="/requests"
+                className="flex items-center gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-100 hover:bg-amber-100 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {req.patientName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate">{req.patientName}</p>
+                  <p className="text-xs text-amber-700 font-medium">
+                    {req.items.length} item{req.items.length !== 1 ? "s" : ""} · Awaiting review
+                  </p>
+                  <p className="text-[11px] text-slate-400">{formatDate(req.broadcastAt)}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-slate-400">
+            <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">No pending prescription reviews</p>
+          </div>
+        )}
       </div>
 
       {/* Recent Orders + Active Requests */}
