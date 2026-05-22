@@ -4,8 +4,10 @@ import {
   TrendingUp, Package, ExternalLink,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockPharmacies } from "@/data/mock";
 import { getScoreBgColor, getStockBg } from "@/lib/utils";
+import type { Pharmacy } from "@/types";
+
+const PHARMACIES: Pharmacy[] = [];
 
 const TIER_COLORS: Record<string, string> = {
   Tier1: "bg-farumasi-100 text-farumasi-700 border-farumasi-200",
@@ -24,17 +26,17 @@ export default function PharmacyPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Pharmacy Network"
-        subtitle={`${mockPharmacies.length} pharmacies in your network`}
+        subtitle={`${PHARMACIES.length} pharmacies in your network`}
         icon={<Package className="w-5 h-5" />}
       />
 
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total Pharmacies", value: mockPharmacies.length, icon: Package, color: "text-farumasi-600" },
-          { label: "Open 24h", value: mockPharmacies.filter(p => p.isOpen24h).length, icon: Clock, color: "text-blue-600" },
-          { label: "Avg Fulfillment", value: `${Math.round(mockPharmacies.reduce((a, p) => a + p.fulfillmentRate, 0) / mockPharmacies.length)}%`, icon: CheckCircle2, color: "text-green-600" },
-          { label: "Avg Distance", value: `${(mockPharmacies.reduce((a, p) => a + p.distanceKm, 0) / mockPharmacies.length).toFixed(1)}km`, icon: MapPin, color: "text-amber-600" },
+          { label: "Total Pharmacies", value: PHARMACIES.length, icon: Package, color: "text-farumasi-600" },
+          { label: "Open 24h", value: PHARMACIES.filter(p => p.isOpen24h).length, icon: Clock, color: "text-blue-600" },
+          { label: "Avg Fulfillment", value: PHARMACIES.length ? `${Math.round(PHARMACIES.reduce((a, p) => a + p.fulfillmentRate, 0) / PHARMACIES.length)}%` : "N/A", icon: CheckCircle2, color: "text-green-600" },
+          { label: "Avg Distance", value: PHARMACIES.length ? `${(PHARMACIES.reduce((a, p) => a + p.distanceKm, 0) / PHARMACIES.length).toFixed(1)}km` : "N/A", icon: MapPin, color: "text-amber-600" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
             <s.icon className={`w-5 h-5 ${s.color} flex-shrink-0`} />
@@ -48,7 +50,7 @@ export default function PharmacyPage() {
 
       {/* Pharmacy cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {mockPharmacies.map((pharmacy) => (
+        {PHARMACIES.map((pharmacy) => (
           <div key={pharmacy.id} className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-4">
             {/* Header */}
             <div className="flex items-start justify-between gap-3">

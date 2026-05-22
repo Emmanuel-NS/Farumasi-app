@@ -1,48 +1,80 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-  FileText, Users, Package, TrendingUp, AlertTriangle,
+  FileText, Users, TrendingUp, AlertTriangle,
   FilePlus, Clock, CheckCircle2, XCircle, ChevronRight,
-  Activity, Bell,
+  Activity, Bell, Package,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardHeader, CardTitle } from "@/components/ui/index";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { prescriptionsService } from "@/lib/services/prescriptions.service";
 import {
-  mockPrescriptions, mockPatients, mockFulfillments,
-  mockNotifications, mockInsights, mockPrescriptionTrend,
-  mockConditionBreakdown, mockFulfillmentByPharmacy,
-} from "@/data/mock";
-import {
-  getPrescriptionStatusColor, getFulfillmentStatusColor,
-  formatDate, timeAgo,
+  getPrescriptionStatusColor,
+  timeAgo,
 } from "@/lib/utils";
+import type { Prescription } from "@/types";
+import { useAuthStore } from "@/store/auth-store";
+
+// Static chart data (no time-series endpoint)
+const TREND_DATA = [
+  { month: "Jan", prescriptions: 8, fulfilled: 6 },
+  { month: "Feb", prescriptions: 12, fulfilled: 9 },
+  { month: "Mar", prescriptions: 10, fulfilled: 8 },
+  { month: "Apr", prescriptions: 15, fulfilled: 12 },
+  { month: "May", prescriptions: 18, fulfilled: 14 },
+  { month: "Jun", prescriptions: 14, fulfilled: 11 },
+];
+const CONDITION_DATA = [
+  { name: "Hypertension", value: 28, color: "#1e9e68" },
+  { name: "Diabetes", value: 22, color: "#0284c7" },
+  { name: "Malaria", value: 18, color: "#d97706" },
+  { name: "Other", value: 32, color: "#94a3b8" },
+];
+const PHARMACY_DATA = [
+  { name: "Main Pharm", fulfilled: 8, partial: 2, failed: 1 },
+  { name: "City Branch", fulfilled: 6, partial: 1, failed: 0 },
+  { name: "Online", fulfilled: 4, partial: 3, failed: 1 },
+];
 
 export default function DashboardPage() {
   const [activeRange, setActiveRange] = useState<"week" | "month" | "quarter">("month");
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const user = useAuthStore((s) => s.user);
 
-  // KPI data
-  const totalPrescriptions = mockPrescriptions.length;
-  const fulfilledCount = mockPrescriptions.filter((r) => r.status === "Fulfilled").length;
-  const pendingCount = mockPrescriptions.filter((r) => r.status === "Pending" || r.status === "Sent").length;
-  const fulfillmentRate = Math.round((fulfilledCount / totalPrescriptions) * 100);
-  const criticalNotifs = mockNotifications.filter((n) => n.severity === "Critical" && !n.isRead).length;
-  const activePatients = mockPatients.filter((p) => p.status === "Active").length;
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await prescriptionsService.getMyPrescriptions();
+      setPrescriptions(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const recentPrescriptions = mockPrescriptions.slice(0, 5);
-  const criticalInsights = mockInsights.filter((i) => i.impact === "High");
+  useEffect(() => { load(); }, [load]);
+
+  // KPI data from real prescriptions
+  const totalPrescriptions = prescriptions.length;
+  const fulfilledCount = prescriptions.filter((r) => r.status === "Fulfilled").length;
+  const pendingCount = prescriptions.filter((r) => r.status === "Pending" || r.status === "Sent").length;
+  const fulfillmentRate = totalPrescriptions > 0 ? Math.round((fulfilledCount / totalPrescriptions) * 100) : 0;
+  const activePatients = new Set(prescriptions.map((r) => r.patientId)).size;
+  const criticalNotifs = 0;
+
+  const recentPrescriptions = prescriptions.slice(0, 5);
+  const criticalInsights: { title: string }[] = [];
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Clinical Dashboard"
-        subtitle={`Good morning, Dr. ${["Jean Pierre Uwimana"].join(" ").split(" ")[0]} — you have ${pendingCount} pending prescription${pendingCount !== 1 ? "s" : ""} today`}
+        subtitle={loading ? "Loading…" : `You have ${pendingCount} pending prescription${pendingCount !== 1 ? "s" : ""} today`}
         icon={<Activity className="w-5 h-5" />}
         actions={
           <Link
@@ -142,7 +174,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={mockPrescriptionTrend} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+            <AreaChart data={TREND_DATA} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradPx" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#1e9e68" stopOpacity={0.2} />
@@ -176,7 +208,7 @@ export default function DashboardPage() {
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
               <Pie
-                data={mockConditionBreakdown}
+                data={CONDITION_DATA}
                 cx="50%"
                 cy="50%"
                 innerRadius={45}
@@ -184,7 +216,7 @@ export default function DashboardPage() {
                 paddingAngle={3}
                 dataKey="value"
               >
-                {mockConditionBreakdown.map((entry, index) => (
+                {CONDITION_DATA.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
@@ -194,7 +226,7 @@ export default function DashboardPage() {
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-1.5 mt-2">
-            {mockConditionBreakdown.slice(0, 4).map((item) => (
+            {CONDITION_DATA.slice(0, 4).map((item) => (
               <div key={item.name} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
@@ -216,7 +248,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={150}>
-          <BarChart data={mockFulfillmentByPharmacy} margin={{ top: 0, right: 0, left: -25, bottom: 0 }} barGap={2}>
+          <BarChart data={PHARMACY_DATA} margin={{ top: 0, right: 0, left: -25, bottom: 0 }} barGap={2}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
             <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
@@ -303,10 +335,10 @@ export default function DashboardPage() {
             <h3 className="text-sm font-semibold text-slate-800 mb-3">Fulfillment Summary</h3>
             <div className="space-y-2.5">
               {[
-                { label: "Fulfilled", count: mockFulfillments.filter(f => f.status === "Fulfilled").length, icon: CheckCircle2, color: "text-green-600" },
-                { label: "Pending", count: mockFulfillments.filter(f => f.status === "Pending").length, icon: Clock, color: "text-amber-600" },
-                { label: "Partial", count: mockFulfillments.filter(f => f.status === "PartiallyFulfilled").length, icon: AlertTriangle, color: "text-orange-600" },
-                { label: "Failed", count: mockFulfillments.filter(f => f.status === "Failed").length, icon: XCircle, color: "text-red-600" },
+                { label: "Fulfilled", count: prescriptions.filter(r => r.status === "Fulfilled").length, icon: CheckCircle2, color: "text-green-600" },
+                { label: "Pending", count: prescriptions.filter(r => r.status === "Pending").length, icon: Clock, color: "text-amber-600" },
+                { label: "Partial", count: prescriptions.filter(r => r.status === "PartiallyFulfilled").length, icon: AlertTriangle, color: "text-orange-600" },
+                { label: "Cancelled", count: prescriptions.filter(r => r.status === "Cancelled").length, icon: XCircle, color: "text-red-600" },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

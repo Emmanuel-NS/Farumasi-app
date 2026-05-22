@@ -6,8 +6,8 @@ import {
   Calendar, User,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockClinicalNotes, mockPatients } from "@/data/mock";
 import { formatDateTime, getInitials } from "@/lib/utils";
+import type { ClinicalNote } from "@/types";
 
 const NOTE_TYPE_COLORS: Record<string, string> = {
   SOAP: "bg-blue-50 text-blue-700",
@@ -20,8 +20,9 @@ const NOTE_TYPE_COLORS: Record<string, string> = {
 
 export default function NotesPage() {
   const [search, setSearch] = useState("");
+  const notes: ClinicalNote[] = [];
 
-  const filtered = mockClinicalNotes.filter((n) => {
+  const filtered = notes.filter((n) => {
     const q = search.toLowerCase();
     return (
       !q ||

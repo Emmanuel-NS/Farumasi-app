@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { Medicine } from "@/types";
 
 export interface CartEntry {
@@ -14,7 +15,9 @@ interface CartStore {
   clear: () => void;
 }
 
-export const useCartStore = create<CartStore>()((set) => ({
+export const useCartStore = create<CartStore>()(
+  persist(
+    (set) => ({
   items: {},
 
   add: (medicine, qty = 1) =>
@@ -46,4 +49,7 @@ export const useCartStore = create<CartStore>()((set) => ({
     }),
 
   clear: () => set({ items: {} }),
-}));
+}),
+    { name: "farumasi-cart" }
+  )
+);

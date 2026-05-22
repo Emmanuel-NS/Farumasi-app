@@ -4,8 +4,9 @@ import {
   ArrowUpRight, ArrowDownRight, Brain,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockInsights } from "@/data/mock";
 import type { OperationalInsight } from "@/types";
+
+const INSIGHTS: OperationalInsight[] = [];
 
 const IMPACT_COLORS: Record<string, string> = {
   High: "bg-red-50 border-red-200 text-red-800",
@@ -28,9 +29,9 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function InsightsPage() {
-  const highImpact = mockInsights.filter((i) => i.impact === "High");
-  const mediumImpact = mockInsights.filter((i) => i.impact === "Medium");
-  const lowImpact = mockInsights.filter((i) => i.impact === "Low");
+  const highImpact = INSIGHTS.filter((i) => i.impact === "High");
+  const mediumImpact = INSIGHTS.filter((i) => i.impact === "Medium");
+  const lowImpact = INSIGHTS.filter((i) => i.impact === "Low");
 
   return (
     <div className="space-y-6 animate-fade-in">

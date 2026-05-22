@@ -7,8 +7,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockReferrals, mockPatients } from "@/data/mock";
 import { formatDate, getInitials } from "@/lib/utils";
+import type { Referral, Patient } from "@/types";
+
+const REFERRALS: Referral[] = [];
+const PATIENTS: Patient[] = [];
 
 const SPECIALTIES = [
   "Nephrology", "Cardiology", "Endocrinology", "Neurology", "Oncology",
@@ -68,7 +71,7 @@ export default function ReferralsPage() {
                   className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-farumasi-500"
                 >
                   <option value="">Select patient...</option>
-                  {mockPatients.map((p) => (
+                  {PATIENTS.map((p) => (
                     <option key={p.id} value={p.id}>{p.fullName}</option>
                   ))}
                 </select>
@@ -134,7 +137,7 @@ export default function ReferralsPage() {
 
       {/* Existing referrals */}
       <div className="space-y-4">
-        {mockReferrals.map((referral) => (
+        {REFERRALS.map((referral) => (
           <div key={referral.id} className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
@@ -162,7 +165,7 @@ export default function ReferralsPage() {
             <p className="text-[10px] text-slate-400 mt-2">Referred: {formatDate(referral.createdAt)}</p>
           </div>
         ))}
-        {mockReferrals.length === 0 && (
+        {REFERRALS.length === 0 && (
           <div className="py-16 text-center bg-white rounded-xl border border-slate-100">
             <Send className="w-10 h-10 text-slate-200 mx-auto mb-3" />
             <p className="text-sm text-slate-500">No referrals yet</p>

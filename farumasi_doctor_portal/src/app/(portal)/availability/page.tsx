@@ -5,9 +5,11 @@ import {
   TrendingUp, AlertTriangle, CheckCircle2, MapPin,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockMedicines, mockPharmacies } from "@/data/mock";
 import { cn, getStockColor, getStockBg, formatRWF } from "@/lib/utils";
-import type { MedicineCategory } from "@/types";
+import type { MedicineCategory, Medicine, Pharmacy } from "@/types";
+
+const MEDICINES: Medicine[] = [];
+const PHARMACIES: Pharmacy[] = [];
 
 const CATEGORY_OPTIONS: (MedicineCategory | "All")[] = [
   "All", "Analgesic", "Antibiotic", "Antimalarial", "Antidiabetic",
@@ -29,7 +31,7 @@ export default function AvailabilityPage() {
   const [selectedCategory, setSelectedCategory] = useState<MedicineCategory | "All">("All");
   const [stockFilter, setStockFilter] = useState<"all" | "Low" | "Out">("all");
   const [selectedPharmacyIds, setSelectedPharmacyIds] = useState<Set<string>>(
-    new Set(mockPharmacies.map((p) => p.id))
+    new Set(PHARMACIES.map((p) => p.id))
   );
 
   const togglePharmacy = (id: string) => {
@@ -44,11 +46,11 @@ export default function AvailabilityPage() {
     });
   };
 
-  const visiblePharmacies = mockPharmacies.filter((p) => selectedPharmacyIds.has(p.id));
+  const visiblePharmacies = PHARMACIES.filter((p) => selectedPharmacyIds.has(p.id));
 
   const filteredMedicines = useMemo(() => {
     const q = search.toLowerCase();
-    return mockMedicines.filter((m) => {
+    return MEDICINES.filter((m) => {
       const matchSearch =
         !q ||
         m.genericName.toLowerCase().includes(q) ||
@@ -67,7 +69,7 @@ export default function AvailabilityPage() {
   }, [search, selectedCategory, stockFilter, selectedPharmacyIds]);
 
   const getAvailability = (medicineId: string, pharmacyId: string) => {
-    const med = mockMedicines.find((m) => m.id === medicineId);
+    const med = MEDICINES.find((m) => m.id === medicineId);
     return med?.availability.find((a) => a.pharmacyId === pharmacyId) ?? null;
   };
 
@@ -77,8 +79,8 @@ export default function AvailabilityPage() {
     let lowCells = 0;
     let outCells = 0;
 
-    mockMedicines.forEach((m) => {
-      mockPharmacies.forEach((p) => {
+    MEDICINES.forEach((m) => {
+      PHARMACIES.forEach((p) => {
         totalCells++;
         const avail = m.availability.find((a) => a.pharmacyId === p.id);
         if (!avail) return;
@@ -102,8 +104,8 @@ export default function AvailabilityPage() {
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Medicines Tracked", value: mockMedicines.length, color: "text-slate-800" },
-          { label: "Network Pharmacies", value: mockPharmacies.length, color: "text-farumasi-700" },
+          { label: "Medicines Tracked", value: MEDICINES.length, color: "text-slate-800" },
+          { label: "Network Pharmacies", value: PHARMACIES.length, color: "text-farumasi-700" },
           { label: "Low/Critical Stock", value: overallStats.lowCells + overallStats.outCells, color: "text-amber-700" },
           { label: "Out of Stock", value: overallStats.outCells, color: "text-red-700" },
         ].map((s) => (
@@ -121,7 +123,7 @@ export default function AvailabilityPage() {
           Pharmacy Network ({visiblePharmacies.length} visible)
         </p>
         <div className="flex flex-wrap gap-2">
-          {mockPharmacies.map((p) => (
+          {PHARMACIES.map((p) => (
             <button
               key={p.id}
               onClick={() => togglePharmacy(p.id)}
@@ -279,7 +281,7 @@ export default function AvailabilityPage() {
           {/* Table footer */}
           <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
             <p className="text-xs text-slate-500">
-              Showing {filteredMedicines.length} of {mockMedicines.length} medicines
+              Showing {filteredMedicines.length} of {MEDICINES.length} medicines
             </p>
             <div className="flex items-center gap-1 text-xs text-slate-400">
               <RefreshCw className="w-3 h-3" />

@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: farumasi_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      ASYNC_DATABASE_URL: postgresql+asyncpg://farumasi:farumasi_pass@db:5432/farumasi_db
+      DATABASE_URL: postgresql://farumasi:farumasi_pass@db:5432/farumasi_db
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  db:
+    image: postgres:16-alpine
+    container_name: farumasi_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: farumasi
+      POSTGRES_PASSWORD: farumasi_pass
+      POSTGRES_DB: farumasi_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farumasi -d farumasi_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: farumasi_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

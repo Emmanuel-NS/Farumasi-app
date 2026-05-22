@@ -1,79 +1,120 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
-import { mockRequests } from "@/data/mock";
+import { useState, useEffect, useCallback } from "react";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatPrice, timeAgo } from "@/lib/utils";
 import {
   FileText, Clock, Check, X, Send, Image as ImageIcon,
-  Wifi, Radio, Store, CheckCircle2, Eye,
+  Wifi, Radio, Store, CheckCircle2, Eye, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { RequestStatus } from "@/types";
+import {
+  prescriptionsService,
+  type BackendPrescription,
+} from "@/lib/services/prescriptions.service";
 
-type Request = (typeof mockRequests)[number];
+type FilterStatus = "all" | "draft" | "active" | "under_review" | "reviewed" | "fulfilled" | "cancelled" | "expired";
 
-const STATUS_FILTERS: { value: "all" | RequestStatus; label: string }[] = [
-  { value: "all",              label: "All" },
-  { value: "broadcast",        label: "Broadcast" },
-  { value: "accepted",         label: "Accepted" },
-  { value: "invoice_sent",     label: "Invoice Sent" },
-  { value: "patient_confirmed",label: "Confirmed" },
-  { value: "rejected",         label: "Rejected" },
+const STATUS_FILTERS: { value: FilterStatus; label: string }[] = [
+  { value: "all",           label: "All" },
+  { value: "draft",         label: "Draft" },
+  { value: "active",        label: "Active" },
+  { value: "under_review",  label: "Under Review" },
+  { value: "reviewed",      label: "Reviewed" },
+  { value: "fulfilled",     label: "Fulfilled" },
+  { value: "cancelled",     label: "Cancelled" },
 ];
 
-/* Broadcast monitoring steps */
 const BROADCAST_STEPS = [
-  { icon: Radio,          label: "Draft",                    desc: "Request received from patient" },
-  { icon: Wifi,           label: "Broadcasting",             desc: "Sent to nearby pharmacies" },
-  { icon: Store,          label: "Monitoring Pharmacies",    desc: "Waiting for acceptance" },
-  { icon: CheckCircle2,   label: "Completed",                desc: "Pharmacy accepted request" },
+  { icon: Radio,        label: "Draft",        desc: "Request received from patient" },
+  { icon: Wifi,         label: "Broadcasting", desc: "Sent to nearby pharmacies" },
+  { icon: Store,        label: "Under Review", desc: "Pharmacist reviewing" },
+  { icon: CheckCircle2, label: "Completed",    desc: "Prescription processed" },
 ];
+
+function broadcastStep(status: string): number {
+  if (status === "draft" || status === "active") return 1;
+  if (status === "under_review") return 2;
+  return 3;
+}
+
+function patientName(rx: BackendPrescription): string {
+  return rx.patient?.user?.full_name ?? "Unknown Patient";
+}
+function patientPhone(rx: BackendPrescription): string {
+  return rx.patient?.user?.phone ?? "—";
+}
+function totalAmount(rx: BackendPrescription): number {
+  return rx.items.reduce((sum, i) => sum + (i.unit_price ?? 0) * (i.quantity ?? 1), 0);
+}
 
 export default function RequestsPage() {
-  const [filter, setFilter]         = useState<"all" | RequestStatus>("all");
-  const [statuses, setStatuses]     = useState<Record<string, RequestStatus>>({});
-  const [imageModal, setImageModal] = useState<string | null>(null); // req id
+  const [filter, setFilter]               = useState<FilterStatus>("all");
+  const [prescriptions, setPrescriptions] = useState<BackendPrescription[]>([]);
+  const [loading, setLoading]             = useState(true);
   const [broadcastModal, setBroadcastModal] = useState<string | null>(null);
 
-  const getStatus = (req: Request): RequestStatus =>
-    statuses[req.id] ?? req.status;
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = filter !== "all" ? { status: filter, limit: 50 } : { limit: 50 };
+      const res = await prescriptionsService.getAll(params);
+      setPrescriptions(res.items);
+    } catch {
+      toast.error("Failed to load prescriptions");
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
 
-  const filtered =
-    filter === "all"
-      ? mockRequests
-      : mockRequests.filter((r) => getStatus(r) === filter);
+  useEffect(() => { load(); }, [load]);
 
-  const handleAccept = (id: string) => {
-    setStatuses((p) => ({ ...p, [id]: "accepted" }));
-    toast.success("Request accepted");
-  };
-  const handleReject = (id: string) => {
-    setStatuses((p) => ({ ...p, [id]: "rejected" }));
-    toast.error("Request rejected");
-  };
-  const handleInvoice = (id: string) => {
-    setStatuses((p) => ({ ...p, [id]: "invoice_sent" }));
-    toast.success("Invoice sent to patient");
+  const handleAccept = async (id: string) => {
+    try {
+      const updated = await prescriptionsService.updateStatus(id, "under_review");
+      setPrescriptions((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      toast.success("Prescription accepted");
+    } catch { toast.error("Could not accept"); }
   };
 
-  /* Which broadcast step is active (simulate based on status) */
-  const broadcastStep = (req: Request): number => {
-    const s = getStatus(req);
-    if (s === "broadcast") return 1;
-    if (s === "accepted")  return 3;
-    return 3;
+  const handleReject = async (id: string) => {
+    try {
+      const updated = await prescriptionsService.updateStatus(id, "cancelled");
+      setPrescriptions((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      toast.error("Prescription rejected");
+    } catch { toast.error("Could not reject"); }
   };
+
+  const handleReview = async (id: string) => {
+    try {
+      const updated = await prescriptionsService.updateStatus(id, "reviewed");
+      setPrescriptions((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      toast.success("Marked as reviewed");
+    } catch { toast.error("Could not update"); }
+  };
+
+  const broadcastCount = prescriptions.filter(
+    (r) => r.status === "draft" || r.status === "active"
+  ).length;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Prescription Requests</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Review and respond to incoming requests</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Prescription Requests</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Review and respond to incoming requests</p>
+        </div>
+        <button
+          onClick={load}
+          disabled={loading}
+          className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-farumasi-600 transition-colors"
+        >
+          <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+          Refresh
+        </button>
       </div>
 
-      {/* Filter chips */}
       <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-5">
         {STATUS_FILTERS.map((f) => (
           <button
@@ -87,97 +128,126 @@ export default function RequestsPage() {
             )}
           >
             {f.label}
-            {f.value === "broadcast" && (
+            {f.value === "all" && broadcastCount > 0 && (
               <span className="ml-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">
-                {mockRequests.filter((r) => getStatus(r) === "broadcast").length}
+                {broadcastCount}
               </span>
             )}
           </button>
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="py-24 flex flex-col items-center">
+          <div className="w-8 h-8 border-4 border-farumasi-200 border-t-farumasi-600 rounded-full animate-spin mb-3" />
+          <p className="text-slate-400 text-sm">Loading prescriptions…</p>
+        </div>
+      ) : prescriptions.length === 0 ? (
         <div className="py-24 flex flex-col items-center text-center">
           <FileText className="w-16 h-16 text-slate-200 mb-3" />
-          <p className="text-slate-600 font-semibold">No requests found</p>
+          <p className="text-slate-600 font-semibold">No prescriptions found</p>
+          <p className="text-slate-400 text-sm">Try a different filter or check back later</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((req) => {
-            const status = getStatus(req);
+          {prescriptions.map((rx) => {
+            const isNew = rx.status === "draft" || rx.status === "active";
             return (
               <div
-                key={req.id}
+                key={rx.id}
                 className={cn(
                   "bg-white rounded-3xl border shadow-sm p-5 transition-all",
-                  status === "broadcast"
+                  isNew
                     ? "border-amber-200 bg-amber-50/30"
-                    : status === "rejected"
+                    : rx.status === "cancelled"
                     ? "border-red-100 opacity-70"
                     : "border-slate-100"
                 )}
               >
-                {/* Header */}
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="text-xs font-semibold text-slate-400">#{req.id}</p>
-                      {status === "broadcast" && (
+                      <p className="text-xs font-semibold text-slate-400">
+                        #{rx.id.slice(-8).toUpperCase()}
+                      </p>
+                      {isNew && (
                         <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full animate-pulse">
                           NEW
                         </span>
                       )}
-                    </div>
-                    <p className="text-base font-bold text-slate-900">{req.patientName}</p>
-                    <p className="text-xs text-slate-500">{req.patientPhone}</p>
-                  </div>
-                  <StatusBadge status={status} type="request" />
-                </div>
-
-                {/* Items */}
-                <div className="bg-slate-50 rounded-2xl px-4 py-3 mb-3">
-                  {req.items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm py-0.5">
-                      <span className="text-slate-700">
-                        {item.name} <span className="text-slate-400">×{item.quantity}</span>
+                      <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full capitalize">
+                        {rx.prescription_type?.replace(/_/g, " ")}
                       </span>
-                      <span className="text-slate-600">{formatPrice(item.unitPrice * item.quantity)} RWF</span>
                     </div>
-                  ))}
+                    <p className="text-base font-bold text-slate-900">{patientName(rx)}</p>
+                    <p className="text-xs text-slate-500">{patientPhone(rx)}</p>
+                  </div>
+                  <StatusBadge status={rx.status} type="request" />
                 </div>
 
-                {/* Footer row */}
+                {rx.items.length > 0 ? (
+                  <div className="bg-slate-50 rounded-2xl px-4 py-3 mb-3">
+                    {rx.items.map((item, i) => (
+                      <div key={i} className="flex justify-between text-sm py-0.5">
+                        <span className="text-slate-700">
+                          {item.medication_name}
+                          {item.quantity != null && (
+                            <span className="text-slate-400"> x{item.quantity}</span>
+                          )}
+                          {item.dosage && (
+                            <span className="text-slate-400"> ({item.dosage})</span>
+                          )}
+                        </span>
+                        {item.unit_price != null && (
+                          <span className="text-slate-600">
+                            {formatPrice((item.unit_price) * (item.quantity ?? 1))} RWF
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 rounded-2xl px-4 py-3 mb-3 text-sm text-slate-400">
+                    No items listed yet
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <p className="text-xs text-slate-400">Total</p>
-                      <p className="text-sm font-extrabold text-farumasi-700">{formatPrice(req.totalAmount)} RWF</p>
-                    </div>
-                    {status === "broadcast" && (
-                      <div className="flex items-center gap-1 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
-                        <Clock className="w-3 h-3" />
-                        Expires {timeAgo(req.expiresAt)}
+                  <div>
+                    {totalAmount(rx) > 0 && (
+                      <div>
+                        <p className="text-xs text-slate-400">Total</p>
+                        <p className="text-sm font-extrabold text-farumasi-700">
+                          {formatPrice(totalAmount(rx))} RWF
+                        </p>
                       </div>
                     )}
                   </div>
-                  <span className="text-xs text-slate-400">{timeAgo(req.broadcastAt)}</span>
+                  <span className="text-xs text-slate-400">{timeAgo(rx.created_at)}</span>
                 </div>
 
-                {/* Action buttons */}
-                <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                  {/* View prescription image */}
-                  <button
-                    onClick={() => setImageModal(req.id)}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    Prescription
-                  </button>
+                {rx.notes && (
+                  <p className="text-xs text-slate-500 bg-slate-50 rounded-xl px-3 py-2 mb-3 italic">
+                    {rx.notes}
+                  </p>
+                )}
 
-                  {/* Broadcast monitoring */}
-                  {(status === "broadcast" || status === "accepted") && (
+                <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                  {rx.uploaded_file_url && (
+                    <a
+                      href={rx.uploaded_file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      Prescription
+                    </a>
+                  )}
+
+                  {(isNew || rx.status === "under_review") && (
                     <button
-                      onClick={() => setBroadcastModal(req.id)}
+                      onClick={() => setBroadcastModal(rx.id)}
                       className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -185,17 +255,16 @@ export default function RequestsPage() {
                     </button>
                   )}
 
-                  {/* Contextual primary actions */}
-                  {status === "broadcast" && (
+                  {isNew && (
                     <>
                       <button
-                        onClick={() => handleAccept(req.id)}
+                        onClick={() => handleAccept(rx.id)}
                         className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-farumasi-600 text-white hover:bg-farumasi-700 transition-colors ml-auto"
                       >
                         <Check className="w-3.5 h-3.5" /> Accept
                       </button>
                       <button
-                        onClick={() => handleReject(req.id)}
+                        onClick={() => handleReject(rx.id)}
                         className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors"
                       >
                         <X className="w-3.5 h-3.5" /> Reject
@@ -203,12 +272,12 @@ export default function RequestsPage() {
                     </>
                   )}
 
-                  {status === "accepted" && (
+                  {rx.status === "under_review" && (
                     <button
-                      onClick={() => handleInvoice(req.id)}
+                      onClick={() => handleReview(rx.id)}
                       className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-farumasi-600 text-white hover:bg-farumasi-700 transition-colors ml-auto"
                     >
-                      <Send className="w-3.5 h-3.5" /> Send Invoice
+                      <Send className="w-3.5 h-3.5" /> Mark Reviewed
                     </button>
                   )}
                 </div>
@@ -218,41 +287,10 @@ export default function RequestsPage() {
         </div>
       )}
 
-      {/* ── Prescription image viewer modal ──────────────── */}
-      {imageModal && (
-        <div
-          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
-          onClick={() => setImageModal(null)}
-        >
-          <div
-            className="bg-white rounded-3xl p-5 w-full max-w-sm shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-slate-900">Prescription</h3>
-              <button onClick={() => setImageModal(null)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {/* Placeholder image — real app would load from backend */}
-            <div className="w-full h-56 rounded-2xl bg-slate-100 flex flex-col items-center justify-center border border-slate-200">
-              <ImageIcon className="w-12 h-12 text-slate-300 mb-2" />
-              <p className="text-sm text-slate-400 font-medium">
-                {mockRequests.find((r) => r.id === imageModal)?.patientName}
-              </p>
-              <p className="text-xs text-slate-400">#{imageModal}</p>
-            </div>
-            <p className="text-[11px] text-center text-slate-400 mt-3">
-              Prescription image uploaded by patient
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ── Network broadcast monitoring modal ───────────── */}
       {broadcastModal && (() => {
-        const req = mockRequests.find((r) => r.id === broadcastModal)!;
-        const step = broadcastStep(req);
+        const rx = prescriptions.find((r) => r.id === broadcastModal);
+        if (!rx) return null;
+        const step = broadcastStep(rx.status);
         return (
           <div
             className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
@@ -268,9 +306,10 @@ export default function RequestsPage() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <p className="text-xs text-slate-500 mb-5">Request #{broadcastModal} — {req.patientName}</p>
+              <p className="text-xs text-slate-500 mb-5">
+                #{rx.id.slice(-8).toUpperCase()} — {patientName(rx)}
+              </p>
 
-              {/* Step indicators */}
               <div className="relative">
                 {BROADCAST_STEPS.map((s, idx) => {
                   const isCompleted = idx < step;
@@ -278,7 +317,6 @@ export default function RequestsPage() {
                   const Icon        = s.icon;
                   return (
                     <div key={idx} className="flex items-start gap-3 mb-4 last:mb-0">
-                      {/* Dot + line */}
                       <div className="flex flex-col items-center shrink-0">
                         <div className={cn(
                           "w-8 h-8 rounded-full flex items-center justify-center",

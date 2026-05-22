@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { mockUser, mockNotifications } from "@/data/mock";
 import { getInitials } from "@/lib/utils";
 import { useSearchStore } from "@/store/search-store";
 import { useCartStore } from "@/store/cart-store";
@@ -41,10 +40,11 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
   const cartItemCount = Object.values(useCartStore((s) => s.items)).reduce((acc, e) => acc + e.qty, 0);
   const [showProfile, setShowProfile] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
-  const unread = mockNotifications.filter((n) => !n.isRead).length;
+  const unread = 0; // notifications not yet wired
   const t = useTranslation();
   const isGuest = useAuthStore((s) => s.isGuest);
   const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
 
   const handleLogout = () => {
     setShowProfile(false);
@@ -202,13 +202,13 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
                 onClick={() => setShowProfile(!showProfile)}
                 className="w-9 h-9 rounded-full bg-[#2B7C5E] border-2 border-white/40 flex items-center justify-center hover:bg-[#1e6b50] transition-colors"
               >
-                <span className="text-sm font-bold text-[#EFFFB5]">{getInitials(mockUser.name)}</span>
+                <span className="text-sm font-bold text-[#EFFFB5]">{getInitials(user?.name ?? "Me")}</span>
               </button>
               {showProfile && (
                 <div className="absolute right-0 top-11 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-fade-in">
                   <div className="px-4 py-2 border-b border-slate-100">
-                    <p className="text-sm font-semibold text-slate-900">{mockUser.name}</p>
-                    <p className="text-xs text-slate-500">{mockUser.email}</p>
+                    <p className="text-sm font-semibold text-slate-900">{user?.name ?? "My Account"}</p>
+                    <p className="text-xs text-slate-500">{user?.email ?? ""}</p>
                   </div>
                   <Link
                     href="/profile"

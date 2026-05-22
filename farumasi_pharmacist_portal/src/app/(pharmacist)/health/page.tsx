@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import { RichEditor } from "@/components/ui/rich-editor";
-import { mockHealthPosts } from "@/data/mock";
 import type { HealthPost, HealthPostCategory, HealthPostStatus } from "@/types";
 import {
   ArrowLeft, PenLine, Eye, Trash2, Edit2,
@@ -373,7 +372,7 @@ function PostCard({
 type View = "list" | "composer";
 
 export default function HealthPage() {
-  const [posts, setPosts] = useState<HealthPost[]>(mockHealthPosts);
+  const [posts, setPosts] = useState<HealthPost[]>([]);
   const [view, setView] = useState<View>("list");
   const [editingPost, setEditingPost] = useState<HealthPost | undefined>(undefined);
   const [previewPost, setPreviewPost] = useState<HealthPost | undefined>(undefined);

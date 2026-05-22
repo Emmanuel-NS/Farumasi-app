@@ -6,27 +6,43 @@ import { useRouter } from "next/navigation";
 import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 import { Eye, EyeOff, User, Briefcase } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
+import { toast } from "sonner";
 
 type Tab = "login" | "register";
 type Role = "patient" | "pharmacist";
 
 export default function LoginPage() {
   const router = useRouter();
-  const login = useAuthStore((s) => s.login);
+  const { login, register } = useAuthStore();
   const [tab, setTab] = useState<Tab>("login");
   const [role, setRole] = useState<Role>("patient");
-  const [email, setEmail] = useState("amina.uwase@email.rw");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("patient@farumasi.com");
+  const [password, setPassword] = useState("Patient@12345");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (role === "pharmacist") {
       router.push("http://localhost:3003");
-    } else {
-      login();
+      return;
+    }
+    setLoading(true);
+    try {
+      if (tab === "login") {
+        await login(email, password);
+      } else {
+        if (!name.trim()) { toast.error("Please enter your full name"); return; }
+        await register({ full_name: name, email, password, phone: phone || undefined });
+      }
       router.push("/store");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(msg ?? (tab === "login" ? "Invalid email or password" : "Registration failed"));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,16 +100,28 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {tab === "register" && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  placeholder="Amina Uwase"
-                  className="w-full h-11 rounded-xl border border-slate-200 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/40 focus:border-farumasi-500 transition-all"
-                />
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    placeholder="Amina Uwase"
+                    className="w-full h-11 rounded-xl border border-slate-200 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/40 focus:border-farumasi-500 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Phone (optional)</label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+250 788 000 000"
+                    className="w-full h-11 rounded-xl border border-slate-200 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/40 focus:border-farumasi-500 transition-all"
+                  />
+                </div>
+              </>
             )}
 
             <div>
@@ -107,7 +135,7 @@ export default function LoginPage() {
                 className="w-full h-11 rounded-xl border border-slate-200 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/40 focus:border-farumasi-500 transition-all"
               />
               {tab === "login" && (
-                <p className="text-[11px] text-slate-400 mt-1">Demo: amina.uwase@email.rw / password123</p>
+                <p className="text-[11px] text-slate-400 mt-1">Demo: patient@farumasi.com / Patient@12345</p>
               )}
             </div>
 
@@ -141,9 +169,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors mt-2"
+              disabled={loading}
+              className="w-full h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 disabled:opacity-60 text-white font-bold text-sm transition-colors mt-2"
             >
-              {tab === "login" ? "Sign In" : "Create Account"}
+              {loading ? "Please wait…" : tab === "login" ? "Sign In" : "Create Account"}
             </button>
           </form>
 

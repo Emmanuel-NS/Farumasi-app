@@ -134,7 +134,7 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
                       !notif.isRead && "bg-farumasi-50/60"
                     )}
                   >
-                    <div className="mt-0.5 shrink-0">{notifIcon(notif.severity)}</div>
+                    <div className="mt-0.5 shrink-0">{notifIcon(notif.type)}</div>
                     <div className="flex-1 min-w-0">
                       <p className={cn("text-xs font-semibold", !notif.isRead && "text-farumasi-800")}>{notif.title}</p>
                       <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{notif.message}</p>

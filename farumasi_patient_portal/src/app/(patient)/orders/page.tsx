@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { mockActiveOrders, mockPastOrders } from "@/data/mock";
+import { ordersService } from "@/lib/services/orders.service";
+import { adaptOrder } from "@/lib/services/orders.service";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { GuestGate } from "@/components/shared/guest-gate";
@@ -10,9 +11,25 @@ import { useTranslation } from "@/lib/translations";
 import { Package, ChevronRight, Clock, Store } from "lucide-react";
 import type { Order } from "@/types";
 
+const ACTIVE_STATUSES = new Set([
+  "pending_review", "finding_pharmacy", "pharmacy_accepted",
+  "payment_pending", "ready_for_pickup", "driver_assigned", "out_for_delivery",
+]);
+
 export default function OrdersPage() {
   const [tab, setTab] = useState<"active" | "past">("active");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const t = useTranslation();
+
+  useEffect(() => {
+    ordersService.getMyOrders().then((res) => {
+      setOrders(res.items.map(adaptOrder));
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const activeOrders = orders.filter((o) => ACTIVE_STATUSES.has(o.status));
+  const pastOrders   = orders.filter((o) => !ACTIVE_STATUSES.has(o.status));
 
   return (
     <GuestGate feature="your orders">
@@ -46,20 +63,22 @@ export default function OrdersPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {tab === "active" ? (
-          mockActiveOrders.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-slate-400 text-sm">Loading orders…</div>
+        ) : tab === "active" ? (
+          activeOrders.length === 0 ? (
             <EmptyOrders message={t.orders_no_active} />
           ) : (
             <div className="space-y-4 max-w-3xl mx-auto">
-              {mockActiveOrders.map((order) => <ActiveOrderCard key={order.id} order={order} />)}
+              {activeOrders.map((order) => <ActiveOrderCard key={order.id} order={order} />)}
             </div>
           )
         ) : (
-          mockPastOrders.length === 0 ? (
+          pastOrders.length === 0 ? (
             <EmptyOrders message={t.orders_no_past} />
           ) : (
             <div className="space-y-3 max-w-3xl mx-auto">
-              {mockPastOrders.map((order) => <PastOrderCard key={order.id} order={order} />)}
+              {pastOrders.map((order) => <PastOrderCard key={order.id} order={order} />)}
             </div>
           )
         )}

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { mockOrders } from "@/data/mock";
+import { useState, useEffect, useCallback } from "react";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
+import { toast } from "sonner";
 import {
   ShoppingBag, ChevronDown, ChevronUp, MapPin, CreditCard,
-  Truck, PackageCheck, Clock, UserCheck, CircleDot,
+  Truck, PackageCheck, Clock, UserCheck, CircleDot, RefreshCw,
 } from "lucide-react";
 import type { OrderStatus } from "@/types";
 
@@ -45,19 +46,43 @@ const TIMELINE_STEPS = [
 ];
 
 export default function OrdersPage() {
-  const [filter, setFilter]     = useState<"all" | OrderStatus>("all");
+  const [filter, setFilter]   = useState<"all" | OrderStatus>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [orders, setOrders]    = useState<BackendOrder[]>([]);
+  const [loading, setLoading]  = useState(true);
 
-  const filtered =
-    filter === "all"
-      ? mockOrders
-      : mockOrders.filter((o) => o.status === filter);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = filter !== "all" ? { status: filter, limit: 50 } : { limit: 50 };
+      const res = await ordersService.getPharmacyOrders(params);
+      setOrders(res.items);
+    } catch {
+      toast.error("Failed to load orders");
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = orders;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Orders</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Manage and fulfill patient medicine orders</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Orders</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Manage and fulfill patient medicine orders</p>
+        </div>
+        <button
+          onClick={load}
+          disabled={loading}
+          className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-farumasi-600 transition-colors"
+        >
+          <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+          Refresh
+        </button>
       </div>
 
       {/* Status filters */}
@@ -78,7 +103,12 @@ export default function OrdersPage() {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="py-24 flex flex-col items-center">
+          <div className="w-8 h-8 border-4 border-farumasi-200 border-t-farumasi-600 rounded-full animate-spin mb-3" />
+          <p className="text-slate-400 text-sm">Loading orders…</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="py-24 flex flex-col items-center text-center">
           <ShoppingBag className="w-16 h-16 text-slate-200 mb-3" />
           <p className="text-slate-600 font-semibold">No orders found</p>
@@ -87,7 +117,7 @@ export default function OrdersPage() {
         <div className="space-y-3">
           {filtered.map((order) => {
             const isExpanded = expanded === order.id;
-            const step       = STATUS_STEP[order.status] ?? 0;
+            const step       = STATUS_STEP[order.status as OrderStatus] ?? 0;
             const isCancelled = order.status === "cancelled";
 
             return (
@@ -102,9 +132,9 @@ export default function OrdersPage() {
                 >
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div>
-                      <p className="text-xs font-semibold text-slate-400">#{order.id}</p>
-                      <p className="text-base font-bold text-slate-900 mt-0.5">{order.patientName}</p>
-                      <p className="text-xs text-slate-500">{order.patientPhone}</p>
+                      <p className="text-xs font-semibold text-slate-400">#{order.id.slice(-8).toUpperCase()}</p>
+                      <p className="text-base font-bold text-slate-900 mt-0.5">{order.patient?.user?.full_name ?? "Unknown Patient"}</p>
+                      <p className="text-xs text-slate-500">{order.patient?.user?.phone ?? "—"}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge status={order.status} />
@@ -119,10 +149,10 @@ export default function OrdersPage() {
                     {order.items.map((item, i) => (
                       <div key={i} className="flex justify-between text-sm py-0.5">
                         <span className="text-slate-700">
-                          {item.medicineName}{" "}
-                          <span className="text-slate-400">×{item.quantity}</span>
+                          {item.product?.name ?? "Item"}{" "}
+                          <span className="text-slate-400">x{item.quantity}</span>
                         </span>
-                        <span className="text-slate-600">{formatPrice(item.totalPrice)} RWF</span>
+                        <span className="text-slate-600">{formatPrice(item.total_price)} RWF</span>
                       </div>
                     ))}
                   </div>
@@ -130,15 +160,15 @@ export default function OrdersPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-extrabold text-farumasi-700">
-                        {formatPrice(order.totalAmount)} RWF
+                        {formatPrice(order.total_amount)} RWF
                       </p>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        {formatDate(order.createdAt)} · {order.paymentMethod.replace(/_/g, " ")}
+                        {formatDate(order.created_at)}{order.payment_method ? ` · ${order.payment_method.replace(/_/g, " ")}` : ""}
                       </p>
                     </div>
-                    {order.driverName && (
+                    {order.rider?.user?.full_name && (
                       <p className="text-xs text-slate-500 flex items-center gap-1">
-                        🚚 {order.driverName}
+                        🚚 {order.rider.user.full_name}
                       </p>
                     )}
                   </div>
@@ -152,7 +182,7 @@ export default function OrdersPage() {
                       <div className="bg-white rounded-2xl p-3 border border-slate-100">
                         <p className="text-xs text-slate-400 mb-1">Payment method</p>
                         <p className="font-semibold text-slate-700 capitalize">
-                          {order.paymentMethod.replace(/_/g, " ")}
+                          {order.payment_method?.replace(/_/g, " ") ?? "N/A"}
                         </p>
                       </div>
                       <div className="bg-white rounded-2xl p-3 border border-slate-100">
@@ -161,7 +191,7 @@ export default function OrdersPage() {
                           <div>
                             <p className="text-xs text-slate-400 mb-0.5">Delivery address</p>
                             <p className="font-semibold text-slate-700 text-xs leading-tight">
-                              {order.deliveryAddress ?? "Not specified"}
+                              {order.delivery_address ?? "Not specified"}
                             </p>
                           </div>
                         </div>

@@ -1,22 +1,39 @@
 "use client";
-import { use } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, FilePlus, Phone, MapPin, Calendar, Shield,
   AlertTriangle, Heart, Activity, Pill, Clock, FileText,
   User, NotebookPen,
 } from "lucide-react";
-import { mockPatients, mockPrescriptions, mockClinicalNotes } from "@/data/mock";
+import { patientsService, DerivedPatient } from "@/lib/services/patients.service";
+import { prescriptionsService } from "@/lib/services/prescriptions.service";
 import {
-  calculateAge, formatDate, formatDateTime, getInitials,
-  getInsuranceBadgeColor, getPrescriptionStatusColor, timeAgo,
+  formatDate, formatDateTime, getInitials,
+  getPrescriptionStatusColor, timeAgo, calculateAge,
 } from "@/lib/utils";
+import type { Prescription, ClinicalNote } from "@/types";
 
 export default function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const patient = mockPatients.find((p) => p.id === id);
-  const patientRxs = mockPrescriptions.filter((r) => r.patientId === id);
-  const patientNotes = mockClinicalNotes.filter((n) => n.patientId === id);
+  const [patient, setPatient] = useState<DerivedPatient | null>(null);
+  const [patientRxs, setPatientRxs] = useState<Prescription[]>([]);
+  const patientNotes: ClinicalNote[] = [];
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      patientsService.getPatients(),
+      prescriptionsService.getAll({ limit: 100 }),
+    ]).then(([pts, allRx]) => {
+      setPatient(pts.find((p) => p.id === id) ?? null);
+      setPatientRxs(allRx.filter((r) => r.patientId === id));
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-2 border-farumasi-600 border-t-transparent" /></div>;
+  }
 
   if (!patient) {
     return (
@@ -28,7 +45,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const age = calculateAge(patient.dateOfBirth);
+  const age = patient.dateOfBirth ? calculateAge(patient.dateOfBirth) : null;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -58,17 +75,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
               <div>
                 <h1 className="text-xl font-bold text-slate-900">{patient.fullName}</h1>
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
-                  <span className="text-sm text-slate-500">{age} years · {patient.gender}</span>
-                  <span className="text-sm text-slate-500">DOB: {formatDate(patient.dateOfBirth)}</span>
-                  <span className="text-sm font-medium text-farumasi-700">NID: {patient.nationalId}</span>
+                  {age !== null && <span className="text-sm text-slate-500">{age} years{patient.gender ? ` · ${patient.gender}` : ""}</span>}
+                  {patient.dateOfBirth && <span className="text-sm text-slate-500">DOB: {formatDate(patient.dateOfBirth)}</span>}
+                  {patient.nationalId && <span className="text-sm font-medium text-farumasi-700">NID: {patient.nationalId}</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getInsuranceBadgeColor(patient.insurance)}`}>
-                  {patient.insurance}
-                  {patient.insuranceMemberId && ` · ${patient.insuranceMemberId}`}
-                </span>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${patient.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600`}>
                   {patient.status}
                 </span>
               </div>
@@ -80,9 +93,9 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-5 border-t border-slate-100">
           {[
             { icon: Phone, label: "Phone", value: patient.phone },
-            { icon: MapPin, label: "Address", value: `${patient.district}, ${patient.province}` },
-            { icon: Heart, label: "Blood Group", value: patient.bloodGroup },
-            { icon: Activity, label: "Weight / Height", value: patient.weight && patient.height ? `${patient.weight}kg / ${patient.height}cm` : "—" },
+            { icon: MapPin, label: "Address", value: "—" },
+            { icon: Heart, label: "Blood Group", value: "—" },
+            { icon: Activity, label: "Weight / Height", value: "—" },
           ].map((item) => (
             <div key={item.label}>
               <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">{item.label}</p>
@@ -102,9 +115,9 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             <AlertTriangle className="w-4 h-4 text-red-500" />
             <h3 className="text-sm font-semibold text-slate-800">Allergies</h3>
           </div>
-          {patient.allergies.length > 0 ? (
+          {([] as string[]).length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {patient.allergies.map((a) => (
+              {([] as string[]).map((a) => (
                 <span key={a} className="text-sm font-medium bg-red-50 text-red-700 border border-red-200 px-3 py-1 rounded-full">
                   ⚠ {a}
                 </span>
@@ -120,9 +133,9 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             <Activity className="w-4 h-4 text-blue-500" />
             <h3 className="text-sm font-semibold text-slate-800">Chronic Conditions</h3>
           </div>
-          {patient.chronicConditions.length > 0 ? (
+          {([] as string[]).length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {patient.chronicConditions.map((c) => (
+              {([] as string[]).map((c) => (
                 <span key={c} className="text-sm font-medium bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-full">
                   {c}
                 </span>

@@ -15,7 +15,7 @@ type L3 = { rw: string; fr: string; sw: string };
 // ─────────────────────────────────────────────────────────────────────────────
 type NotifI18n = { title: L3; message: L3 };
 
-export const notifI18n: Record<number, NotifI18n> = {
+export const notifI18n: Record<string, NotifI18n> = {
   1: {
     title: {
       rw: "Amakuru y'Itumba",

@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { mockRequests } from "@/data/mock";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatPrice, timeAgo, formatDateTime } from "@/lib/utils";
 import { ArrowLeft, CheckCircle, XCircle, FileText, Clock, Send, Phone } from "lucide-react";
 import { toast } from "sonner";
+import type { PrescriptionRequest } from "@/types";
 
 export default function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [requests, setRequests] = useState(mockRequests);
+  const [requests, setRequests] = useState<PrescriptionRequest[]>([]);
   const [notes, setNotes] = useState("");
 
   const req = requests.find((r) => r.id === id);

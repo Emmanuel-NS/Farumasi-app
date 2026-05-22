@@ -5,12 +5,14 @@ import {
   Package, Filter, ChevronDown, CheckCircle2,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockMedicines, mockPatients } from "@/data/mock";
 import { scoreMedicineForPatient } from "@/lib/intelligence";
 import {
   getStockBg, getStockColor, getScoreBgColor, formatRWF,
 } from "@/lib/utils";
-import type { Medicine, MedicineCategory } from "@/types";
+import type { Medicine, MedicineCategory, Patient } from "@/types";
+
+const MEDICINES: Medicine[] = [];
+const PATIENTS: Patient[] = [];
 
 const CATEGORIES: (MedicineCategory | "All")[] = [
   "All", "Antimalarial", "Antibiotic", "Analgesic",
@@ -26,7 +28,7 @@ export default function MedicinesPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return mockMedicines.filter((m) => {
+    return MEDICINES.filter((m) => {
       const matchesSearch =
         !q ||
         m.genericName.toLowerCase().includes(q) ||
@@ -38,7 +40,7 @@ export default function MedicinesPage() {
   }, [search, selectedCategory]);
 
   const selectedPatient = useMemo(
-    () => mockPatients.find((p) => p.id === selectedPatientId),
+    () => PATIENTS.find((p) => p.id === selectedPatientId),
     [selectedPatientId]
   );
 
@@ -73,7 +75,7 @@ export default function MedicinesPage() {
           className="text-sm px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-farumasi-500"
         >
           <option value="">Score for patient... (optional)</option>
-          {mockPatients.map((p) => (
+          {PATIENTS.map((p) => (
             <option key={p.id} value={p.id}>{p.fullName}</option>
           ))}
         </select>

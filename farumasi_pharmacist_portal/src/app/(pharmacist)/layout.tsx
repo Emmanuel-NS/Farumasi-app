@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { RightPanel } from "@/components/layout/right-panel";
 import { LayoutDashboard, FileText, ShoppingBag, Package, Heart, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth-store";
 
 const mobileNavItems = [
   { label: "Overview",  href: "/overview",  icon: LayoutDashboard },
@@ -21,9 +22,31 @@ export default function PharmacistLayout({ children }: { children: React.ReactNo
   const [collapsed, setCollapsed] = useState(false);
   const [activePanel, setActivePanel] = useState<string | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
+  const { isAuthenticated, isLoading, hydrate } = useAuthStore();
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/auth/login");
+    }
+  }, [isLoading, isAuthenticated, router]);
 
   const togglePanel = (panel: string) =>
     setActivePanel((prev) => (prev === panel ? null : panel));
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-farumasi-600">
+        <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return null;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600">

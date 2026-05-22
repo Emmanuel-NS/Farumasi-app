@@ -201,10 +201,10 @@ export interface HealthArticle {
 export type NotificationCategory = "order" | "order_shipped" | "health_tip" | "promo" | "reminder" | "general";
 
 export interface AppNotification {
-  id: number;
+  id: string;
   title: string;
   message: string;
-  time: Date;
+  time: string;
   category: NotificationCategory;
   isRead: boolean;
 }

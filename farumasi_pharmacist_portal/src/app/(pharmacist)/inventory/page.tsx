@@ -4,7 +4,6 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { mockInventory } from "@/data/mock";
 import { formatPrice, formatDate, cn, formatPriceRange } from "@/lib/utils";
 import {
   Plus, AlertTriangle, Search, Edit, RefreshCw,
@@ -121,7 +120,7 @@ const withStatus = (i: InventoryItem): InventoryItem => ({
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 export default function InventoryPage() {
   const router = useRouter();
-  const [items, setItems]             = useState<InventoryItem[]>(mockInventory);
+  const [items, setItems]             = useState<InventoryItem[]>([]);
   const [search, setSearch]           = useState("");
   const [category, setCategory]       = useState("All");
   const [restockItem, setRestockItem] = useState<InventoryItem | null>(null);

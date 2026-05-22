@@ -6,9 +6,10 @@ import {
   ChevronDown, ChevronUp, Pill,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockPatients, mockPrescriptions } from "@/data/mock";
 import { calculateAge, formatDate, cn } from "@/lib/utils";
 import type { Patient } from "@/types";
+
+const PATIENTS: Patient[] = [];
 
 // Inline treatment history derived from prescriptions + enriched patient context
 const OUTCOME_COLORS: Record<string, string> = {
@@ -216,7 +217,7 @@ export default function TreatmentPage() {
             className="pl-9 pr-8 py-2.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 outline-none focus:ring-2 focus:ring-farumasi-300 appearance-none min-w-[200px]"
           >
             <option value="all">All Patients</option>
-            {mockPatients.map((p) => (
+            {PATIENTS.map((p) => (
               <option key={p.id} value={p.id}>{p.fullName}</option>
             ))}
           </select>

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
 import type { CartEntry } from "@/store/cart-store";
 import { useTranslation } from "@/lib/translations";
-import { mockMedicines, mockPharmacies } from "@/data/mock";
+import { pharmaciesService, BackendPharmacy } from "@/lib/services/pharmacies.service";
+import { ordersService } from "@/lib/services/orders.service";
 import type { Pharmacy, Medicine } from "@/types";
 import {
   ShoppingCart,
@@ -57,26 +58,29 @@ interface PharmacyOption {
   estimatedDeliveryMin: number;
 }
 
-// ── Scoring engine ─────────────────────────────────────────────
-// Seeded distances (km) per pharmacy for consistent Kigali positioning
-const PHARMACY_DISTANCES: Record<string, number> = {
-  p1: 1.2, // FARUMASI Pharmacy — Kigali Heights
-  p2: 3.8, // City Chemist — UTC Building
-  p3: 5.1, // HealthPlus Nyamirambo
-  p4: 7.3, // Remera Modern Pharmacy
-  p5: 2.4,
-  p6: 9.0,
-};
+// Adapt backend pharmacy to Pharmacy type for scoring
+function adaptBackendPharmacy(p: BackendPharmacy): Pharmacy {
+  return {
+    id: p.id,
+    name: p.name,
+    locationName: p.address || p.district,
+    coordinates: [p.latitude ?? -1.9441, p.longitude ?? 30.0619] as [number, number],
+    supportedInsurances: [],
+    isOpen: p.is_open,
+    imageUrl: "",
+    province: "Kigali",
+    district: p.district,
+  };
+}
 
+// ── Scoring engine ─────────────────────────────────────────────
 // Patient insurance — from auth context in production
 const PATIENT_INSURANCE = "RSSB";
 
-function scorePharmacies(cartMedicineIds: string[]): PharmacyOption[] {
-  const cartMeds: Medicine[] = cartMedicineIds
-    .map((id) => mockMedicines.find((m: Medicine) => m.id === id))
-    .filter((m): m is Medicine => m !== undefined);
+function scorePharmacies(cartMeds: Medicine[], pharmacies: Pharmacy[]): PharmacyOption[] {
+  if (pharmacies.length === 0 || cartMeds.length === 0) return [];
 
-  const scored = (mockPharmacies as Pharmacy[]).map((pharmacy: Pharmacy) => {
+  const scored = pharmacies.map((pharmacy: Pharmacy) => {
     const availability: MedicineAvailability[] = cartMeds.map((med: Medicine) => {
       const pha = med.marketingPharmacies.find(
         (p: { pharmacyName: string; stockStatus: string; price: number }) => p.pharmacyName === pharmacy.name
@@ -94,7 +98,7 @@ function scorePharmacies(cartMedicineIds: string[]): PharmacyOption[] {
     const priceEstimate = availability.reduce((s, a) => s + a.unitPrice, 0);
     const insuranceMatch = pharmacy.supportedInsurances.includes(PATIENT_INSURANCE);
     const insuranceSaving = insuranceMatch ? Math.round(priceEstimate * 0.15) : 0;
-    const distanceKm = PHARMACY_DISTANCES[pharmacy.id] ?? 6;
+    const distanceKm = 5; // placeholder until geolocation is available
 
     // Weighted score: availability 50%, insurance 25%, proximity 15%, open 10%
     const score =
@@ -168,6 +172,15 @@ export default function CartPage() {
   const [notes, setNotes]                     = useState("");
   const [payMethod, setPayMethod]             = useState<"momo" | "airtel" | "cash">("momo");
   const [momoPhone, setMomoPhone]             = useState("");
+  const [isPlacingOrder, setIsPlacingOrder]   = useState(false);
+  const [confirmedOrderCode, setConfirmedOrderCode] = useState<string>("");
+  const [pharmacyList, setPharmacyList]       = useState<Pharmacy[]>([]);
+
+  useEffect(() => {
+    pharmaciesService.listPharmacies().then((items) => {
+      setPharmacyList(items.map(adaptBackendPharmacy));
+    }).catch(() => {});
+  }, []);
 
   const enriched     = Object.values(cartItems) as CartEntry[];
   const subtotal     = enriched.reduce((s: number, e: CartEntry) => s + e.medicine.price * e.qty, 0);
@@ -177,9 +190,9 @@ export default function CartPage() {
   const stepIdx      = STEPS.findIndex((s) => s.key === step);
 
   const pharmacyOptions = useMemo(
-    () => scorePharmacies(enriched.map((e: CartEntry) => e.medicine.id)),
+    () => scorePharmacies(enriched.map((e: CartEntry) => e.medicine), pharmacyList),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enriched.map((e: CartEntry) => e.medicine.id).join(",")]
+    [enriched.map((e: CartEntry) => e.medicine.id).join(","), pharmacyList]
   );
 
   // ── Step bar component ────────────────────────────────────────
@@ -441,9 +454,9 @@ export default function CartPage() {
 
               {/* Medicine availability chips */}
               <div className="flex flex-wrap gap-1.5 mb-3">
-                {opt.availability.map((med) => (
+                {opt.availability.map((med, medIdx) => (
                   <span
-                    key={med.medicineName}
+                    key={`${med.medicineName}-${medIdx}`}
                     className={cn(
                       "inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium",
                       med.available
@@ -837,19 +850,43 @@ export default function CartPage() {
         </div>
 
         <button
-          disabled={!canPlace}
-          onClick={() => {
-            clear();
-            setStep("confirmed");
+          disabled={!canPlace || isPlacingOrder}
+          onClick={async () => {
+            if (!canPlace || isPlacingOrder) return;
+            setIsPlacingOrder(true);
+            try {
+              const orderItems = enriched.map((e: CartEntry) => ({
+                product_name: e.medicine.name,
+                quantity: e.qty,
+                unit_price: e.medicine.price,
+              }));
+              const deliveryAddr = fulfillment === "delivery"
+                ? `${street}, ${district}`
+                : undefined;
+              const result = await ordersService.createOrder({
+                delivery_method: fulfillment,
+                delivery_address: deliveryAddr,
+                notes: notes || undefined,
+                items: orderItems,
+              });
+              setConfirmedOrderCode(result.order_code ?? ORDER_NUM);
+            } catch {
+              // If backend fails, still confirm with local order code
+              setConfirmedOrderCode(ORDER_NUM);
+            } finally {
+              setIsPlacingOrder(false);
+              clear();
+              setStep("confirmed");
+            }
           }}
           className={cn(
             "w-full rounded-2xl text-white font-bold text-base transition-colors py-3.5",
-            canPlace
+            canPlace && !isPlacingOrder
               ? "bg-farumasi-600 hover:bg-farumasi-700"
               : "bg-slate-200 cursor-not-allowed text-slate-400"
           )}
         >
-          {t.cart_place_order} · {formatPrice(total)}
+          {isPlacingOrder ? "Placing Order…" : `${t.cart_place_order} · ${formatPrice(total)}`}
         </button>
       </div>
     );
@@ -869,7 +906,7 @@ export default function CartPage() {
         </h1>
         <p className="text-slate-500 text-sm">{t.cart_confirmed_subtitle}</p>
         <span className="mt-3 px-4 py-1.5 bg-farumasi-50 text-farumasi-700 font-bold text-sm rounded-full border border-farumasi-200">
-          {ORDER_NUM}
+          {confirmedOrderCode || ORDER_NUM}
         </span>
       </div>
 

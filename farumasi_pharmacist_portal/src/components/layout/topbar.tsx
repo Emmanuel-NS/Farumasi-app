@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn, getInitials } from "@/lib/utils";
-import { mockPharmacist, mockNotifications } from "@/data/mock";
+import { useAuthStore } from "@/store/auth-store";
 import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 import { Menu, Bell, MessageCircle, HelpCircle, LogOut, User, Settings } from "lucide-react";
 
@@ -34,7 +34,8 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
   const pathname = usePathname();
   const [showProfile, setShowProfile] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
-  const unread = mockNotifications.filter((n) => !n.isRead).length;
+  const unread = 0;
+  const { user, logout } = useAuthStore();
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -69,7 +70,7 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
       {/* Pharmacy name — desktop only */}
       <div className="hidden lg:flex items-center gap-1 ml-1">
         <span className="text-white/60 text-sm">/</span>
-        <span className="text-white/80 text-sm">{mockPharmacist.pharmacyName}</span>
+        <span className="text-white/80 text-sm">{user?.full_name ?? "Pharmacist"}</span>
       </div>
 
       <div className="flex items-center gap-0.5 ml-auto">
@@ -122,13 +123,13 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
             onClick={() => setShowProfile(!showProfile)}
             className="w-9 h-9 rounded-full bg-[#2B7C5E] border-2 border-white/40 flex items-center justify-center hover:bg-[#1e6b50] transition-colors"
           >
-            <span className="text-sm font-bold text-[#EFFFB5]">{getInitials(mockPharmacist.name)}</span>
+            <span className="text-sm font-bold text-[#EFFFB5]">{getInitials(user?.full_name ?? "P")}</span>
           </button>
           {showProfile && (
             <div className="absolute right-0 top-11 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-fade-in">
               <div className="px-4 py-2 border-b border-slate-100">
-                <p className="text-sm font-bold text-slate-900">{mockPharmacist.name}</p>
-                <p className="text-xs text-slate-500">{mockPharmacist.pharmacyName}</p>
+                <p className="text-sm font-bold text-slate-900">{user?.full_name ?? "Pharmacist"}</p>
+                <p className="text-xs text-slate-500">{user?.email ?? ""}</p>
               </div>
               <Link href="/profile" className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors" onClick={() => setShowProfile(false)}>
                 <User className="w-4 h-4 text-farumasi-600" />
@@ -139,10 +140,13 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
                 Settings
               </Link>
               <div className="border-t border-slate-100 mt-1 pt-1">
-                <Link href="/auth/login" className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors" onClick={() => setShowProfile(false)}>
+                <button
+                  className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  onClick={() => { logout(); window.location.href = "/auth/login"; }}
+                >
                   <LogOut className="w-4 h-4" />
                   Logout
-                </Link>
+                </button>
               </div>
             </div>
           )}

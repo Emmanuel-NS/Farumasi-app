@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { mockOrders, mockDrivers } from "@/data/mock";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatPrice, formatDate, formatDateTime } from "@/lib/utils";
 import { ArrowLeft, Phone, MapPin, Truck, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import type { OrderStatus } from "@/types";
+import type { Order, Driver, OrderStatus } from "@/types";
 
 const NEXT_STATUS: Record<string, OrderStatus> = {
   pending: "confirmed",
@@ -28,8 +27,9 @@ const NEXT_LABEL: Record<string, string> = {
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [orders, setOrders] = useState(mockOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<string>("");
+  const drivers: Driver[] = [];
 
   const order = orders.find((o) => o.id === id);
 
@@ -51,7 +51,7 @@ export default function OrderDetailPage() {
       toast.error("Please select a driver first");
       return;
     }
-    const driver = mockDrivers.find((d) => d.id === selectedDriver);
+    const driver = drivers.find((d) => d.id === selectedDriver);
     setOrders((p) => p.map((o) =>
       o.id === id
         ? { ...o, status: next, updatedAt: new Date().toISOString(), driverId: driver?.id, driverName: driver?.name }
@@ -62,7 +62,7 @@ export default function OrderDetailPage() {
 
   const isFinal = order.status === "delivered" || order.status === "cancelled" || order.status === "failed";
   const canAdvance = !isFinal && !!NEXT_STATUS[order.status];
-  const availableDrivers = mockDrivers.filter((d) => d.status === "available");
+  const availableDrivers = drivers.filter((d) => d.status === "available");
 
   return (
     <div className="p-6 max-w-2xl mx-auto">

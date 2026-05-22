@@ -5,8 +5,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockAuditLogs } from "@/data/mock";
 import { formatDateTime } from "@/lib/utils";
+import type { AuditLog } from "@/types";
 
 const ACTION_ICONS: Record<string, React.ElementType> = {
   Login: LogIn,
@@ -28,8 +28,9 @@ const ACTION_COLORS: Record<string, string> = {
 
 export default function AuditPage() {
   const [search, setSearch] = useState("");
+  const auditLogs: AuditLog[] = [];
 
-  const filtered = mockAuditLogs.filter((log) => {
+  const filtered = auditLogs.filter((log) => {
     const q = search.toLowerCase();
     return (
       !q ||
@@ -51,10 +52,10 @@ export default function AuditPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total Events", value: mockAuditLogs.length, icon: FileText, color: "text-farumasi-600" },
-          { label: "Logins", value: mockAuditLogs.filter(l => l.action === "Login").length, icon: LogIn, color: "text-green-600" },
-          { label: "Patient Views", value: mockAuditLogs.filter(l => l.action === "ViewPatient").length, icon: Eye, color: "text-blue-600" },
-          { label: "Prescriptions", value: mockAuditLogs.filter(l => l.action === "CreatePrescription").length, icon: PenSquare, color: "text-purple-600" },
+          { label: "Total Events", value: auditLogs.length, icon: FileText, color: "text-farumasi-600" },
+          { label: "Logins", value: auditLogs.filter(l => l.action === "Login").length, icon: LogIn, color: "text-green-600" },
+          { label: "Patient Views", value: auditLogs.filter(l => l.action === "ViewPatient").length, icon: Eye, color: "text-blue-600" },
+          { label: "Prescriptions", value: auditLogs.filter(l => l.action === "CreatePrescription").length, icon: PenSquare, color: "text-farumasi-600" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
             <s.icon className={`w-5 h-5 ${s.color} flex-shrink-0`} />

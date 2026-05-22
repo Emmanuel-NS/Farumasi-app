@@ -1,7 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { mockStats, mockOrders, mockRequests } from "@/data/mock";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatPrice, formatDate } from "@/lib/utils";
@@ -10,6 +10,9 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from "recharts";
+import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
+import { prescriptionsService, type BackendPrescription } from "@/lib/services/prescriptions.service";
+import { toast } from "sonner";
 
 const weeklyData = [
   { day: "Mon", orders: 12, revenue: 5000 },
@@ -22,10 +25,29 @@ const weeklyData = [
 ];
 
 export default function OverviewPage() {
-  const recentOrders  = mockOrders.slice(0, 4);
-  const activeRequests = mockRequests.filter(
-    (r) => r.status === "broadcast" || r.status === "accepted"
+  const [orders, setOrders]             = useState<BackendOrder[]>([]);
+  const [prescriptions, setPrescriptions] = useState<BackendPrescription[]>([]);
+  const [loading, setLoading]           = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      ordersService.getPharmacyOrders({ limit: 10 }),
+      prescriptionsService.getAll({ limit: 50 }),
+    ])
+      .then(([ordersRes, rxRes]) => {
+        setOrders(ordersRes.items);
+        setPrescriptions(rxRes.items);
+      })
+      .catch(() => toast.error("Failed to load dashboard data"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const recentOrders   = orders.slice(0, 4);
+  const activeRequests = prescriptions.filter(
+    (r) => r.status === "draft" || r.status === "active" || r.status === "under_review"
   );
+  const pendingOrders  = orders.filter((o) => o.status === "pending" || o.status === "confirmed").length;
+  const totalRevenue   = orders.reduce((s, o) => s + (o.total_amount ?? 0), 0);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -39,13 +61,13 @@ export default function OverviewPage() {
         </p>
       </div>
 
-      {/* Stats grid — 4 primary + 1 secondary, mirrors Flutter */}
+      {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <StatCard title="Active Orders"    value={mockStats.totalOrdersToday}              icon={ShoppingBag} color="green"  trend="+4 from yesterday" trendUp />
-        <StatCard title="New Requests"     value={mockStats.pendingRequests}               icon={FileText}    color="orange" trend="+2 since 1h" trendUp />
-        <StatCard title="Today's Revenue"  value={`RWF ${(mockStats.revenue30d / 30 / 1000).toFixed(0)}K`} icon={DollarSign} color="blue" trend="+12% vs yesterday" trendUp />
-        <StatCard title="Low Stock Items"  value={mockStats.lowStockItems}                 icon={Package}     color="red" />
-        <StatCard title="Active Drivers"   value={mockStats.activeDrivers}                 icon={Truck}       color="purple" />
+        <StatCard title="Active Orders"    value={pendingOrders}                                                icon={ShoppingBag} color="green"  trend="" trendUp />
+        <StatCard title="New Requests"     value={activeRequests.length}                                       icon={FileText}    color="orange" trend="" trendUp />
+        <StatCard title="Total Revenue"    value={`RWF ${(totalRevenue / 1000).toFixed(0)}K`}                  icon={DollarSign}  color="blue"   trend="" trendUp />
+        <StatCard title="Orders (Total)"   value={orders.length}                                               icon={Package}     color="red" />
+        <StatCard title="Prescriptions"    value={prescriptions.length}                                        icon={Truck}       color="purple" />
       </div>
 
       {/* Weekly Activity Chart */}
@@ -98,14 +120,14 @@ export default function OverviewPage() {
                 className="flex items-center gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-100 hover:bg-amber-100 transition-colors"
               >
                 <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                  {req.patientName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                  {(req.patient?.user?.full_name ?? "P").split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{req.patientName}</p>
+                  <p className="text-sm font-semibold text-slate-900 truncate">{req.patient?.user?.full_name ?? "Unknown"}</p>
                   <p className="text-xs text-amber-700 font-medium">
                     {req.items.length} item{req.items.length !== 1 ? "s" : ""} · Awaiting review
                   </p>
-                  <p className="text-[11px] text-slate-400">{formatDate(req.broadcastAt)}</p>
+                  <p className="text-[11px] text-slate-400">{formatDate(req.created_at)}</p>
                 </div>
               </Link>
             ))}
@@ -135,12 +157,12 @@ export default function OverviewPage() {
                   <ShoppingBag className="w-4 h-4 text-farumasi-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{order.patientName}</p>
-                  <p className="text-xs text-slate-400">#{order.id} · {order.items.length} item{order.items.length !== 1 ? "s" : ""}</p>
+                  <p className="text-sm font-semibold text-slate-900 truncate">{order.patient?.user?.full_name ?? "Unknown"}</p>
+                  <p className="text-xs text-slate-400">#{order.id.slice(-6).toUpperCase()} · {order.items.length} item{order.items.length !== 1 ? "s" : ""}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <StatusBadge status={order.status} />
-                  <p className="text-xs text-slate-500 mt-1">{formatPrice(order.totalAmount)} RWF</p>
+                  <p className="text-xs text-slate-500 mt-1">{formatPrice(order.total_amount)} RWF</p>
                 </div>
               </div>
             ))}
@@ -168,12 +190,11 @@ export default function OverviewPage() {
                     <FileText className="w-4 h-4 text-amber-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{req.patientName}</p>
-                    <p className="text-xs text-slate-400">#{req.id} · {req.items.length} item{req.items.length !== 1 ? "s" : ""}</p>
+                    <p className="text-sm font-semibold text-slate-900">{req.patient?.user?.full_name ?? "Unknown"}</p>
+                    <p className="text-xs text-slate-400">#{req.id.slice(-6).toUpperCase()} · {req.items.length} item{req.items.length !== 1 ? "s" : ""}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <StatusBadge status={req.status} type="request" />
-                    <p className="text-xs text-slate-500 mt-1">{formatPrice(req.totalAmount)} RWF</p>
                   </div>
                 </div>
               ))}

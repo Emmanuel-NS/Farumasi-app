@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { mockPharmacist } from "@/data/mock";
+import { useAuthStore } from "@/store/auth-store";
 import { cn } from "@/lib/utils";
 import { Bell, Shield, Store, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
@@ -58,11 +58,12 @@ function Accordion({ id, title, icon: Icon, open, onToggle, children }: {
 }
 
 function GeneralSection() {
+  const user = useAuthStore((s) => s.user);
   const [form, setForm] = useState({
-    pharmacyName: mockPharmacist.pharmacyName,
-    address: mockPharmacist.pharmacyAddress,
-    phone: mockPharmacist.phone,
-    email: mockPharmacist.email,
+    pharmacyName: "FARUMASI Pharmacy",
+    address: "Kigali, Rwanda",
+    phone: user?.phone ?? "",
+    email: user?.email ?? "",
   });
   const u = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
   const inp = "w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 transition-all";

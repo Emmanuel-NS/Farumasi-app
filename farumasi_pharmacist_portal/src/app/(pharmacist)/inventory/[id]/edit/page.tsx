@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -9,8 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RichEditor } from "@/components/ui/rich-editor";
-import { mockInventory } from "@/data/mock";
-import type { AgeRange, AgeDosage } from "@/types";
+import type { AgeRange, AgeDosage, InventoryItem } from "@/types";
 
 /* ─── Constants ──────────────────────────────────────── */
 const CATEGORY_HIERARCHY: Record<string, string[]> = {
@@ -117,46 +116,55 @@ function buildTaxonomy(
 export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
-  const itemId = Number(params.id);
+  const itemId = params.id as string;
 
-  const item = mockInventory.find((i) => i.id === itemId) ?? null;
+  const [item, setItem] = useState<InventoryItem | null>(null);
+
+  useEffect(() => {
+    // TODO: load item from inventory service when it's available
+    // api.get(`/products/${itemId}`).then(({ data }) => setItem(adaptItem(data))).catch(() => {});
+  }, [itemId]);
 
   /* ── Basic Info ── */
-  const [name, setName]           = useState(item?.name ?? "");
-  const [manufacturer, setMfr]    = useState(item?.manufacturer ?? "");
-  const [imageUrl, setImageUrl]   = useState(item?.imageUrl ?? "");
+  const [name, setName]           = useState<string>("");
+  const [manufacturer, setMfr]    = useState<string>("");
+  const [imageUrl, setImageUrl]   = useState<string>("");
   const [imageFile, setImageFile] = useState<string | null>(null);
   const fileRef                    = useRef<HTMLInputElement>(null);
   const [showUrlInput, setShowUrlInput] = useState(false);
 
+  // Sync form state when item loads
+  useEffect(() => {
+    if (!item) return;
+    setName(item.name ?? "");
+    setMfr(item.manufacturer ?? "");
+    setImageUrl(item.imageUrl ?? "");
+  }, [item]);
+
   /* ── Category ── */
-  const [selectedTaxonomy, setTaxonomy] = useState<Record<string, Set<string>>>(
-    () => item
-      ? buildTaxonomy(item.category, item.subCategory, item.additionalCategories)
-      : {},
-  );
+  const [selectedTaxonomy, setTaxonomy] = useState<Record<string, Set<string>>>({});
 
   /* ── Summaries ── */
-  const [shortDesc, setShortDesc]         = useState(item?.shortDescription ?? "");
-  const [dosageSummary, setDosageSumm]   = useState(item?.dosageSummary ?? "");
+  const [shortDesc, setShortDesc]         = useState<string>("");
+  const [dosageSummary, setDosageSumm]   = useState<string>("");
 
   /* ── Prescription ── */
-  const [requiresRx, setRequiresRx] = useState(item?.requiresPrescription ?? false);
+  const [requiresRx, setRequiresRx] = useState<boolean>(false);
 
   /* ── Age dosages ── */
-  const [ageDosages, setAgeDosages] = useState<AgeDosage[]>(item?.ageDosages ?? []);
+  const [ageDosages, setAgeDosages] = useState<AgeDosage[]>([]);
   const [tempAge, setTempAge]       = useState<AgeRange | "">("");
   const [tempAgeDose, setTempAgeDose] = useState("");
 
   /* ── Detail tabs ── */
   const [activeTab, setActiveTab]       = useState<DetailTab>("Overview");
-  const [description, setDescription]   = useState(item?.description ?? "");
-  const [dosage, setDosage]             = useState(item?.dosage ?? "");
-  const [sideEffects, setSideEffects]   = useState(item?.sideEffects ?? "");
-  const [doseMorning, setMorning]       = useState(item?.doseMorning ?? "");
-  const [doseAfternoon, setAfternoon]   = useState(item?.doseAfternoon ?? "");
-  const [doseEvening, setEvening]       = useState(item?.doseEvening ?? "");
-  const [doseInterval, setInterval_]    = useState<string>(item?.doseTimeInterval ?? "");
+  const [description, setDescription]   = useState<string>("");
+  const [dosage, setDosage]             = useState<string>("");
+  const [sideEffects, setSideEffects]   = useState<string>("");
+  const [doseMorning, setMorning]       = useState<string>("");
+  const [doseAfternoon, setAfternoon]   = useState<string>("");
+  const [doseEvening, setEvening]       = useState<string>("");
+  const [doseInterval, setInterval_]    = useState<string>("");
 
   /* ── Image handling ── */
   const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {

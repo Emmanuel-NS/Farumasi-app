@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { mockPharmacists, mockUser } from "@/data/mock";
+import { pharmacistsService } from "@/lib/services/pharmacists.service";
+import { api } from "@/lib/api";
 import { cn, getInitials } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { GuestGate } from "@/components/shared/guest-gate";
+import { useAuthStore } from "@/store/auth-store";
 import type { Pharmacist, ChatMessage } from "@/types";
 import {
   Send, Paperclip, ChevronLeft, Star, Building2,
@@ -12,26 +14,15 @@ import {
 } from "lucide-react";
 
 // ── Per-pharmacist opening message ───────────────────────────────────────────
-function buildOpeningMessage(ph: Pharmacist): ChatMessage {
+function buildOpeningMessage(content: string, senderId: string): ChatMessage {
   return {
     id: "init-1",
-    senderId: ph.id,
-    content: `Hello! I'm ${ph.name} from ${ph.organization}. I specialise in ${ph.specialty}. How can I help you today?`,
+    senderId,
+    content,
     timestamp: new Date(Date.now() - 60_000),
     isMe: false,
   };
 }
-
-const REPLIES = [
-  "Hello! I'm here to help. Could you describe your symptoms in more detail?",
-  "That's a common concern. Please consult a doctor if symptoms persist beyond 48 hours.",
-  "For that medicine, the typical adult dose is twice daily after meals.",
-  "Make sure to stay hydrated and complete the full course of any antibiotics prescribed.",
-  "I understand — feel free to share your prescription and I'll review it.",
-  "Great question! Let me look that up for you right away.",
-  "That medicine should be taken with food to avoid stomach discomfort.",
-  "Yes, those two medications can interact. I'd recommend spacing them at least 2 hours apart.",
-];
 
 const STATUS_META: Record<string, { dot: string; badge: string }> = {
   available: { dot: "bg-green-400",  badge: "bg-green-100 text-green-700"  },
@@ -118,12 +109,40 @@ function PharmacistCard({ ph, onSelect }: { ph: Pharmacist; onSelect: (ph: Pharm
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function ConsultPage() {
   const t = useTranslation();
+  const authUser = useAuthStore((s) => s.user);
+  const [pharmacists, setPharmacists] = useState<Pharmacist[]>([]);
   const [selected, setSelected] = useState<Pharmacist | null>(null);
+  const [consultationId, setConsultationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput]       = useState("");
   const [typing, setTyping]     = useState(false);
   const [searchQ, setSearchQ]   = useState("");
-  const [filter, setFilter]     = useState<"all" | "available">("all");
+  const [filter, setFilter]     = useState<"all" | "available">("all");;
+
+  useEffect(() => {
+    pharmacistsService.list(30).then(setPharmacists).catch(() => {});
+  }, []);
+
+  // Poll for new messages while in chat
+  useEffect(() => {
+    if (!consultationId) return;
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await api.get(`/consultations/${consultationId}`);
+        const apiMsgs: ChatMessage[] = (data.messages ?? []).map((m: { id: string; sender_id: string; content: string; sent_at: string }) => ({
+          id: m.id,
+          senderId: m.sender_id,
+          content: m.content,
+          timestamp: new Date(m.sent_at),
+          isMe: m.sender_id === authUser?.id,
+        }));
+        setMessages(apiMsgs);
+      } catch {
+        // silently ignore
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [consultationId, authUser]);
 
   // Patient avatar — persisted in localStorage
   const [patientAvatar, setPatientAvatar] = useState<string | null>(() => {
@@ -137,38 +156,59 @@ export default function ConsultPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  const handleSelect = (ph: Pharmacist) => {
+  const handleSelect = async (ph: Pharmacist) => {
     setSelected(ph);
-    setMessages([buildOpeningMessage(ph)]);
+    setMessages([]);
     setInput("");
     setTyping(false);
+    try {
+      const { data } = await api.post("/consultations/", { pharmacist_id: ph.id });
+      setConsultationId(data.id);
+      const msgs: ChatMessage[] = (data.messages ?? []).map((m: { id: string; sender_id: string; content: string; sent_at: string }) => ({
+        id: m.id,
+        senderId: m.sender_id,
+        content: m.content,
+        timestamp: new Date(m.sent_at),
+        isMe: m.sender_id === authUser?.id,
+      }));
+      if (msgs.length === 0 && data.messages?.length === 0) {
+        msgs.push(buildOpeningMessage(
+          `Hello! I'm ${ph.name} from ${ph.organization}. I specialise in ${ph.specialty}. How can I help you today?`,
+          ph.id
+        ));
+      }
+      setMessages(msgs);
+    } catch {
+      // Fall back to local greeting if API fails
+      setMessages([buildOpeningMessage(
+        `Hello! I'm ${ph.name} from ${ph.organization}. I specialise in ${ph.specialty}. How can I help you today?`,
+        ph.id
+      )]);
+    }
   };
 
-  const handleBack = () => { setSelected(null); setMessages([]); };
+  const handleBack = () => { setSelected(null); setMessages([]); setConsultationId(null); };
 
-  const sendMessage = useCallback(() => {
+  const sendMessage = useCallback(async () => {
     if (!input.trim() || !selected) return;
+    const content = input.trim();
     const userMsg: ChatMessage = {
       id: String(Date.now()),
-      senderId: "patient",
-      content: input.trim(),
+      senderId: authUser?.id ?? "patient",      content,
       timestamp: new Date(),
       isMe: true,
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
-    setTyping(true);
-    setTimeout(() => {
-      setTyping(false);
-      setMessages((prev) => [...prev, {
-        id: String(Date.now() + 1),
-        senderId: selected.id,
-        content: REPLIES[Math.floor(Math.random() * REPLIES.length)],
-        timestamp: new Date(),
-        isMe: false,
-      }]);
-    }, 1800);
-  }, [input, selected]);
+
+    if (consultationId) {
+      try {
+        await api.post(`/consultations/${consultationId}/messages`, { content });
+      } catch {
+        // silently ignore, message is already shown locally
+      }
+    }
+  }, [input, selected, consultationId, authUser]);
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -181,7 +221,7 @@ export default function ConsultPage() {
   const formatTime = (d: Date) =>
     d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  const visible = mockPharmacists.filter((ph) => {
+  const visible = pharmacists.filter((ph) => {
     const matchQ = !searchQ.trim() ||
       ph.name.toLowerCase().includes(searchQ.toLowerCase()) ||
       ph.specialty.toLowerCase().includes(searchQ.toLowerCase()) ||
@@ -242,7 +282,7 @@ export default function ConsultPage() {
           </div>
 
           {messages.map((msg) => {
-            const isPatient = msg.senderId === "patient";
+            const isPatient = msg.isMe;
             return (
               <div key={msg.id} className={cn("flex items-end gap-2", isPatient ? "justify-end" : "justify-start")}>
                 {/* Pharmacist avatar */}
@@ -286,7 +326,7 @@ export default function ConsultPage() {
                         <img src={patientAvatar} alt="You" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-farumasi-700 font-bold text-[10px]">
-                          {getInitials(mockUser.name)}
+                          {getInitials(authUser?.name ?? "Me")}
                         </div>
                       )}
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
@@ -352,7 +392,7 @@ export default function ConsultPage() {
   // ═══════════════════════════════════════════════════════════════════════════
   // PICKER VIEW
   // ═══════════════════════════════════════════════════════════════════════════
-  const availableCount = mockPharmacists.filter((p) => p.status === "available").length;
+  const availableCount = pharmacists.filter((p) => p.status === "available").length;
 
   return (
     <GuestGate feature="Consult">
@@ -393,7 +433,7 @@ export default function ConsultPage() {
                 filter === f ? "bg-farumasi-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
               )}
             >
-              {f === "all" ? `${t.consult_filter_all} (${mockPharmacists.length})` : `${t.consult_filter_available} (${availableCount})`}
+              {f === "all" ? `${t.consult_filter_all} (${pharmacists.length})` : `${t.consult_filter_available} (${availableCount})`}
             </button>
           ))}
         </div>

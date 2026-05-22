@@ -7,10 +7,10 @@ import {
   TrendingUp, FileText, Users, Package, Activity,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import {
-  mockPrescriptionTrend, mockConditionBreakdown, mockFulfillmentByPharmacy,
-  mockPrescriptions, mockPatients,
-} from "@/data/mock";
+
+const PRESCRIPTION_TREND: { month: string; count: number }[] = [];
+const CONDITION_BREAKDOWN: { name: string; value: number; color: string }[] = [];
+const FULFILLMENT_BY_PHARMACY: { name: string; fulfilled: number; partial: number }[] = [];
 
 const TOP_MEDICINES = [
   { name: "Coartem", count: 38 },
@@ -33,10 +33,10 @@ export default function AnalyticsPage() {
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "This Month", value: mockPrescriptions.length, sub: "prescriptions", icon: FileText, color: "bg-farumasi-50 text-farumasi-700" },
-          { label: "Active Patients", value: mockPatients.length, sub: "under care", icon: Users, color: "bg-blue-50 text-blue-700" },
+          { label: "This Month", value: 0, sub: "prescriptions", icon: FileText, color: "bg-farumasi-50 text-farumasi-700" },
+          { label: "Active Patients", value: 0, sub: "under care", icon: Users, color: "bg-blue-50 text-blue-700" },
           { label: "Fulfillment Rate", value: "80%", sub: "of prescriptions filled", icon: Package, color: "bg-green-50 text-green-700" },
-          { label: "Pending", value: mockPrescriptions.filter(r => r.status === "Pending" || r.status === "Sent").length, sub: "awaiting fulfillment", icon: Activity, color: "bg-amber-50 text-amber-700" },
+          { label: "Pending", value: 0, sub: "awaiting fulfillment", icon: Activity, color: "bg-amber-50 text-amber-700" },
         ].map((k) => (
           <div key={k.label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
             <div className={`w-8 h-8 rounded-lg ${k.color} flex items-center justify-center mb-3`}>
@@ -55,7 +55,7 @@ export default function AnalyticsPage() {
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-sm p-5">
           <h3 className="text-sm font-semibold text-slate-800 mb-4">Prescription Trend (12 months)</h3>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={mockPrescriptionTrend} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+            <AreaChart data={PRESCRIPTION_TREND} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradPxA" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#1e9e68" stopOpacity={0.2} />
@@ -77,8 +77,8 @@ export default function AnalyticsPage() {
           <h3 className="text-sm font-semibold text-slate-800 mb-4">Condition Breakdown</h3>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
-              <Pie data={mockConditionBreakdown} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
-                {mockConditionBreakdown.map((entry, index) => (
+              <Pie data={CONDITION_BREAKDOWN} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
+                {CONDITION_BREAKDOWN.map((entry, index) => (
                   <Cell key={index} fill={entry.color} />
                 ))}
               </Pie>
@@ -86,7 +86,7 @@ export default function AnalyticsPage() {
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-1.5 mt-2">
-            {mockConditionBreakdown.slice(0, 4).map((item) => (
+            {CONDITION_BREAKDOWN.slice(0, 4).map((item) => (
               <div key={item.name} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
@@ -119,7 +119,7 @@ export default function AnalyticsPage() {
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
           <h3 className="text-sm font-semibold text-slate-800 mb-4">Fulfillment by Pharmacy</h3>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={mockFulfillmentByPharmacy} margin={{ top: 0, right: 0, left: -25, bottom: 0 }} barGap={2}>
+            <BarChart data={FULFILLMENT_BY_PHARMACY} margin={{ top: 0, right: 0, left: -25, bottom: 0 }} barGap={2}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />

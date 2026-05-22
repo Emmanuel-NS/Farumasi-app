@@ -1,22 +1,35 @@
 "use client";
-import { use } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Pill, MapPin, Clock, Package, CheckCircle2,
   AlertTriangle, Phone, Calendar, Shield, User, ChevronRight,
   Send, XCircle,
 } from "lucide-react";
-import { mockPrescriptions, mockFulfillments, mockPatients } from "@/data/mock";
+import { prescriptionsService } from "@/lib/services/prescriptions.service";
 import {
   getPrescriptionStatusColor, getFulfillmentStatusColor,
   formatDate, formatDateTime, timeAgo, formatRWF,
 } from "@/lib/utils";
+import type { Prescription } from "@/types";
 
 export default function PrescriptionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const rx = mockPrescriptions.find((r) => r.id === id);
-  const fulfillment = mockFulfillments.find((f) => f.prescriptionId === id);
-  const patient = mockPatients.find((p) => rx && p.id === rx.patientId);
+  const [rx, setRx] = useState<Prescription | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    prescriptionsService.getById(id)
+      .then((data) => setRx(data))
+      .catch(() => setRx(null))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const fulfillment = null; void fulfillment;
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-2 border-farumasi-600 border-t-transparent" /></div>;
+  }
 
   if (!rx) {
     return (
@@ -69,20 +82,6 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
               {rx.patientName}
             </p>
           </Link>
-          {patient && (
-            <div className="space-y-1 mt-2">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <Shield className="w-3 h-3" />
-                Insurance: <span className="font-medium text-slate-700">{patient.insurance}</span>
-              </div>
-              {patient.allergies.length > 0 && (
-                <div className="flex items-center gap-2 text-xs text-red-600">
-                  <AlertTriangle className="w-3 h-3" />
-                  Allergies: {patient.allergies.join(", ")}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Pharmacy */}
@@ -94,11 +93,6 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
           {rx.pharmacyName ? (
             <div>
               <p className="text-sm font-semibold text-slate-800">{rx.pharmacyName}</p>
-              {fulfillment && (
-                <p className="text-xs text-slate-500 mt-1">
-                  {fulfillment.itemsFulfilled}/{fulfillment.itemsTotal} items fulfilled
-                </p>
-              )}
             </div>
           ) : (
             <p className="text-sm text-slate-400">Not yet assigned</p>
@@ -135,60 +129,10 @@ export default function PrescriptionDetailPage({ params }: { params: Promise<{ i
                   </span>
                 )}
               </div>
-              {/* Fulfillment status */}
-              {fulfillment && (
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${getFulfillmentStatusColor(fulfillment.status)}`}>
-                  {fulfillment.status}
-                </span>
-              )}
             </div>
           ))}
         </div>
       </div>
-
-      {/* Fulfillment tracking */}
-      {fulfillment && (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-800">Fulfillment Tracking</h3>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getFulfillmentStatusColor(fulfillment.status)}`}>
-              {fulfillment.status}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {[
-              { label: "Created", ts: fulfillment.createdAt, done: true },
-              { label: "Dispatched", ts: fulfillment.dispatchedAt, done: !!fulfillment.dispatchedAt },
-              { label: "Fulfilled", ts: fulfillment.fulfilledAt, done: !!fulfillment.fulfilledAt },
-            ].map((step) => (
-              <div key={step.label} className="flex items-start gap-3">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                  step.done ? "bg-green-100" : "bg-slate-100"
-                }`}>
-                  {step.done
-                    ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
-                    : <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  }
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-800">{step.label}</p>
-                  {step.ts && <p className="text-[10px] text-slate-400 mt-0.5">{formatDateTime(step.ts)}</p>}
-                </div>
-              </div>
-            ))}
-
-            {fulfillment.substitutions.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-slate-100">
-                <p className="text-xs font-medium text-blue-700 mb-1">Substitutions</p>
-                {fulfillment.substitutions.map((s, i) => (
-                  <p key={i} className="text-xs text-slate-500">{s.original} → {s.substituted}: {s.reason}</p>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Notes */}
       {rx.notes && (

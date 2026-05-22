@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { mockMedicines } from "@/data/mock";
-import { localizeMedicine } from "@/data/mock-i18n";
+import { productsService, adaptProduct } from "@/lib/services/products.service";
 import { useLanguageStore } from "@/store/language-store";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
 import { toast } from "sonner";
+import type { Medicine } from "@/types";
 import {
   ArrowLeft, Star, AlertCircle, ShoppingCart, Upload,
   MapPin, CheckCircle, XCircle, Clock, ChevronRight,
@@ -26,9 +26,27 @@ export default function MedicineDetailPage() {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const { add: cartAdd, items: cartItems } = useCartStore();
+  const [med, setMed] = useState<Medicine | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const rawMed = mockMedicines.find((m) => m.id === id);
-  if (!rawMed) {
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    productsService.getProductById(id)
+      .then(setMed)
+      .catch(() => setMed(null))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="p-6 text-center py-24">
+        <div className="w-10 h-10 border-2 border-farumasi-600 border-t-transparent rounded-full animate-spin mx-auto" />
+      </div>
+    );
+  }
+
+  if (!med) {
     return (
       <div className="p-6 text-center py-24">
         <p className="text-slate-500 text-lg">Medicine not found.</p>
@@ -38,8 +56,6 @@ export default function MedicineDetailPage() {
       </div>
     );
   }
-
-  const med = localizeMedicine(rawMed, lang);
 
   return (
     <div className="max-w-4xl mx-auto p-6">

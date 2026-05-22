@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Upload, Camera, FileText, Image, CheckCircle, X, AlertCircle,
   Clock, Send, Package, XCircle, ChevronRight, Eye, MapPin,
@@ -10,7 +10,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { GuestGate } from "@/components/shared/guest-gate";
-import { mockDigitalPrescriptions } from "@/data/mock";
+import { prescriptionsService } from "@/lib/services/prescriptions.service";
 import type { DigitalPrescription, DigitalPrescriptionStatus } from "@/types";
 
 type Tab = "my_prescriptions" | "upload";
@@ -49,6 +49,15 @@ function formatExpiry(iso: string) {
 
 export default function PrescriptionsPage() {
   const [tab, setTab] = useState<Tab>("my_prescriptions");
+  const [prescriptions, setPrescriptions] = useState<DigitalPrescription[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    prescriptionsService.getMyPrescriptions()
+      .then(setPrescriptions)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <GuestGate feature="prescriptions">
@@ -74,9 +83,9 @@ export default function PrescriptionsPage() {
           >
             <FileText className="w-4 h-4" />
             My Prescriptions
-            {mockDigitalPrescriptions.length > 0 && (
+            {prescriptions.length > 0 && (
               <span className="ml-1 text-[10px] bg-farumasi-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                {mockDigitalPrescriptions.length}
+                {prescriptions.length}
               </span>
             )}
           </button>
@@ -95,10 +104,14 @@ export default function PrescriptionsPage() {
         </div>
 
         {tab === "my_prescriptions" ? (
-          <PrescriptionHistory
-            prescriptions={mockDigitalPrescriptions}
-            onUpload={() => setTab("upload")}
-          />
+          loading ? (
+            <div className="text-center py-12 text-slate-400 text-sm">Loading prescriptions…</div>
+          ) : (
+            <PrescriptionHistory
+              prescriptions={prescriptions}
+              onUpload={() => setTab("upload")}
+            />
+          )
         ) : (
           <UploadPrescription onSuccess={() => setTab("my_prescriptions")} />
         )}
@@ -281,14 +294,19 @@ function UploadPrescription({ onSuccess }: { onSuccess: () => void }) {
   const [state, setUploadState] = useState<UploadState>("idle");
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<UploadedFile | null>(null);
+  const [rawFile, setRawFile] = useState<File | null>(null);
+  const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFile = (f: File) => {
     const isImage = f.type.startsWith("image/");
     const preview = isImage ? URL.createObjectURL(f) : null;
     setFile({ name: f.name, size: f.size, type: f.type, preview });
+    setRawFile(f);
     setUploadState("preview");
+    setUploadError("");
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -303,18 +321,28 @@ function UploadPrescription({ onSuccess }: { onSuccess: () => void }) {
     if (f) processFile(f);
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
+    if (!rawFile) return;
     setUploading(true);
-    setTimeout(() => {
-      setUploading(false);
+    setUploadError("");
+    try {
+      const { url } = await prescriptionsService.uploadPrescriptionFile(rawFile);
+      await prescriptionsService.createFromUpload(url, notes.trim() || undefined);
       setUploadState("success");
       setTimeout(onSuccess, 1600);
-    }, 2000);
+    } catch {
+      setUploadError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleReset = () => {
     setUploadState("idle");
     setFile(null);
+    setRawFile(null);
+    setNotes("");
+    setUploadError("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -365,6 +393,16 @@ function UploadPrescription({ onSuccess }: { onSuccess: () => void }) {
           <p className="text-xs text-slate-500 bg-slate-50 rounded-2xl p-3 mb-4">
             Verify all prescription details are clearly visible before uploading.
           </p>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Optional: add notes for the pharmacist…"
+            rows={2}
+            className="w-full rounded-2xl border border-slate-200 text-sm text-slate-700 placeholder:text-slate-400 px-3 py-2 mb-3 resize-none outline-none focus:ring-2 focus:ring-farumasi-400/30 focus:border-farumasi-400"
+          />
+          {uploadError && (
+            <p className="text-xs text-red-600 bg-red-50 rounded-xl px-3 py-2 mb-3">{uploadError}</p>
+          )}
           <div className="flex gap-3">
             <button
               onClick={handleReset}

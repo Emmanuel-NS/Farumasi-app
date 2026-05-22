@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { mockDrivers, mockOrders } from "@/data/mock";
 import { cn, formatPrice } from "@/lib/utils";
 import { Truck, Phone, Star, ToggleLeft, ToggleRight, MapPin, Package, Navigation } from "lucide-react";
-import type { DriverStatus } from "@/types";
+import type { DriverStatus, Driver, Order } from "@/types";
 
 /* Leaflet must be dynamically imported — it uses browser-only APIs */
 const DeliveryMap = dynamic(() => import("@/components/fleet/delivery-map"), {
@@ -37,8 +36,9 @@ type Tab = (typeof TABS)[number]["id"];
 
 export default function FleetPage() {
   const [tab, setTab]             = useState<Tab>("map");
-  const [drivers, setDrivers]     = useState(mockDrivers);
+  const [drivers, setDrivers]     = useState<Driver[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const orders: Order[] = [];
 
   const cycleStatus = (id: string) => {
     setDrivers((prev) =>
@@ -52,8 +52,8 @@ export default function FleetPage() {
     );
   };
 
-  const activeOrders    = mockOrders.filter((o) => o.status === "out_for_delivery");
-  const historyOrders   = mockOrders.filter((o) => o.status === "delivered" || o.status === "cancelled");
+  const activeOrders    = orders.filter((o) => o.status === "out_for_delivery");
+  const historyOrders   = orders.filter((o) => o.status === "delivered" || o.status === "cancelled");
   const activeCount     = drivers.filter((d) => d.status !== "off_duty").length;
 
   return (
@@ -114,7 +114,7 @@ export default function FleetPage() {
 
           {/* Map container */}
           <div className="w-full h-[500px] rounded-2xl overflow-hidden border border-slate-200 shadow-md">
-            <DeliveryMap orders={mockOrders} drivers={drivers} selectedOrderId={selectedOrderId} />
+            <DeliveryMap orders={orders} drivers={drivers} selectedOrderId={selectedOrderId} />
           </div>
 
           {/* Active order cards below map */}

@@ -2,8 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { mockDoctor } from "@/data/mock";
 import { getInitials } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth-store";
 import {
   LayoutDashboard, Users, FileText, Pill, Package,
   FilePlus, History, NotebookPen, Brain, MapPin,
@@ -75,6 +75,7 @@ interface SidebarProps { collapsed: boolean }
 
 export function Sidebar({ collapsed }: SidebarProps) {
   const pathname = usePathname();
+  const user = useAuthStore((s) => s.user);
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -147,19 +148,19 @@ export function Sidebar({ collapsed }: SidebarProps) {
           <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer">
             <div className="w-8 h-8 rounded-full bg-white/25 border-2 border-white/40 flex items-center justify-center flex-shrink-0">
               <span className="text-xs font-bold text-white">
-                {getInitials(mockDoctor.name)}
+                {getInitials(user?.full_name ?? "Dr")}
               </span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-white truncate">Dr. {mockDoctor.name.split(" ").slice(-1)[0]}</p>
-              <p className="text-xs text-white/70 truncate">{mockDoctor.specialty}</p>
+              <p className="text-sm font-semibold text-white truncate">Dr. {user?.full_name?.split(" ").slice(-1)[0] ?? "Doctor"}</p>
+              <p className="text-xs text-white/70 truncate">Doctor</p>
             </div>
             <div className="w-2 h-2 rounded-full bg-white/70 shrink-0" title="Online" />
           </div>
         ) : (
           <div className="flex justify-center py-1">
             <div className="w-8 h-8 rounded-full bg-white/25 border-2 border-white/40 flex items-center justify-center">
-              <span className="text-xs font-bold text-white">{getInitials(mockDoctor.name)}</span>
+              <span className="text-xs font-bold text-white">{getInitials(user?.full_name ?? "Dr")}</span>
             </div>
           </div>
         )}

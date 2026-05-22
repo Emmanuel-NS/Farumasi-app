@@ -6,11 +6,36 @@ import {
   Building2, Clock, Camera, Save,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockDoctor } from "@/data/mock";
+import { useAuthStore } from "@/store/auth-store";
 import { getInitials } from "@/lib/utils";
 
+type DoctorProfile = {
+  name: string;
+  email: string;
+  phone: string;
+  specialty: string;
+  subSpecialty: string;
+  licenseNumber: string;
+  facility: string;
+  department: string;
+  isVerified: boolean;
+  yearsExperience: number;
+};
+
 export default function ProfilePage() {
-  const [doctor, setDoctor] = useState(mockDoctor);
+  const authUser = useAuthStore((s) => s.user);
+  const [doctor, setDoctor] = useState<DoctorProfile>({
+    name: authUser?.full_name ?? "Doctor",
+    email: authUser?.email ?? "",
+    phone: authUser?.phone ?? "",
+    specialty: "General Medicine",
+    subSpecialty: "",
+    licenseNumber: "RW-MED-0001",
+    facility: "FARUMASI Health",
+    department: "General Practice",
+    isVerified: true,
+    yearsExperience: 0,
+  });
   const [editing, setEditing] = useState(false);
 
   const handleSave = () => {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn, getInitials } from "@/lib/utils";
-import { mockPharmacist, mockRequests } from "@/data/mock";
+import { useAuthStore } from "@/store/auth-store";
 import {
   LayoutDashboard, FileText, ShoppingBag, Package,
   Truck, ClipboardList, Settings, LogOut, ChevronRight, Heart,
@@ -16,11 +16,9 @@ interface NavItem {
   badgeCount?: number;
 }
 
-const pendingRequests = mockRequests.filter((r) => r.status === "broadcast").length;
-
 const navItems: NavItem[] = [
   { label: "Overview",   href: "/overview",   icon: LayoutDashboard },
-  { label: "Requests",   href: "/requests",   icon: FileText, badgeCount: pendingRequests },
+  { label: "Requests",   href: "/requests",   icon: FileText },
   { label: "Orders",     href: "/orders",     icon: ShoppingBag },
   { label: "Inventory",  href: "/inventory",  icon: Package },
   { label: "Fleet",      href: "/fleet",      icon: Truck },
@@ -38,6 +36,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed }: SidebarProps) {
   const pathname = usePathname();
+  const { user, logout } = useAuthStore();
   const isActive = (href: string) =>
     href === "/overview"
       ? pathname === "/overview"
@@ -76,6 +75,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
       <div className="shrink-0 px-2 pb-3 space-y-0.5">
         <Link
           href="/auth/login"
+          onClick={() => logout?.()}
           className={cn(
             "flex items-center gap-3 rounded-xl transition-colors hover:bg-white/10",
             collapsed ? "justify-center px-0 py-2.5" : "px-[10px] py-[9px]"
@@ -97,14 +97,14 @@ export function Sidebar({ collapsed }: SidebarProps) {
           )}
         >
           <div className="w-[34px] h-[34px] rounded-full bg-white/25 border-2 border-white/40 flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-white">{getInitials(mockPharmacist.name)}</span>
+            <span className="text-xs font-bold text-white">{getInitials(user?.full_name ?? "Me")}</span>
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-white truncate">
-                {mockPharmacist.name.split(" ")[1] ?? mockPharmacist.name.split(" ")[0]}
+                {user?.full_name?.split(" ")[1] ?? user?.full_name?.split(" ")[0] ?? "Pharmacist"}
               </p>
-              <p className="text-xs text-white/70 truncate capitalize">{mockPharmacist.role}</p>
+              <p className="text-xs text-white/70 truncate capitalize">Pharmacist</p>
             </div>
           )}
         </Link>

@@ -9,13 +9,15 @@ import {
   FilePlus, ChevronDown, ChevronUp, Info, Package,
   Pill, Clock,
 } from "lucide-react";
-import { mockPatients, mockMedicines, mockPharmacies } from "@/data/mock";
 import { scoreMedicineForPatient, recommendPharmaciesForItems } from "@/lib/intelligence";
 import {
   calculateAge, getInitials, getInsuranceBadgeColor, getScoreBgColor,
   getStockBg, formatRWF, generatePrescriptionNumber,
 } from "@/lib/utils";
 import type { Patient, Medicine, PrescriptionItem } from "@/types";
+
+const ALL_PATIENTS: Patient[] = [];
+const ALL_MEDICINES: Medicine[] = [];
 
 // ── Draft prescription item (in-progress) ────────────────────────────────────
 interface DraftItem {
@@ -49,7 +51,7 @@ function NewPrescriptionInner() {
   // Patient selection
   const [patientSearch, setPatientSearch] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(
-    preselectedPatientId ? mockPatients.find((p) => p.id === preselectedPatientId) ?? null : null
+    preselectedPatientId ? ALL_PATIENTS.find((p) => p.id === preselectedPatientId) ?? null : null
   );
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
 
@@ -82,9 +84,9 @@ function NewPrescriptionInner() {
 
   // Filter patients
   const filteredPatients = useMemo(() => {
-    if (!patientSearch) return mockPatients.slice(0, 8);
+    if (!patientSearch) return ALL_PATIENTS.slice(0, 8);
     const q = patientSearch.toLowerCase();
-    return mockPatients.filter(
+    return ALL_PATIENTS.filter(
       (p) =>
         p.fullName.toLowerCase().includes(q) ||
         p.nationalId.includes(q) ||
@@ -94,9 +96,9 @@ function NewPrescriptionInner() {
 
   // Filter medicines
   const filteredMedicines = useMemo(() => {
-    if (!medSearch) return mockMedicines.slice(0, 6);
+    if (!medSearch) return ALL_MEDICINES.slice(0, 6);
     const q = medSearch.toLowerCase();
-    return mockMedicines.filter(
+    return ALL_MEDICINES.filter(
       (m) =>
         m.genericName.toLowerCase().includes(q) ||
         m.brandNames.some((b) => b.toLowerCase().includes(q)) ||

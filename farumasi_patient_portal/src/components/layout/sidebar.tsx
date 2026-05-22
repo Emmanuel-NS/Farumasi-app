@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { FarumasiLogo } from "@/components/shared/farumasi-logo";
-import { mockUser } from "@/data/mock";
 import { getInitials } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { useAuthStore } from "@/store/auth-store";
@@ -38,6 +37,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
   const t = useTranslation();
   const isGuest = useAuthStore((s) => s.isGuest);
   const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
 
   const navItems: NavItem[] = [
     { label: t.nav_home,          href: "/store",          icon: Store         },
@@ -140,11 +140,11 @@ export function Sidebar({ collapsed }: SidebarProps) {
               )}
             >
               <div className="w-[34px] h-[34px] rounded-full bg-white/25 border-2 border-white/40 flex items-center justify-center shrink-0">
-                <span className="text-xs font-bold text-white">{getInitials(mockUser.name)}</span>
+                <span className="text-xs font-bold text-white">{getInitials(user?.name ?? "Me")}</span>
               </div>
               {!collapsed && (
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-white truncate">{mockUser.name.split(" ")[0]}</p>
+                  <p className="text-sm font-semibold text-white truncate">{user?.name?.split(" ")[0] ?? "My Account"}</p>
                   <p className="text-xs text-white/70 truncate">Patient</p>
                 </div>
               )}

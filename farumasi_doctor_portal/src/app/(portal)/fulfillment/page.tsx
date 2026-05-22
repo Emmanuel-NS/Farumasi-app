@@ -6,16 +6,16 @@ import {
   XCircle, MapPin, Pill, ChevronRight, User,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockFulfillments, mockPrescriptions } from "@/data/mock";
 import {
   getFulfillmentStatusColor, formatDate, formatDateTime, timeAgo, formatRWF,
 } from "@/lib/utils";
+import type { FulfillmentTracking } from "@/types";
 
 export default function FulfillmentPage() {
   const [search, setSearch] = useState("");
+  const fulfillments: FulfillmentTracking[] = [];
 
-  const filtered = mockFulfillments.filter((f) => {
-    const rx = mockPrescriptions.find((r) => r.id === f.prescriptionId);
+  const filtered = fulfillments.filter((f) => {
     const q = search.toLowerCase();
     return (
       !q ||
@@ -36,10 +36,10 @@ export default function FulfillmentPage() {
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Fulfilled", count: mockFulfillments.filter(f => f.status === "Fulfilled").length, icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50" },
-          { label: "Pending", count: mockFulfillments.filter(f => f.status === "Pending").length, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
-          { label: "Partial", count: mockFulfillments.filter(f => f.status === "PartiallyFulfilled").length, icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-50" },
-          { label: "Failed", count: mockFulfillments.filter(f => f.status === "Failed").length, icon: XCircle, color: "text-red-600", bg: "bg-red-50" },
+          { label: "Fulfilled", count: fulfillments.filter(f => f.status === "Fulfilled").length, icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50" },
+          { label: "Pending", count: fulfillments.filter(f => f.status === "Pending").length, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
+          { label: "Partial", count: fulfillments.filter(f => f.status === "PartiallyFulfilled").length, icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-50" },
+          { label: "Failed", count: fulfillments.filter(f => f.status === "Failed").length, icon: XCircle, color: "text-red-600", bg: "bg-red-50" },
         ].map((s) => (
           <div key={s.label} className={`${s.bg} rounded-xl p-4 flex items-center gap-3`}>
             <s.icon className={`w-5 h-5 ${s.color} flex-shrink-0`} />

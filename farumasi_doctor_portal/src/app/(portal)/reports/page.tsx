@@ -6,9 +6,12 @@ import {
   ClipboardList, Hash,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockPrescriptions, mockPatients, mockDoctor } from "@/data/mock";
 import { formatDate, formatRWF, getPrescriptionStatusColor } from "@/lib/utils";
-import type { Prescription } from "@/types";
+import type { Prescription, Patient } from "@/types";
+import { useAuthStore } from "@/store/auth-store";
+
+const ALL_PRESCRIPTIONS: Prescription[] = [];
+const ALL_PATIENTS: Patient[] = [];
 
 // ── Print styles injected on demand ──────────────────────────────────────────
 const PRINT_STYLE = `
@@ -20,14 +23,15 @@ const PRINT_STYLE = `
 `;
 
 export default function ReportsPage() {
-  const [selectedRxId, setSelectedRxId] = useState<string>(mockPrescriptions[0]?.id ?? "");
+  const user = useAuthStore((s) => s.user);
+  const [selectedRxId, setSelectedRxId] = useState<string>(ALL_PRESCRIPTIONS[0]?.id ?? "");
   const [reportType, setReportType] = useState<"prescription" | "patient-summary">("prescription");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const filteredPrescriptions = useMemo(() => {
     const q = search.toLowerCase();
-    return mockPrescriptions.filter((rx) => {
+    return ALL_PRESCRIPTIONS.filter((rx) => {
       const matchSearch =
         !q ||
         rx.patientName.toLowerCase().includes(q) ||
@@ -38,9 +42,9 @@ export default function ReportsPage() {
     });
   }, [search, statusFilter]);
 
-  const selectedRx = mockPrescriptions.find((r) => r.id === selectedRxId);
+  const selectedRx = ALL_PRESCRIPTIONS.find((r) => r.id === selectedRxId);
   const selectedPatient = selectedRx
-    ? mockPatients.find((p) => p.id === selectedRx.patientId)
+    ? ALL_PATIENTS.find((p) => p.id === selectedRx.patientId)
     : undefined;
 
   const handlePrint = () => {
@@ -330,8 +334,8 @@ function PrescriptionPrint({ rx }: { rx: Prescription }) {
 }
 
 // ── Patient Summary Print ─────────────────────────────────────────────────────
-function PatientSummaryPrint({ rx, patient }: { rx: Prescription; patient: typeof mockPatients[number] | undefined }) {
-  const allRxForPatient = mockPrescriptions.filter((r) => r.patientId === rx.patientId);
+function PatientSummaryPrint({ rx, patient }: { rx: Prescription; patient: Patient | undefined }) {
+  const allRxForPatient = ALL_PRESCRIPTIONS.filter((r) => r.patientId === rx.patientId);
 
   return (
     <div id="rx-print-area" className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

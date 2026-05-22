@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
-import { mockActiveOrders, mockPastOrders } from "@/data/mock";
+import { ordersService } from "@/lib/services/orders.service";
+import type { Order } from "@/types";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useTranslation } from "@/lib/translations";
@@ -31,8 +32,34 @@ export default function OrderTrackingPage() {
     { key: "delivered",        label: t.order_step_delivered },
   ];
 
-  const allOrders = [...mockActiveOrders, ...mockPastOrders];
-  const order = allOrders.find((o) => o.id === id);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [eta, setEta] = useState(18);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    ordersService.getOrderById(id)
+      .then(setOrder)
+      .catch(() => setOrder(null))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    if (order?.status !== "out_for_delivery") return;
+    const etaTimer = setInterval(() => {
+      setEta((prev) => Math.max(prev - 1, 1));
+    }, 60000);
+    return () => clearInterval(etaTimer);
+  }, [order?.status]);
+
+  if (loading) {
+    return (
+      <div className="p-6 text-center py-24">
+        <div className="w-10 h-10 border-2 border-farumasi-600 border-t-transparent rounded-full animate-spin mx-auto" />
+      </div>
+    );
+  }
 
   if (!order) {
     return (
@@ -47,16 +74,6 @@ export default function OrderTrackingPage() {
 
   const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === order.status);
   const isCancelled = order.status === "cancelled";
-
-  const [eta, setEta] = useState(18);
-
-  useEffect(() => {
-    if (order.status !== "out_for_delivery") return;
-    const etaTimer = setInterval(() => {
-      setEta((prev) => Math.max(prev - 1, 1));
-    }, 60000);
-    return () => clearInterval(etaTimer);
-  }, [order.status]);
 
   return (
     <div className="p-6 max-w-2xl mx-auto">

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { mockUser, mockBookings } from "@/data/mock";
 import { getInitials, formatDate } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import type { T } from "@/lib/translations";
 import { Edit2, Save, X, Calendar, MapPin, Clock, CheckCircle } from "lucide-react";
+import { useAuthStore } from "@/store/auth-store";
+import { authService } from "@/lib/services/auth.service";
+import { toast } from "sonner";
 
 function getBookingStatusLabel(status: string, t: T): string {
   const key = `status_${status.toLowerCase()}` as keyof T;
@@ -14,18 +16,27 @@ function getBookingStatusLabel(status: string, t: T): string {
 
 export default function ProfilePage() {
   const t = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
-    name: mockUser.name,
-    email: mockUser.email,
-    phone: mockUser.phone ?? "+250 788 000 000",
+    name: user?.name ?? "",
+    email: user?.email ?? "",
+    phone: user?.phone ?? "+250 788 000 000",
   });
   const [saved, setSaved] = useState(false);
+  const mockBookings: { id: string; pharmacistName: string; date: string; time: string; status: string }[] = [];
 
-  const handleSave = () => {
-    setSaved(true);
-    setEditing(false);
-    setTimeout(() => setSaved(false), 3000);
+  const handleSave = async () => {
+    try {
+      const updated = await authService.updateMe({ full_name: form.name, phone: form.phone });
+      setUser(updated);
+      setSaved(true);
+      setEditing(false);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      toast.error("Failed to save profile");
+    }
   };
 
   return (

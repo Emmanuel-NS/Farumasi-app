@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useMemo, useRef, Suspense } from "react";
+import { useState, useMemo, useRef, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { mockMedicines, mockPharmacies, mockDigitalPrescriptions } from "@/data/mock";
-import { localizeMedicine } from "@/data/mock-i18n";
 import { useLanguageStore } from "@/store/language-store";
 import { cn, formatPrice } from "@/lib/utils";
 import { useSearchStore } from "@/store/search-store";
@@ -12,6 +10,9 @@ import { useCartStore } from "@/store/cart-store";
 import type { Medicine } from "@/types";
 import { toast } from "sonner";
 import { useTranslation, tf } from "@/lib/translations";
+import { productsService } from "@/lib/services/products.service";
+import { prescriptionsService } from "@/lib/services/prescriptions.service";
+import type { DigitalPrescription } from "@/types";
 import {
   SlidersHorizontal,
   ShoppingCart,
@@ -97,9 +98,26 @@ export default function StorePage() {
 function StorePageInner() {
   const searchParams = useSearchParams();
   const prescriptionId = searchParams.get("prescription");
-  const activePrescription = prescriptionId
-    ? mockDigitalPrescriptions.find((rx) => rx.id === prescriptionId) ?? null
-    : null;
+
+  // ── Real data from backend ────────────────────────────────────────────────
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [activePrescription, setActivePrescription] = useState<DigitalPrescription | null>(null);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  useEffect(() => {
+    productsService.getAllProducts()
+      .then(setMedicines)
+      .catch(() => toast.error("Failed to load products"))
+      .finally(() => setLoadingProducts(false));
+  }, []);
+
+  useEffect(() => {
+    if (!prescriptionId) return;
+    prescriptionsService.getMyPrescriptions().then((rxList) => {
+      const match = rxList.find((rx) => rx.id === prescriptionId) ?? null;
+      setActivePrescription(match);
+    }).catch(() => {});
+  }, [prescriptionId]);
 
   // ── Search from topbar via Zustand — mirrors Flutter StateService searchQuery ──
   const { query } = useSearchStore();
@@ -132,6 +150,7 @@ function StorePageInner() {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   // Pharmacy filter — mirrors Flutter PharmacyDetailScreen navigation
   const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
+  const mockPharmacies: import("@/types").Pharmacy[] = [];
 
   // Toggle category — clicking "All" clears all; clicking active deselects; clicking inactive adds
   function toggleCategory(cat: string) {
@@ -160,7 +179,7 @@ function StorePageInner() {
 
   // ── Filtered list — mirrors Flutter's build filtering logic ──────────────
   const filtered = useMemo(() => {
-    let list = [...mockMedicines];
+    let list = [...medicines];
     if (query.trim()) {
       const q = query.toLowerCase().trim();
       list = list.filter(
@@ -173,17 +192,11 @@ function StorePageInner() {
     if (selectedCategories.size > 0) {
       list = list.filter((m) => selectedCategories.has(m.category));
     }
-    // Pharmacy filter — only show medicines stocked at selected pharmacy
-    if (selectedPharmacy) {
-      list = list.filter((m) =>
-        m.marketingPharmacies.some((p) => p.pharmacyName === selectedPharmacy)
-      );
-    }
     if (sort === "price_asc")  list.sort((a, b) => a.price - b.price);
     if (sort === "price_desc") list.sort((a, b) => b.price - a.price);
     if (sort === "rating")     list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    return list.map((m) => localizeMedicine(m, lang));
-  }, [query, selectedCategories, selectedPharmacy, sort, lang]);
+    return list;
+  }, [query, selectedCategories, sort, medicines]);
 
   // Dynamic heading — mirrors Flutter's conditional title
   const sectionTitle = selectedPharmacy

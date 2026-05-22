@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { mockNotifications } from "@/data/mock";
 import { timeAgo, cn } from "@/lib/utils";
 import { Bell } from "lucide-react";
-import type { NotifCategory } from "@/types";
+import type { NotifCategory, AppNotification } from "@/types";
 
 const FILTER_TABS = [
   { value: "all", label: "All" },
@@ -26,7 +25,7 @@ const CAT_ICONS: Record<string, string> = {
 };
 
 export default function NotificationsPage() {
-  const [notifs, setNotifs] = useState(mockNotifications);
+  const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [tab, setTab] = useState("all");
   const [cat, setCat] = useState<"all" | NotifCategory>("all");
 

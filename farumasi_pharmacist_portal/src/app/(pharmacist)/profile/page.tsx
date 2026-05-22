@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { mockPharmacist } from "@/data/mock";
+import { useAuthStore } from "@/store/auth-store";
 import { getInitials, cn } from "@/lib/utils";
 import { Edit, Save, X } from "lucide-react";
 import { toast } from "sonner";
 
 export default function PharmacistProfilePage() {
+  const user = useAuthStore((s) => s.user);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
-    name: mockPharmacist.name,
-    email: mockPharmacist.email,
-    phone: mockPharmacist.phone,
+    name: user?.full_name ?? "",
+    email: user?.email ?? "",
+    phone: user?.phone ?? "",
   });
   const [saved, setSaved] = useState(form);
 
@@ -31,12 +32,12 @@ export default function PharmacistProfilePage() {
         </div>
         <h2 className="text-lg font-extrabold text-slate-900">{saved.name}</h2>
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-sm text-slate-500 capitalize">{mockPharmacist.role.replace(/_/g, " ")}</span>
+          <span className="text-sm text-slate-500 capitalize">Pharmacist</span>
           <span className="text-slate-300">·</span>
-          <span className="text-sm font-medium text-farumasi-700">{mockPharmacist.pharmacyName}</span>
+          <span className="text-sm font-medium text-farumasi-700">FARUMASI Pharmacy</span>
         </div>
         <span className="mt-2 text-xs font-bold text-farumasi-600 bg-farumasi-50 px-3 py-1 rounded-full border border-farumasi-100">
-          {mockPharmacist.pharmacyCity}
+          Kigali
         </span>
       </div>
 
@@ -75,7 +76,7 @@ export default function PharmacistProfilePage() {
           ))}
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">Pharmacy</label>
-            <input value={mockPharmacist.pharmacyName} disabled className={inp} />
+            <input value="FARUMASI Pharmacy" disabled className={inp} />
           </div>
         </div>
       </div>

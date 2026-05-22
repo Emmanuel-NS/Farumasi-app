@@ -6,9 +6,10 @@ import {
   CheckCircle2, XCircle, ChevronRight,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockMedicines, mockPatients } from "@/data/mock";
 import { cn } from "@/lib/utils";
-import type { SmartRecommendation } from "@/types";
+import type { SmartRecommendation, Medicine } from "@/types";
+
+const MEDICINES: Medicine[] = [];
 
 // Inline smart recommendations — derived from drug interaction analysis, allergy checks, stock status
 const mockRecommendations: SmartRecommendation[] = [
@@ -315,7 +316,7 @@ export default function RecommendationsPage() {
                     {rec.affectedMedicineIds.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {rec.affectedMedicineIds.map((id) => {
-                          const med = mockMedicines.find((m) => m.id === id);
+                          const med = MEDICINES.find((m) => m.id === id);
                           return med ? (
                             <span key={id} className="text-[10px] bg-white/80 border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-medium">
                               {med.genericName} {med.strength}

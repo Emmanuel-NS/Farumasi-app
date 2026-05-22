@@ -1,13 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { mockAuditLogs } from "@/data/mock";
 import { timeAgo, formatDateTime, cn } from "@/lib/utils";
 import { Shield, Search, Download, X, Copy, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import type { AuditAction } from "@/types";
 
-type AuditLog = (typeof mockAuditLogs)[number];
+type AuditLog = {
+  id: number;
+  action: AuditAction;
+  description: string;
+  entityId?: string;
+  performedBy: string;
+  timestamp: string;
+};
+
+const MOCK_LOGS: AuditLog[] = [];
 
 const ACTION_COLORS: Record<AuditAction, string> = {
   request_accepted:    "bg-green-100 text-green-700",
@@ -33,7 +41,7 @@ export default function AuditPage() {
   const hashFor = (id: number) =>
     `0x${(id * 0xdeadbeef).toString(16).padStart(10, "0")}...f3a9`;
 
-  const filtered = mockAuditLogs
+  const filtered = MOCK_LOGS
     .filter((l) => filter === "all" || l.action === filter)
     .filter((l) => {
       if (!search.trim()) return true;

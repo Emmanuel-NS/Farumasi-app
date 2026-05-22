@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { mockHealthArticles } from "@/data/mock";
-import { localizeArticle } from "@/data/mock-i18n";
 import { useLanguageStore } from "@/store/language-store";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { X, Search, Lightbulb, ChevronRight, BookOpen, Clock } from "lucide-react";
 import type { HealthArticle } from "@/types";
+import { api } from "@/lib/api";
 
 // ── Flutter tab labels (exact match) ─────────────────────────────────────────
 const TABS = [
@@ -23,15 +22,20 @@ const TABS = [
 
 type Tab = (typeof TABS)[number];
 
-// ── Tab → article category mapping (mirrors Flutter's list groupings) ─────────
-const TAB_CATEGORIES: Record<Tab, string[]> = {
-  "General Tips":    ["General Health", "Wellness"],
-  "Remedies":        ["Remedies", "Chronic Care"],
-  "SRH":             ["SRH"],
-  "Mental Health":   ["Mental Health"],
-  "Nutrition":       ["Nutrition"],
-  "Mother & Babies": ["Mother & Babies"],
-  "Did You Know?":   ["Did You Know?"],
+const ARTICLE_CATEGORY_MAP: Record<string, Tab[]> = {
+  "General Health":   ["General Tips"],
+  "Wellness":         ["General Tips"],
+  "Remedies":         ["Remedies"],
+  "Chronic Disease":  ["Remedies"],
+  "SRH":              ["SRH"],
+  "Mental Health":    ["Mental Health"],
+  "Nutrition":        ["Nutrition"],
+  "Pediatrics":       ["Mother & Babies"],
+  "Mother & Babies":  ["Mother & Babies"],
+  "Antibiotics":      ["General Tips"],
+  "Infectious Diseases": ["General Tips"],
+  "Cardiovascular":   ["General Tips"],
+  "Respiratory":      ["General Tips"],
 };
 
 export default function HealthPage() {
@@ -40,6 +44,30 @@ export default function HealthPage() {
   const lang = useLanguageStore((s) => s.lang);
   const [activeTab, setActiveTab] = useState<Tab>("General Tips");
   const [searchQuery, setSearchQuery] = useState("");
+  const [rawArticles, setRawArticles] = useState<Array<{
+    id: string; title: string; summary?: string; content?: string;
+    category?: string; image_url?: string; published_at?: string;
+  }>>([]);
+
+  useEffect(() => {
+    api.get("/articles/", { params: { limit: 50 } })
+      .then(({ data }) => setRawArticles(data.items ?? data))
+      .catch(() => {});
+  }, []);
+
+  // Map API articles to the HealthArticle type
+  const ARTICLES: HealthArticle[] = useMemo(() => rawArticles.map((a) => ({
+    id: a.id,
+    title: a.title,
+    subtitle: a.category ?? "Health",
+    summary: a.summary ?? "",
+    fullContent: a.content ?? "",
+    imageUrl: a.image_url ?? "",
+    source: "Farumasi",
+    category: (a.category ?? "General Health") as HealthArticle["category"],
+    readTimeMin: Math.max(1, Math.ceil((a.content ?? "").split(/\s+/).length / 200)),
+    publishedAt: a.published_at ? new Date(a.published_at) : undefined,
+  })), [rawArticles]);
 
   const TAB_LABELS: Record<Tab, string> = {
     "General Tips":    t.health_tab_general,
@@ -52,8 +80,10 @@ export default function HealthPage() {
   };
 
   const articles = useMemo(() => {
-    const cats = TAB_CATEGORIES[activeTab];
-    let list = mockHealthArticles.filter((a) => cats.includes(a.category));
+    let list = ARTICLES.filter((a) => {
+      const tabs = ARTICLE_CATEGORY_MAP[a.category] ?? ["General Tips"];
+      return tabs.includes(activeTab);
+    });
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -63,8 +93,8 @@ export default function HealthPage() {
           a.category.toLowerCase().includes(q)
       );
     }
-    return list.map((a) => localizeArticle(a, lang));
-  }, [activeTab, searchQuery, lang]);
+    return list;
+  }, [ARTICLES, activeTab, searchQuery]);
 
   return (
     <div className="flex flex-col h-full bg-[#F9FAFB]">

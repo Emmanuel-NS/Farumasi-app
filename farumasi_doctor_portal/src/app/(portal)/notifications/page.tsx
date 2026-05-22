@@ -5,9 +5,8 @@ import {
   Package, FileText, Users, ChevronRight,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockNotifications } from "@/data/mock";
 import { timeAgo } from "@/lib/utils";
-import type { NotificationType } from "@/types";
+import type { NotificationType, Notification } from "@/types";
 
 const SEVERITY_ICONS: Record<string, React.ElementType> = {
   Critical: AlertCircle,
@@ -29,7 +28,7 @@ const ICON_COLORS: Record<string, string> = {
 
 export default function NotificationsPage() {
   const [filter, setFilter] = useState<"All" | "Unread" | "Critical" | "Warning" | "Info">("All");
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const filtered = notifications.filter((n) => {
     if (filter === "Unread") return !n.isRead;

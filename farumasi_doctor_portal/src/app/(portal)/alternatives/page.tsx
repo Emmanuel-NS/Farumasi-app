@@ -6,9 +6,11 @@ import {
   DollarSign, Package, Filter,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockAlternatives, mockMedicines } from "@/data/mock";
 import { cn, formatRWF } from "@/lib/utils";
-import type { MedicineAlternative, AlternativeReason } from "@/types";
+import type { MedicineAlternative, AlternativeReason, Medicine } from "@/types";
+
+const ALTERNATIVES: MedicineAlternative[] = [];
+const MEDICINES: Medicine[] = [];
 
 const REASON_CONFIG: Record<AlternativeReason, { label: string; color: string; bg: string }> = {
   Generic: { label: "Generic Equivalent", color: "text-farumasi-700", bg: "bg-farumasi-50" },
@@ -39,14 +41,14 @@ export default function AlternativesPage() {
   const [equivalenceFilter, setEquivalenceFilter] = useState<string>("all");
 
   const filtered = useMemo(() => {
-    return mockAlternatives.filter((a) => {
+    return ALTERNATIVES.filter((a) => {
       const matchReason = reasonFilter === "all" || a.reason === reasonFilter;
       const matchEquiv = equivalenceFilter === "all" || a.equivalenceLevel === equivalenceFilter;
       return matchReason && matchEquiv;
     });
   }, [reasonFilter, equivalenceFilter]);
 
-  const getMedicine = (id: string) => mockMedicines.find((m) => m.id === id);
+  const getMedicine = (id: string) => MEDICINES.find((m) => m.id === id);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -59,10 +61,10 @@ export default function AlternativesPage() {
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Total Pairs", value: mockAlternatives.length, color: "text-slate-800" },
-          { label: "Generic Equivalents", value: mockAlternatives.filter((a) => a.reason === "Generic").length + 1, color: "text-farumasi-700" },
-          { label: "Cost Savings Available", value: mockAlternatives.filter((a) => a.costDifference < 0).length, color: "text-green-700" },
-          { label: "Therapeutic Equiv.", value: mockAlternatives.filter((a) => a.equivalenceLevel !== "Similar").length, color: "text-blue-700" },
+          { label: "Total Pairs", value: ALTERNATIVES.length, color: "text-slate-800" },
+          { label: "Generic Equivalents", value: ALTERNATIVES.filter((a) => a.reason === "Generic").length + 1, color: "text-farumasi-700" },
+          { label: "Cost Savings Available", value: ALTERNATIVES.filter((a) => a.costDifference < 0).length, color: "text-green-700" },
+          { label: "Therapeutic Equiv.", value: ALTERNATIVES.filter((a) => a.equivalenceLevel !== "Similar").length, color: "text-blue-700" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>

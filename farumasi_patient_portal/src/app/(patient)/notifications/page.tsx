@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { mockNotifications } from "@/data/mock";
-import { localizeNotification } from "@/data/mock-i18n";
-import { useLanguageStore } from "@/store/language-store";
+import { useState, useEffect } from "react";
+import { notificationsService } from "@/lib/services/notifications.service";
 import { cn } from "@/lib/utils";
 import { useTranslation, tf, useTimeAgo } from "@/lib/translations";
 import { Bell, Trash2, X } from "lucide-react";
@@ -29,12 +27,17 @@ const catMatch: Record<string, string[]> = {
 };
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<AppNotification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [filter, setFilter] = useState<"All" | "Read" | "Unread">("All");
   const [cat, setCat] = useState("All");
   const t = useTranslation();
-  const lang = useLanguageStore((s) => s.lang);
   const timeAgoLocal = useTimeAgo();
+
+  useEffect(() => {
+    notificationsService.getMyNotifications()
+      .then(setNotifications)
+      .catch(() => {});
+  }, []);
 
   const FILTER_LABELS = [t.notif_filter_all, t.notif_filter_unread, t.notif_filter_read];
   const CAT_FILTER_LABELS = [t.notif_cat_all, t.notif_cat_order, t.notif_cat_health, t.notif_cat_promo, t.notif_cat_reminder];
@@ -45,8 +48,8 @@ export default function NotificationsPage() {
     return readOk && catOk;
   });
 
-  const markRead = (id: number) => setNotifications((p) => p.map((n) => n.id === id ? { ...n, isRead: true } : n));
-  const deleteN = (id: number) => setNotifications((p) => p.filter((n) => n.id !== id));
+  const markRead = (id: string) => setNotifications((p) => p.map((n) => n.id === id ? { ...n, isRead: true } : n));
+  const deleteN = (id: string) => setNotifications((p) => p.filter((n) => n.id !== id));
   const markAllRead = () => setNotifications((p) => p.map((n) => ({ ...n, isRead: true })));
 
   return (
@@ -104,7 +107,7 @@ export default function NotificationsPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map((n) => {
-            const ln = localizeNotification(n, lang);
+            const ln = n;
             return (
             <div
               key={n.id}

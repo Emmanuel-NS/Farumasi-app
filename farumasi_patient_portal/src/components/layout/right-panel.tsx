@@ -6,11 +6,10 @@ import Link from "next/link";
 import { X, Bell, ShoppingCart, HelpCircle, Pill, Clock, Trash2, Package, Truck, Gift, FileText, MessageCircle, Settings, Phone, Mail } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { useTranslation, tf, useTimeAgo } from "@/lib/translations";
-import { mockNotifications } from "@/data/mock";
-import { localizeNotification } from "@/data/mock-i18n";
 import { useLanguageStore } from "@/store/language-store";
 import { useCartStore } from "@/store/cart-store";
 import { useAuthStore } from "@/store/auth-store";
+import type { AppNotification } from "@/types";
 
 interface RightPanelProps {
   activePanel: string;
@@ -45,7 +44,7 @@ function NotificationsPanel() {
   const t = useTranslation();
   const lang = useLanguageStore((s) => s.lang);
   const timeAgoLocal = useTimeAgo();
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   // Lucide icon + icon colors + unread background per category — mirrors Flutter notification tile
   const catMeta: Record<string, { Icon: React.ElementType; iconBg: string; iconColor: string; unreadBg: string }> = {
@@ -57,11 +56,11 @@ function NotificationsPanel() {
     general:       { Icon: Bell,     iconBg: "bg-slate-100",    iconColor: "text-slate-500",    unreadBg: "bg-slate-50"     },
   };
 
-  const markRead = (id: number) => {
+  const markRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
   };
 
-  const deleteNotif = (id: number) => {
+  const deleteNotif = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
@@ -84,7 +83,6 @@ function NotificationsPanel() {
       ) : (
         <ul>
           {notifications.map((n) => {
-            const ln = localizeNotification(n, lang);
             const meta = catMeta[n.category] ?? catMeta.general;
             const { Icon, iconBg, iconColor, unreadBg } = meta;
             return (
@@ -109,7 +107,7 @@ function NotificationsPanel() {
                       "text-[13px] leading-snug flex-1 min-w-0 truncate",
                       n.isRead ? "font-medium text-slate-700" : "font-semibold text-slate-900"
                     )}>
-                      {ln.title}
+                      {n.title}
                     </p>
                     <span className="text-[10px] text-slate-400 shrink-0 whitespace-nowrap">{timeAgoLocal(n.time)}</span>
                     <button
@@ -120,7 +118,7 @@ function NotificationsPanel() {
                     </button>
                   </div>
                   {/* Description — 2 lines max, mirrors Flutter */}
-                  <p className="text-[11.5px] text-slate-500 mt-0.5 leading-[1.4] line-clamp-2">{ln.message}</p>
+                  <p className="text-[11.5px] text-slate-500 mt-0.5 leading-[1.4] line-clamp-2">{n.message}</p>
                 </div>
 
                 {/* Unread dot */}
