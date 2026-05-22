@@ -19,6 +19,11 @@ export function formatPrice(value: number): string {
   return new Intl.NumberFormat("en-RW").format(value);
 }
 
+export function formatPriceRange(min: number, max: number): string {
+  const fmt = (n: number) => new Intl.NumberFormat("en-RW").format(n);
+  return min === max ? `RWF ${fmt(min)}` : `RWF ${fmt(min)} – ${fmt(max)}`;
+}
+
 export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60000);

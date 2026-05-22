@@ -6,7 +6,7 @@ import { cn, getInitials } from "@/lib/utils";
 import { mockPharmacist, mockRequests } from "@/data/mock";
 import {
   LayoutDashboard, FileText, ShoppingBag, Package,
-  Truck, ClipboardList, Settings, LogOut, ChevronRight,
+  Truck, ClipboardList, Settings, LogOut, ChevronRight, Heart,
 } from "lucide-react";
 
 interface NavItem {
@@ -24,6 +24,7 @@ const navItems: NavItem[] = [
   { label: "Orders",     href: "/orders",     icon: ShoppingBag },
   { label: "Inventory",  href: "/inventory",  icon: Package },
   { label: "Fleet",      href: "/fleet",      icon: Truck },
+  { label: "Health",     href: "/health",     icon: Heart },
   { label: "Audit Logs", href: "/audit",      icon: ClipboardList },
 ];
 

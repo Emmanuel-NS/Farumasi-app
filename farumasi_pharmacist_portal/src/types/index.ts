@@ -79,19 +79,47 @@ export interface Order {
 // ─── Inventory ─────────────────────────────────────────
 export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
 
+export type AgeRange = "infant_toddler" | "toddler" | "child" | "adolescent" | "adult";
+
+export interface AgeDosage {
+  ageRange: AgeRange;
+  instructions: string;
+}
+
 export interface InventoryItem {
   id: number;
   name: string;
+  imageUrl: string;
+  manufacturer: string;         // brand / maker (e.g. "HealthLive Pharma")
   category: string;
+  subCategory?: string;
+  additionalCategories: string[];
   sku: string;
   stock: number;
   minStock: number;
   unitPrice: number;
-  expiryDate: string;
-  supplier: string;
+  /** Lowest price for this item across all pharmacies on the platform */
+  marketPriceMin: number;
+  /** Highest price for this item across all pharmacies on the platform */
+  marketPriceMax: number;
+  expiryDate: string;           // ISO date
+  supplier: string;             // procurement supplier
   stockStatus: StockStatus;
   requiresPrescription: boolean;
   lastRestocked: string;
+  isPublished: boolean;
+  rating: number;
+  // Catalogue content
+  shortDescription: string;
+  dosageSummary: string;
+  description: string;
+  sideEffects: string;
+  dosage: string;
+  doseMorning?: string;
+  doseAfternoon?: string;
+  doseEvening?: string;
+  doseTimeInterval?: string;
+  ageDosages: AgeDosage[];
 }
 
 // ─── Fleet ─────────────────────────────────────────────
@@ -172,6 +200,36 @@ export interface AppNotification {
   message: string;
   time: string;
   isRead: boolean;
+}
+
+// ─── Health Posts ─────────────────────────────────────
+export type HealthPostCategory =
+  | "General Tips"
+  | "Remedies"
+  | "SRH"
+  | "Mental Health"
+  | "Nutrition"
+  | "Mother & Babies"
+  | "Did You Know?";
+
+export type HealthPostStatus = "Published" | "Draft";
+
+export interface HealthPost {
+  id: string;
+  title: string;
+  summary: string;
+  category: HealthPostCategory;
+  views: number;
+  date: string;
+  status: HealthPostStatus;
+  /** HTML content from RichEditor */
+  content: string;
+  /** Thumbnail shown on list cards */
+  posterImage?: string;
+  /** Hero image shown when reading the full article */
+  coverImage?: string;
+  /** YouTube video URL used as cover (takes precedence over coverImage; falls back to posterImage) */
+  youtubeLink?: string;
 }
 
 // ─── Generics ──────────────────────────────────────────
