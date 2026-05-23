@@ -20,7 +20,7 @@ export interface BackendOrder {
   order_status: string;
   payment_status: string;
   delivery_method: string | null;
-  delivery_address: Record<string, unknown> | null;
+  delivery_address: string | null;
   subtotal: number;
   delivery_fee: number;
   platform_commission: number;
@@ -74,12 +74,23 @@ export function adaptOrder(o: BackendOrder): Order {
 }
 
 export interface CreateOrderPayload {
-  pharmacy_id?: string;
   prescription_id?: string;
+  selected_recommendation_id?: string;
+  pharmacy_id?: string;
+  partner_company_id?: string;
   delivery_method: "delivery" | "pickup";
   delivery_address?: string;
+  delivery_latitude?: number;
+  delivery_longitude?: number;
   notes?: string;
-  items: { product_name: string; quantity: number; unit_price: number }[];
+  items?: { product_listing_id?: string; product_name?: string; quantity: number; unit_price?: number }[];
+}
+
+export interface CreateOrderFromRecommendationInput {
+  prescriptionId: string;
+  recommendationId: string;
+  deliveryMethod?: "delivery" | "pickup";
+  deliveryAddress?: string;
 }
 
 export const ordersService = {
@@ -96,7 +107,25 @@ export const ordersService = {
   },
 
   async createOrder(payload: CreateOrderPayload): Promise<BackendOrder> {
-    const { data } = await api.post<BackendOrder>("/orders/", payload);
+    // Phase 11.2: use the patient-scoped shortcut. Backend accepts the same
+    // OrderCreate schema (recommendation path, listing path, or legacy path).
+    const { data } = await api.post<BackendOrder>("/patients/me/orders", payload);
     return data;
+  },
+
+  /**
+   * Create an order from a previously fetched recommendation row.
+   * Backend: POST /api/v1/patients/me/orders with the recommendation path
+   *   { prescription_id, selected_recommendation_id, delivery_method, delivery_address? }
+   */
+  async createFromRecommendation(
+    { prescriptionId, recommendationId, deliveryMethod = "delivery", deliveryAddress }: CreateOrderFromRecommendationInput,
+  ): Promise<BackendOrder> {
+    return this.createOrder({
+      prescription_id: prescriptionId,
+      selected_recommendation_id: recommendationId,
+      delivery_method: deliveryMethod,
+      delivery_address: deliveryAddress,
+    });
   },
 };

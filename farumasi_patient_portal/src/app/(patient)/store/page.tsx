@@ -1,17 +1,20 @@
 "use client";
 
 import { useState, useMemo, useRef, Suspense, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLanguageStore } from "@/store/language-store";
 import { cn, formatPrice } from "@/lib/utils";
 import { useSearchStore } from "@/store/search-store";
 import { useCartStore } from "@/store/cart-store";
-import type { Medicine } from "@/types";
+import type { Medicine, Recommendation } from "@/types";
 import { toast } from "sonner";
 import { useTranslation, tf } from "@/lib/translations";
 import { productsService } from "@/lib/services/products.service";
 import { prescriptionsService } from "@/lib/services/prescriptions.service";
+import { recommendationsService } from "@/lib/services/recommendations.service";
+import { ordersService } from "@/lib/services/orders.service";
+import { getPatientCoords } from "@/lib/location";
 import type { DigitalPrescription } from "@/types";
 import {
   SlidersHorizontal,
@@ -97,12 +100,18 @@ export default function StorePage() {
 
 function StorePageInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const prescriptionId = searchParams.get("prescription");
 
   // ── Real data from backend ────────────────────────────────────────────────
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [activePrescription, setActivePrescription] = useState<DigitalPrescription | null>(null);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [recLoading, setRecLoading] = useState(false);
+  const [recError, setRecError] = useState<string | null>(null);
+  const [recIsFallbackLocation, setRecIsFallbackLocation] = useState(false);
+  const [orderingRecId, setOrderingRecId] = useState<string | null>(null);
 
   useEffect(() => {
     productsService.getAllProducts()
@@ -118,6 +127,45 @@ function StorePageInner() {
       setActivePrescription(match);
     }).catch(() => {});
   }, [prescriptionId]);
+
+  // Phase 11.2: fetch real pharmacy recommendations when a prescription is selected.
+  useEffect(() => {
+    if (!prescriptionId) {
+      setRecommendations([]);
+      setRecError(null);
+      return;
+    }
+    const { coords, isFallback } = getPatientCoords();
+    setRecIsFallbackLocation(isFallback);
+    setRecLoading(true);
+    setRecError(null);
+    recommendationsService
+      .getForPrescription(prescriptionId, { lat: coords.lat, lon: coords.lon })
+      .then((res) => setRecommendations(res.topRecommendations))
+      .catch(() => setRecError("Could not load pharmacy recommendations. Please try again."))
+      .finally(() => setRecLoading(false));
+  }, [prescriptionId]);
+
+  async function handleOrderFromRecommendation(rec: Recommendation) {
+    if (!prescriptionId || !rec.id) {
+      toast.error("This recommendation is no longer valid. Please reload.");
+      return;
+    }
+    setOrderingRecId(rec.id);
+    try {
+      const order = await ordersService.createFromRecommendation({
+        prescriptionId,
+        recommendationId: rec.id,
+        deliveryMethod: "delivery",
+      });
+      toast.success(`Order placed with ${rec.providerName}`);
+      router.push(`/orders/${order.id}`);
+    } catch {
+      toast.error("Could not create order. The recommendation may have expired.");
+    } finally {
+      setOrderingRecId(null);
+    }
+  }
 
   // ── Search from topbar via Zustand — mirrors Flutter StateService searchQuery ──
   const { query } = useSearchStore();
@@ -237,24 +285,82 @@ function StorePageInner() {
               </div>
             </div>
           </div>
-          <div className="mt-3 flex items-center gap-2">
-            {mockPharmacies.slice(0, 3).map((pharmacy) => (
-              <div
-                key={pharmacy.id}
-                className="flex-1 min-w-0 bg-white rounded-2xl border border-farumasi-100 p-3 text-center"
-              >
-                <p className="text-xs font-bold text-slate-800 truncate">{pharmacy.name}</p>
-                <p className="text-[10px] text-slate-400 truncate">{pharmacy.locationName}</p>
-                <div className="flex flex-wrap gap-1 justify-center mt-1.5">
-                  {pharmacy.supportedInsurances.slice(0, 2).map((ins) => (
-                    <span key={ins} className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
-                      {ins}
-                    </span>
-                  ))}
-                </div>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {recLoading && Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="min-w-0 bg-white rounded-2xl border border-farumasi-100 p-3 animate-pulse">
+                <div className="h-3 bg-slate-100 rounded w-3/4 mb-2" />
+                <div className="h-2 bg-slate-100 rounded w-1/2 mb-3" />
+                <div className="h-6 bg-slate-100 rounded" />
               </div>
             ))}
+            {!recLoading && recError && (
+              <div className="sm:col-span-3 bg-white border border-red-100 text-red-600 text-xs rounded-2xl p-3 text-center">
+                {recError}
+              </div>
+            )}
+            {!recLoading && !recError && recommendations.length === 0 && (
+              <div className="sm:col-span-3 bg-white border border-farumasi-100 text-slate-500 text-xs rounded-2xl p-3 text-center">
+                No pharmacies match this prescription right now. Try again later.
+              </div>
+            )}
+            {!recLoading && !recError && recommendations.map((rec) => {
+              const matchPct = Math.round(rec.totalScore * 100);
+              const isOrdering = orderingRecId === rec.id;
+              return (
+                <div
+                  key={rec.id ?? `${rec.providerType}-${rec.providerId}-${rec.rank}`}
+                  className="min-w-0 bg-white rounded-2xl border border-farumasi-100 p-3 flex flex-col"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <p className="text-xs font-bold text-slate-800 truncate">
+                      #{rec.rank} · {rec.providerName}
+                    </p>
+                    <span className="text-[10px] font-bold text-farumasi-700 bg-farumasi-50 rounded-full px-1.5 py-0.5 shrink-0">
+                      {matchPct}%
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mb-1.5">
+                    {rec.estimatedTotalPrice != null ? `RWF ${Math.round(rec.estimatedTotalPrice).toLocaleString()}` : "Price on request"}
+                    {rec.estimatedDistanceKm != null ? ` · ${rec.estimatedDistanceKm.toFixed(1)} km` : ""}
+                  </p>
+                  <p className="text-[10px] text-slate-500 mb-2">
+                    {rec.availableItemsCount}/{rec.totalItemsCount} medicines available
+                    {rec.canFulfillCompletePrescription ? " — full match" : ""}
+                  </p>
+                  {rec.reasons.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      {rec.reasons.slice(0, 2).map((r, i) => (
+                        <span key={i} className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {rec.warnings.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {rec.warnings.slice(0, 1).map((w, i) => (
+                        <span key={i} className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
+                          {w}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => handleOrderFromRecommendation(rec)}
+                    disabled={isOrdering || !rec.id}
+                    className="mt-auto inline-flex items-center justify-center gap-1 text-[11px] font-semibold bg-farumasi-600 text-white px-2.5 py-1.5 rounded-xl hover:bg-farumasi-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isOrdering ? "Placing…" : "Order with this pharmacy"}
+                  </button>
+                </div>
+              );
+            })}
           </div>
+          {recIsFallbackLocation && recommendations.length > 0 && (
+            <p className="text-[10px] text-farumasi-600/80 mt-2">
+              Showing recommendations near Kigali · add your delivery address in Settings for better matches.
+            </p>
+          )}
         </div>
       )}
 

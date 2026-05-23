@@ -98,6 +98,38 @@ export interface Order {
   cancellationReason?: string;
 }
 
+// ── Recommendations ───────────────────────────
+export type RecommendationProviderType = "pharmacy" | "partner";
+
+export interface Recommendation {
+  id?: string;
+  rank: number;
+  providerType: RecommendationProviderType;
+  providerId: string;
+  providerName: string;
+  totalScore: number;
+  availabilityScore: number;
+  insuranceScore: number;
+  priceScore: number;
+  locationScore: number;
+  deliveryScore: number;
+  reliabilityScore: number;
+  expirySafetyScore: number;
+  estimatedTotalPrice?: number | null;
+  estimatedDistanceKm?: number | null;
+  canFulfillCompletePrescription: boolean;
+  availableItemsCount: number;
+  totalItemsCount: number;
+  reasons: string[];
+  warnings: string[];
+}
+
+export interface RecommendationResponse {
+  prescriptionId?: string;
+  topRecommendations: Recommendation[];
+  totalCandidatesEvaluated: number;
+}
+
 // ── Prescriptions ─────────────────────────────
 export interface UploadedPrescription {
   id: string;
