@@ -25,3 +25,16 @@ class RiderProfileOut(BaseModel):
     availability_status: str
     verification_status: str
     payout_method: Optional[str] = None
+
+
+class RiderEarningsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    rider_type: str
+    completed_deliveries_today: int
+    completed_deliveries_week: int
+    completed_deliveries_month: int
+    estimated_earnings_today: float
+    estimated_earnings_week: float
+    estimated_earnings_month: float
+    pending_payout: float
+

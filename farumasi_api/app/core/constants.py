@@ -152,6 +152,17 @@ class RiderAvailability(str, Enum):
     SUSPENDED = "suspended"
 
 
+class DeliveryRejectionReason(str, Enum):
+    TOO_FAR = "too_far"
+    UNSAFE_AREA = "unsafe_area"
+    VEHICLE_ISSUE = "vehicle_issue"
+    PERSONAL_EMERGENCY = "personal_emergency"
+    PACKAGE_NOT_READY = "package_not_ready"
+    INVALID_ADDRESS = "invalid_address"
+    PRICE_LOW = "price_low"
+    OTHER = "other"
+
+
 class RevenueStatus(str, Enum):
     PENDING = "pending"
     AVAILABLE = "available"

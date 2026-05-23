@@ -159,3 +159,21 @@ async def create_my_order(
     db: AsyncSession = Depends(get_db),
 ):
     return await OrderService(db).create_order(data, current_user)
+
+
+# -- Phase 7: delivery QR for patient --------------------------------------
+from app.schemas.delivery import DeliveryQRForPatient  # noqa: E402
+from app.services.delivery_service import DeliveryService  # noqa: E402
+
+
+@router.get(
+    "/me/orders/{order_id}/delivery-qr",
+    response_model=DeliveryQRForPatient,
+)
+async def get_my_order_delivery_qr(
+    order_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await DeliveryService(db).get_qr_for_patient(order_id, current_user)
+
