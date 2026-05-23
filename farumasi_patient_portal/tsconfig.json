@@ -25,6 +25,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@farumasi/api/*": [
+        "../farumasi_shared/lib/api/*"
+      ],
+      "@farumasi/api": [
+        "../farumasi_shared/lib/api/index.ts"
       ]
     }
   },

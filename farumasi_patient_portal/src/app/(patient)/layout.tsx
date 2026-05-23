@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { RightPanel } from "@/components/layout/right-panel";
+import { PatientRoleGuard } from "@/components/shared/patient-role-guard";
 import { Store, HeartPulse, MessageCircle, ShoppingBag, FileText } from "lucide-react";
 import { hydrateLanguage } from "@/store/language-store";
 import { useAuthStore } from "@/store/auth-store";
@@ -29,6 +30,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   };
 
   return (
+    <PatientRoleGuard>
     <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600">
       <Topbar
         collapsed={collapsed}
@@ -83,6 +85,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         <MobileNavItem href="/orders"        label={t.nav_orders}    Icon={ShoppingBag} />
       </nav>
     </div>
+    </PatientRoleGuard>
   );
 }
 

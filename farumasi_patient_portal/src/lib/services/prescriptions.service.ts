@@ -70,7 +70,8 @@ export function adaptPrescription(p: BackendPrescription): DigitalPrescription {
 
 export const prescriptionsService = {
   async getMyPrescriptions(): Promise<DigitalPrescription[]> {
-    const { data } = await api.get<BackendPrescription[]>("/prescriptions/patient/me");
+    // Backend: GET /api/v1/patients/me/prescriptions
+    const { data } = await api.get<BackendPrescription[]>("/patients/me/prescriptions");
     return Array.isArray(data) ? data.map(adaptPrescription) : [];
   },
 
@@ -80,10 +81,11 @@ export const prescriptionsService = {
   },
 
   async uploadPrescriptionFile(file: File): Promise<{ url: string; file_key: string }> {
+    // Backend: POST /api/v1/uploads/prescription (multipart)
     const form = new FormData();
     form.append("file", file);
     const { data } = await api.post<{ url: string; file_key: string }>(
-      "/uploads/document",
+      "/uploads/prescription",
       form,
       { headers: { "Content-Type": "multipart/form-data" } }
     );
@@ -91,8 +93,8 @@ export const prescriptionsService = {
   },
 
   async createFromUpload(fileUrl: string, notes?: string): Promise<BackendPrescription> {
-    const { data } = await api.post<BackendPrescription>("/prescriptions/", {
-      prescription_type: "uploaded",
+    // Backend: POST /api/v1/patients/me/prescriptions/upload
+    const { data } = await api.post<BackendPrescription>("/patients/me/prescriptions/upload", {
       uploaded_file_url: fileUrl,
       notes,
     });
