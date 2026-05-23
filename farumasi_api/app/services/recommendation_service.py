@@ -102,13 +102,17 @@ class RecommendationService:
         top3 = scored[:3]
 
         # Persist (best-effort — never commits, only flushes)
+        persisted_ids: list[Optional[str]] = [None] * len(top3)
         if patient is not None:
-            await self._persist(top3, prescription_id=data.prescription_id, patient_id=patient.id)
+            persisted_ids = await self._persist(
+                top3, prescription_id=data.prescription_id, patient_id=patient.id
+            )
 
         return RecommendationResponse(
             prescription_id=data.prescription_id,
             top_recommendations=[
                 RecommendedProviderOut(
+                    id=persisted_ids[i] if i < len(persisted_ids) else None,
                     rank=r.rank,
                     provider_type=r.provider_type,
                     provider_id=r.provider_id,
@@ -129,7 +133,7 @@ class RecommendationService:
                     reasons=r.reasons,
                     warnings=r.warnings,
                 )
-                for r in top3
+                for i, r in enumerate(top3)
             ],
             total_candidates_evaluated=len(candidates),
         )
@@ -371,7 +375,8 @@ class RecommendationService:
         *,
         prescription_id: Optional[str],
         patient_id: str,
-    ) -> None:
+    ) -> list[Optional[str]]:
+        ids: list[Optional[str]] = []
         for rec in scored:
             row = PharmacyRecommendation(
                 prescription_id=prescription_id,
@@ -393,4 +398,6 @@ class RecommendationService:
                 can_fulfill_complete_prescription=rec.can_fulfill_complete_prescription,
             )
             self.db.add(row)
-        await self.db.flush()
+            await self.db.flush()
+            ids.append(row.id)
+        return ids

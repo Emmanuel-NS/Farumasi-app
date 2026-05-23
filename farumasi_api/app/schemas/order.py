@@ -3,49 +3,101 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 
 from app.schemas.common import FarumasiBaseModel
 from app.core.constants import OrderStatus, PaymentStatus, DeliveryMethod
 
 
 class OrderItemCreate(FarumasiBaseModel):
+    """Input item for order creation.
+
+    Preferred shape: ``product_listing_id`` + ``quantity`` — server reads
+    price and product name from the listing (trusted).
+
+    Legacy shape: ``product_name`` + ``unit_price`` (+ optional ``product_id``)
+    — accepted for backward compatibility with manual-entry flows that
+    pre-date Phase 6's listing-based orders.
+    """
+
     product_listing_id: Optional[str] = None
     product_id: Optional[str] = None
-    product_name: str
+    product_name: Optional[str] = None
     quantity: int = 1
-    unit_price: float
+    unit_price: Optional[float] = None
+
+    @field_validator("quantity")
+    @classmethod
+    def quantity_positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("Quantity must be at least 1")
+        return v
 
     @field_validator("unit_price")
     @classmethod
-    def price_positive(cls, v: float) -> float:
-        if v < 0:
+    def price_non_negative(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and v < 0:
             raise ValueError("Price cannot be negative")
         return v
 
+    @model_validator(mode="after")
+    def _require_listing_or_legacy(self) -> "OrderItemCreate":
+        has_listing = bool(self.product_listing_id)
+        has_legacy = bool(self.product_name) and self.unit_price is not None
+        if not has_listing and not has_legacy:
+            raise ValueError(
+                "Each item must provide either product_listing_id or "
+                "(product_name + unit_price)"
+            )
+        return self
+
 
 class OrderCreate(FarumasiBaseModel):
+    """Create an order via one of three paths.
+
+    1. Recommendation path: ``prescription_id`` + ``selected_recommendation_id``.
+       Items are derived from the prescription and the listings owned by the
+       selected pharmacy/partner.
+    2. Listing-based manual path: ``items[*].product_listing_id``.
+       Pharmacy / partner are derived from the listings (all must share owner).
+    3. Legacy manual path: ``items[*].product_name + unit_price`` plus a
+       client-provided ``pharmacy_id`` or ``partner_company_id``.
+       Kept for backward compatibility — not recommended.
+    """
+
     prescription_id: Optional[str] = None
+    selected_recommendation_id: Optional[str] = None
     pharmacy_id: Optional[str] = None
     partner_company_id: Optional[str] = None
-    selected_recommendation_id: Optional[str] = None
     delivery_method: DeliveryMethod = DeliveryMethod.DELIVERY
     delivery_address: Optional[str] = None
     delivery_latitude: Optional[float] = None
     delivery_longitude: Optional[float] = None
-    items: List[OrderItemCreate]
+    items: Optional[List[OrderItemCreate]] = None
 
-    @field_validator("items")
-    @classmethod
-    def items_not_empty(cls, v: list) -> list:
-        if not v:
-            raise ValueError("Order must have at least one item")
-        return v
+    @model_validator(mode="after")
+    def _require_one_path(self) -> "OrderCreate":
+        has_rec = bool(self.selected_recommendation_id)
+        has_items = bool(self.items)
+        if has_rec and has_items:
+            raise ValueError(
+                "Provide either selected_recommendation_id or items, not both"
+            )
+        if not has_rec and not has_items:
+            raise ValueError(
+                "Provide selected_recommendation_id (with prescription_id) or items"
+            )
+        if has_rec and not self.prescription_id:
+            raise ValueError(
+                "prescription_id is required when selected_recommendation_id is set"
+            )
+        return self
 
 
 class OrderItemOut(FarumasiBaseModel):
     id: str
     order_id: str
+    product_listing_id: Optional[str] = None
     product_id: Optional[str] = None
     product_name: str
     quantity: int
@@ -61,6 +113,7 @@ class OrderOut(FarumasiBaseModel):
     prescription_id: Optional[str] = None
     pharmacy_id: Optional[str] = None
     partner_company_id: Optional[str] = None
+    selected_recommendation_id: Optional[str] = None
     order_status: str
     payment_status: str
     delivery_method: str

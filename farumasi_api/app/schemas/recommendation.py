@@ -40,6 +40,7 @@ class RecommendationRequest(FarumasiBaseModel):
 
 # ── Outputs ─────────────────────────────────────────────────────────────────
 class RecommendedProviderOut(FarumasiBaseModel):
+    id: Optional[str] = None  # persisted PharmacyRecommendation row id
     rank: int
     provider_type: Literal["pharmacy", "partner"]
     provider_id: str

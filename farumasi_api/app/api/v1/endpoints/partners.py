@@ -144,3 +144,32 @@ async def create_my_partner_listing(
     company = await _get_my_partner(db, current_user)
     payload = data.model_copy(update={"partner_company_id": company.id, "pharmacy_id": None})
     return await ProductService(db).create_listing(payload, current_user)
+
+
+# ---- Phase 6: /me/orders ----
+from app.schemas.order import OrderOut, OrderStatusUpdate
+from app.services.order_service import OrderService
+
+
+@router.get("/me/orders", response_model=PaginatedResponse[OrderOut])
+async def list_my_partner_orders(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    status: str = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
+):
+    items, total = await OrderService(db).list_partner_orders(
+        current_user, offset=offset, limit=limit, status=status
+    )
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+
+
+@router.patch("/me/orders/{order_id}/status", response_model=OrderOut)
+async def update_my_partner_order_status(
+    order_id: str,
+    data: OrderStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
+):
+    return await OrderService(db).update_status(order_id, data, current_user)

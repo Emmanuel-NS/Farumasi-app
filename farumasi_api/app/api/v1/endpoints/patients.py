@@ -7,6 +7,7 @@ from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.models.patient import PatientProfile, Address
 from app.schemas.patient import PatientProfileOut, PatientProfileUpdate, AddressCreate, AddressOut
+from app.schemas.common import PaginatedResponse
 from app.core.exceptions import NotFoundError
 
 router = APIRouter()
@@ -131,3 +132,30 @@ async def get_my_prescription_recommendations(
         longitude=lon,
         preferred_delivery=preferred_delivery,
     )
+
+
+# -- Phase 6: orders shortcuts -------------------------------------------
+from app.schemas.order import OrderCreate, OrderOut
+from app.services.order_service import OrderService
+
+
+@router.get("/me/orders", response_model=PaginatedResponse[OrderOut])
+async def list_my_orders(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    items, total = await OrderService(db).list_patient_orders(
+        current_user, offset=offset, limit=limit
+    )
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+
+
+@router.post("/me/orders", response_model=OrderOut, status_code=201)
+async def create_my_order(
+    data: OrderCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await OrderService(db).create_order(data, current_user)
