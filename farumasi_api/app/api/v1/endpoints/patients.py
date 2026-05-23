@@ -105,3 +105,29 @@ async def upload_my_prescription(
     db: AsyncSession = Depends(get_db),
 ):
     return await PrescriptionService(db).patient_upload(data, current_user)
+
+
+# -- Phase 5: recommendations shortcut ------------------------------------
+from app.schemas.recommendation import RecommendationResponse  # noqa: E402
+from app.services.recommendation_service import RecommendationService  # noqa: E402
+
+
+@router.get(
+    "/me/prescriptions/{prescription_id}/recommendations",
+    response_model=RecommendationResponse,
+)
+async def get_my_prescription_recommendations(
+    prescription_id: str,
+    lat: float = Query(..., ge=-90.0, le=90.0),
+    lon: float = Query(..., ge=-180.0, le=180.0),
+    preferred_delivery: bool = Query(False),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await RecommendationService(db).recommend_for_prescription(
+        prescription_id=prescription_id,
+        actor=current_user,
+        latitude=lat,
+        longitude=lon,
+        preferred_delivery=preferred_delivery,
+    )
