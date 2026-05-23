@@ -480,6 +480,19 @@ class PrescriptionService:
             entity_type="PrescriptionReview",
             entity_id=review.id,
         )
+
+        # Notify patient about the review outcome
+        try:
+            patient = await self.db.execute(
+                select(PatientProfile).where(PatientProfile.id == rx.patient_id)
+            )
+            patient_row = patient.scalar_one_or_none()
+            if patient_row is not None:
+                await NotificationService(self.db).prescription_reviewed(
+                    patient_row.user_id, rx.id, data.review_status
+                )
+        except Exception:
+            pass
         return review
 
     async def update_review(

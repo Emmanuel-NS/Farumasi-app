@@ -17,67 +17,18 @@ class NotificationOut(FarumasiBaseModel):
     created_at: datetime
 
 
-class PharmacyCreate(FarumasiBaseModel):
-    name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    district: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    license_number: Optional[str] = None
-    accepts_delivery: bool = True
+class NotificationCreate(FarumasiBaseModel):
+    """Used by admins to broadcast a system notification to a target user."""
+    user_id: str
+    title: str
+    message: str
+    category: Optional[str] = "system"
+    action_url: Optional[str] = None
 
 
-class PharmacyUpdate(FarumasiBaseModel):
-    name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    district: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    accepts_delivery: Optional[bool] = None
+class NotificationReadUpdate(FarumasiBaseModel):
+    read_status: bool = True
 
 
-class PharmacyOut(FarumasiBaseModel):
-    id: str
-    owner_user_id: str
-    name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    district: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    verification_status: str
-    status: str
-    accepts_delivery: bool
-    is_open: bool
-    created_at: datetime
-
-
-class PartnerCompanyCreate(FarumasiBaseModel):
-    name: str
-    company_type: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    district: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    business_registration_number: Optional[str] = None
-
-
-class PartnerCompanyOut(FarumasiBaseModel):
-    id: str
-    owner_user_id: str
-    name: str
-    company_type: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    district: Optional[str] = None
-    verification_status: str
-    status: str
-    created_at: datetime
+class NotificationUnreadCount(FarumasiBaseModel):
+    unread: int

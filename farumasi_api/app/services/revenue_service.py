@@ -183,6 +183,26 @@ class RevenueService:
             entity_type="WithdrawalRequest",
             entity_id=withdrawal.id,
         )
+
+        # Notify finance admins + super admins (placeholder routing group)
+        try:
+            notif = NotificationService(self.db)
+            await notif.broadcast_to_role(
+                UserRole.FINANCE_ADMIN,
+                title="New Withdrawal Request",
+                message=f"A new withdrawal of RWF {float(withdrawal.amount):,.0f} is awaiting review.",
+                category="withdrawal",
+                action_url=f"/withdrawals/{withdrawal.id}",
+            )
+            await notif.broadcast_to_role(
+                UserRole.SUPER_ADMIN,
+                title="New Withdrawal Request",
+                message=f"A new withdrawal of RWF {float(withdrawal.amount):,.0f} is awaiting review.",
+                category="withdrawal",
+                action_url=f"/withdrawals/{withdrawal.id}",
+            )
+        except Exception:
+            pass
         return withdrawal
 
     async def approve_withdrawal(

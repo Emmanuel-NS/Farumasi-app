@@ -57,6 +57,16 @@ def require_compliance():
     return require_roles(UserRole.SUPER_ADMIN, UserRole.COMPLIANCE_ADMIN)
 
 
+def require_audit_reader():
+    """Roles allowed to inspect audit logs."""
+    return require_roles(
+        UserRole.SUPER_ADMIN,
+        UserRole.OPERATIONS_ADMIN,
+        UserRole.COMPLIANCE_ADMIN,
+        UserRole.FINANCE_ADMIN,
+    )
+
+
 def require_pharmacist():
     return require_roles(UserRole.SUPER_ADMIN, UserRole.PHARMACIST, UserRole.COMPLIANCE_ADMIN)
 

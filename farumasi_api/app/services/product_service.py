@@ -35,6 +35,8 @@ from app.schemas.product import (
     ProductRequestUpdate,
     ProductUpdate,
 )
+from app.services.audit_service import AuditService
+from app.services.notification_service import NotificationService
 
 
 # ─── role helpers ─────────────────────────────────────────────────────────
@@ -358,6 +360,19 @@ class ProductService:
         req.status = ProductRequestStatus.SUBMITTED
         await self.db.commit()
         await self.db.refresh(req)
+
+        # Notify reviewers (super_admins as a placeholder routing group)
+        try:
+            await NotificationService(self.db).broadcast_to_role(
+                UserRole.SUPER_ADMIN,
+                title="Product Request Submitted",
+                message=f"A new product request has been submitted: {req.product_name}.",
+                category="product_request",
+                action_url=f"/product-requests/{req.id}",
+            )
+            await self.db.commit()
+        except Exception:
+            pass
         return req
 
     async def review_request(
@@ -390,6 +405,22 @@ class ProductService:
 
         await self.db.commit()
         await self.db.refresh(req)
+
+        # Audit + notify the requester
+        try:
+            await AuditService(self.db).log(
+                actor_user_id=actor.id,
+                action="product_request.reviewed",
+                entity_type="ProductRequest",
+                entity_id=req.id,
+                new_value={"status": str(data.status), "notes": data.review_notes},
+            )
+            await NotificationService(self.db).product_request_reviewed(
+                req.requester_user_id, req.id, str(data.status)
+            )
+            await self.db.commit()
+        except Exception:
+            pass
         return req
 
     async def get_request(self, request_id: str, actor: User) -> ProductRequest:

@@ -89,3 +89,69 @@ class NotificationService:
             f"Your account status has been updated to: {new_status}. Contact support if you have questions.",
             category="account",
         )
+
+    # ── Phase 9 additional triggers ───────────────────────────────────────
+    async def prescription_reviewed(
+        self, patient_user_id: str, prescription_id: str, outcome: str
+    ) -> None:
+        await self.send(
+            patient_user_id,
+            "Prescription Reviewed",
+            f"A pharmacist has reviewed your prescription. Outcome: {outcome}.",
+            category="prescription",
+            action_url=f"/prescriptions/{prescription_id}",
+        )
+
+    async def product_request_submitted(
+        self, reviewer_user_id: str, request_id: str, product_name: str
+    ) -> None:
+        await self.send(
+            reviewer_user_id,
+            "Product Request Submitted",
+            f"A new product request has been submitted: {product_name}.",
+            category="product_request",
+            action_url=f"/product-requests/{request_id}",
+        )
+
+    async def product_request_reviewed(
+        self, requester_user_id: str, request_id: str, outcome: str
+    ) -> None:
+        await self.send(
+            requester_user_id,
+            "Product Request Update",
+            f"Your product request has been {outcome}.",
+            category="product_request",
+            action_url=f"/product-requests/{request_id}",
+        )
+
+    async def withdrawal_requested(
+        self, reviewer_user_id: str, withdrawal_id: str, amount: float
+    ) -> None:
+        await self.send(
+            reviewer_user_id,
+            "New Withdrawal Request",
+            f"A new withdrawal request of RWF {amount:,.0f} is awaiting review.",
+            category="withdrawal",
+            action_url=f"/withdrawals/{withdrawal_id}",
+        )
+
+    async def broadcast_to_role(
+        self,
+        role: str,
+        title: str,
+        message: str,
+        category: Optional[str] = None,
+        action_url: Optional[str] = None,
+    ) -> int:
+        """Send the same notification to every active user with the given role.
+
+        Returns the number of notifications dispatched.
+        """
+        from sqlalchemy import select
+        from app.models.user import User
+
+        result = await self.db.execute(select(User.id).where(User.role == role))
+        ids = [row[0] for row in result.all()]
+        for uid in ids:
+            await self.send(uid, title, message, category=category, action_url=action_url)
+        return len(ids)
