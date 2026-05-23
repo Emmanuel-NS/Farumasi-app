@@ -1,20 +1,22 @@
 import pytest
 from httpx import AsyncClient
 
+from tests.conftest import unique_email
+
 pytestmark = pytest.mark.anyio
 
 
-async def _make_patient(client, email="order_patient@farumasi.com"):
+async def _make_patient(client, email=None):
     r = await client.post("/api/v1/auth/register", json={
-        "email": email, "password": "Patient@12345",
+        "email": email or unique_email("order_patient"), "password": "Patient@12345",
         "full_name": "Order Patient", "role": "patient"
     })
     return r.json()
 
 
-async def _make_pharmacy_admin(client, email="order_pharma@farumasi.com"):
+async def _make_pharmacy_admin(client, email=None):
     r = await client.post("/api/v1/auth/register", json={
-        "email": email, "password": "Pharmacy@12345",
+        "email": email or unique_email("order_pharma"), "password": "Pharmacy@12345",
         "full_name": "Pharma Admin", "role": "pharmacy_admin"
     })
     return r.json()
@@ -53,8 +55,8 @@ async def test_create_order(client: AsyncClient):
 
 
 async def test_update_order_status(client: AsyncClient):
-    patient_tokens = await _make_patient(client, "order_patient2@farumasi.com")
-    pharma_tokens = await _make_pharmacy_admin(client, "order_pharma2@farumasi.com")
+    patient_tokens = await _make_patient(client)
+    pharma_tokens = await _make_pharmacy_admin(client)
     patient_headers = {"Authorization": f"Bearer {patient_tokens['access_token']}"}
     pharma_headers = {"Authorization": f"Bearer {pharma_tokens['access_token']}"}
 

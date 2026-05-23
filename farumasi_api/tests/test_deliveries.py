@@ -1,6 +1,8 @@
 import pytest
 from httpx import AsyncClient
 
+from tests.conftest import unique_email
+
 pytestmark = pytest.mark.anyio
 
 
@@ -8,17 +10,17 @@ async def _setup_delivery_scenario(client: AsyncClient):
     """Create patient, pharmacy, order, and return tokens + ids."""
     # Patient
     pat = (await client.post("/api/v1/auth/register", json={
-        "email": "delivery_patient@farumasi.com", "password": "Patient@12345",
+        "email": unique_email("delivery_patient"), "password": "Patient@12345",
         "full_name": "Del Patient", "role": "patient"
     })).json()
     # Pharmacy admin
     pharma = (await client.post("/api/v1/auth/register", json={
-        "email": "delivery_pharma@farumasi.com", "password": "Pharmacy@12345",
+        "email": unique_email("delivery_pharma"), "password": "Pharmacy@12345",
         "full_name": "Del Pharma", "role": "pharmacy_admin"
     })).json()
     # Rider
     rider = (await client.post("/api/v1/auth/register", json={
-        "email": "delivery_rider@farumasi.com", "password": "Rider@12345",
+        "email": unique_email("delivery_rider"), "password": "Rider@12345",
         "full_name": "Del Rider", "role": "rider"
     })).json()
 

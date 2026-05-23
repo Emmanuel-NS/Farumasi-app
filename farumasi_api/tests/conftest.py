@@ -5,10 +5,17 @@ Requires:
   pip install pytest pytest-asyncio httpx
 """
 
+import uuid
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+
+
+def unique_email(prefix: str = "user") -> str:
+    """Return a unique email per call to avoid cross-test collisions."""
+    return f"{prefix}_{uuid.uuid4().hex[:12]}@farumasi.com"
 
 from app.main import create_application
 from app.core.database import get_db
