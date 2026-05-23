@@ -145,6 +145,27 @@ DEMO_USERS = [
         "role": UserRole.HOSPITAL_ADMIN,
         "phone": "+250788000007",
     },
+    {
+        "email": "finance@farumasi.com",
+        "password": "Finance@12345",
+        "full_name": "Finance Admin",
+        "role": UserRole.FINANCE_ADMIN,
+        "phone": "+250788000020",
+    },
+    {
+        "email": "operations@farumasi.com",
+        "password": "Operations@12345",
+        "full_name": "Operations Admin",
+        "role": UserRole.OPERATIONS_ADMIN,
+        "phone": "+250788000021",
+    },
+    {
+        "email": "compliance@farumasi.com",
+        "password": "Compliance@12345",
+        "full_name": "Compliance Admin",
+        "role": UserRole.COMPLIANCE_ADMIN,
+        "phone": "+250788000022",
+    },
 ]
 
 DEMO_PRODUCTS = [

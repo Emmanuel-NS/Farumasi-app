@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 /// Central Dio HTTP client for FARUMASI API
 ///
 /// Token storage: shared_preferences (works on web, mobile, desktop)
-/// Base URL: defaults to localhost:3001 for web/desktop,
+/// Base URL: defaults to localhost:8000 for web/desktop,
 ///           override via --dart-define=API_BASE_URL=...
 class FarumasiApiClient {
   static FarumasiApiClient? _instance;
@@ -23,8 +23,8 @@ class FarumasiApiClient {
   ).isNotEmpty
       ? const String.fromEnvironment('API_BASE_URL')
       : kIsWeb
-          ? 'http://localhost:3001/api/v1'
-          : 'http://10.0.2.2:3001/api/v1'; // Android emulator
+          ? 'http://localhost:8000/api/v1'
+          : 'http://10.0.2.2:8000/api/v1'; // Android emulator
 
   FarumasiApiClient._() {
     dio = Dio(BaseOptions(
@@ -116,11 +116,11 @@ class _AuthInterceptor extends Interceptor {
 
         final refreshDio = Dio(BaseOptions(baseUrl: FarumasiApiClient.baseUrl));
         final response = await refreshDio.post('/auth/refresh', data: {
-          'refreshToken': refreshToken,
+          'refresh_token': refreshToken,
         });
 
-        final newAccessToken = response.data['accessToken'] as String;
-        final newRefreshToken = response.data['refreshToken'] as String;
+        final newAccessToken = response.data['access_token'] as String;
+        final newRefreshToken = response.data['refresh_token'] as String;
 
         await prefs.setString(_accessTokenKey, newAccessToken);
         await prefs.setString(_refreshTokenKey, newRefreshToken);
