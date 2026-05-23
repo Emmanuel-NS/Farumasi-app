@@ -23,12 +23,23 @@ class RevenueOut(FarumasiBaseModel):
 
 
 class RevenueSummary(FarumasiBaseModel):
+    # Legacy aliases (kept so any existing client/test keeps working).
     total_gross: float
     total_commission: float
     total_net: float
     available_balance: float
     pending_balance: float
     withdrawn_total: float
+
+    # Phase 8.2 canonical fields.
+    gross_revenue: float
+    platform_commission: float
+    net_revenue: float
+    withdrawn_amount: float
+    pending_withdrawals: float
+    paid_withdrawals: float
+    total_orders: int
+    completed_orders: int
 
 
 class WithdrawalCreate(FarumasiBaseModel):
@@ -51,8 +62,10 @@ class WithdrawalOut(FarumasiBaseModel):
     partner_company_id: Optional[str] = None
     amount: float
     payout_method: str
+    payout_details: Optional[dict] = None
     status: str
     admin_notes: Optional[str] = None
+    processed_by_user_id: Optional[str] = None
     created_at: datetime
     processed_at: Optional[datetime] = None
 

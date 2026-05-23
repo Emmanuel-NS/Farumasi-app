@@ -179,3 +179,55 @@ async def update_my_pharmacy_order_status(
     current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
 ):
     return await OrderService(db).update_status(order_id, data, current_user)
+
+
+# ---- Phase 8.2: /me/revenue and /me/withdrawals ----
+from app.schemas.revenue import (
+    RevenueRecordOut,
+    RevenueSummary,
+    WithdrawalCreate,
+    WithdrawalOut,
+)
+from app.services.revenue_service import RevenueService
+
+
+@router.get("/me/revenue", response_model=list[RevenueRecordOut])
+async def list_my_pharmacy_revenue(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+):
+    pharmacy = await _get_my_pharmacy(db, current_user)
+    return await RevenueService(db).list_records(pharmacy_id=pharmacy.id)
+
+
+@router.get("/me/revenue/summary", response_model=RevenueSummary)
+async def get_my_pharmacy_revenue_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+):
+    pharmacy = await _get_my_pharmacy(db, current_user)
+    return await RevenueService(db).get_summary(pharmacy_id=pharmacy.id)
+
+
+@router.get("/me/withdrawals", response_model=list[WithdrawalOut])
+async def list_my_pharmacy_withdrawals(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+):
+    pharmacy = await _get_my_pharmacy(db, current_user)
+    return await RevenueService(db).list_withdrawals(pharmacy_id=pharmacy.id)
+
+
+@router.post("/me/withdrawals", response_model=WithdrawalOut, status_code=201)
+async def create_my_pharmacy_withdrawal(
+    data: WithdrawalCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+):
+    pharmacy = await _get_my_pharmacy(db, current_user)
+    return await RevenueService(db).request_withdrawal(
+        data=data,
+        actor=current_user,
+        pharmacy_id=pharmacy.id,
+        partner_company_id=None,
+    )

@@ -173,3 +173,55 @@ async def update_my_partner_order_status(
     current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
 ):
     return await OrderService(db).update_status(order_id, data, current_user)
+
+
+# ---- Phase 8.2: /me/revenue and /me/withdrawals ----
+from app.schemas.revenue import (
+    RevenueRecordOut,
+    RevenueSummary,
+    WithdrawalCreate,
+    WithdrawalOut,
+)
+from app.services.revenue_service import RevenueService
+
+
+@router.get("/me/revenue", response_model=list[RevenueRecordOut])
+async def list_my_partner_revenue(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
+):
+    company = await _get_my_partner(db, current_user)
+    return await RevenueService(db).list_records(partner_company_id=company.id)
+
+
+@router.get("/me/revenue/summary", response_model=RevenueSummary)
+async def get_my_partner_revenue_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
+):
+    company = await _get_my_partner(db, current_user)
+    return await RevenueService(db).get_summary(partner_company_id=company.id)
+
+
+@router.get("/me/withdrawals", response_model=list[WithdrawalOut])
+async def list_my_partner_withdrawals(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
+):
+    company = await _get_my_partner(db, current_user)
+    return await RevenueService(db).list_withdrawals(partner_company_id=company.id)
+
+
+@router.post("/me/withdrawals", response_model=WithdrawalOut, status_code=201)
+async def create_my_partner_withdrawal(
+    data: WithdrawalCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
+):
+    company = await _get_my_partner(db, current_user)
+    return await RevenueService(db).request_withdrawal(
+        data=data,
+        actor=current_user,
+        pharmacy_id=None,
+        partner_company_id=company.id,
+    )

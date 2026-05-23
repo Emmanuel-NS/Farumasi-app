@@ -5,8 +5,9 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.constants import RevenueStatus, UserRole, WithdrawalStatus
+from app.core.constants import OrderStatus, RevenueStatus, UserRole, WithdrawalStatus
 from app.core.exceptions import BusinessRuleError, NotFoundError
+from app.models.order import Order
 from app.models.revenue import RevenueRecord, WithdrawalRequest
 from app.schemas.revenue import WithdrawalCreate, RevenueSummary
 from app.services.audit_service import AuditService
@@ -52,29 +53,91 @@ class RevenueService:
             float(r.net_amount) for r in records if r.status == RevenueStatus.WITHDRAWN
         )
 
-        # Funds locked in not-yet-paid withdrawals for the same entity.
-        wd_q = select(WithdrawalRequest).where(
-            WithdrawalRequest.status.in_(_LOCKED_WITHDRAWAL_STATUSES)
-        )
+        # Withdrawals scoped to the same entity.
+        wd_q = select(WithdrawalRequest)
         if pharmacy_id:
             wd_q = wd_q.where(WithdrawalRequest.pharmacy_id == pharmacy_id)
         if partner_company_id:
             wd_q = wd_q.where(WithdrawalRequest.partner_company_id == partner_company_id)
+        withdrawals = list((await self.db.execute(wd_q)).scalars().all())
+
         locked_withdrawals = sum(
-            float(w.amount)
-            for w in (await self.db.execute(wd_q)).scalars().all()
+            float(w.amount) for w in withdrawals
+            if w.status in _LOCKED_WITHDRAWAL_STATUSES
+        )
+        paid_withdrawals = sum(
+            float(w.amount) for w in withdrawals
+            if w.status == WithdrawalStatus.PAID
         )
 
         available = max(0.0, available_records_sum - locked_withdrawals)
 
+        # Order counts scoped to the same entity.
+        order_q = select(func.count(Order.id))
+        completed_q = select(func.count(Order.id)).where(
+            Order.order_status == OrderStatus.COMPLETED
+        )
+        if pharmacy_id:
+            order_q = order_q.where(Order.pharmacy_id == pharmacy_id)
+            completed_q = completed_q.where(Order.pharmacy_id == pharmacy_id)
+        if partner_company_id:
+            order_q = order_q.where(Order.partner_company_id == partner_company_id)
+            completed_q = completed_q.where(
+                Order.partner_company_id == partner_company_id
+            )
+        total_orders = (await self.db.execute(order_q)).scalar_one() or 0
+        completed_orders = (await self.db.execute(completed_q)).scalar_one() or 0
+
         return RevenueSummary(
+            # Legacy aliases.
             total_gross=gross,
             total_commission=commission,
             total_net=net,
             available_balance=available,
             pending_balance=pending_records_sum,
             withdrawn_total=withdrawn_records_sum,
+            # Canonical Phase 8 fields.
+            gross_revenue=gross,
+            platform_commission=commission,
+            net_revenue=net,
+            withdrawn_amount=withdrawn_records_sum,
+            pending_withdrawals=locked_withdrawals,
+            paid_withdrawals=paid_withdrawals,
+            total_orders=int(total_orders),
+            completed_orders=int(completed_orders),
         )
+
+    async def list_records(
+        self,
+        pharmacy_id: Optional[str] = None,
+        partner_company_id: Optional[str] = None,
+    ) -> list[RevenueRecord]:
+        q = select(RevenueRecord)
+        if pharmacy_id:
+            q = q.where(RevenueRecord.pharmacy_id == pharmacy_id)
+        if partner_company_id:
+            q = q.where(RevenueRecord.partner_company_id == partner_company_id)
+        q = q.order_by(RevenueRecord.created_at.desc())
+        return list((await self.db.execute(q)).scalars().all())
+
+    async def list_withdrawals(
+        self,
+        status: Optional[str] = None,
+        pharmacy_id: Optional[str] = None,
+        partner_company_id: Optional[str] = None,
+        requester_user_id: Optional[str] = None,
+    ) -> list[WithdrawalRequest]:
+        q = select(WithdrawalRequest)
+        if status:
+            q = q.where(WithdrawalRequest.status == status)
+        if pharmacy_id:
+            q = q.where(WithdrawalRequest.pharmacy_id == pharmacy_id)
+        if partner_company_id:
+            q = q.where(WithdrawalRequest.partner_company_id == partner_company_id)
+        if requester_user_id:
+            q = q.where(WithdrawalRequest.requester_user_id == requester_user_id)
+        q = q.order_by(WithdrawalRequest.created_at.desc())
+        return list((await self.db.execute(q)).scalars().all())
 
     async def request_withdrawal(
         self,

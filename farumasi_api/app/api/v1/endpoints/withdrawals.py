@@ -78,7 +78,26 @@ async def list_withdrawals(
     return list(result.scalars().all())
 
 
+@router.get("/{withdrawal_id}", response_model=WithdrawalOut)
+async def get_withdrawal(
+    withdrawal_id: str,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(WithdrawalRequest).where(WithdrawalRequest.id == withdrawal_id)
+    )
+    w = result.scalar_one_or_none()
+    if not w:
+        raise NotFoundError("Withdrawal request", withdrawal_id)
+    # Admins (super_admin / finance_admin) and the original requester may view.
+    if actor.role not in _PLATFORM_ROLES and w.requester_user_id != actor.id:
+        raise AuthorizationError("You cannot view this withdrawal request")
+    return w
+
+
 @router.post("/{withdrawal_id}/approve", response_model=WithdrawalOut, dependencies=[Depends(require_finance())])
+@router.patch("/{withdrawal_id}/approve", response_model=WithdrawalOut, dependencies=[Depends(require_finance())])
 async def approve_withdrawal(
     withdrawal_id: str,
     data: WithdrawalActionInput = WithdrawalActionInput(),
@@ -89,6 +108,7 @@ async def approve_withdrawal(
 
 
 @router.post("/{withdrawal_id}/reject", response_model=WithdrawalOut, dependencies=[Depends(require_finance())])
+@router.patch("/{withdrawal_id}/reject", response_model=WithdrawalOut, dependencies=[Depends(require_finance())])
 async def reject_withdrawal(
     withdrawal_id: str,
     data: WithdrawalActionInput = WithdrawalActionInput(),
@@ -99,6 +119,7 @@ async def reject_withdrawal(
 
 
 @router.post("/{withdrawal_id}/mark-paid", response_model=WithdrawalOut, dependencies=[Depends(require_finance())])
+@router.patch("/{withdrawal_id}/mark-paid", response_model=WithdrawalOut, dependencies=[Depends(require_finance())])
 async def mark_paid(
     withdrawal_id: str,
     db: AsyncSession = Depends(get_db),
