@@ -53,8 +53,22 @@ app.*.map.json
 build.log
 flutter_*.log
 
-# ─── Python patch / utility scripts (dev-only, not part of the app) ───────────
-*.py
+# ─── Python (build / cache / venv / db artifacts) ────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+.coverage
+htmlcov/
+# Local SQLite test DBs (do NOT commit)
+farumasi_api/test.db
+*.sqlite3
 
 # ─── Temporary working / analysis text files ──────────────────────────────────
 analysis_checkout.txt

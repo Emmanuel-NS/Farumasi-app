@@ -1,0 +1,1 @@
+"""FARUMASI FastAPI Application."""
