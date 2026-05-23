@@ -3,7 +3,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.core.constants import UserRole
 from app.core.database import get_db
+from app.core.exceptions import AuthorizationError
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.models.pharmacy import Pharmacy
@@ -13,6 +15,10 @@ from app.services.revenue_service import RevenueService
 from app.core.exceptions import NotFoundError
 
 router = APIRouter()
+
+
+_PLATFORM_ROLES = {UserRole.SUPER_ADMIN, UserRole.FINANCE_ADMIN}
+_OWNER_ROLES = {UserRole.PHARMACY_ADMIN, UserRole.PARTNER_COMPANY_ADMIN}
 
 
 async def _resolve_entity(actor: User, db: AsyncSession):
@@ -28,8 +34,28 @@ async def get_revenue_summary(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
+    # Platform-wide view is restricted to super_admin / finance_admin.
+    if actor.role in _PLATFORM_ROLES:
+        return await RevenueService(db).get_summary()
+
+    if actor.role not in _OWNER_ROLES:
+        raise AuthorizationError(
+            "Only pharmacy or partner company owners can view their revenue"
+        )
+
     pharmacy, partner = await _resolve_entity(actor, db)
+    # Owner without an associated entity yet → own (empty) scope, not platform.
+    if not pharmacy and not partner:
+        return RevenueSummary(
+            total_gross=0.0,
+            total_commission=0.0,
+            total_net=0.0,
+            available_balance=0.0,
+            pending_balance=0.0,
+            withdrawn_total=0.0,
+        )
     return await RevenueService(db).get_summary(
         pharmacy_id=pharmacy.id if pharmacy else None,
         partner_company_id=partner.id if partner else None,
     )
+

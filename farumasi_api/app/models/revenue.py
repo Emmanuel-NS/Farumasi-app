@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -59,7 +59,7 @@ class WithdrawalRequest(Base, UUIDMixin, TimestampMixin):
     )
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     payout_method: Mapped[str] = mapped_column(String(100), nullable=False)
-    payout_details: Mapped[Optional[dict]] = mapped_column(Text, nullable=True)
+    payout_details: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default=WithdrawalStatus.PENDING)
     admin_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     processed_by_user_id: Mapped[Optional[str]] = mapped_column(
