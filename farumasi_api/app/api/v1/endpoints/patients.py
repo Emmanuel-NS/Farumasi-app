@@ -78,3 +78,30 @@ async def list_addresses(
     patient = await _get_patient(current_user.id, db)
     result = await db.execute(select(Address).where(Address.patient_id == patient.id))
     return list(result.scalars().all())
+
+
+# ── Prescriptions (Phase 4) ──────────────────────────────────────────────
+from app.schemas.prescription import PrescriptionOut, PrescriptionUploadCreate  # noqa: E402
+from app.services.prescription_service import PrescriptionService  # noqa: E402
+
+
+@router.get("/me/prescriptions", response_model=list[PrescriptionOut])
+async def list_my_prescriptions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    patient = await _get_patient(current_user.id, db)
+    return await PrescriptionService(db).list_for_patient(patient.id)
+
+
+@router.post(
+    "/me/prescriptions/upload",
+    response_model=PrescriptionOut,
+    status_code=201,
+)
+async def upload_my_prescription(
+    data: PrescriptionUploadCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await PrescriptionService(db).patient_upload(data, current_user)

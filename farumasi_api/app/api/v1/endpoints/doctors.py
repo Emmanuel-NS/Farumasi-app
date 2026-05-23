@@ -51,3 +51,33 @@ async def get_doctor(doctor_id: str, db: AsyncSession = Depends(get_db)):
     if not doctor:
         raise NotFoundError("Doctor", doctor_id)
     return doctor
+
+
+# ── Prescriptions (Phase 4) ──────────────────────────────────────────────
+from app.schemas.prescription import PrescriptionOut, PrescriptionCreate  # noqa: E402
+from app.schemas.common import PaginatedResponse  # noqa: E402
+from app.services.prescription_service import PrescriptionService  # noqa: E402
+from fastapi import Query  # noqa: E402
+
+
+@router.get("/me/prescriptions", response_model=PaginatedResponse[PrescriptionOut])
+async def list_my_prescriptions(
+    status: str | None = Query(None),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    items, total = await PrescriptionService(db).list_for_doctor(
+        current_user, status=status, offset=offset, limit=limit
+    )
+    return PaginatedResponse(items=list(items), total=total, offset=offset, limit=limit)
+
+
+@router.post("/me/prescriptions", response_model=PrescriptionOut, status_code=201)
+async def create_my_prescription(
+    data: PrescriptionCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await PrescriptionService(db).create_prescription(data, current_user)

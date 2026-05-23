@@ -85,9 +85,26 @@ class PrescriptionOut(FarumasiBaseModel):
     created_at: datetime
 
 
+class PrescriptionItemUpdate(FarumasiBaseModel):
+    product_id: Optional[str] = None
+    medicine_name: Optional[str] = None
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    duration: Optional[str] = None
+    quantity: Optional[int] = None
+    instructions: Optional[str] = None
+    substitution_allowed: Optional[bool] = None
+
+
 class PrescriptionReviewCreate(FarumasiBaseModel):
     prescription_id: str
-    review_status: ReviewStatus
+    review_status: ReviewStatus = ReviewStatus.PENDING
+    review_notes: Optional[str] = None
+    safety_flags: Optional[List[str]] = None
+
+
+class PrescriptionReviewUpdate(FarumasiBaseModel):
+    review_status: Optional[ReviewStatus] = None
     review_notes: Optional[str] = None
     safety_flags: Optional[List[str]] = None
 

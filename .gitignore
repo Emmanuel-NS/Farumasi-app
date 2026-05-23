@@ -69,6 +69,8 @@ htmlcov/
 # Local SQLite test DBs (do NOT commit)
 farumasi_api/test.db
 *.sqlite3
+# Local file upload artifacts (do NOT commit)
+farumasi_api/uploads/
 
 # ─── Temporary working / analysis text files ──────────────────────────────────
 analysis_checkout.txt

@@ -65,3 +65,64 @@ async def update_my_profile(
     await db.commit()
     await db.refresh(profile)
     return profile
+
+
+# ── Prescription Reviews (Phase 4) ───────────────────────────────────────
+from app.schemas.prescription import (  # noqa: E402
+    PrescriptionReviewCreate,
+    PrescriptionReviewUpdate,
+    PrescriptionReviewOut,
+)
+from app.services.prescription_service import PrescriptionService  # noqa: E402
+
+
+@router.get(
+    "/prescription-reviews",
+    response_model=PaginatedResponse[PrescriptionReviewOut],
+)
+async def list_prescription_reviews(
+    prescription_id: str | None = Query(None),
+    review_status: str | None = Query(None),
+    mine: bool = Query(False, description="When true, restrict to the calling pharmacist's reviews."),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    items, total = await PrescriptionService(db).list_reviews(
+        current_user,
+        pharmacist_only_self=mine,
+        prescription_id=prescription_id,
+        review_status=review_status,
+        offset=offset,
+        limit=limit,
+    )
+    return PaginatedResponse(items=list(items), total=total, offset=offset, limit=limit)
+
+
+@router.post(
+    "/prescription-reviews",
+    response_model=PrescriptionReviewOut,
+    status_code=201,
+)
+async def create_prescription_review(
+    data: PrescriptionReviewCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await PrescriptionService(db).review_prescription(data, current_user)
+
+
+@router.patch(
+    "/prescription-reviews/{review_id}",
+    response_model=PrescriptionReviewOut,
+)
+async def update_prescription_review(
+    review_id: str,
+    data: PrescriptionReviewUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await PrescriptionService(db).update_review(review_id, data, current_user)
+
+
