@@ -77,6 +77,14 @@ export type OrderStatus =
   | "delivered"
   | "cancelled";
 
+export type OrderPaymentStatus =
+  | "pending"
+  | "processing"
+  | "paid"
+  | "failed"
+  | "refunded"
+  | string;
+
 export interface Order {
   id: string;
   status: OrderStatus;
@@ -96,6 +104,23 @@ export interface Order {
   completedAt?: string;
   cancelledAt?: string;
   cancellationReason?: string;
+  // Phase 11.3 — backend-derived fields used in detail page
+  orderCode?: string;
+  paymentStatus?: OrderPaymentStatus;
+  deliveryMethod?: "delivery" | "pickup" | string;
+  prescriptionId?: string;
+  selectedRecommendationId?: string;
+  pharmacyId?: string;
+  partnerCompanyId?: string;
+}
+
+// ── Delivery QR ───────────────────────────────
+export interface DeliveryQR {
+  deliveryId: string;
+  orderId: string;
+  status: string;
+  qrToken?: string;
+  qrCode?: string; // base64/data URL image when backend renders the code
 }
 
 // ── Recommendations ───────────────────────────
@@ -217,6 +242,7 @@ export type ArticleCategory = "General Health" | "Wellness" | "Remedies" | "SRH"
 
 export interface HealthArticle {
   id: string;
+  slug?: string;            // Phase 11.3 — backend slug for /articles/slug/{slug}
   title: string;
   subtitle: string;
   summary: string;

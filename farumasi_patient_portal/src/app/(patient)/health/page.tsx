@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { X, Search, Lightbulb, ChevronRight, BookOpen, Clock } from "lucide-react";
 import type { HealthArticle } from "@/types";
-import { api } from "@/lib/api";
+import { articlesService } from "@/lib/services/articles.service";
 
 // ── Flutter tab labels (exact match) ─────────────────────────────────────────
 const TABS = [
@@ -44,30 +44,13 @@ export default function HealthPage() {
   const lang = useLanguageStore((s) => s.lang);
   const [activeTab, setActiveTab] = useState<Tab>("General Tips");
   const [searchQuery, setSearchQuery] = useState("");
-  const [rawArticles, setRawArticles] = useState<Array<{
-    id: string; title: string; summary?: string; content?: string;
-    category?: string; image_url?: string; published_at?: string;
-  }>>([]);
+  const [ARTICLES, setArticles] = useState<HealthArticle[]>([]);
 
   useEffect(() => {
-    api.get("/articles/", { params: { limit: 50 } })
-      .then(({ data }) => setRawArticles(data.items ?? data))
-      .catch(() => {});
+    articlesService.listPublished({ limit: 50 })
+      .then(setArticles)
+      .catch(() => setArticles([]));
   }, []);
-
-  // Map API articles to the HealthArticle type
-  const ARTICLES: HealthArticle[] = useMemo(() => rawArticles.map((a) => ({
-    id: a.id,
-    title: a.title,
-    subtitle: a.category ?? "Health",
-    summary: a.summary ?? "",
-    fullContent: a.content ?? "",
-    imageUrl: a.image_url ?? "",
-    source: "Farumasi",
-    category: (a.category ?? "General Health") as HealthArticle["category"],
-    readTimeMin: Math.max(1, Math.ceil((a.content ?? "").split(/\s+/).length / 200)),
-    publishedAt: a.published_at ? new Date(a.published_at) : undefined,
-  })), [rawArticles]);
 
   const TAB_LABELS: Record<Tab, string> = {
     "General Tips":    t.health_tab_general,
@@ -156,7 +139,7 @@ export default function HealthPage() {
           /* Did You Know? card style */
           <div className="max-w-[600px] mx-auto space-y-5">
             {articles.map((article) => (
-              <DidYouKnowCard key={article.id} article={article} onSelect={(a) => router.push(`/health/${a.id}`)} />
+              <DidYouKnowCard key={article.id} article={article} onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)} />
             ))}
           </div>
         ) : (
@@ -166,7 +149,7 @@ export default function HealthPage() {
               <ModernArticleCard
                 key={article.id}
                 article={article}
-                onSelect={(a) => router.push(`/health/${a.id}`)}
+                onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)}
               />
             ))}
           </div>

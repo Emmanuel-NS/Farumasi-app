@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ordersService } from "@/lib/services/orders.service";
-import type { Order } from "@/types";
+import { deliveryService } from "@/lib/services/delivery.service";
+import type { Order, DeliveryQR } from "@/types";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useTranslation } from "@/lib/translations";
-import { ArrowLeft, MapPin, Phone, MessageCircle, Package, Store, CheckCircle, Truck, Clock } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, MessageCircle, Package, Store, CheckCircle, Truck, Clock, QrCode } from "lucide-react";
 
 // Dynamically import the Leaflet map — must be client-only, no SSR
 const TrackingMap = dynamic(
@@ -35,6 +36,8 @@ export default function OrderTrackingPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [eta, setEta] = useState(18);
+  const [deliveryQR, setDeliveryQR] = useState<DeliveryQR | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -44,6 +47,18 @@ export default function OrderTrackingPage() {
       .catch(() => setOrder(null))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Phase 11.3: fetch delivery QR for delivery-method orders.
+  useEffect(() => {
+    if (!id || !order) return;
+    if (order.deliveryMethod !== "delivery") return;
+    if (order.status === "cancelled") return;
+    setQrLoading(true);
+    deliveryService.getQrForOrder(id)
+      .then(setDeliveryQR)
+      .catch(() => setDeliveryQR(null))
+      .finally(() => setQrLoading(false));
+  }, [id, order]);
 
   useEffect(() => {
     if (order?.status !== "out_for_delivery") return;
@@ -89,8 +104,22 @@ export default function OrderTrackingPage() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6 gap-3">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900">Order #{order.id}</h1>
+          <h1 className="text-xl font-extrabold text-slate-900">Order #{order.orderCode ?? order.id}</h1>
           <p className="text-sm text-slate-500 mt-0.5">{order.pharmacy} · {order.date}</p>
+          {order.paymentStatus && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 mt-2 text-[11px] font-semibold px-2 py-0.5 rounded-full border",
+                order.paymentStatus === "paid"
+                  ? "bg-green-50 text-green-700 border-green-100"
+                  : order.paymentStatus === "failed"
+                  ? "bg-red-50 text-red-700 border-red-100"
+                  : "bg-amber-50 text-amber-700 border-amber-100",
+              )}
+            >
+              Payment: {order.paymentStatus}
+            </span>
+          )}
         </div>
         <StatusBadge status={order.status} />
       </div>
@@ -174,6 +203,43 @@ export default function OrderTrackingPage() {
         <div className="bg-red-50 border border-red-100 rounded-3xl p-5 mb-5 text-center">
           <p className="text-red-600 font-bold text-base">{order.status === "cancelled" ? t.order_cancelled : t.order_failed}</p>
           <p className="text-sm text-red-500 mt-1">{t.order_not_completed}</p>
+        </div>
+      )}
+
+      {/* Phase 11.3 — Delivery QR (only for delivery orders) */}
+      {order.deliveryMethod === "delivery" && order.status !== "cancelled" && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
+          <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+            <QrCode className="w-4 h-4 text-farumasi-600" />
+            Delivery QR
+          </h2>
+          {qrLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-2 border-farumasi-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : deliveryQR && (deliveryQR.qrCode || deliveryQR.qrToken) ? (
+            <div className="flex flex-col items-center text-center">
+              {deliveryQR.qrCode ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={deliveryQR.qrCode}
+                  alt="Delivery QR code"
+                  className="w-48 h-48 object-contain rounded-2xl border border-slate-100 bg-white p-2"
+                />
+              ) : (
+                <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-mono text-xs text-slate-700 break-all">
+                  {deliveryQR.qrToken}
+                </div>
+              )}
+              <p className="text-xs text-slate-500 mt-3 max-w-xs">
+                Show this QR code to the rider when your medicine arrives.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500 text-center py-6">
+              Delivery QR will appear once your delivery is assigned.
+            </p>
+          )}
         </div>
       )}
 

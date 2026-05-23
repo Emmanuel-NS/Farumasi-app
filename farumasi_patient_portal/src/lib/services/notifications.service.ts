@@ -1,50 +1,26 @@
 import api from "@/lib/api";
 import type { AppNotification } from "@/types";
+import {
+  adaptNotification,
+  type BackendNotification,
+  type BackendUnreadCount,
+  type PaginatedNotifications,
+} from "@/lib/mappers/notifications.mapper";
 
-export interface BackendNotification {
-  id: string;
-  user_id: string;
-  title: string;
-  message: string;
-  category: string;
-  read_status: boolean;
-  action_url: string | null;
-  created_at: string;
-}
-
-export interface PaginatedNotifications {
-  items: BackendNotification[];
-  total: number;
-  offset: number;
-  limit: number;
-}
-
-const CATEGORY_MAP: Record<string, AppNotification["category"]> = {
-  order:          "order",
-  prescription:   "health_tip",
-  delivery:       "order_shipped",
-  promo:          "promo",
-  reminder:       "reminder",
-  general:        "general",
-};
-
-export function adaptNotification(n: BackendNotification): AppNotification {
-  return {
-    id: n.id,
-    title: n.title,
-    message: n.message,
-    category: (CATEGORY_MAP[n.category] ?? "general") as AppNotification["category"],
-    isRead: n.read_status,
-    time: n.created_at,
-  };
-}
+export { adaptNotification };
+export type { BackendNotification, PaginatedNotifications, BackendUnreadCount };
 
 export const notificationsService = {
   async getMyNotifications(unreadOnly = false): Promise<AppNotification[]> {
-    const { data } = await api.get<PaginatedNotifications>("/notifications", {
+    const { data } = await api.get<PaginatedNotifications>("/notifications/", {
       params: { unread_only: unreadOnly, limit: 50 },
     });
     return data.items.map(adaptNotification);
+  },
+
+  async getUnreadCount(): Promise<number> {
+    const { data } = await api.get<BackendUnreadCount>("/notifications/unread-count");
+    return data.unread;
   },
 
   async markRead(id: string): Promise<void> {
@@ -52,6 +28,7 @@ export const notificationsService = {
   },
 
   async markAllRead(): Promise<void> {
-    await api.post("/notifications/mark-all-read");
+    // Phase 11.3: use PATCH /notifications/read-all per backend spec.
+    await api.patch("/notifications/read-all");
   },
 };

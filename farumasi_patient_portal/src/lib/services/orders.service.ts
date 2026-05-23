@@ -1,77 +1,15 @@
 import api from "@/lib/api";
-import type { Order, OrderStatus } from "@/types";
+import type { Order } from "@/types";
+import {
+  adaptOrder,
+  type BackendOrder,
+  type BackendOrderItem,
+  type PaginatedOrders,
+} from "@/lib/mappers/orders.mapper";
 
-export interface BackendOrderItem {
-  id: string;
-  product_id: string | null;
-  product_name: string;
-  quantity: number;
-  unit_price: number;
-  subtotal: number;
-}
-
-export interface BackendOrder {
-  id: string;
-  order_code: string;
-  patient_id: string;
-  prescription_id: string | null;
-  pharmacy_id: string | null;
-  partner_company_id: string | null;
-  order_status: string;
-  payment_status: string;
-  delivery_method: string | null;
-  delivery_address: string | null;
-  subtotal: number;
-  delivery_fee: number;
-  platform_commission: number;
-  total_amount: number;
-  net_partner_amount: number;
-  notes: string | null;
-  items: BackendOrderItem[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PaginatedOrders {
-  items: BackendOrder[];
-  total: number;
-  offset: number;
-  limit: number;
-}
-
-// Map actual backend order_status values → frontend OrderStatus type
-const STATUS_MAP: Record<string, OrderStatus> = {
-  pending:             "pending_review",
-  accepted:            "pharmacy_accepted",
-  rejected:            "cancelled",
-  preparing:           "pharmacy_accepted",
-  ready_for_pickup:    "ready_for_pickup",
-  out_for_delivery:    "out_for_delivery",
-  delivered:           "delivered",
-  completed:           "delivered",
-  cancelled:           "cancelled",
-  failed:              "cancelled",
-};
-
-export function adaptOrder(o: BackendOrder): Order {
-  const itemNames = o.items.length > 0
-    ? o.items.map((i) => `${i.product_name} ×${i.quantity}`).join(", ")
-    : (o.notes ?? `Order ${o.order_code}`);
-
-  return {
-    id: o.id,
-    status: (STATUS_MAP[o.order_status] ?? "pending_review") as OrderStatus,
-    items: itemNames,
-    total: `RWF ${o.total_amount.toLocaleString()}`,
-    date: new Date(o.created_at).toLocaleDateString("en-GB", {
-      day: "numeric", month: "short", year: "numeric",
-    }),
-    pharmacy: o.pharmacy_id ? `Pharmacy #${o.pharmacy_id.slice(0, 6)}` : "FARUMASI Partner",
-    pharmacyPrice: o.subtotal,
-    deliveryFee: o.delivery_fee,
-    prescriptionImageUrl: undefined,
-  };
-}
+// Re-exported so existing imports of `adaptOrder` from this module keep working.
+export { adaptOrder };
+export type { BackendOrder, BackendOrderItem, PaginatedOrders };
 
 export interface CreateOrderPayload {
   prescription_id?: string;
@@ -94,8 +32,12 @@ export interface CreateOrderFromRecommendationInput {
 }
 
 export const ordersService = {
+  /**
+   * List the current patient's orders.
+   * Phase 11.3: use the patient-scoped endpoint per backend contract.
+   */
   async getMyOrders(offset = 0, limit = 20): Promise<PaginatedOrders> {
-    const { data } = await api.get<PaginatedOrders>("/orders/my", {
+    const { data } = await api.get<PaginatedOrders>("/patients/me/orders", {
       params: { offset, limit },
     });
     return data;
@@ -107,8 +49,6 @@ export const ordersService = {
   },
 
   async createOrder(payload: CreateOrderPayload): Promise<BackendOrder> {
-    // Phase 11.2: use the patient-scoped shortcut. Backend accepts the same
-    // OrderCreate schema (recommendation path, listing path, or legacy path).
     const { data } = await api.post<BackendOrder>("/patients/me/orders", payload);
     return data;
   },

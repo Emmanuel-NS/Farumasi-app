@@ -48,9 +48,25 @@ export default function NotificationsPage() {
     return readOk && catOk;
   });
 
-  const markRead = (id: string) => setNotifications((p) => p.map((n) => n.id === id ? { ...n, isRead: true } : n));
+  const markRead = (id: string) => {
+    const target = notifications.find((n) => n.id === id);
+    if (!target || target.isRead) return;
+    // Optimistic update
+    setNotifications((p) => p.map((n) => n.id === id ? { ...n, isRead: true } : n));
+    notificationsService.markRead(id).catch(() => {
+      // Revert on failure
+      setNotifications((p) => p.map((n) => n.id === id ? { ...n, isRead: false } : n));
+    });
+  };
+  // Local-only — backend has no notification delete endpoint.
   const deleteN = (id: string) => setNotifications((p) => p.filter((n) => n.id !== id));
-  const markAllRead = () => setNotifications((p) => p.map((n) => ({ ...n, isRead: true })));
+  const markAllRead = () => {
+    const snapshot = notifications;
+    setNotifications((p) => p.map((n) => ({ ...n, isRead: true })));
+    notificationsService.markAllRead().catch(() => {
+      setNotifications(snapshot);
+    });
+  };
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
