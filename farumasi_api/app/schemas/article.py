@@ -13,6 +13,7 @@ class ArticleCreate(FarumasiBaseModel):
     content: Optional[str] = None
     category: Optional[str] = None
     image_url: Optional[str] = None
+    slug: Optional[str] = None
 
 
 class ArticleUpdate(FarumasiBaseModel):
@@ -21,6 +22,10 @@ class ArticleUpdate(FarumasiBaseModel):
     content: Optional[str] = None
     category: Optional[str] = None
     image_url: Optional[str] = None
+
+
+class ArticleStatusUpdate(FarumasiBaseModel):
+    status: ArticleStatus
 
 
 class ArticleOut(FarumasiBaseModel):
@@ -35,3 +40,16 @@ class ArticleOut(FarumasiBaseModel):
     status: str
     published_at: Optional[datetime] = None
     created_at: datetime
+
+
+class ArticlePublicOut(FarumasiBaseModel):
+    """Read-only public view (no draft/admin fields)."""
+    id: str
+    author_pharmacist_id: Optional[str] = None
+    title: str
+    slug: str
+    summary: Optional[str] = None
+    content: Optional[str] = None
+    category: Optional[str] = None
+    image_url: Optional[str] = None
+    published_at: Optional[datetime] = None
