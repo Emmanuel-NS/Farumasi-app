@@ -238,7 +238,9 @@ export interface ChatMessage {
 }
 
 // ── Health / Articles ─────────────────────────
-export type ArticleCategory = "General Health" | "Wellness" | "Remedies" | "SRH" | "Mental Health" | "Nutrition" | "Chronic Care" | "Viral Infection" | "Mother & Babies" | "Did You Know?";
+// Categories are free-form strings coming from the backend.
+// The list page maps them into a small set of UI tabs.
+export type ArticleCategory = string;
 
 export interface HealthArticle {
   id: string;

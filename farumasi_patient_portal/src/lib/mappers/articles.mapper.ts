@@ -20,33 +20,20 @@ export interface PaginatedArticles {
   limit: number;
 }
 
-const KNOWN_CATEGORIES: ArticleCategory[] = [
-  "General Health",
-  "Wellness",
-  "Remedies",
-  "SRH",
-  "Mental Health",
-  "Nutrition",
-  "Chronic Care",
-  "Viral Infection",
-  "Mother & Babies",
-  "Did You Know?",
-];
-
 function normalizeCategory(c?: string | null): ArticleCategory {
-  if (!c) return "General Health";
-  const match = KNOWN_CATEGORIES.find((k) => k.toLowerCase() === c.toLowerCase());
-  return match ?? ("General Health" as ArticleCategory);
+  const trimmed = (c ?? "").trim();
+  return trimmed.length > 0 ? trimmed : "General Health";
 }
 
 export function adaptArticle(a: BackendArticle): HealthArticle {
   const content = a.content ?? "";
+  const summary = a.summary ?? "";
   return {
     id: a.id,
     slug: a.slug,
     title: a.title,
-    subtitle: a.category ?? "Health",
-    summary: a.summary ?? "",
+    subtitle: summary || (a.category ?? "Health"),
+    summary,
     fullContent: content,
     imageUrl: a.image_url ?? "",
     source: "Farumasi",
