@@ -231,3 +231,76 @@ async def create_my_pharmacy_withdrawal(
         pharmacy_id=pharmacy.id,
         partner_company_id=None,
     )
+
+
+# ---- Fleet: drivers & deliveries scoped to my pharmacy ----
+from app.schemas.fleet import PharmacyDriverOut
+from app.schemas.delivery import DeliveryOut
+from app.models.rider import RiderProfile
+from app.models.delivery import Delivery
+from app.models.order import Order
+from sqlalchemy import func as sa_func, case as sa_case
+
+
+@router.get("/me/drivers", response_model=list[PharmacyDriverOut])
+async def list_my_pharmacy_drivers(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+):
+    pharmacy = await _get_my_pharmacy(db, current_user)
+    completed_expr = sa_func.sum(
+        sa_case((Delivery.status == "delivered", 1), else_=0)
+    )
+    stmt = (
+        select(
+            RiderProfile,
+            User,
+            sa_func.count(Delivery.id).label("deliveries_count"),
+            completed_expr.label("completed_count"),
+            sa_func.max(Delivery.created_at).label("last_delivery_at"),
+        )
+        .join(Delivery, Delivery.rider_id == RiderProfile.id)
+        .join(Order, Order.id == Delivery.order_id)
+        .join(User, User.id == RiderProfile.user_id)
+        .where(Order.pharmacy_id == pharmacy.id)
+        .group_by(RiderProfile.id, User.id)
+        .order_by(sa_func.max(Delivery.created_at).desc())
+    )
+    rows = (await db.execute(stmt)).all()
+    out: list[PharmacyDriverOut] = []
+    for rider, user, deliveries_count, completed_count, last_at in rows:
+        out.append(
+            PharmacyDriverOut(
+                rider_id=rider.id,
+                user_id=user.id,
+                full_name=user.full_name,
+                phone=user.phone,
+                vehicle_type=rider.vehicle_type,
+                assigned_area=rider.assigned_area,
+                availability_status=rider.availability_status,
+                verification_status=rider.verification_status,
+                deliveries_count=int(deliveries_count or 0),
+                completed_count=int(completed_count or 0),
+                last_delivery_at=last_at,
+            )
+        )
+    return out
+
+
+@router.get("/me/deliveries", response_model=list[DeliveryOut])
+async def list_my_pharmacy_deliveries(
+    status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+):
+    pharmacy = await _get_my_pharmacy(db, current_user)
+    stmt = (
+        select(Delivery)
+        .join(Order, Order.id == Delivery.order_id)
+        .where(Order.pharmacy_id == pharmacy.id)
+        .order_by(Delivery.created_at.desc())
+    )
+    if status:
+        stmt = stmt.where(Delivery.status == status)
+    rows = (await db.execute(stmt)).scalars().all()
+    return list(rows)

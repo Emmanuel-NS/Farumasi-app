@@ -49,7 +49,7 @@ async def list_all_articles(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.SUPER_ADMIN)),
+    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN)),
 ):
     items, total = await ArticleService(db).list_admin(
         actor, status=status, offset=offset, limit=limit
@@ -66,7 +66,7 @@ async def get_article(
     """Authenticated read by id — published, draft, or archived."""
     article = await ArticleService(db).get_by_id(article_id)
     # Non-authors can only see published articles via this endpoint
-    if article.status != "published" and actor.role not in (UserRole.PHARMACIST, UserRole.SUPER_ADMIN):
+    if article.status != "published" and actor.role not in (UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN):
         from app.core.exceptions import NotFoundError
         raise NotFoundError("Article", article_id)
     return article
@@ -76,7 +76,7 @@ async def get_article(
 async def create_article(
     data: ArticleCreate,
     db: AsyncSession = Depends(get_db),
-    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.SUPER_ADMIN)),
+    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN)),
 ):
     article = await ArticleService(db).create_article(data, actor)
     await db.commit()
@@ -89,7 +89,7 @@ async def update_article(
     article_id: str,
     data: ArticleUpdate,
     db: AsyncSession = Depends(get_db),
-    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.SUPER_ADMIN)),
+    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN)),
 ):
     article = await ArticleService(db).update_article(article_id, data, actor)
     await db.commit()
@@ -101,7 +101,7 @@ async def update_article(
 async def publish_article(
     article_id: str,
     db: AsyncSession = Depends(get_db),
-    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.SUPER_ADMIN)),
+    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN)),
 ):
     article = await ArticleService(db).publish_article(article_id, actor)
     await db.commit()
@@ -113,7 +113,7 @@ async def publish_article(
 async def archive_article(
     article_id: str,
     db: AsyncSession = Depends(get_db),
-    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.SUPER_ADMIN)),
+    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN)),
 ):
     article = await ArticleService(db).archive_article(article_id, actor)
     await db.commit()
@@ -125,7 +125,8 @@ async def archive_article(
 async def delete_article(
     article_id: str,
     db: AsyncSession = Depends(get_db),
-    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.SUPER_ADMIN)),
+    actor: User = Depends(require_roles(UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN)),
 ):
     await ArticleService(db).delete_article(article_id, actor)
     await db.commit()
+

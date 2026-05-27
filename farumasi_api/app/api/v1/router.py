@@ -26,6 +26,7 @@ from app.api.v1.endpoints import (
     uploads,
     admin,
     consultations,
+    audit,
 )
 
 api_router = APIRouter()
@@ -64,3 +65,4 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=[f"Analyti
 api_router.include_router(uploads.router, prefix="/uploads", tags=[f"Uploads ({_EXP})"])
 api_router.include_router(admin.router, prefix="/admin", tags=[f"Admin ({_EXP})"])
 api_router.include_router(consultations.router, prefix="/consultations", tags=[f"Consultations ({_EXP})"])
+api_router.include_router(audit.router, prefix="/audit", tags=[f"Audit ({_EXP})"])

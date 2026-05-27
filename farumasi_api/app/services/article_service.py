@@ -21,7 +21,8 @@ from app.schemas.article import ArticleCreate, ArticleUpdate
 from app.services.audit_service import AuditService
 
 
-_AUTHOR_ROLES = {UserRole.PHARMACIST, UserRole.SUPER_ADMIN}
+_AUTHOR_ROLES = {UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN}
+_PRIVILEGED_AUTHOR_ROLES = {UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN}
 
 
 def _slugify(text: str) -> str:
@@ -70,10 +71,10 @@ class ArticleService:
         return article
 
     async def _ensure_can_manage(self, article: HealthArticle, actor: User) -> None:
-        if actor.role == UserRole.SUPER_ADMIN:
+        if actor.role in _PRIVILEGED_AUTHOR_ROLES:
             return
         if actor.role != UserRole.PHARMACIST:
-            raise AuthorizationError("Only pharmacists or super_admin can manage articles")
+            raise AuthorizationError("Only pharmacists, pharmacy admins or super_admin can manage articles")
         pid = await self._resolve_author_pharmacist_id(actor)
         if article.author_pharmacist_id != pid:
             raise AuthorizationError("You can only manage your own articles")
@@ -210,7 +211,7 @@ class ArticleService:
         limit: int = 20,
     ) -> Tuple[List[HealthArticle], int]:
         if actor.role not in _AUTHOR_ROLES:
-            raise AuthorizationError("Only pharmacists or super_admin can list all articles")
+            raise AuthorizationError("Only pharmacists, pharmacy admins or super_admin can list all articles")
         q = select(HealthArticle)
         if actor.role == UserRole.PHARMACIST:
             pid = await self._resolve_author_pharmacist_id(actor)
