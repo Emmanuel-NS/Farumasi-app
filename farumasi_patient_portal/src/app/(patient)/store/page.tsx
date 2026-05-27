@@ -14,6 +14,7 @@ import { productsService } from "@/lib/services/products.service";
 import { prescriptionsService } from "@/lib/services/prescriptions.service";
 import { recommendationsService } from "@/lib/services/recommendations.service";
 import { ordersService } from "@/lib/services/orders.service";
+import { pharmaciesService, BackendPharmacy } from "@/lib/services/pharmacies.service";
 import { getPatientCoords } from "@/lib/location";
 import type { DigitalPrescription } from "@/types";
 import {
@@ -118,6 +119,9 @@ function StorePageInner() {
       .then(setMedicines)
       .catch(() => toast.error("Failed to load products"))
       .finally(() => setLoadingProducts(false));
+    pharmaciesService.listPharmacies(0, 50)
+      .then(setPharmacies)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -198,7 +202,7 @@ function StorePageInner() {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   // Pharmacy filter — mirrors Flutter PharmacyDetailScreen navigation
   const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
-  const mockPharmacies: import("@/types").Pharmacy[] = [];
+  const [pharmacies, setPharmacies] = useState<BackendPharmacy[]>([]);
 
   // Toggle category — clicking "All" clears all; clicking active deselects; clicking inactive adds
   function toggleCategory(cat: string) {
@@ -565,7 +569,10 @@ function StorePageInner() {
             )}
           </div>
           <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
-            {mockPharmacies.map((pharmacy) => {
+            {pharmacies.length === 0 && (
+              <p className="text-sm text-slate-400 py-2">Loading partners…</p>
+            )}
+            {pharmacies.map((pharmacy) => {
               const isSelected = selectedPharmacy === pharmacy.name;
               return (
                 <button
@@ -579,19 +586,9 @@ function StorePageInner() {
                   )}
                   style={{ width: 250, height: 106 }}
                 >
-                  {/* Image fills left side */}
-                  <div className="w-24 shrink-0 overflow-hidden relative">
-                    {pharmacy.imageUrl ? (
-                      <img
-                        src={pharmacy.imageUrl}
-                        alt={pharmacy.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                        <MapPin className="w-7 h-7 text-slate-300" />
-                      </div>
-                    )}
+                  {/* Icon placeholder — no image URL in current data model */}
+                  <div className="w-24 shrink-0 overflow-hidden relative bg-slate-100 flex items-center justify-center">
+                    <MapPin className="w-7 h-7 text-slate-300" />
                     {isSelected && (
                       <div className="absolute inset-0 bg-farumasi-600/30 flex items-center justify-center">
                         <div className="w-7 h-7 rounded-full bg-farumasi-600 flex items-center justify-center">
@@ -611,7 +608,11 @@ function StorePageInner() {
                       {pharmacy.name}
                     </p>
                     <p className="text-[11px] text-[#374151] mt-1 leading-tight line-clamp-1">
-                      {pharmacy.district}, {pharmacy.province}
+                      {pharmacy.district}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-tight line-clamp-1">
+                      {pharmacy.is_open ? "Open now" : "Closed"}
+                      {pharmacy.accepts_delivery ? " · Delivers" : ""}
                     </p>
                     {isSelected && (
                       <span className="inline-block mt-1 text-[10px] font-bold text-farumasi-700 bg-farumasi-50 px-2 py-0.5 rounded-full w-fit">

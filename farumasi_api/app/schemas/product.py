@@ -69,6 +69,9 @@ class ProductOut(FarumasiBaseModel):
     approval_status: str
     image_url: Optional[str] = None
     created_at: datetime
+    # Populated when queried with listing stats
+    price_from: Optional[float] = None
+    listing_count: Optional[int] = None
 
 
 # ─── Product Listing ──────────────────────────────────────────────────────

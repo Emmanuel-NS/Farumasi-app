@@ -132,14 +132,43 @@ class ProductService:
         search: Optional[str] = None,
         category: Optional[str] = None,
         include_unapproved: bool = False,
+        only_with_listings: bool = True,
     ) -> Tuple[List[ProductCatalogueItem], int]:
-        q = select(ProductCatalogueItem)
+        # ── Active listing stats subquery ──────────────────────────────────
+        _active_statuses = [ListingAvailability.AVAILABLE, ListingAvailability.LOW_STOCK]
+        listing_stats = (
+            select(
+                ProductListing.product_id.label("product_id"),
+                func.min(ProductListing.price).label("price_from"),
+                func.count(ProductListing.id).label("listing_count"),
+            )
+            .where(
+                and_(
+                    ProductListing.availability_status.in_(_active_statuses),
+                    ProductListing.status == EntityStatus.ACTIVE,
+                )
+            )
+            .group_by(ProductListing.product_id)
+            .subquery()
+        )
+
+        q = (
+            select(
+                ProductCatalogueItem,
+                listing_stats.c.price_from,
+                listing_stats.c.listing_count,
+            )
+            .outerjoin(listing_stats, ProductCatalogueItem.id == listing_stats.c.product_id)
+        )
+
         # Only product managers can see unapproved entries
         is_manager = actor is not None and actor.role in _PRODUCT_MANAGERS
         if not (include_unapproved and is_manager):
             q = q.where(
                 ProductCatalogueItem.approval_status == ProductApprovalStatus.APPROVED
             )
+        if only_with_listings:
+            q = q.where(listing_stats.c.listing_count > 0)
         if search:
             like = f"%{search}%"
             q = q.where(
@@ -155,10 +184,18 @@ class ProductService:
         total = (
             await self.db.execute(select(func.count()).select_from(q.subquery()))
         ).scalar_one()
-        result = await self.db.execute(
+        rows = (await self.db.execute(
             q.order_by(ProductCatalogueItem.created_at.desc()).offset(offset).limit(limit)
-        )
-        return list(result.scalars().all()), total
+        )).all()
+
+        # Attach price_from / listing_count onto the ORM objects for serialisation
+        products: List[ProductCatalogueItem] = []
+        for row in rows:
+            item: ProductCatalogueItem = row[0]
+            item.price_from = row[1]  # type: ignore[attr-defined]
+            item.listing_count = int(row[2]) if row[2] is not None else 0  # type: ignore[attr-defined]
+            products.append(item)
+        return products, total
 
     # ════════════════════════════════════════════════════════════════════
     # Listings

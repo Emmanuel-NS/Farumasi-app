@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, get_optional_current_user
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.product import (
@@ -26,10 +26,11 @@ async def list_products(
     search: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     include_unapproved: bool = Query(False, description="Manager-only filter"),
+    only_with_listings: bool = Query(True, description="Only return products stocked by at least one active pharmacy/partner"),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     items, total = await ProductService(db).list_products(
         actor=current_user,
@@ -38,6 +39,7 @@ async def list_products(
         search=search,
         category=category,
         include_unapproved=include_unapproved,
+        only_with_listings=only_with_listings,
     )
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 

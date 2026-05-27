@@ -4,20 +4,21 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FarumasiLogo } from "@/components/shared/farumasi-logo";
-import { Eye, EyeOff, User, Briefcase } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, ShoppingBag } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
 
 type Tab = "login" | "register";
-type Role = "patient" | "pharmacist";
+
+const INPUT_CLS =
+  "w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 pl-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 focus:bg-white transition-all";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, register } = useAuthStore();
   const [tab, setTab] = useState<Tab>("login");
-  const [role, setRole] = useState<Role>("patient");
-  const [email, setEmail] = useState("patient@farumasi.com");
-  const [password, setPassword] = useState("Patient@12345");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -25,51 +26,94 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (role === "pharmacist") {
-      router.push("http://localhost:3003");
-      return;
-    }
     setLoading(true);
     try {
       if (tab === "login") {
         await login(email, password);
       } else {
-        if (!name.trim()) { toast.error("Please enter your full name"); return; }
+        if (!name.trim()) { toast.error("Full name is required"); setLoading(false); return; }
         await register({ full_name: name, email, password, phone: phone || undefined });
       }
       router.push("/store");
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      toast.error(msg ?? (tab === "login" ? "Invalid email or password" : "Registration failed"));
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : tab === "login" ? "Incorrect email or password" : "Registration failed. Try a different email.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-farumasi-600 via-farumasi-700 to-farumasi-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-3xl flex items-center justify-center border border-white/20">
-            <FarumasiLogo size={36} onDark />
+    <div className="min-h-screen flex">
+      {/* ── Left panel (brand) — hidden on mobile ── */}
+      <div className="hidden lg:flex lg:w-[45%] bg-gradient-to-br from-farumasi-600 via-farumasi-700 to-farumasi-900 flex-col justify-between p-12">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/15 rounded-2xl flex items-center justify-center">
+            <FarumasiLogo size={22} onDark />
           </div>
-          <div className="text-center">
-            <h1 className="text-2xl font-extrabold text-white tracking-wide">FARUMASI</h1>
-            <p className="text-white/70 text-sm mt-0.5">Your healthcare companion</p>
+          <span className="text-white font-extrabold tracking-wide text-lg">FARUMASI</span>
+        </div>
+        <div className="space-y-6">
+          <h2 className="text-4xl font-extrabold text-white leading-tight">
+            Healthcare at<br />your fingertips.
+          </h2>
+          <p className="text-white/70 text-base leading-relaxed max-w-xs">
+            Order medicines, upload prescriptions, and track deliveries — all in one place across Rwanda.
+          </p>
+          <div className="flex flex-col gap-3 pt-2">
+            {[
+              "Browse 24+ approved medicines",
+              "Upload & manage prescriptions",
+              "Real-time order tracking with QR",
+            ].map((f) => (
+              <div key={f} className="flex items-center gap-2.5 text-white/80 text-sm">
+                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                {f}
+              </div>
+            ))}
           </div>
         </div>
+        <p className="text-white/40 text-xs">© {new Date().getFullYear()} Farumasi Ltd. · Kigali, Rwanda</p>
+      </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-3xl p-8 shadow-2xl">
+      {/* ── Right panel (form) ── */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white">
+        {/* Mobile logo */}
+        <div className="lg:hidden flex items-center gap-2 mb-8">
+          <div className="w-9 h-9 bg-farumasi-600 rounded-xl flex items-center justify-center">
+            <FarumasiLogo size={20} onDark />
+          </div>
+          <span className="font-extrabold text-farumasi-700 tracking-wide">FARUMASI</span>
+        </div>
+
+        <div className="w-full max-w-sm">
+          {/* Heading */}
+          <div className="mb-7">
+            <h1 className="text-2xl font-extrabold text-slate-900">
+              {tab === "login" ? "Welcome back" : "Create your account"}
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              {tab === "login"
+                ? "Sign in to your patient account"
+                : "Join Farumasi — it's free"}
+            </p>
+          </div>
+
           {/* Tab switcher */}
-          <div className="flex bg-slate-100 rounded-2xl p-1 mb-6">
+          <div className="flex bg-slate-100 rounded-2xl p-1 mb-7">
             {(["login", "register"] as Tab[]).map((t) => (
               <button
                 key={t}
+                type="button"
                 onClick={() => setTab(t)}
-                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
-                  tab === t ? "bg-white text-farumasi-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  tab === t
+                    ? "bg-white text-farumasi-700 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
                 }`}
               >
                 {t === "login" ? "Sign In" : "Register"}
@@ -77,116 +121,116 @@ export default function LoginPage() {
             ))}
           </div>
 
-          {/* Role selector */}
-          <div className="flex gap-3 mb-6">
-            {([
-              { value: "patient", label: "I'm a Patient", icon: User },
-              { value: "pharmacist", label: "I'm a Pharmacist", icon: Briefcase },
-            ] as { value: Role; label: string; icon: React.ElementType }[]).map(({ value, label, icon: Icon }) => (
-              <button
-                key={value}
-                onClick={() => setRole(value)}
-                className={`flex-1 flex items-center gap-2 justify-center py-3 rounded-2xl border-2 text-sm font-semibold transition-all ${
-                  role === value
-                    ? "border-farumasi-600 bg-farumasi-50 text-farumasi-700"
-                    : "border-slate-200 text-slate-500 hover:border-farumasi-200"
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </button>
-            ))}
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             {tab === "register" && (
               <>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    placeholder="Amina Uwase"
-                    className="w-full h-11 rounded-xl border border-slate-200 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/40 focus:border-farumasi-500 transition-all"
+                    placeholder="Full name"
+                    autoComplete="name"
+                    className={INPUT_CLS}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Phone (optional)</label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+250 788 000 000"
-                    className="w-full h-11 rounded-xl border border-slate-200 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/40 focus:border-farumasi-500 transition-all"
+                    placeholder="Phone (optional)"
+                    autoComplete="tel"
+                    className={INPUT_CLS}
                   />
                 </div>
               </>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+            <div className="relative">
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="you@example.com"
-                className="w-full h-11 rounded-xl border border-slate-200 px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/40 focus:border-farumasi-500 transition-all"
+                placeholder="Email address"
+                autoComplete="email"
+                className={INPUT_CLS}
               />
-              {tab === "login" && (
-                <p className="text-[11px] text-slate-400 mt-1">Demo: patient@farumasi.com / Patient@12345</p>
-              )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-              <div className="relative">
-                <input
-                  type={showPass ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  className="w-full h-11 rounded-xl border border-slate-200 px-4 pr-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/40 focus:border-farumasi-500 transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {tab === "login" && (
-                <div className="flex justify-end mt-1.5">
-                  <Link href="#" className="text-xs text-farumasi-600 font-medium hover:underline">
-                    Forgot password?
-                  </Link>
-                </div>
-              )}
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type={showPass ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Password"
+                autoComplete={tab === "login" ? "current-password" : "new-password"}
+                className={`${INPUT_CLS} pr-11`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(!showPass)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
+
+            {tab === "login" && (
+              <div className="flex items-center justify-between pt-0.5">
+                <p className="text-xs text-slate-400">Demo: <span className="font-medium text-slate-600">patient@test.com</span> / <span className="font-medium text-slate-600">Test1234!</span></p>
+                <Link href="#" className="text-xs text-farumasi-600 font-semibold hover:underline">Forgot?</Link>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 disabled:opacity-60 text-white font-bold text-sm transition-colors mt-2"
+              className="w-full h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 active:bg-farumasi-800 disabled:opacity-55 text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors mt-1 shadow-sm shadow-farumasi-600/30"
             >
-              {loading ? "Please wait…" : tab === "login" ? "Sign In" : "Create Account"}
+              {loading ? (
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+              ) : (
+                <>
+                  {tab === "login" ? "Sign In" : "Create Account"}
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
 
-          <p className="text-center text-xs text-slate-500 mt-5">
+          {/* Guest browse */}
+          <div className="mt-5 pt-5 border-t border-slate-100 flex items-center justify-center gap-1.5">
+            <ShoppingBag className="w-4 h-4 text-slate-400" />
+            <Link href="/store" className="text-sm text-slate-500 hover:text-farumasi-600 transition-colors">
+              Browse store without an account
+            </Link>
+          </div>
+
+          {/* Other portals */}
+          <p className="text-center text-xs text-slate-400 mt-4">
+            Not a patient?{" "}
+            <a href="http://localhost:3003" className="text-farumasi-600 font-medium hover:underline">Pharmacist portal</a>
+            {" · "}
+            <a href="http://localhost:3001" className="text-farumasi-600 font-medium hover:underline">Doctor portal</a>
+          </p>
+
+          <p className="text-center text-[11px] text-slate-300 mt-6">
             By continuing you agree to our{" "}
-            <Link href="#" className="text-farumasi-600 font-medium hover:underline">Terms of Service</Link>{" "}
-            and{" "}
-            <Link href="#" className="text-farumasi-600 font-medium hover:underline">Privacy Policy</Link>.
+            <Link href="#" className="hover:text-slate-500 transition-colors">Terms</Link>
+            {" & "}
+            <Link href="#" className="hover:text-slate-500 transition-colors">Privacy Policy</Link>
           </p>
         </div>
-
-        <p className="text-center text-white/60 text-xs mt-6">
-          © {new Date().getFullYear()} Farumasi Ltd. · Kigali, Rwanda
-        </p>
       </div>
     </div>
   );

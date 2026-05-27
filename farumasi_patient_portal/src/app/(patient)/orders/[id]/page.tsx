@@ -9,7 +9,7 @@ import type { Order, DeliveryQR } from "@/types";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useTranslation } from "@/lib/translations";
-import { ArrowLeft, MapPin, Phone, MessageCircle, Package, Store, CheckCircle, Truck, Clock, QrCode } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, MessageCircle, Package, Store, CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink, Building2 } from "lucide-react";
 
 // Dynamically import the Leaflet map — must be client-only, no SSR
 const TrackingMap = dynamic(
@@ -90,6 +90,16 @@ export default function OrderTrackingPage() {
   const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === order.status);
   const isCancelled = order.status === "cancelled";
 
+  const isPickup = order.deliveryMethod === "pickup";
+  const PICKUP_STEPS = [
+    { key: "pending_review",    label: "Order Placed" },
+    { key: "pharmacy_accepted", label: "Accepted by Pharmacy" },
+    { key: "ready_for_pickup",  label: "Ready for Pickup" },
+    { key: "delivered",         label: "Collected" },
+  ];
+  const timelineSteps    = isPickup ? PICKUP_STEPS : STATUS_STEPS;
+  const pickupStepIndex  = timelineSteps.findIndex((s) => s.key === order.status);
+
   return (
     <div className="p-6 max-w-2xl mx-auto">
       {/* Back */}
@@ -167,11 +177,12 @@ export default function OrderTrackingPage() {
       {/* Status timeline */}
       {!isCancelled ? (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
-          <h2 className="text-sm font-bold text-slate-700 mb-4">{t.order_progress}</h2>
+          <h2 className="text-sm font-bold text-slate-700 mb-4">{isPickup ? "Pickup Progress" : t.order_progress}</h2>
           <div className="space-y-0">
-            {STATUS_STEPS.map((step, i) => {
-              const done = i <= currentStepIndex;
-              const active = i === currentStepIndex;
+            {timelineSteps.map((step, i) => {
+              const activeIdx = isPickup ? pickupStepIndex : currentStepIndex;
+              const done   = i <= activeIdx;
+              const active = i === activeIdx;
               const last = i === STATUS_STEPS.length - 1;
               return (
                 <div key={step.key} className="flex gap-3">
@@ -206,8 +217,37 @@ export default function OrderTrackingPage() {
         </div>
       )}
 
-      {/* Phase 11.3 — Delivery QR (only for delivery orders) */}
-      {order.deliveryMethod === "delivery" && order.status !== "cancelled" && (
+      {/* Pickup: location & directions only */}
+      {isPickup && order.status !== "cancelled" && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
+          <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-farumasi-600" />
+            Location &amp; Directions
+          </h2>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5 text-farumasi-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-900">{order.pharmacy}</p>
+                <p className="text-xs text-slate-500 mt-0.5">Tap below to open in Maps</p>
+              </div>
+            </div>
+            <a
+              href={`https://www.google.com/maps/search/${encodeURIComponent(order.pharmacy + " pharmacy Rwanda")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors"
+            >
+              <Navigation className="w-4 h-4" />
+              Get Directions
+              <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+            </a>
+          </div>
+      )}
+
+      {/* Delivery QR (delivery orders only) */}
+      {!isPickup && order.status !== "cancelled" && (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
           <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
             <QrCode className="w-4 h-4 text-farumasi-600" />
@@ -232,7 +272,7 @@ export default function OrderTrackingPage() {
                 </div>
               )}
               <p className="text-xs text-slate-500 mt-3 max-w-xs">
-                Show this QR code to the rider when your medicine arrives.
+                Show this QR code to the rider to confirm delivery to the right person.
               </p>
             </div>
           ) : (

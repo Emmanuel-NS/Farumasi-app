@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { authService } from "@/lib/services/auth.service";
+import { isMockMode } from "@/lib/env";
 import type { AuthUser } from "@/types";
 
 interface AuthStore {
@@ -36,6 +37,12 @@ export const useAuthStore = create<AuthStore>()((set) => ({
   accessToken: null,
 
   login: async (email, password) => {
+    if (isMockMode()) {
+      const mockUser: AuthUser = { id: "mock-1", name: "Demo Patient", email, phone: "+250788000000", role: "patient" };
+      saveTokens("mock-token", "mock-refresh");
+      set({ isGuest: false, user: mockUser, accessToken: "mock-token" });
+      return;
+    }
     const tokens = await authService.login(email, password);
     saveTokens(tokens.access_token, tokens.refresh_token);
     const user = await authService.getMe();
@@ -56,6 +63,12 @@ export const useAuthStore = create<AuthStore>()((set) => ({
 
   hydrateAuth: async () => {
     if (typeof window === "undefined") return;
+    if (isMockMode()) {
+      const token = localStorage.getItem("farumasi_access_token");
+      if (!token) { set({ isGuest: true }); return; }
+      set({ isGuest: false, accessToken: token, user: { id: "mock-1", name: "Demo Patient", email: "patient@farumasi.com", phone: "+250788000000", role: "patient" } });
+      return;
+    }
     const token = localStorage.getItem("farumasi_access_token");
     if (!token) { set({ isGuest: true }); return; }
     try {

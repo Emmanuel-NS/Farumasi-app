@@ -143,7 +143,8 @@ function CartPanel({ onClose }: { onClose: () => void }) {
   const { items: cartItems, setQty, remove } = useCartStore();
   const isGuest = useAuthStore((s) => s.isGuest);
   const enriched = Object.values(cartItems);
-  const total = enriched.reduce((s, e) => s + e.medicine.price * e.qty, 0);
+  const total    = enriched.reduce((s, e) => s + e.medicine.price * e.qty, 0);
+  const totalMax  = enriched.reduce((s, e) => s + (e.medicine.maxPrice ?? e.medicine.price) * e.qty, 0);
 
   const goToCheckout = () => {
     onClose();
@@ -184,7 +185,9 @@ function CartPanel({ onClose }: { onClose: () => void }) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-900 truncate">{medicine.name}</p>
-              <p className="text-xs text-farumasi-600 font-semibold mt-0.5">{formatPrice(medicine.price)}</p>
+              <p className="text-xs text-farumasi-600 font-semibold mt-0.5">
+                {formatPrice(medicine.price)}{medicine.maxPrice && medicine.maxPrice > medicine.price ? ` – ${formatPrice(medicine.maxPrice)}` : ""}
+              </p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button
@@ -207,7 +210,9 @@ function CartPanel({ onClose }: { onClose: () => void }) {
       <div className="border-t border-slate-100 p-4">
         <div className="flex justify-between text-sm mb-3">
           <span className="text-slate-500">{t.panel_total}</span>
-          <span className="font-extrabold text-farumasi-700">{formatPrice(total)}</span>
+          <span className="font-extrabold text-farumasi-700">
+            {formatPrice(total)}{totalMax > total ? ` – ${formatPrice(totalMax)}` : ""}
+          </span>
         </div>
         {/* Checkout → closes sidebar immediately, full page handles the complex flow */}
         <button

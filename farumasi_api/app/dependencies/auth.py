@@ -68,3 +68,20 @@ def get_optional_user(
         return None
     payload = verify_access_token(credentials.credentials)
     return payload.get("sub") if payload else None
+
+
+async def get_optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    """Returns User if a valid token is provided, None otherwise — for public-browseable endpoints."""
+    if not credentials:
+        return None
+    payload = verify_access_token(credentials.credentials)
+    if not payload:
+        return None
+    user_id: str = payload.get("sub", "")
+    if not user_id:
+        return None
+    result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
