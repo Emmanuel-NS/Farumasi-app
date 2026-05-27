@@ -35,7 +35,8 @@ function mapStatus(s: string): PharmacistStatus {
 
 function adapt(p: BackendPharmacist): Pharmacist {
   return {
-    id: p.id,
+    // Use the user_id so this matches Consultation.pharmacist_id (FK to User.id).
+    id: p.user_id,
     name: p.user.full_name,
     specialty: p.specialization ?? "General Pharmacy",
     imageUrl: p.user.profile_image_url ?? "",
@@ -43,6 +44,9 @@ function adapt(p: BackendPharmacist): Pharmacist {
     status: mapStatus(p.status),
     yearsExperience: p.years_of_experience ?? undefined,
     rating: undefined,
+    bio: p.bio ?? undefined,
+    email: p.user.email ?? undefined,
+    phone: p.user.phone ?? undefined,
   };
 }
 

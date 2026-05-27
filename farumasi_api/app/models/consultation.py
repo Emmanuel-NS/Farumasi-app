@@ -24,6 +24,10 @@ class Consultation(Base, UUIDMixin, TimestampMixin):
     )
     # open | closed
     status: Mapped[str] = mapped_column(String(20), default="open", nullable=False)
+    # When true the pharmacist sees the patient masked as "Anonymous Patient".
+    is_anonymous: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
 
     patient: Mapped["User"] = relationship(
         "User", foreign_keys=[patient_id], back_populates="consultations_as_patient"
@@ -50,8 +54,14 @@ class ChatMessage(Base, UUIDMixin, TimestampMixin):
     sender_id: Mapped[str] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    content: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Optional attachment metadata. attachment_type is one of "image" | "file".
+    attachment_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    attachment_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    attachment_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    attachment_size: Mapped[Optional[int]] = mapped_column(nullable=True)
 
     consultation: Mapped["Consultation"] = relationship(
         "Consultation", back_populates="messages"

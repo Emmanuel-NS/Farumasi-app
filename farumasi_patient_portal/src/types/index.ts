@@ -213,6 +213,9 @@ export interface Pharmacist {
   status: PharmacistStatus;
   yearsExperience?: number;
   rating?: number;
+  bio?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface PharmacistBooking {
@@ -233,8 +236,10 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   isMe: boolean;
-  attachmentPath?: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
   attachmentType?: "image" | "file";
+  attachmentSize?: number;
 }
 
 // ── Health / Articles ─────────────────────────

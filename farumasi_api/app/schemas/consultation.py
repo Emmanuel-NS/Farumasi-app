@@ -18,10 +18,14 @@ class ChatMessageOut(BaseModel):
     id: str
     consultation_id: str
     sender_id: str
-    content: str
+    content: Optional[str] = ""
     is_read: bool
     created_at: datetime
     sender: Optional[UserSnippet] = None
+    attachment_url: Optional[str] = None
+    attachment_name: Optional[str] = None
+    attachment_type: Optional[str] = None
+    attachment_size: Optional[int] = None
 
     @computed_field  # type: ignore[misc]
     @property
@@ -35,7 +39,11 @@ class ChatMessageOut(BaseModel):
 
 
 class ChatMessageCreate(BaseModel):
-    content: str
+    content: Optional[str] = ""
+    attachment_url: Optional[str] = None
+    attachment_name: Optional[str] = None
+    attachment_type: Optional[str] = None  # "image" | "file"
+    attachment_size: Optional[int] = None
 
 
 class ConsultationOut(BaseModel):
@@ -44,6 +52,7 @@ class ConsultationOut(BaseModel):
     patient_id: str
     pharmacist_id: str
     status: str
+    is_anonymous: bool = False
     created_at: datetime
     patient: Optional[UserSnippet] = None
     pharmacist: Optional[UserSnippet] = None
@@ -62,3 +71,4 @@ class ConsultationOut(BaseModel):
 
 class ConsultationCreate(BaseModel):
     pharmacist_id: str
+    is_anonymous: bool = False
