@@ -26,6 +26,11 @@ class PharmacistProfile(Base, UUIDMixin, TimestampMixin):
         String(50), default=VerificationStatus.UNVERIFIED
     )
     status: Mapped[str] = mapped_column(String(50), default=EntityStatus.ACTIVE)
+    # Real-time presence the pharmacist controls from their portal.
+    # Distinct from `status` (which is account moderation state).
+    availability_status: Mapped[str] = mapped_column(
+        String(20), default="offline", nullable=False, server_default="offline"
+    )
     specialization: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     years_of_experience: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

@@ -7,7 +7,12 @@ from app.core.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.models.pharmacist import PharmacistProfile
-from app.schemas.pharmacist import PharmacistProfileOut, PharmacistProfileUpdate, PharmacistPublicOut
+from app.schemas.pharmacist import (
+    PharmacistProfileOut,
+    PharmacistProfileUpdate,
+    PharmacistPublicOut,
+    PharmacistAvailabilityUpdate,
+)
 from app.schemas.common import PaginatedResponse
 from app.core.exceptions import NotFoundError
 from app.core.constants import EntityStatus
@@ -62,6 +67,25 @@ async def update_my_profile(
         raise NotFoundError("Pharmacist profile")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(profile, field, value)
+    await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+@router.patch("/me/availability", response_model=PharmacistProfileOut)
+async def update_my_availability(
+    data: PharmacistAvailabilityUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pharmacist toggles their real-time presence (available/busy/offline)."""
+    result = await db.execute(
+        select(PharmacistProfile).where(PharmacistProfile.user_id == current_user.id)
+    )
+    profile = result.scalar_one_or_none()
+    if not profile:
+        raise NotFoundError("Pharmacist profile")
+    profile.availability_status = data.availability_status
     await db.commit()
     await db.refresh(profile)
     return profile

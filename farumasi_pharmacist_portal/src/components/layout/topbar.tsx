@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import { FarumasiLogo } from "@/components/shared/farumasi-logo";
+import { PresenceToggle } from "@/components/layout/presence-toggle";
 import { Menu, Bell, MessageCircle, HelpCircle, LogOut, User, Settings } from "lucide-react";
 
 const routeLabels: Record<string, string> = {
@@ -74,6 +75,11 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
       </div>
 
       <div className="flex items-center gap-0.5 ml-auto">
+        {/* Presence */}
+        <div className="mr-1.5">
+          <PresenceToggle />
+        </div>
+
         {/* Chat */}
         <button
           onClick={onChatClick}

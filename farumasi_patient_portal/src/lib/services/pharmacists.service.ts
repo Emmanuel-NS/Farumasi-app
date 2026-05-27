@@ -7,6 +7,7 @@ interface BackendPharmacistUser {
   email: string;
   phone?: string;
   profile_image_url?: string;
+  last_login_at?: string | null;
 }
 
 interface BackendPharmacist {
@@ -16,6 +17,7 @@ interface BackendPharmacist {
   years_of_experience?: number;
   bio?: string;
   status: string;
+  availability_status?: string;
   user: BackendPharmacistUser;
 }
 
@@ -26,11 +28,24 @@ interface PaginatedPharmacists {
   limit: number;
 }
 
-/** Map backend status → frontend PharmacistStatus */
-function mapStatus(s: string): PharmacistStatus {
-  if (s === "active" || s === "available") return "available";
-  if (s === "busy") return "busy";
-  return "offline";
+/**
+ * Real presence = pharmacist's declared availability gated by recent activity.
+ * If they set themselves "available" or "busy" but the backend hasn't seen
+ * them in PRESENCE_TTL_MS, they're treated as offline (stale).
+ */
+const PRESENCE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function derivePresence(
+  availability: string | undefined,
+  lastLoginAt: string | null | undefined,
+): PharmacistStatus {
+  const declared = (availability ?? "offline").toLowerCase();
+  if (declared !== "available" && declared !== "busy") return "offline";
+  if (!lastLoginAt) return "offline";
+  const last = Date.parse(lastLoginAt);
+  if (Number.isNaN(last)) return "offline";
+  if (Date.now() - last > PRESENCE_TTL_MS) return "offline";
+  return declared as PharmacistStatus;
 }
 
 function adapt(p: BackendPharmacist): Pharmacist {
@@ -41,7 +56,7 @@ function adapt(p: BackendPharmacist): Pharmacist {
     specialty: p.specialization ?? "General Pharmacy",
     imageUrl: p.user.profile_image_url ?? "",
     organization: undefined,
-    status: mapStatus(p.status),
+    status: derivePresence(p.availability_status, p.user.last_login_at),
     yearsExperience: p.years_of_experience ?? undefined,
     rating: undefined,
     bio: p.bio ?? undefined,

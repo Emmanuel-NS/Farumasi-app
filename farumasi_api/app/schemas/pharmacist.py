@@ -1,7 +1,10 @@
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict
+
+
+AvailabilityStatus = Literal["available", "busy", "offline"]
 
 
 class PharmacistProfileUpdate(BaseModel):
@@ -9,6 +12,11 @@ class PharmacistProfileUpdate(BaseModel):
     specialization: Optional[str] = None
     bio: Optional[str] = None
     years_of_experience: Optional[int] = None
+    availability_status: Optional[AvailabilityStatus] = None
+
+
+class PharmacistAvailabilityUpdate(BaseModel):
+    availability_status: AvailabilityStatus
 
 
 class UserSnippet(BaseModel):
@@ -18,6 +26,7 @@ class UserSnippet(BaseModel):
     email: str
     phone: Optional[str] = None
     profile_image_url: Optional[str] = None
+    last_login_at: Optional[datetime] = None
 
 
 class PharmacistProfileOut(BaseModel):
@@ -30,6 +39,7 @@ class PharmacistProfileOut(BaseModel):
     years_of_experience: Optional[int] = None
     verification_status: str
     status: str
+    availability_status: str = "offline"
     created_at: datetime
 
 
@@ -42,4 +52,5 @@ class PharmacistPublicOut(BaseModel):
     years_of_experience: Optional[int] = None
     bio: Optional[str] = None
     status: str
+    availability_status: str = "offline"
     user: UserSnippet
