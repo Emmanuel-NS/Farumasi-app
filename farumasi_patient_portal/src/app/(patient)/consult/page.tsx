@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { pharmacistsService } from "@/lib/services/pharmacists.service";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 import { cn, getInitials } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { GuestGate } from "@/components/shared/guest-gate";
@@ -205,7 +206,7 @@ export default function ConsultPage() {
       try {
         await api.post(`/consultations/${consultationId}/messages`, { content });
       } catch {
-        // silently ignore, message is already shown locally
+        toast.error("Could not send message. Check your connection and try again.");
       }
     }
   }, [input, selected, consultationId, authUser]);
@@ -247,6 +248,7 @@ export default function ConsultPage() {
         <div className="flex items-center gap-3 px-4 py-3 bg-farumasi-600 shrink-0 shadow-sm">
           <button
             onClick={handleBack}
+            aria-label="Back to pharmacist list"
             className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors shrink-0"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -380,6 +382,7 @@ export default function ConsultPage() {
           <button
             onClick={sendMessage}
             disabled={!input.trim()}
+            aria-label="Send message"
             className="w-10 h-10 rounded-full bg-farumasi-600 text-white flex items-center justify-center hover:bg-farumasi-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
           >
             <Send className="w-4 h-4" />
@@ -418,7 +421,7 @@ export default function ConsultPage() {
             className="flex-1 text-sm text-slate-900 placeholder:text-slate-400 outline-none bg-transparent"
           />
           {searchQ && (
-            <button onClick={() => setSearchQ("")} className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => setSearchQ("")} aria-label="Clear search" className="text-slate-400 hover:text-slate-600">
               <X className="w-4 h-4" />
             </button>
           )}

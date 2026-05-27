@@ -6,6 +6,7 @@ import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
 import type { CartEntry } from "@/store/cart-store";
 import { useTranslation } from "@/lib/translations";
+import { toast } from "sonner";
 import { pharmaciesService, BackendPharmacy, BackendListing } from "@/lib/services/pharmacies.service";
 import { ordersService } from "@/lib/services/orders.service";
 import type { Pharmacy, Medicine } from "@/types";
@@ -467,6 +468,7 @@ export default function CartPage() {
       <div className="flex items-center gap-3 mb-6">
         <Link
           href="/store"
+          aria-label="Back to store"
           className="p-2 rounded-xl text-slate-400 hover:text-farumasi-700 hover:bg-farumasi-50 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -508,6 +510,7 @@ export default function CartPage() {
             <div className="flex flex-col items-end gap-2 shrink-0">
               <button
                 onClick={() => remove(medicine.id)}
+                aria-label={`Remove ${medicine.name} from cart`}
                 className="p-1.5 text-slate-300 hover:text-red-400 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
@@ -601,6 +604,7 @@ export default function CartPage() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => setStep("cart")}
+          aria-label="Back to cart"
           className="p-2 rounded-xl text-slate-400 hover:text-farumasi-700 hover:bg-farumasi-50 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -1002,6 +1006,7 @@ export default function CartPage() {
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => setStep("pharmacy")}
+            aria-label="Back to pharmacy selection"
             className="p-2 rounded-xl text-slate-400 hover:text-farumasi-700 hover:bg-farumasi-50 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -1133,6 +1138,7 @@ export default function CartPage() {
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => setStep("details")}
+            aria-label="Back to delivery details"
             className="p-2 rounded-xl text-slate-400 hover:text-farumasi-700 hover:bg-farumasi-50 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -1322,19 +1328,32 @@ export default function CartPage() {
                 ? `${street}, ${district}`
                 : undefined;
               const result = await ordersService.createOrder({
+                pharmacy_id: selectedOption?.pharmacy.id,
                 delivery_method: fulfillment,
                 delivery_address: deliveryAddr,
+                delivery_latitude: fulfillment === "delivery"
+                  ? patientLocation?.[0]
+                  : undefined,
+                delivery_longitude: fulfillment === "delivery"
+                  ? patientLocation?.[1]
+                  : undefined,
                 notes: notes || undefined,
                 items: orderItems,
               });
-              setConfirmedOrderCode(result.order_code ?? ORDER_NUM);
-            } catch {
-              // If backend fails, still confirm with local order code
-              setConfirmedOrderCode(ORDER_NUM);
-            } finally {
-              setIsPlacingOrder(false);
+              setConfirmedOrderCode(result.order_code ?? result.id ?? ORDER_NUM);
               clear();
               setStep("confirmed");
+            } catch (err) {
+              const detail =
+                (err as { response?: { data?: { detail?: string } } })?.response
+                  ?.data?.detail;
+              toast.error(
+                typeof detail === "string"
+                  ? detail
+                  : "Could not place order. Please try again."
+              );
+            } finally {
+              setIsPlacingOrder(false);
             }
           }}
           className={cn(

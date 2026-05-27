@@ -35,7 +35,22 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     notificationsService.getMyNotifications()
-      .then(setNotifications)
+      .then((items) => {
+        // Filter out notifications the user has locally dismissed.
+        if (typeof window !== "undefined") {
+          try {
+            const raw = localStorage.getItem("farumasi_deleted_notifs");
+            const ids: string[] = raw ? JSON.parse(raw) : [];
+            if (Array.isArray(ids) && ids.length) {
+              setNotifications(items.filter((n) => !ids.includes(n.id)));
+              return;
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        setNotifications(items);
+      })
       .catch(() => {});
   }, []);
 
@@ -59,7 +74,24 @@ export default function NotificationsPage() {
     });
   };
   // Local-only — backend has no notification delete endpoint.
-  const deleteN = (id: string) => setNotifications((p) => p.filter((n) => n.id !== id));
+  // Deletion persists across reloads via localStorage.
+  const deleteN = (id: string) => {
+    setNotifications((p) => p.filter((n) => n.id !== id));
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("farumasi_deleted_notifs");
+        const ids: string[] = raw ? JSON.parse(raw) : [];
+        if (!ids.includes(id)) {
+          localStorage.setItem(
+            "farumasi_deleted_notifs",
+            JSON.stringify([...ids, id]),
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  };
   const markAllRead = () => {
     const snapshot = notifications;
     setNotifications((p) => p.map((n) => ({ ...n, isRead: true })));
@@ -143,6 +175,7 @@ export default function NotificationsPage() {
                 {!n.isRead && <div className="w-2 h-2 rounded-full bg-farumasi-500" />}
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteN(n.id); }}
+                  aria-label="Delete notification"
                   className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-red-400 transition-all rounded-lg hover:bg-red-50"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

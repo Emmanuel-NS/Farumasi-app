@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useLanguageStore, type LangCode } from "@/store/language-store";
 import { useTranslation, type T } from "@/lib/translations";
@@ -19,14 +19,63 @@ const LANG_OPTIONS: { code: LangCode; label: string; native: string }[] = [
   { code: "sw", label: "Swahili",     native: "Swahili"     },
 ];
 
+// ── Persistence (localStorage) ─────────────────────────────────────────────
+const LS_PREFS_KEY = "farumasi_patient_prefs";
+type Prefs = {
+  channels: { push: boolean; email: boolean; sms: boolean; whatsapp: boolean };
+  events: { orders: boolean; health_tips: boolean; promotions: boolean; app_updates: boolean; reminders: boolean };
+  theme: string;
+};
+const DEFAULT_PREFS: Prefs = {
+  channels: { push: true, email: true, sms: false, whatsapp: false },
+  events: { orders: true, health_tips: true, promotions: false, app_updates: true, reminders: true },
+  theme: "light",
+};
+function loadPrefs(): Prefs {
+  if (typeof window === "undefined") return DEFAULT_PREFS;
+  try {
+    const raw = localStorage.getItem(LS_PREFS_KEY);
+    if (!raw) return DEFAULT_PREFS;
+    const parsed = JSON.parse(raw) as Partial<Prefs>;
+    return {
+      channels: { ...DEFAULT_PREFS.channels, ...(parsed.channels ?? {}) },
+      events:   { ...DEFAULT_PREFS.events,   ...(parsed.events   ?? {}) },
+      theme:    parsed.theme ?? DEFAULT_PREFS.theme,
+    };
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
+
 export default function SettingsPage() {
   const { lang, setLang } = useLanguageStore();
   const t = useTranslation();
 
   const [open, setOpen] = useState<Section | null>("notifications");
-  const [channels, setChannels] = useState({ push: true, email: true, sms: false, whatsapp: false });
-  const [events, setEvents] = useState({ orders: true, health_tips: true, promotions: false, app_updates: true, reminders: true });
-  const [theme, setTheme] = useState("light");
+  const [channels, setChannels] = useState(DEFAULT_PREFS.channels);
+  const [events, setEvents]     = useState(DEFAULT_PREFS.events);
+  const [theme, setTheme]       = useState(DEFAULT_PREFS.theme);
+
+  // Hydrate from localStorage after mount (avoids SSR hydration mismatch).
+  useEffect(() => {
+    const p = loadPrefs();
+    setChannels(p.channels);
+    setEvents(p.events);
+    setTheme(p.theme);
+  }, []);
+
+  // Persist on change.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        LS_PREFS_KEY,
+        JSON.stringify({ channels, events, theme }),
+      );
+    } catch {
+      // ignore quota / disabled storage
+    }
+  }, [channels, events, theme]);
 
   const toggle = (section: Section) => setOpen((o) => o === section ? null : section);
 
