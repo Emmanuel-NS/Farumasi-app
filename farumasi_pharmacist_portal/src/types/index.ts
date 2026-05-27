@@ -87,7 +87,7 @@ export interface AgeDosage {
 }
 
 export interface InventoryItem {
-  id: number;
+  id: string;
   name: string;
   imageUrl: string;
   manufacturer: string;         // brand / maker (e.g. "HealthLive Pharma")

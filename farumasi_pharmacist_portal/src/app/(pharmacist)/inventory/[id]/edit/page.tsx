@@ -1,53 +1,29 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
-import {
-  ArrowLeft, Camera, Link2, Trash2, Plus, X, ChevronRight, FlaskConical,
-} from "lucide-react";
+import { ArrowLeft, Camera, FlaskConical, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { RichEditor } from "@/components/ui/rich-editor";
-import type { AgeRange, AgeDosage, InventoryItem } from "@/types";
+import { listingsService } from "@/lib/services/listings.service";
+import { productsService } from "@/lib/services/products.service";
 
-/* ─── Constants ──────────────────────────────────────── */
-const CATEGORY_HIERARCHY: Record<string, string[]> = {
-  "Pain Relief":       ["Headache & Fever", "Anti-inflammatory", "Muscle Pain"],
-  "Antibiotics":       ["Bacterial Infections", "Skin Infections", "UTI"],
-  "Allergy & Asthma":  ["Antihistamine", "Asthma Inhalers", "Nasal Sprays"],
-  "Cold & Flu":        ["Cough Relief", "Decongestants", "Flu Treatment"],
-  "Digestive Health":  ["Rehydration", "Antacids", "Probiotics", "Laxatives"],
-  "Chronic Care":      ["Diabetes", "Hypertension", "Heart Health", "Thyroid"],
-  "Supplements":       ["Vitamins", "Minerals", "Herbal", "Omega Acids", "Protein"],
-  "Personal Care":     ["Skin Care", "Hair Care", "Oral Care", "Feminine Hygiene"],
-  "Antimalarial":      ["Malaria Treatment", "Malaria Prevention"],
-  "First Aid":         ["Wound Care", "Bandages", "Antiseptics"],
-  "Wellness":          ["Stress Relief", "Weight Management", "Sleep Support"],
-  "Mother & Baby":     ["Diapers", "Baby Food", "Pregnancy Care", "Feeding"],
-  "Medical Devices":   ["Monitors", "Thermometers", "Mobility Aids"],
-};
-
-const AGE_RANGES: { value: AgeRange; label: string }[] = [
-  { value: "infant_toddler", label: "Infant to Toddler (0–2 yrs)" },
-  { value: "toddler",        label: "Toddler (2–5 yrs)" },
-  { value: "child",          label: "Child (6–12 yrs)" },
-  { value: "adolescent",     label: "Adolescent (13–17 yrs)" },
-  { value: "adult",          label: "Adult (18+ yrs)" },
+const CATEGORIES = [
+  "Pain Relief", "Antibiotics", "Allergy & Asthma", "Cold & Flu",
+  "Digestive Health", "Chronic Care", "Supplements", "Personal Care",
+  "Antimalarial", "First Aid", "Wellness", "Mother & Baby", "Medical Devices",
 ];
 
-const DETAIL_TABS = ["Overview", "Dosage", "Safety"] as const;
-type DetailTab = (typeof DETAIL_TABS)[number];
+const DOSAGE_FORMS = [
+  "Tablet", "Capsule", "Syrup", "Suspension", "Injection",
+  "Cream", "Ointment", "Drops", "Inhaler", "Suppository", "Powder", "Other",
+];
 
-/* ─── Reusable input styles ──────────────────────────── */
 const inp =
   "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-farumasi-200 transition-all placeholder:text-slate-400";
 
-function Field({
-  label, required, hint, children,
-}: {
-  label: string; required?: boolean; hint?: string; children: React.ReactNode;
-}) {
+function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
   return (
     <div>
       <label className="block text-xs font-bold text-slate-600 mb-1.5">
@@ -59,176 +35,152 @@ function Field({
   );
 }
 
-function SectionCard({
-  title, children, className,
-}: {
-  title: string; children: React.ReactNode; className?: string;
-}) {
+function SectionCard({ title, subtitle, children }: { title?: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className={cn("bg-white rounded-2xl border border-slate-100 shadow-sm p-5", className)}>
-      {title && <h2 className="text-sm font-extrabold text-slate-700 mb-4">{title}</h2>}
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      {title && (
+        <div className="mb-4">
+          <h2 className="text-sm font-extrabold text-slate-700">{title}</h2>
+          {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
+        </div>
+      )}
       {children}
     </div>
   );
 }
 
-function Toggle({
-  value, onChange, label,
-}: {
-  value: boolean; onChange: (v: boolean) => void; label: string;
-}) {
+function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <label className="flex items-center gap-3 cursor-pointer">
       <div
         onClick={() => onChange(!value)}
-        className={cn(
-          "w-11 h-6 rounded-full flex items-center px-0.5 transition-colors",
-          value ? "bg-farumasi-600" : "bg-slate-200",
-        )}
+        className={cn("w-11 h-6 rounded-full flex items-center px-0.5 transition-colors", value ? "bg-farumasi-600" : "bg-slate-200")}
       >
-        <div
-          className={cn(
-            "w-5 h-5 rounded-full bg-white shadow transition-transform",
-            value ? "translate-x-5" : "translate-x-0",
-          )}
-        />
+        <div className={cn("w-5 h-5 rounded-full bg-white shadow transition-transform", value ? "translate-x-5" : "translate-x-0")} />
       </div>
       <span className="text-sm font-medium text-slate-800">{label}</span>
     </label>
   );
 }
 
-/* ─── Build initial taxonomy from item data ──────────── */
-function buildTaxonomy(
-  category: string,
-  subCategory: string | undefined,
-  additionalCategories: string[],
-): Record<string, Set<string>> {
-  const tax: Record<string, Set<string>> = {};
-  tax[category] = new Set(subCategory ? [subCategory] : []);
-  for (const cat of additionalCategories) {
-    if (!tax[cat]) tax[cat] = new Set();
-  }
-  return tax;
+function toDateInput(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
 }
 
-/* ═══════════════════════════════════════════════════════ */
-export default function EditProductPage() {
+export default function EditListingPage() {
   const router = useRouter();
   const params = useParams();
-  const itemId = params.id as string;
+  const listingId = params.id as string;
 
-  const [item, setItem] = useState<InventoryItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [productId, setProductId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [name, setName] = useState("");
+  const [genericName, setGenericName] = useState("");
+  const [manufacturer, setManufacturer] = useState("");
+  const [category, setCategory] = useState<string>("");
+  const [dosageForm, setDosageForm] = useState<string>("");
+  const [strength, setStrength] = useState("");
+  const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [requiresRx, setRequiresRx] = useState(false);
+
+  const [price, setPrice] = useState<string>("");
+  const [stock, setStock] = useState<string>("");
+  const [expiryDate, setExpiryDate] = useState<string>("");
+  const [batchNumber, setBatchNumber] = useState("");
 
   useEffect(() => {
-    // TODO: load item from inventory service when it's available
-    // api.get(`/products/${itemId}`).then(({ data }) => setItem(adaptItem(data))).catch(() => {});
-  }, [itemId]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const listing = await listingsService.getListing(listingId);
+        if (cancelled) return;
+        setProductId(listing.product_id);
+        setPrice(String(listing.price));
+        setStock(String(listing.stock_quantity));
+        setExpiryDate(toDateInput(listing.expiry_date));
+        setBatchNumber(listing.batch_number ?? "");
 
-  /* ── Basic Info ── */
-  const [name, setName]           = useState<string>("");
-  const [manufacturer, setMfr]    = useState<string>("");
-  const [imageUrl, setImageUrl]   = useState<string>("");
-  const [imageFile, setImageFile] = useState<string | null>(null);
-  const fileRef                    = useRef<HTMLInputElement>(null);
-  const [showUrlInput, setShowUrlInput] = useState(false);
+        const product = await productsService.getProduct(listing.product_id);
+        if (cancelled) return;
+        setName(product.name);
+        setGenericName(product.generic_name ?? "");
+        setManufacturer(product.manufacturer ?? product.brand ?? "");
+        setCategory(product.category ?? CATEGORIES[0]);
+        setDosageForm(product.dosage_form ?? "");
+        setStrength(product.strength ?? "");
+        setDescription(product.description ?? "");
+        setImageUrl(product.image_url ?? "");
+        setRequiresRx(product.prescription_required);
+      } catch {
+        if (!cancelled) setNotFound(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [listingId]);
 
-  // Sync form state when item loads
-  useEffect(() => {
-    if (!item) return;
-    setName(item.name ?? "");
-    setMfr(item.manufacturer ?? "");
-    setImageUrl(item.imageUrl ?? "");
-  }, [item]);
+  const displayImage = imageUrl.trim() || null;
 
-  /* ── Category ── */
-  const [selectedTaxonomy, setTaxonomy] = useState<Record<string, Set<string>>>({});
-
-  /* ── Summaries ── */
-  const [shortDesc, setShortDesc]         = useState<string>("");
-  const [dosageSummary, setDosageSumm]   = useState<string>("");
-
-  /* ── Prescription ── */
-  const [requiresRx, setRequiresRx] = useState<boolean>(false);
-
-  /* ── Age dosages ── */
-  const [ageDosages, setAgeDosages] = useState<AgeDosage[]>([]);
-  const [tempAge, setTempAge]       = useState<AgeRange | "">("");
-  const [tempAgeDose, setTempAgeDose] = useState("");
-
-  /* ── Detail tabs ── */
-  const [activeTab, setActiveTab]       = useState<DetailTab>("Overview");
-  const [description, setDescription]   = useState<string>("");
-  const [dosage, setDosage]             = useState<string>("");
-  const [sideEffects, setSideEffects]   = useState<string>("");
-  const [doseMorning, setMorning]       = useState<string>("");
-  const [doseAfternoon, setAfternoon]   = useState<string>("");
-  const [doseEvening, setEvening]       = useState<string>("");
-  const [doseInterval, setInterval_]    = useState<string>("");
-
-  /* ── Image handling ── */
-  const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setImageFile(ev.target?.result as string);
-      setImageUrl("");
-    };
-    reader.readAsDataURL(file);
-  };
-
-  /* ── Taxonomy helpers ── */
-  const addCategory = (cat: string) => {
-    setTaxonomy((p) => ({ ...p, [cat]: new Set() }));
-  };
-  const removeCategory = (cat: string) => {
-    setTaxonomy((p) => {
-      const next = { ...p };
-      delete next[cat];
-      return next;
-    });
-  };
-  const toggleSub = (cat: string, sub: string) => {
-    setTaxonomy((p) => {
-      const set = new Set(p[cat]);
-      set.has(sub) ? set.delete(sub) : set.add(sub);
-      return { ...p, [cat]: set };
-    });
-  };
-
-  /* ── Age dosage helpers ── */
-  const addAgeDosage = () => {
-    if (!tempAge || !tempAgeDose.trim()) {
-      toast.error("Select age range and enter instructions");
-      return;
-    }
-    if (ageDosages.some((d) => d.ageRange === tempAge)) {
-      toast.error("Age range already added");
-      return;
-    }
-    setAgeDosages((p) => [...p, { ageRange: tempAge as AgeRange, instructions: tempAgeDose }]);
-    setTempAge("");
-    setTempAgeDose("");
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!productId) return;
     if (!name.trim()) { toast.error("Product name is required"); return; }
-    if (Object.keys(selectedTaxonomy).length === 0) {
-      toast.error("Select at least one category");
-      return;
+    const priceNum = Number(price);
+    const stockNum = Number(stock);
+    if (!Number.isFinite(priceNum) || priceNum < 0) { toast.error("Enter a valid price"); return; }
+    if (!Number.isInteger(stockNum) || stockNum < 0) { toast.error("Enter a valid stock quantity"); return; }
+
+    setSubmitting(true);
+    try {
+      await productsService.updateProduct(productId, {
+        name: name.trim(),
+        generic_name: genericName.trim() || null,
+        manufacturer: manufacturer.trim() || null,
+        category: category || null,
+        dosage_form: dosageForm || null,
+        strength: strength.trim() || null,
+        description: description.trim() || null,
+        image_url: imageUrl.trim() || null,
+        prescription_required: requiresRx,
+      });
+      await listingsService.updateListing(listingId, {
+        price: priceNum,
+        stock_quantity: stockNum,
+        expiry_date: expiryDate ? new Date(expiryDate).toISOString() : null,
+        batch_number: batchNumber.trim() || null,
+      });
+      toast.success("Product updated");
+      router.push("/inventory");
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } };
+      const detail = e?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Could not save changes");
+    } finally {
+      setSubmitting(false);
     }
-    toast.success(`${name} updated`);
-    router.push("/inventory");
   };
 
-  /* ── Not found ── */
-  if (!item) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-farumasi-400 animate-spin" />
+      </div>
+    );
+  }
+
+  if (notFound) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-slate-600 font-semibold mb-3">Product not found</p>
+          <p className="text-slate-600 font-semibold mb-3">Listing not found</p>
           <button
             onClick={() => router.push("/inventory")}
             className="px-4 py-2 bg-farumasi-600 text-white rounded-xl text-sm font-bold hover:bg-farumasi-700 transition-colors"
@@ -240,187 +192,86 @@ export default function EditProductPage() {
     );
   }
 
-  const displayImage = imageFile ?? (imageUrl || null);
-
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Sticky header */}
       <div className="sticky top-0 bg-white border-b border-slate-200 z-20 px-5 py-3.5 flex items-center justify-between">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
-        >
+        <button onClick={() => router.back()} className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
         <h1 className="text-base font-extrabold text-slate-900">Edit Product</h1>
         <button
           type="button"
           onClick={handleSubmit}
-          className="px-4 py-2 bg-farumasi-600 hover:bg-farumasi-700 text-white rounded-xl text-sm font-bold transition-colors"
+          disabled={submitting}
+          className="px-4 py-2 bg-farumasi-600 hover:bg-farumasi-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold transition-colors flex items-center gap-1.5"
         >
-          Save Changes
+          {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          {submitting ? "Saving…" : "Save Changes"}
         </button>
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-5 py-6 space-y-5 pb-20">
-
-        {/* ── 1. Basic Info ── */}
-        <SectionCard title="">
+        <SectionCard>
           <div className="flex gap-4 items-start">
-            {/* Image picker */}
             <div className="shrink-0">
-              <div
-                className="relative w-[90px] h-[90px] rounded-2xl overflow-hidden bg-slate-100 border-2 border-dashed border-slate-300 cursor-pointer"
-                onClick={() => fileRef.current?.click()}
-              >
+              <div className="relative w-[90px] h-[90px] rounded-2xl overflow-hidden bg-slate-100 border-2 border-dashed border-slate-300">
                 {displayImage ? (
-                  <Image src={displayImage} alt="Product" fill className="object-cover" sizes="90px" />
+                  <Image src={displayImage} alt="Product" fill className="object-cover" sizes="90px" unoptimized />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center gap-1">
                     <Camera className="w-6 h-6 text-slate-400" />
-                    <span className="text-[10px] text-slate-400 text-center leading-tight">Change Photo</span>
+                    <span className="text-[10px] text-slate-400 text-center leading-tight">No image</span>
                   </div>
                 )}
-                <div className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-farumasi-600 flex items-center justify-center shadow-sm">
-                  <Camera className="w-3 h-3 text-white" />
-                </div>
               </div>
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickFile} />
-              <button
-                type="button"
-                onClick={() => setShowUrlInput((v) => !v)}
-                className="mt-1.5 w-[90px] text-center text-[10px] text-farumasi-600 font-semibold flex items-center justify-center gap-0.5"
-              >
-                <Link2 className="w-3 h-3" /> URL
-              </button>
-              {showUrlInput && (
-                <input
-                  value={imageUrl}
-                  onChange={(e) => { setImageUrl(e.target.value); setImageFile(null); }}
-                  placeholder="https://..."
-                  className={cn(inp, "text-[11px] mt-1 w-[90px]")}
-                />
-              )}
             </div>
-
-            {/* Name + Manufacturer */}
             <div className="flex-1 space-y-3">
               <Field label="Product Name" required>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Amoxicillin 250mg"
-                  className={inp}
-                  required
-                />
+                <input value={name} onChange={(e) => setName(e.target.value)} className={inp} required />
+              </Field>
+              <Field label="Generic Name">
+                <input value={genericName} onChange={(e) => setGenericName(e.target.value)} className={inp} />
               </Field>
               <Field label="Manufacturer">
-                <input
-                  value={manufacturer}
-                  onChange={(e) => setMfr(e.target.value)}
-                  placeholder="e.g. Global Antibiotics Ltd."
-                  className={inp}
-                />
+                <input value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} className={inp} />
+              </Field>
+              <Field label="Image URL">
+                <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." className={inp} />
               </Field>
             </div>
           </div>
         </SectionCard>
 
-        {/* ── 2. Categories ── */}
-        <SectionCard title="Categories">
-          {/* Selected category chips */}
-          {Object.keys(selectedTaxonomy).length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {Object.keys(selectedTaxonomy).map((cat) => (
-                <span
-                  key={cat}
-                  className="flex items-center gap-1.5 bg-farumasi-600 text-white text-xs font-bold px-3 py-1 rounded-full"
-                >
-                  {cat}
-                  <button type="button" onClick={() => removeCategory(cat)}>
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Add category dropdown */}
-          <select
-            defaultValue=""
-            onChange={(e) => { if (e.target.value) addCategory(e.target.value); e.target.value = ""; }}
-            className={cn(inp, "text-slate-500")}
-          >
-            <option value="" disabled>+ Add a category…</option>
-            {Object.keys(CATEGORY_HIERARCHY)
-              .filter((c) => !selectedTaxonomy[c])
-              .map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-          </select>
-
-          {/* Sub-category selectors */}
-          {Object.keys(selectedTaxonomy).length > 0 && (
-            <div className="mt-4 space-y-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Sub-categories</p>
-              {Object.keys(selectedTaxonomy).map((cat) => {
-                const subs = CATEGORY_HIERARCHY[cat] ?? [];
-                if (!subs.length) return null;
-                return (
-                  <div key={cat}>
-                    <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1">
-                      <ChevronRight className="w-3 h-3" />{cat}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {subs.map((sub) => {
-                        const sel = selectedTaxonomy[cat]?.has(sub) ?? false;
-                        return (
-                          <button
-                            key={sub}
-                            type="button"
-                            onClick={() => toggleSub(cat, sub)}
-                            className={cn(
-                              "px-3 py-1 rounded-lg text-xs font-semibold border transition-all",
-                              sel
-                                ? "bg-farumasi-600 text-white border-farumasi-600"
-                                : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300",
-                            )}
-                          >
-                            {sub}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </SectionCard>
-
-        {/* ── 3. Summaries ── */}
-        <SectionCard title="Summaries">
-          <div className="space-y-4">
-            <Field label="Short Description" hint="One-line patient-facing summary">
-              <input
-                value={shortDesc}
-                onChange={(e) => setShortDesc(e.target.value)}
-                placeholder="e.g. Effective pain reliever and fever reducer."
-                className={inp}
-              />
+        <SectionCard title="Classification" subtitle="How patients discover this product in the catalogue.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Category">
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inp}>
+                {category && !CATEGORIES.includes(category) && <option value={category}>{category}</option>}
+                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
             </Field>
-            <Field label="Dosage Summary" hint="Brief patient-facing dosage">
-              <input
-                value={dosageSummary}
-                onChange={(e) => setDosageSumm(e.target.value)}
-                placeholder="e.g. 1–2 tablets every 4–6 hours."
-                className={inp}
-              />
+            <Field label="Dosage Form">
+              <select value={dosageForm} onChange={(e) => setDosageForm(e.target.value)} className={inp}>
+                <option value="">— None —</option>
+                {DOSAGE_FORMS.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </Field>
+            <Field label="Strength">
+              <input value={strength} onChange={(e) => setStrength(e.target.value)} placeholder="e.g. 500mg" className={inp} />
             </Field>
           </div>
         </SectionCard>
 
-        {/* ── 4. Prescription ── */}
+        <SectionCard title="Description" subtitle="Short patient-facing summary shown in the catalogue.">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            placeholder="What it treats, how it works, who it's for."
+            className={cn(inp, "resize-none")}
+          />
+        </SectionCard>
+
         <SectionCard title="Prescription">
           <div className="flex items-start gap-4 bg-farumasi-50 border border-farumasi-100 rounded-xl p-4">
             <div className="w-9 h-9 rounded-xl bg-farumasi-100 flex items-center justify-center shrink-0 mt-0.5">
@@ -429,159 +280,28 @@ export default function EditProductPage() {
             <div className="flex-1">
               <Toggle value={requiresRx} onChange={setRequiresRx} label="Requires Prescription (Rx)" />
               <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                When enabled, patients cannot purchase this product without presenting a valid prescription.
-                Pricing, stock levels and expiry are managed by the pharmacy when adding to stock.
+                When enabled, patients cannot purchase this product without uploading a valid prescription for pharmacist review.
               </p>
             </div>
           </div>
         </SectionCard>
 
-        {/* ── 5. Age Dosages ── */}
-        <SectionCard title="Age Dosages">
-          <div className="bg-farumasi-50 rounded-xl p-4 border border-farumasi-100 mb-4">
-            <p className="text-xs font-bold text-slate-600 mb-3">Add New Age Dosage</p>
-            <Field label="Age Range">
-              <select
-                value={tempAge}
-                onChange={(e) => setTempAge(e.target.value as AgeRange)}
-                className={cn(inp, "text-slate-600 mb-3")}
-              >
-                <option value="">Select age range…</option>
-                {AGE_RANGES.map((a) => (
-                  <option key={a.value} value={a.value}>{a.label}</option>
-                ))}
-              </select>
+        <SectionCard title="Pricing & Stock" subtitle="Your selling price and stock — applies only to your pharmacy.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Price (RWF)" required>
+              <input type="number" min={0} step={1} value={price} onChange={(e) => setPrice(e.target.value)} className={inp} required />
             </Field>
-            <Field label="Dosage Instructions">
-              <textarea
-                value={tempAgeDose}
-                onChange={(e) => setTempAgeDose(e.target.value)}
-                placeholder="e.g. 5–10ml twice daily"
-                rows={2}
-                className={cn(inp, "resize-none mb-3")}
-              />
+            <Field label="Stock quantity" required>
+              <input type="number" min={0} step={1} value={stock} onChange={(e) => setStock(e.target.value)} className={inp} required />
             </Field>
-            <button
-              type="button"
-              onClick={addAgeDosage}
-              className="flex items-center gap-2 px-4 py-2 bg-farumasi-600 text-white rounded-xl text-sm font-bold hover:bg-farumasi-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" /> Add Age Dosage
-            </button>
+            <Field label="Expiry date">
+              <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className={inp} />
+            </Field>
+            <Field label="Batch number">
+              <input value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} className={inp} />
+            </Field>
           </div>
-
-          {ageDosages.length > 0 && (
-            <div className="space-y-2">
-              {ageDosages.map((d, i) => (
-                <div
-                  key={i}
-                  className="flex items-start justify-between bg-white border border-slate-200 rounded-xl p-3"
-                >
-                  <div>
-                    <p className="text-xs font-bold text-slate-700">
-                      {AGE_RANGES.find((a) => a.value === d.ageRange)?.label}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">{d.instructions}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setAgeDosages((p) => p.filter((_, j) => j !== i))}
-                    className="text-red-400 hover:text-red-600 p-1 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </SectionCard>
-
-        {/* ── 6. Detailed Information ── */}
-        <SectionCard title="Detailed Information">
-          {/* Tab bar */}
-          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-5">
-            {DETAIL_TABS.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setActiveTab(t)}
-                className={cn(
-                  "flex-1 py-2 rounded-lg text-sm font-semibold transition-all",
-                  activeTab === t
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700",
-                )}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
-          {activeTab === "Overview" && (
-            <div>
-              <p className="text-xs font-bold text-slate-600 mb-2">Full Description</p>
-              <RichEditor
-                value={description}
-                onChange={setDescription}
-                placeholder="Describe this product — what it treats, how it works, who should use it…"
-                minHeight={260}
-              />
-            </div>
-          )}
-
-          {activeTab === "Dosage" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3 bg-farumasi-50 rounded-xl p-3 border border-farumasi-100">
-                {([
-                  ["Morning", doseMorning, setMorning],
-                  ["Afternoon", doseAfternoon, setAfternoon],
-                  ["Evening", doseEvening, setEvening],
-                ] as const).map(([label, val, setter]) => (
-                  <div key={label}>
-                    <p className="text-[10px] font-bold text-farumasi-700 mb-1.5">{label}</p>
-                    <input
-                      value={val}
-                      onChange={(e) => setter(e.target.value)}
-                      placeholder="--"
-                      className="w-full h-9 bg-white border border-slate-200 rounded-lg text-center text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-200"
-                    />
-                  </div>
-                ))}
-              </div>
-              <Field label="Time Interval">
-                <input
-                  value={doseInterval}
-                  onChange={(e) => setInterval_(e.target.value)}
-                  placeholder="e.g. Every 8 hours"
-                  className={inp}
-                />
-              </Field>
-              <div>
-                <p className="text-xs font-bold text-slate-600 mb-2">Full Dosage Instructions</p>
-                <RichEditor
-                  value={dosage}
-                  onChange={setDosage}
-                  placeholder="Morning / afternoon / evening doses, with-food requirements, maximum daily limits…"
-                  minHeight={240}
-                />
-              </div>
-            </div>
-          )}
-
-          {activeTab === "Safety" && (
-            <div>
-              <p className="text-xs font-bold text-slate-600 mb-2">Side Effects &amp; Warnings</p>
-              <RichEditor
-                value={sideEffects}
-                onChange={setSideEffects}
-                placeholder="List known side effects, drug interactions, contraindications and warnings…"
-                minHeight={260}
-              />
-            </div>
-          )}
-        </SectionCard>
-
       </form>
     </div>
   );

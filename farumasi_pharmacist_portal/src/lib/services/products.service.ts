@@ -1,0 +1,75 @@
+import api from "@/lib/api";
+
+export interface BackendProduct {
+  id: string;
+  name: string;
+  generic_name?: string | null;
+  category?: string | null;
+  product_type: string;
+  description?: string | null;
+  dosage_form?: string | null;
+  strength?: string | null;
+  manufacturer?: string | null;
+  brand?: string | null;
+  country_of_origin?: string | null;
+  prescription_required: boolean;
+  regulatory_status?: string | null;
+  approval_status: string;
+  image_url?: string | null;
+  created_at: string;
+  price_from?: number | null;
+  listing_count?: number | null;
+}
+
+export interface PaginatedProducts {
+  items: BackendProduct[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface CreateProductInput {
+  name: string;
+  generic_name?: string | null;
+  category?: string | null;
+  product_type?: "medicine" | "device" | "supplement" | "personal_care";
+  description?: string | null;
+  dosage_form?: string | null;
+  strength?: string | null;
+  manufacturer?: string | null;
+  brand?: string | null;
+  prescription_required?: boolean;
+  image_url?: string | null;
+}
+
+export type UpdateProductInput = Partial<CreateProductInput>;
+
+export const productsService = {
+  async searchProducts(params?: {
+    search?: string;
+    category?: string;
+    offset?: number;
+    limit?: number;
+    only_with_listings?: boolean;
+  }): Promise<PaginatedProducts> {
+    const { data } = await api.get<PaginatedProducts>("/products", {
+      params: { only_with_listings: false, ...params },
+    });
+    return data;
+  },
+
+  async getProduct(id: string): Promise<BackendProduct> {
+    const { data } = await api.get<BackendProduct>(`/products/${id}`);
+    return data;
+  },
+
+  async createProduct(input: CreateProductInput): Promise<BackendProduct> {
+    const { data } = await api.post<BackendProduct>("/products", input);
+    return data;
+  },
+
+  async updateProduct(id: string, input: UpdateProductInput): Promise<BackendProduct> {
+    const { data } = await api.patch<BackendProduct>(`/products/${id}`, input);
+    return data;
+  },
+};
