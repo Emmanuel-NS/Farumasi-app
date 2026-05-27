@@ -25,6 +25,20 @@ export default function TermsPage() {
           <h2 className="text-base font-bold text-slate-900">3. Prescriptions</h2>
           <p>Prescription medicine is dispensed only after review by a licensed pharmacist. We may decline orders that do not meet regulatory or safety requirements.</p>
         </section>
+        <section className="not-prose rounded-2xl border border-farumasi-200 bg-farumasi-50/60 p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-farumasi-100 flex items-center justify-center shrink-0 text-farumasi-700 font-bold">i</div>
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-farumasi-900">A note on your personal data</h2>
+              <p className="text-sm text-farumasi-900/90 mt-1 leading-relaxed">
+                To serve you safely, Farumasi needs to collect and share certain personal information with the licensed pharmacists, doctors, and riders who fulfill your request. By using the app, <strong>you agree to provide details such as your full name, contact information, delivery address, prescriptions, medications, allergies, and relevant health information</strong> whenever they are needed to process an order or consultation.
+              </p>
+              <p className="text-sm text-farumasi-900/90 mt-2 leading-relaxed">
+                We treat this information as strictly confidential. It is encrypted in transit, accessible only to the healthcare professionals directly involved in your care, and never sold to advertisers. You can review, export, or delete your data at any time from <Link href="/settings" className="font-semibold underline">Settings → Data &amp; Privacy</Link>.
+              </p>
+            </div>
+          </div>
+        </section>
         <section>
           <h2 className="text-base font-bold text-slate-900">4. Payments & refunds</h2>
           <p>Charges are made at checkout. Refunds for cancelled or undelivered orders are returned to the original payment method, typically within 7 business days.</p>

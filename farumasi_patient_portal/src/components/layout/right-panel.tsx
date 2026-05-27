@@ -228,46 +228,86 @@ function CartPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-function HelpPanel({ onClose }: { onClose: () => void }) {
-  const t = useTranslation();
-  const topics = [
-    { Icon: Package,       color: "text-farumasi-600", bg: "bg-farumasi-50", title: t.panel_help_track,       href: "/orders" },
-    { Icon: FileText,      color: "text-indigo-600",   bg: "bg-indigo-50",   title: t.panel_help_upload_rx,   href: "/prescriptions" },
-    { Icon: MessageCircle, color: "text-sky-600",      bg: "bg-sky-50",      title: t.panel_help_chat_pharm,  href: "/consult" },
-    { Icon: Pill,          color: "text-farumasi-600", bg: "bg-farumasi-50", title: t.panel_help_find_med,    href: "/store" },
-    { Icon: Settings,      color: "text-slate-600",    bg: "bg-slate-100",   title: t.panel_help_account,     href: "/settings" },
-  ];
+const HELP_PANEL_FAQ = [
+  {
+    q: "How do I order medicine?",
+    a: "Browse the Store, add items to your cart, then check out. We'll match you to the nearest verified pharmacy that has all your items in stock.",
+  },
+  {
+    q: "Can I upload a prescription?",
+    a: "Yes. Go to Prescriptions → New, then upload a photo or PDF. A licensed pharmacist will review it before dispensing.",
+  },
+  {
+    q: "How long does delivery take?",
+    a: "Most Kigali deliveries arrive within 60 minutes. Out-of-Kigali timing depends on the pharmacy and rider availability.",
+  },
+  {
+    q: "What payment methods are supported?",
+    a: "Mobile Money (MTN, Airtel), card payments, and selected insurance providers. You'll see the available methods at checkout.",
+  },
+  {
+    q: "How do I cancel an order?",
+    a: "Open the order from Orders → tap Cancel. Cancellation is free until the pharmacy starts preparing your items.",
+  },
+];
 
+function HelpPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="p-5">
-      <p className="text-sm text-slate-600 mb-4">{t.panel_help_subtitle}</p>
-      <ul className="space-y-2">
-        {topics.map((t) => (
-          <li key={t.title}>
-            <Link
-              href={t.href}
-              className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-100 hover:border-farumasi-200 hover:bg-farumasi-50 transition-colors group"
-            >
-              <div className={cn("w-9 h-9 rounded-full flex items-center justify-center shrink-0", t.bg)}>
-                <t.Icon className={cn("w-4 h-4", t.color)} />
-              </div>
-              <span className="text-sm font-medium text-slate-700 group-hover:text-farumasi-700">{t.title}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-6 p-4 bg-farumasi-50 rounded-2xl">
-        <p className="text-sm font-semibold text-farumasi-800">{t.panel_help_still}</p>
-        <p className="text-xs text-farumasi-700 mt-1">{t.panel_help_reach}</p>
-        <div className="flex items-center gap-2 mt-2">
-          <Phone className="w-3.5 h-3.5 text-farumasi-600 shrink-0" />
-          <span className="text-xs text-farumasi-600 font-medium">+250 788 000 000</span>
-        </div>
-        <div className="flex items-center gap-2 mt-1">
-          <Mail className="w-3.5 h-3.5 text-farumasi-600 shrink-0" />
-          <span className="text-xs text-farumasi-600 font-medium">help@farumasi.rw</span>
-        </div>
+      <p className="text-sm text-slate-600 mb-4">We&apos;re here for you, every step of the way.</p>
+
+      {/* Contact cards */}
+      <div className="space-y-2">
+        <a href="tel:+250788000000" className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-farumasi-300 transition-colors">
+          <div className="w-9 h-9 rounded-full bg-farumasi-50 flex items-center justify-center shrink-0">
+            <Phone className="w-4 h-4 text-farumasi-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-slate-500">Call us</p>
+            <p className="text-sm font-semibold text-slate-800 truncate">+250 788 000 000</p>
+          </div>
+        </a>
+        <a href="mailto:support@farumasi.com" className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-farumasi-300 transition-colors">
+          <div className="w-9 h-9 rounded-full bg-farumasi-50 flex items-center justify-center shrink-0">
+            <Mail className="w-4 h-4 text-farumasi-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-slate-500">Email</p>
+            <p className="text-sm font-semibold text-slate-800 truncate">support@farumasi.com</p>
+          </div>
+        </a>
+        <a href="https://wa.me/250788000000" target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-farumasi-300 transition-colors">
+          <div className="w-9 h-9 rounded-full bg-farumasi-50 flex items-center justify-center shrink-0">
+            <MessageCircle className="w-4 h-4 text-farumasi-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-slate-500">WhatsApp</p>
+            <p className="text-sm font-semibold text-slate-800 truncate">Chat with us</p>
+          </div>
+        </a>
       </div>
+
+      {/* FAQ */}
+      <h3 className="mt-6 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Frequently asked</h3>
+      <div className="mt-2 space-y-2">
+        {HELP_PANEL_FAQ.map((item) => (
+          <details key={item.q} className="bg-white rounded-xl border border-slate-100 p-3 group">
+            <summary className="text-sm font-semibold text-slate-800 cursor-pointer list-none flex items-center justify-between gap-2">
+              <span className="min-w-0">{item.q}</span>
+              <span className="text-slate-400 group-open:rotate-180 transition-transform shrink-0">▾</span>
+            </summary>
+            <p className="text-xs text-slate-600 mt-2 leading-relaxed">{item.a}</p>
+          </details>
+        ))}
+      </div>
+
+      <Link
+        href="/help"
+        onClick={onClose}
+        className="mt-5 flex items-center justify-center gap-1 w-full h-10 rounded-xl border border-farumasi-200 text-farumasi-700 hover:bg-farumasi-50 text-sm font-semibold transition-colors"
+      >
+        Open full Help & Support
+      </Link>
     </div>
   );
 }
