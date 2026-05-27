@@ -103,8 +103,10 @@ export default function HealthPage() {
     return list;
   }, [ARTICLES, activeTab, searchQuery]);
 
-  // Featured = most recently published in current filter
-  const [featured, ...rest] = articles;
+  // Featured = top N most recent in current filter; rest goes in the grid.
+  const FEATURED_COUNT = 6;
+  const featured = articles.slice(0, Math.min(FEATURED_COUNT, articles.length));
+  const rest = articles.slice(featured.length);
 
   return (
     <div className="flex flex-col h-full bg-[#F9FAFB]">
@@ -200,11 +202,18 @@ export default function HealthPage() {
           </div>
         ) : (
           <div className="max-w-6xl mx-auto space-y-5">
-            {/* Featured hero */}
-            {featured && (
-              <FeaturedArticleCard
-                article={featured}
+            {/* Featured auto-sliding rail */}
+            {featured.length > 0 && (
+              <FeaturedRail
+                articles={featured}
                 onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)}
+                label={
+                  lang === "rw"
+                    ? "Bishimangirwa"
+                    : lang === "fr"
+                    ? "À la une"
+                    : "Featured"
+                }
               />
             )}
 
@@ -212,7 +221,11 @@ export default function HealthPage() {
             {rest.length > 0 && (
               <div className="flex items-end justify-between pt-1">
                 <h2 className="text-[15px] font-bold text-slate-900">
-                  {lang === "rw" ? "Ibindi byasomwa" : lang === "fr" ? "À lire aussi" : "More to read"}
+                  {lang === "rw"
+                    ? "Ibindi byasomwa"
+                    : lang === "fr"
+                    ? "À lire aussi"
+                    : "More to read"}
                 </h2>
                 <span className="text-[11px] text-slate-400 font-medium">
                   {rest.length} {rest.length === 1 ? "article" : "articles"}
@@ -221,15 +234,17 @@ export default function HealthPage() {
             )}
 
             {/* Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {rest.map((article) => (
-                <ModernArticleCard
-                  key={article.id}
-                  article={article}
-                  onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)}
-                />
-              ))}
-            </div>
+            {rest.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {rest.map((article) => (
+                  <ModernArticleCard
+                    key={article.id}
+                    article={article}
+                    onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -237,8 +252,89 @@ export default function HealthPage() {
   );
 }
 
-/* ── FeaturedArticleCard — large editorial hero ─────────────────────────── */
-function FeaturedArticleCard({
+/* ── FeaturedRail — auto-sliding portrait carousel (right → left) ───────── */
+function FeaturedRail({
+  articles,
+  onSelect,
+  label,
+}: {
+  articles: HealthArticle[];
+  onSelect: (a: HealthArticle) => void;
+  label: string;
+}) {
+  // Duplicate the list so the marquee loop is seamless.
+  const loop = [...articles, ...articles];
+  // Slower with more items; tuned for ~80px/sec.
+  const durationSec = Math.max(18, articles.length * 5);
+
+  return (
+    <section aria-label="Featured articles">
+      <div className="flex items-end justify-between mb-2.5 px-0.5">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-[1.2px] px-2 py-0.5 rounded-full">
+            <Sparkles className="w-3 h-3" />
+            {label}
+          </span>
+          <h2 className="text-[15px] font-bold text-slate-900">
+            {articles.length} highlights
+          </h2>
+        </div>
+        <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+          auto-scrolling
+        </span>
+      </div>
+
+      <div className="relative overflow-hidden group">
+        {/* edge fades */}
+        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#F9FAFB] to-transparent z-10" />
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#F9FAFB] to-transparent z-10" />
+
+        <div
+          className="featured-track flex gap-3 sm:gap-4 will-change-transform"
+          style={{ animationDuration: `${durationSec}s` }}
+        >
+          {loop.map((article, idx) => (
+            <FeaturedRailCard
+              key={`${article.id}-${idx}`}
+              article={article}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      </div>
+
+      <style jsx>{`
+        .featured-track {
+          animation-name: featuredMarquee;
+          animation-timing-function: linear;
+          animation-iteration-count: infinite;
+          width: max-content;
+        }
+        .group:hover .featured-track,
+        .featured-track:focus-within {
+          animation-play-state: paused;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .featured-track {
+            animation: none;
+          }
+        }
+        @keyframes featuredMarquee {
+          from {
+            transform: translateX(0);
+          }
+          to {
+            /* Half because the list is duplicated for seamless looping. */
+            transform: translateX(-50%);
+          }
+        }
+      `}</style>
+    </section>
+  );
+}
+
+/* ── FeaturedRailCard — small portrait card used inside the rail ────────── */
+function FeaturedRailCard({
   article,
   onSelect,
 }: {
@@ -248,51 +344,40 @@ function FeaturedArticleCard({
   return (
     <button
       onClick={() => onSelect(article)}
-      className="group relative w-full text-left overflow-hidden rounded-[24px] shadow-[0_8px_28px_rgba(0,0,0,0.10)] hover:shadow-[0_18px_40px_rgba(0,0,0,0.15)] transition-all duration-300 bg-slate-900"
-      style={{ aspectRatio: "16/9" }}
+      className="group/card relative shrink-0 w-[148px] sm:w-[170px] text-left overflow-hidden rounded-[16px] bg-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.10)] hover:shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-shadow"
+      style={{ aspectRatio: "3/4" }}
     >
       {article.imageUrl ? (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
           src={article.imageUrl}
           alt={article.title}
-          className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:scale-[1.03] transition-transform duration-700"
+          className="absolute inset-0 w-full h-full object-cover opacity-95 group-hover/card:scale-[1.06] transition-transform duration-500"
         />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-farumasi-700 to-farumasi-400" />
+        <div className="absolute inset-0 bg-gradient-to-br from-farumasi-600 to-farumasi-300 flex items-center justify-center">
+          <BookOpen className="w-10 h-10 text-white/80" />
+        </div>
       )}
       <div
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.25) 50%, rgba(0,0,0,0.1) 100%)",
+            "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.2) 55%, rgba(0,0,0,0) 90%)",
         }}
       />
-      <div className="absolute top-4 left-4 flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-[1.2px] px-2.5 py-1 rounded-full">
-          <Sparkles className="w-3 h-3" />
-          Featured
-        </span>
-        <span className="inline-block bg-white/15 border border-white/25 backdrop-blur-sm text-white/95 text-[10px] font-bold uppercase tracking-[1px] px-2.5 py-1 rounded-full">
+      <div className="absolute top-2 left-2 right-2">
+        <span className="inline-block bg-white/15 border border-white/25 backdrop-blur-sm text-white/95 text-[9px] font-bold uppercase tracking-[0.8px] px-1.5 py-0.5 rounded-full">
           {article.category}
         </span>
       </div>
-      <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-        <h2 className="text-white text-xl sm:text-2xl md:text-3xl font-extrabold leading-tight mb-1.5 drop-shadow-md line-clamp-3">
+      <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2.5 pt-6">
+        <p className="text-white text-[12.5px] font-bold leading-snug line-clamp-3 mb-1">
           {article.title}
-        </h2>
-        {article.summary && (
-          <p className="text-white/80 text-[13px] sm:text-sm leading-snug line-clamp-2 max-w-2xl mb-2">
-            {article.summary}
-          </p>
-        )}
-        <div className="flex items-center gap-3 text-white/75 text-[11px]">
-          <span className="inline-flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {article.readTimeMin} min read
-          </span>
-          <span className="w-1 h-1 rounded-full bg-white/40" />
-          <span className="font-medium">Read article →</span>
+        </p>
+        <div className="flex items-center gap-1 text-white/70 text-[10px]">
+          <Clock className="w-2.5 h-2.5" />
+          <span>{article.readTimeMin} min</span>
         </div>
       </div>
     </button>
