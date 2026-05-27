@@ -16,6 +16,9 @@ export interface BackendUser {
   status: string;
   profile_image_url: string | null;
   created_at: string;
+  two_factor_enabled?: boolean;
+  email_verified?: boolean;
+  phone_verified?: boolean;
 }
 
 export function adaptUser(u: BackendUser): AuthUser {
@@ -26,6 +29,9 @@ export function adaptUser(u: BackendUser): AuthUser {
     phone: u.phone ?? "",
     role: u.role as AuthUser["role"],
     avatarUrl: u.profile_image_url ?? undefined,
+    twoFactorEnabled: u.two_factor_enabled ?? false,
+    emailVerified: u.email_verified ?? false,
+    phoneVerified: u.phone_verified ?? false,
   };
 }
 
@@ -60,5 +66,25 @@ export const authService = {
   }): Promise<AuthUser> {
     const { data } = await api.put<BackendUser>("/users/me", params);
     return adaptUser(data);
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await api.post("/auth/change-password", {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  },
+
+  async logoutEverywhere(): Promise<void> {
+    await api.post("/auth/logout-everywhere");
+  },
+
+  async requestDataExport(): Promise<{ status: string; message: string }> {
+    const { data } = await api.post<{ status: string; message: string }>("/users/me/export-data");
+    return data;
+  },
+
+  async deleteAccount(password: string, reason?: string): Promise<void> {
+    await api.delete("/users/me", { data: { password, reason } });
   },
 };

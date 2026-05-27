@@ -92,6 +92,15 @@ class AuthService:
         if not user:
             raise AuthenticationError("User not found")
 
+        if user.session_invalidated_at is not None:
+            iat_raw = payload.get("iat")
+            try:
+                iat_dt = datetime.fromtimestamp(int(iat_raw), tz=timezone.utc) if iat_raw else None
+            except (TypeError, ValueError):
+                iat_dt = None
+            if iat_dt is None or iat_dt < user.session_invalidated_at:
+                raise AuthenticationError("Session expired. Please sign in again.")
+
         new_payload = {"sub": user.id, "role": user.role, "email": user.email}
         return TokenResponse(
             access_token=create_access_token(new_payload),

@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -35,6 +36,14 @@ class User(Base, UUIDMixin, TimestampMixin):
     )
     profile_image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # ── Settings / verification / lifecycle ───────────────────────────────
+    notification_prefs: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    two_factor_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    phone_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    session_invalidated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────
     patient_profile: Mapped[Optional["PatientProfile"]] = relationship(

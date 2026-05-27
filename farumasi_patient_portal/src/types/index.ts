@@ -12,6 +12,9 @@ export interface AuthUser {
   phone: string;
   role: UserRole;
   avatarUrl?: string;
+  twoFactorEnabled?: boolean;
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
 }
 
 // ── Medicine / Products ───────────────────────

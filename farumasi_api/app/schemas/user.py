@@ -3,10 +3,34 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import EmailStr
+from pydantic import EmailStr, Field
 
 from app.schemas.common import FarumasiBaseModel
 from app.core.constants import UserRole, UserStatus
+
+
+# ── Notification preferences ────────────────────────────────────────────────
+class NotificationChannels(FarumasiBaseModel):
+    push: bool = True
+    email: bool = True
+    sms: bool = False
+    whatsapp: bool = False
+
+
+class NotificationEvents(FarumasiBaseModel):
+    orders: bool = True
+    health_tips: bool = True
+    promotions: bool = False
+    app_updates: bool = True
+    reminders: bool = True
+
+
+class NotificationPreferences(FarumasiBaseModel):
+    channels: NotificationChannels = Field(default_factory=NotificationChannels)
+    events: NotificationEvents = Field(default_factory=NotificationEvents)
+
+
+DEFAULT_NOTIFICATION_PREFERENCES = NotificationPreferences()
 
 
 class UserOut(FarumasiBaseModel):
@@ -19,6 +43,9 @@ class UserOut(FarumasiBaseModel):
     profile_image_url: Optional[str] = None
     last_login_at: Optional[datetime] = None
     created_at: datetime
+    two_factor_enabled: bool = False
+    email_verified: bool = False
+    phone_verified: bool = False
 
 
 class UserUpdateRequest(FarumasiBaseModel):
@@ -37,5 +64,16 @@ class CurrentUserOut(UserOut):
     pass
 
 
+class ChangePasswordRequest(FarumasiBaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class DeleteAccountRequest(FarumasiBaseModel):
+    password: str = Field(min_length=1)
+    reason: Optional[str] = None
+
+
 # Aliases used by endpoints
 UserUpdate = UserUpdateRequest
+

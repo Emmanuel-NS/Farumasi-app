@@ -47,6 +47,19 @@ async def get_current_user(
     if user.status == UserStatus.ARCHIVED:
         raise AuthenticationError("This account has been archived")
 
+    # Invalidate tokens issued before a global session reset (password change /
+    # "sign out everywhere" / account deletion).
+    if user.session_invalidated_at is not None:
+        iat_raw = payload.get("iat")
+        if iat_raw is None:
+            raise AuthenticationError("Session expired. Please sign in again.")
+        try:
+            iat_dt = datetime.fromtimestamp(int(iat_raw), tz=timezone.utc)
+        except (TypeError, ValueError):
+            raise AuthenticationError("Invalid token timestamp")
+        if iat_dt < user.session_invalidated_at:
+            raise AuthenticationError("Session expired. Please sign in again.")
+
     # Update last login
     user.last_login_at = datetime.now(timezone.utc)
 
