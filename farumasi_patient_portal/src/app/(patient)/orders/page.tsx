@@ -33,57 +33,54 @@ export default function OrdersPage() {
 
   return (
     <GuestGate feature="your orders">
-    /* Flutter: white Scaffold, AppBar "My Orders" centered, TabBar with green indicator */
-    <div className="flex flex-col h-full bg-white">
+      <div className="flex flex-col h-full bg-white">
+        {/* Header */}
+        <div className="flex items-center justify-center px-5 py-4 bg-white border-b border-slate-100 shrink-0">
+          <h1 className="text-lg font-bold text-slate-900">{t.orders_title}</h1>
+        </div>
 
-      {/* Flutter AppBar simulation — white bg, centered title */}
-      <div className="flex items-center justify-center px-5 py-4 bg-white border-b border-slate-100 shrink-0">
-        <h1 className="text-lg font-bold text-slate-900">{t.orders_title}</h1>
-      </div>
+        {/* Tabs */}
+        <div className="flex border-b border-slate-200 bg-white shrink-0">
+          {(["active", "past"] as const).map((tabKey) => (
+            <button
+              key={tabKey}
+              onClick={() => setTab(tabKey)}
+              className={cn(
+                "flex-1 py-3 text-sm font-semibold transition-colors relative",
+                tab === tabKey ? "text-farumasi-600" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              {tabKey === "active" ? t.orders_active : t.orders_past}
+              {tab === tabKey && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-farumasi-600 rounded-t-full" />
+              )}
+            </button>
+          ))}
+        </div>
 
-      {/* Flutter TabBar — indicator style (underline), NOT pill/bg style */}
-      <div className="flex border-b border-slate-200 bg-white shrink-0">
-        {(["active", "past"] as const).map((tabKey) => (
-          <button
-            key={tabKey}
-            onClick={() => setTab(tabKey)}
-            className={cn(
-              "flex-1 py-3 text-sm font-semibold transition-colors relative",
-              tab === tabKey ? "text-farumasi-600" : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            {tabKey === "active" ? t.orders_active : t.orders_past}
-            {/* Flutter TabBar green underline indicator */}
-            {tab === tabKey && (
-              <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-farumasi-600 rounded-t-full" />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-16 text-slate-400 text-sm">Loading orders…</div>
-        ) : tab === "active" ? (
-          activeOrders.length === 0 ? (
-            <EmptyOrders message={t.orders_no_active} />
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-slate-400 text-sm">Loading orders…</div>
+          ) : tab === "active" ? (
+            activeOrders.length === 0 ? (
+              <EmptyOrders message={t.orders_no_active} />
+            ) : (
+              <div className="space-y-4 max-w-3xl mx-auto">
+                {activeOrders.map((order) => <ActiveOrderCard key={order.id} order={order} />)}
+              </div>
+            )
           ) : (
-            <div className="space-y-4 max-w-3xl mx-auto">
-              {activeOrders.map((order) => <ActiveOrderCard key={order.id} order={order} />)}
-            </div>
-          )
-        ) : (
-          pastOrders.length === 0 ? (
-            <EmptyOrders message={t.orders_no_past} />
-          ) : (
-            <div className="space-y-3 max-w-3xl mx-auto">
-              {pastOrders.map((order) => <PastOrderCard key={order.id} order={order} />)}
-            </div>
-          )
-        )}
+            pastOrders.length === 0 ? (
+              <EmptyOrders message={t.orders_no_past} />
+            ) : (
+              <div className="space-y-3 max-w-3xl mx-auto">
+                {pastOrders.map((order) => <PastOrderCard key={order.id} order={order} />)}
+              </div>
+            )
+          )}
+        </div>
       </div>
-    </div>
     </GuestGate>
   );
 }
