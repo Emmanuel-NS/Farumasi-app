@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -14,15 +14,33 @@ import { ordersService, type BackendOrder } from "@/lib/services/orders.service"
 import { prescriptionsService, type BackendPrescription } from "@/lib/services/prescriptions.service";
 import { toast } from "sonner";
 
-const weeklyData = [
-  { day: "Mon", orders: 12, revenue: 5000 },
-  { day: "Tue", orders: 18, revenue: 8000 },
-  { day: "Wed", orders: 9,  revenue: 4000 },
-  { day: "Thu", orders: 24, revenue: 12000 },
-  { day: "Fri", orders: 30, revenue: 15000 },
-  { day: "Sat", orders: 36, revenue: 18000 },
-  { day: "Sun", orders: 21, revenue: 11000 },
-];
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+function buildWeeklySeries(orders: BackendOrder[]) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days: { day: string; orders: number; revenue: number; key: string }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    days.push({
+      day: WEEKDAYS[d.getDay()],
+      orders: 0,
+      revenue: 0,
+      key: d.toISOString().slice(0, 10),
+    });
+  }
+  const byKey = new Map(days.map((d) => [d.key, d]));
+  for (const o of orders) {
+    const key = o.created_at.slice(0, 10);
+    const bucket = byKey.get(key);
+    if (bucket) {
+      bucket.orders += 1;
+      bucket.revenue += o.total_amount ?? 0;
+    }
+  }
+  return days;
+}
 
 export default function OverviewPage() {
   const [orders, setOrders]             = useState<BackendOrder[]>([]);
@@ -31,7 +49,7 @@ export default function OverviewPage() {
 
   useEffect(() => {
     Promise.all([
-      ordersService.getPharmacyOrders({ limit: 10 }),
+      ordersService.getPharmacyOrders({ limit: 100 }),
       prescriptionsService.getAll({ limit: 50 }),
     ])
       .then(([ordersRes, rxRes]) => {
@@ -42,6 +60,7 @@ export default function OverviewPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const weeklyData = useMemo(() => buildWeeklySeries(orders), [orders]);
   const recentOrders   = orders.slice(0, 4);
   const activeRequests = prescriptions.filter(
     (r) => r.status === "draft" || r.status === "active" || r.status === "under_review"

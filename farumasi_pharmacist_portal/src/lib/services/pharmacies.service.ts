@@ -3,31 +3,27 @@ import api from "@/lib/api";
 export interface BackendPharmacy {
   id: string;
   name: string;
-  registration_number?: string | null;
   license_number?: string | null;
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  district?: string | null;
   latitude?: number | null;
   longitude?: number | null;
-  is_24_hours?: boolean;
-  delivery_available?: boolean;
+  is_open?: boolean;
+  accepts_delivery?: boolean;
   status?: string;
+  verification_status?: string;
   owner_user_id?: string;
-  created_at?: string;
 }
 
 export interface UpdatePharmacyInput {
   name?: string;
-  registration_number?: string | null;
-  license_number?: string | null;
   phone?: string | null;
   email?: string | null;
   address?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  is_24_hours?: boolean;
-  delivery_available?: boolean;
+  is_open?: boolean;
+  accepts_delivery?: boolean;
 }
 
 export interface BackendListing {

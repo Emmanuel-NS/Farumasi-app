@@ -7,6 +7,7 @@ import { cn, getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 import { PresenceToggle } from "@/components/layout/presence-toggle";
+import { notificationsService } from "@/lib/services/notifications.service";
 import { Menu, Bell, MessageCircle, HelpCircle, LogOut, User, Settings } from "lucide-react";
 
 const routeLabels: Record<string, string> = {
@@ -35,7 +36,7 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
   const pathname = usePathname();
   const [showProfile, setShowProfile] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
-  const unread = 0;
+  const [unread, setUnread] = useState(0);
   const { user, logout } = useAuthStore();
 
   useEffect(() => {
@@ -45,6 +46,18 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+
+  // Poll unread notification count every 60s while the portal is open.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      const n = await notificationsService.unreadCount();
+      if (!cancelled) setUnread(n);
+    };
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [pathname]);
 
   return (
     <header className="h-[72px] bg-farumasi-600 flex items-center gap-3 px-4 shrink-0 z-20">

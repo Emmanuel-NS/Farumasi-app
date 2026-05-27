@@ -9,6 +9,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   hydrate: () => Promise<void>;
+  setUser: (user: CurrentUser) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -31,6 +32,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem("farumasi_pharm_refresh");
     localStorage.removeItem("farumasi_pharm_user");
     set({ user: null, token: null, isAuthenticated: false });
+  },
+
+  setUser: (user) => {
+    try { localStorage.setItem("farumasi_pharm_user", JSON.stringify(user)); } catch {}
+    set({ user });
   },
 
   hydrate: async () => {
