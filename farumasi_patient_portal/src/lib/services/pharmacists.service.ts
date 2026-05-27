@@ -39,10 +39,10 @@ function adapt(p: BackendPharmacist): Pharmacist {
     name: p.user.full_name,
     specialty: p.specialization ?? "General Pharmacy",
     imageUrl: p.user.profile_image_url ?? "",
-    organization: "FARUMASI",
+    organization: undefined,
     status: mapStatus(p.status),
-    yearsExperience: p.years_of_experience ?? 1,
-    rating: 4.5,
+    yearsExperience: p.years_of_experience ?? undefined,
+    rating: undefined,
   };
 }
 

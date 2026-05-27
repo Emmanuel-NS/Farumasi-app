@@ -209,10 +209,10 @@ export interface Pharmacist {
   name: string;
   specialty: string;
   imageUrl: string;
-  organization: string;
+  organization?: string;
   status: PharmacistStatus;
-  yearsExperience: number;
-  rating: number;
+  yearsExperience?: number;
+  rating?: number;
 }
 
 export interface PharmacistBooking {

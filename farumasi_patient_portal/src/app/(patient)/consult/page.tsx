@@ -10,7 +10,7 @@ import { GuestGate } from "@/components/shared/guest-gate";
 import { useAuthStore } from "@/store/auth-store";
 import type { Pharmacist, ChatMessage } from "@/types";
 import {
-  Send, Paperclip, ChevronLeft, Star, Building2,
+  Send, ChevronLeft, Star, Building2,
   CheckCheck, Camera, Search, X, Clock,
 } from "lucide-react";
 
@@ -73,21 +73,29 @@ function PharmacistCard({ ph, onSelect }: { ph: Pharmacist; onSelect: (ph: Pharm
         <p className="text-[15px] font-extrabold text-slate-900 leading-tight">{ph.name}</p>
         <p className="text-[12px] text-farumasi-600 font-semibold mt-0.5">{ph.specialty}</p>
 
-        <div className="flex items-center gap-1.5 mt-2 text-slate-500">
-          <Building2 className="w-3.5 h-3.5 shrink-0" />
-          <span className="text-[11px] truncate">{ph.organization}</span>
-        </div>
+        {ph.organization && (
+          <div className="flex items-center gap-1.5 mt-2 text-slate-500">
+            <Building2 className="w-3.5 h-3.5 shrink-0" />
+            <span className="text-[11px] truncate">{ph.organization}</span>
+          </div>
+        )}
 
-        <div className="flex items-center gap-3 mt-2">
-          <div className="flex items-center gap-1">
-            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-            <span className="text-[12px] font-bold text-slate-700">{ph.rating.toFixed(1)}</span>
-          </div>
-          <span className="text-slate-200">·</span>
-          <div className="flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-[11px] text-slate-500">{ph.yearsExperience} {t.consult_yrs_exp}</span>
-          </div>
+        <div className="flex items-center gap-3 mt-2 min-h-[18px]">
+          {typeof ph.rating === "number" && ph.rating > 0 && (
+            <div className="flex items-center gap-1">
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span className="text-[12px] font-bold text-slate-700">{ph.rating.toFixed(1)}</span>
+            </div>
+          )}
+          {typeof ph.rating === "number" && ph.rating > 0 && typeof ph.yearsExperience === "number" && ph.yearsExperience > 0 && (
+            <span className="text-slate-200">·</span>
+          )}
+          {typeof ph.yearsExperience === "number" && ph.yearsExperience > 0 && (
+            <div className="flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-[11px] text-slate-500">{ph.yearsExperience} {t.consult_yrs_exp}</span>
+            </div>
+          )}
         </div>
 
         <button
@@ -114,22 +122,24 @@ export default function ConsultPage() {
   const [pharmacists, setPharmacists] = useState<Pharmacist[]>([]);
   const [selected, setSelected] = useState<Pharmacist | null>(null);
   const [consultationId, setConsultationId] = useState<string | null>(null);
+  const [consultationStatus, setConsultationStatus] = useState<string>("open");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput]       = useState("");
-  const [typing, setTyping]     = useState(false);
+  const [sending, setSending]   = useState(false);
   const [searchQ, setSearchQ]   = useState("");
-  const [filter, setFilter]     = useState<"all" | "available">("all");;
+  const [filter, setFilter]     = useState<"all" | "available">("all");
 
   useEffect(() => {
     pharmacistsService.list(30).then(setPharmacists).catch(() => {});
   }, []);
 
-  // Poll for new messages while in chat
+  // Poll for new messages while in chat (preserves in-flight optimistic bubbles)
   useEffect(() => {
     if (!consultationId) return;
     const interval = setInterval(async () => {
       try {
         const { data } = await api.get(`/consultations/${consultationId}`);
+        if (data.status) setConsultationStatus(data.status);
         const apiMsgs: ChatMessage[] = (data.messages ?? []).map((m: { id: string; sender_id: string; content: string; sent_at: string }) => ({
           id: m.id,
           senderId: m.sender_id,
@@ -137,7 +147,10 @@ export default function ConsultPage() {
           timestamp: new Date(m.sent_at),
           isMe: m.sender_id === authUser?.id,
         }));
-        setMessages(apiMsgs);
+        setMessages((prev) => {
+          const pending = prev.filter((m) => m.id.startsWith("tmp-"));
+          return [...apiMsgs, ...pending];
+        });
       } catch {
         // silently ignore
       }
@@ -145,26 +158,32 @@ export default function ConsultPage() {
     return () => clearInterval(interval);
   }, [consultationId, authUser]);
 
-  // Patient avatar — persisted in localStorage
-  const [patientAvatar, setPatientAvatar] = useState<string | null>(() => {
-    if (typeof window !== "undefined") return localStorage.getItem("farumasi_patient_avatar");
-    return null;
-  });
+  // Patient avatar — persisted in localStorage as data URL so it survives reloads
+  const [patientAvatar, setPatientAvatar] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("farumasi_patient_avatar");
+    // Discard stale blob: URLs from earlier sessions (they no longer resolve).
+    if (stored && stored.startsWith("data:")) setPatientAvatar(stored);
+    else if (stored) localStorage.removeItem("farumasi_patient_avatar");
+  }, []);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, typing]);
+  }, [messages]);
 
   const handleSelect = async (ph: Pharmacist) => {
     setSelected(ph);
     setMessages([]);
     setInput("");
-    setTyping(false);
+    setConsultationStatus("open");
+    const fallbackGreeting = `Hello! I'm ${ph.name}. I specialise in ${ph.specialty}. How can I help you today?`;
     try {
       const { data } = await api.post("/consultations/", { pharmacist_id: ph.id });
       setConsultationId(data.id);
+      if (data.status) setConsultationStatus(data.status);
       const msgs: ChatMessage[] = (data.messages ?? []).map((m: { id: string; sender_id: string; content: string; sent_at: string }) => ({
         id: m.id,
         senderId: m.sender_id,
@@ -172,61 +191,96 @@ export default function ConsultPage() {
         timestamp: new Date(m.sent_at),
         isMe: m.sender_id === authUser?.id,
       }));
-      if (msgs.length === 0 && data.messages?.length === 0) {
-        msgs.push(buildOpeningMessage(
-          `Hello! I'm ${ph.name} from ${ph.organization}. I specialise in ${ph.specialty}. How can I help you today?`,
-          ph.id
-        ));
-      }
+      if (msgs.length === 0) msgs.push(buildOpeningMessage(fallbackGreeting, ph.id));
       setMessages(msgs);
     } catch {
       // Fall back to local greeting if API fails
-      setMessages([buildOpeningMessage(
-        `Hello! I'm ${ph.name} from ${ph.organization}. I specialise in ${ph.specialty}. How can I help you today?`,
-        ph.id
-      )]);
+      setMessages([buildOpeningMessage(fallbackGreeting, ph.id)]);
     }
   };
 
-  const handleBack = () => { setSelected(null); setMessages([]); setConsultationId(null); };
+  const handleBack = () => {
+    setSelected(null);
+    setMessages([]);
+    setConsultationId(null);
+    setConsultationStatus("open");
+  };
 
   const sendMessage = useCallback(async () => {
-    if (!input.trim() || !selected) return;
+    if (!input.trim() || !selected || sending) return;
+    if (consultationStatus !== "open") {
+      toast.error("This consultation is closed.");
+      return;
+    }
     const content = input.trim();
+    const tmpId = `tmp-${Date.now()}`;
     const userMsg: ChatMessage = {
-      id: String(Date.now()),
-      senderId: authUser?.id ?? "patient",      content,
+      id: tmpId,
+      senderId: authUser?.id ?? "patient",
+      content,
       timestamp: new Date(),
       isMe: true,
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
-    if (consultationId) {
-      try {
-        await api.post(`/consultations/${consultationId}/messages`, { content });
-      } catch {
-        toast.error("Could not send message. Check your connection and try again.");
-      }
+    if (!consultationId) return;
+    setSending(true);
+    try {
+      const { data } = await api.post(`/consultations/${consultationId}/messages`, { content });
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tmpId
+            ? {
+                id: data.id,
+                senderId: data.sender_id,
+                content: data.content,
+                timestamp: new Date(data.sent_at ?? data.created_at ?? Date.now()),
+                isMe: true,
+              }
+            : m
+        )
+      );
+    } catch {
+      // Roll back the optimistic bubble so the user knows it didn't send
+      setMessages((prev) => prev.filter((m) => m.id !== tmpId));
+      setInput(content);
+      toast.error("Could not send message. Check your connection and try again.");
+    } finally {
+      setSending(false);
     }
-  }, [input, selected, consultationId, authUser]);
+  }, [input, selected, consultationId, consultationStatus, authUser, sending]);
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setPatientAvatar(url);
-    localStorage.setItem("farumasi_patient_avatar", url);
+    if (file.size > 1_500_000) {
+      toast.error("Image too large. Please pick one under 1.5 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : null;
+      if (!dataUrl) return;
+      setPatientAvatar(dataUrl);
+      try {
+        localStorage.setItem("farumasi_patient_avatar", dataUrl);
+      } catch {
+        // Quota exceeded — keep in-memory only
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const formatTime = (d: Date) =>
     d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   const visible = pharmacists.filter((ph) => {
-    const matchQ = !searchQ.trim() ||
-      ph.name.toLowerCase().includes(searchQ.toLowerCase()) ||
-      ph.specialty.toLowerCase().includes(searchQ.toLowerCase()) ||
-      ph.organization.toLowerCase().includes(searchQ.toLowerCase());
+    const q = searchQ.trim().toLowerCase();
+    const matchQ = !q ||
+      ph.name.toLowerCase().includes(q) ||
+      ph.specialty.toLowerCase().includes(q) ||
+      (ph.organization?.toLowerCase().includes(q) ?? false);
     const matchF = filter === "all" || ph.status === "available";
     return matchQ && matchF;
   });
@@ -269,10 +323,12 @@ export default function ConsultPage() {
             <p className="text-white font-bold text-sm leading-tight truncate">{selected.name}</p>
             <p className="text-white/70 text-[11px] mt-0.5">{selected.specialty} · {selectedStatusLabel}</p>
           </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
-            <span className="text-white/90 text-xs font-bold">{selected.rating.toFixed(1)}</span>
-          </div>
+          {typeof selected.rating === "number" && selected.rating > 0 && (
+            <div className="flex items-center gap-1 shrink-0">
+              <Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+              <span className="text-white/90 text-xs font-bold">{selected.rating.toFixed(1)}</span>
+            </div>
+          )}
         </div>
 
         {/* Messages */}
@@ -341,53 +397,38 @@ export default function ConsultPage() {
             );
           })}
 
-          {/* Typing indicator */}
-          {typing && (
-            <div className="flex items-end gap-2 justify-start">
-              <div className="w-8 h-8 rounded-full border-2 border-white shadow overflow-hidden bg-farumasi-600 shrink-0">
-                {selected.imageUrl ? (
-                  <img src={selected.imageUrl} alt={selected.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white font-bold text-[10px]">
-                    {getInitials(selected.name)}
-                  </div>
-                )}
-              </div>
-              <div className="bg-white border border-slate-100 px-4 py-3 shadow-sm" style={{ borderRadius: "18px 18px 18px 4px" }}>
-                <div className="flex gap-1 items-center">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
-                </div>
-              </div>
-            </div>
-          )}
           <div ref={messagesEndRef} />
         </div>
 
         {/* Input */}
-        <div className="px-4 py-3 bg-white shrink-0 flex items-center gap-2 border-t border-slate-100">
-          <button className="text-farumasi-600 hover:text-farumasi-700 shrink-0 transition-colors p-1">
-            <Paperclip className="w-5 h-5" />
-          </button>
-          <div className="flex-1 bg-[#F0F2F5] rounded-[24px] px-4 py-2.5">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder={t.consult_placeholder}
-              className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none"
-            />
+        {consultationStatus !== "open" ? (
+          <div className="px-4 py-3 bg-white shrink-0 border-t border-slate-100">
+            <p className="text-center text-xs text-slate-500 font-semibold">
+              This consultation is closed. Start a new one to keep chatting.
+            </p>
           </div>
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim()}
-            aria-label="Send message"
-            className="w-10 h-10 rounded-full bg-farumasi-600 text-white flex items-center justify-center hover:bg-farumasi-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
+        ) : (
+          <div className="px-4 py-3 bg-white shrink-0 flex items-center gap-2 border-t border-slate-100">
+            <div className="flex-1 bg-[#F0F2F5] rounded-[24px] px-4 py-2.5">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder={t.consult_placeholder}
+                disabled={sending}
+                className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none disabled:opacity-60"
+              />
+            </div>
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim() || sending}
+              aria-label="Send message"
+              className="w-10 h-10 rounded-full bg-farumasi-600 text-white flex items-center justify-center hover:bg-farumasi-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     );
   }
