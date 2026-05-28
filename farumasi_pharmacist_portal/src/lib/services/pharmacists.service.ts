@@ -23,8 +23,28 @@ export interface PharmacistProfileUpdate {
   availability_status?: AvailabilityStatus;
 }
 
+/** Pharmacy admins (and any other non-pharmacist role) have no pharmacist
+ *  profile by design — skip the network call to avoid noisy 404s. */
+function currentRole(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("farumasi_pharm_user");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { role?: string };
+    return parsed.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function isPharmacist(): boolean {
+  const role = currentRole();
+  return role === "PHARMACIST" || role === "pharmacist";
+}
+
 export const pharmacistsService = {
   async getMyProfile(): Promise<BackendPharmacistProfile | null> {
+    if (!isPharmacist()) return null;
     try {
       const { data } = await api.get<BackendPharmacistProfile>("/pharmacists/me");
       return data;

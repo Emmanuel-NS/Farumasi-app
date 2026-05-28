@@ -31,6 +31,20 @@ export function PresenceToggle() {
         setValue(cached);
       }
     }
+    // Pharmacy admins have no pharmacist profile — skip the /pharmacists/me
+    // call to avoid noisy 404s. The toggle remains usable via cached value.
+    let role: string | null = null;
+    try {
+      const raw = typeof window !== "undefined"
+        ? localStorage.getItem("farumasi_pharm_user")
+        : null;
+      role = raw ? (JSON.parse(raw)?.role ?? null) : null;
+    } catch { /* ignore */ }
+    const isPharmacist = role === "PHARMACIST" || role === "pharmacist";
+    if (!isPharmacist) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -72,6 +86,21 @@ export function PresenceToggle() {
     const prev = value;
     setValue(next);
     setOpen(false);
+    // Pharmacy admins don't have a pharmacist profile — keep the toggle as a
+    // local-only preference and skip the backend patch (which would 404).
+    let role: string | null = null;
+    try {
+      const raw = typeof window !== "undefined"
+        ? localStorage.getItem("farumasi_pharm_user")
+        : null;
+      role = raw ? (JSON.parse(raw)?.role ?? null) : null;
+    } catch { /* ignore */ }
+    const isPharmacist = role === "PHARMACIST" || role === "pharmacist";
+    if (!isPharmacist) {
+      try { localStorage.setItem(STORAGE_KEY, next); } catch {}
+      toast.success(`You're now ${next === "offline" ? "offline" : next === "busy" ? "busy" : "available"}.`);
+      return;
+    }
     setSaving(true);
     try {
       await api.patch("/pharmacists/me/availability", { availability_status: next });

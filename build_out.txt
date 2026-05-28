@@ -1,0 +1,63 @@
+node.exe :  GÜá Warning: Next.js inferred your workspace root, but it may not 
+be correct.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( GÜá Warning: N...not be correct. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ We detected multiple lockfiles and selected the directory of 
+C:\Users\PC\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, 
+or consider removing one of the lockfiles if it's not needed.
+   See 
+https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats 
+for more information.
+ Detected additional lockfiles: 
+   * C:\Users\PC\Farumasi-app\farumasi_pharmacist_portal\package-lock.json
+
+   Gû¦ Next.js 15.5.18
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ G£ô Compiled successfully in 10.3s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/17) ...
+   Generating static pages (4/17) 
+   Generating static pages (8/17) 
+   Generating static pages (12/17) 
+ G£ô Generating static pages (17/17)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+Göî Gùï /                                      124 B         102 kB
+Gö£ Gùï /_not-found                            998 B         103 kB
+Gö£ Gùï /audit                               4.09 kB         146 kB
+Gö£ Gùï /auth/login                          3.16 kB         129 kB
+Gö£ Gùï /chat                                4.32 kB         137 kB
+Gö£ Gùï /fleet                               4.24 kB         146 kB
+Gö£ Gùï /health                              4.61 kB         140 kB
+Gö£ Gùï /inventory                           7.03 kB         158 kB
+Gö£ ¦Æ /inventory/[id]/edit                 5.04 kB         153 kB
+Gö£ Gùï /inventory/new                       4.84 kB         152 kB
+Gö£ Gùï /notifications                       3.42 kB         145 kB
+Gö£ Gùï /orders                              4.85 kB         147 kB
+Gö£ ¦Æ /orders/[id]                         4.13 kB         146 kB
+Gö£ Gùï /overview                             108 kB         253 kB
+Gö£ Gùï /profile                             4.38 kB         146 kB
+Gö£ Gùï /requests                            5.39 kB         147 kB
+Gö£ ¦Æ /requests/[id]                       3.97 kB         146 kB
+Göö Gùï /settings                            5.02 kB         147 kB
++ First Load JS shared by all             102 kB
+  Gö£ chunks/255-b993eda937463596.js       45.8 kB
+  Gö£ chunks/4bd1b696-844b1d0e78245c10.js  54.2 kB
+  Göö other shared chunks (total)          2.05 kB
+
+
+Gùï  (Static)   prerendered as static content
+¦Æ  (Dynamic)  server-rendered on demand
+
+
