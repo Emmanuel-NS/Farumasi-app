@@ -213,9 +213,6 @@ class ArticleService:
         if actor.role not in _AUTHOR_ROLES:
             raise AuthorizationError("Only pharmacists, pharmacy admins or super_admin can list all articles")
         q = select(HealthArticle)
-        if actor.role == UserRole.PHARMACIST:
-            pid = await self._resolve_author_pharmacist_id(actor)
-            q = q.where(HealthArticle.author_pharmacist_id == pid)
         if status:
             q = q.where(HealthArticle.status == status)
         total = (await self.db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()

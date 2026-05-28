@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional, Sequence, Tuple
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,6 +15,7 @@ from app.core.constants import (
     ListingAvailability,
     OrderStatus,
     PaymentStatus,
+    PrescriptionStatus,
     ProductApprovalStatus,
     RevenueStatus,
     UserRole,
@@ -92,6 +93,11 @@ class OrderService:
         if not items:
             raise ValidationError("Order must have at least one item")
 
+        # Enforce prescription_required: if any chosen item's product needs a
+        # prescription, the order must reference an approved (reviewed)
+        # prescription belonging to the same patient.
+        await self._assert_prescription_for_items(items, data.prescription_id, patient.id)
+
         subtotal = sum(it["unit_price"] * it["quantity"] for it in items)
         delivery_fee = 0.0
         if data.delivery_method == DeliveryMethod.DELIVERY:
@@ -137,6 +143,11 @@ class OrderService:
             )
         await self.db.flush()
 
+        # Reserve stock: decrement listing.stock_quantity now so concurrent
+        # orders cannot oversell. Released back if the order is later
+        # CANCELLED / REJECTED / FAILED (see update_status).
+        await self._adjust_stock_for_items(items, sign=-1)
+
         # Pre-existing behavior (kept untouched in Phase 6): if delivery method,
         # create a Delivery row so downstream phases can attach a rider.
         if data.delivery_method == DeliveryMethod.DELIVERY:
@@ -151,11 +162,20 @@ class OrderService:
             )
             await self.db.flush()
 
-        # Notify pharmacy/partner owner
+        # Notify pharmacy/partner staff. For pharmacies we fan out to every
+        # staff member (admin + pharmacists) so the whole team sees new orders.
         notif = NotificationService(self.db)
-        owner_user_id = await self._owner_user_id(pharmacy_id, partner_id)
-        if owner_user_id:
-            await notif.order_placed(owner_user_id, order.order_code)
+        recipient_ids: list[str] = []
+        if pharmacy_id:
+            from app.services.pharmacy_access import list_pharmacy_staff_user_ids
+
+            recipient_ids = await list_pharmacy_staff_user_ids(self.db, pharmacy_id)
+        else:
+            owner_user_id = await self._owner_user_id(pharmacy_id, partner_id)
+            if owner_user_id:
+                recipient_ids = [owner_user_id]
+        for uid in recipient_ids:
+            await notif.order_placed(uid, order.order_code)
 
         await AuditService(self.db).log(
             actor_user_id=actor.id,
@@ -233,7 +253,7 @@ class OrderService:
             return await self._paginate(*conds, offset=offset, limit=limit)
         if role == UserRole.PATIENT:
             return await self.list_patient_orders(actor, offset=offset, limit=limit)
-        if role == UserRole.PHARMACY_ADMIN:
+        if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
             return await self.list_pharmacy_orders(
                 actor, offset=offset, limit=limit, status=status
             )
@@ -254,6 +274,19 @@ class OrderService:
 
         old_status = order.order_status
         order.order_status = data.order_status
+
+        # Release reserved stock when the order is cancelled / rejected / failed
+        # (only once — guarded by the old_status check).
+        _RELEASE_STATUSES = {
+            OrderStatus.CANCELLED,
+            OrderStatus.REJECTED,
+            OrderStatus.FAILED,
+        }
+        if (
+            data.order_status in _RELEASE_STATUSES
+            and old_status not in _RELEASE_STATUSES
+        ):
+            await self._release_stock_for_order(order)
 
         if data.order_status == OrderStatus.COMPLETED:
             await self._create_revenue(order)
@@ -519,7 +552,7 @@ class OrderService:
             if patient and patient.id == order.patient_id:
                 return
             raise AuthorizationError("Not allowed to view this order")
-        if role == UserRole.PHARMACY_ADMIN:
+        if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
             if order.pharmacy_id and await self._owns_pharmacy(actor, order.pharmacy_id):
                 return
             raise AuthorizationError("Not allowed to view this order")
@@ -529,10 +562,6 @@ class OrderService:
             ):
                 return
             raise AuthorizationError("Not allowed to view this order")
-        if role == UserRole.PHARMACIST:
-            # Pharmacists can view order context tied to a prescription review.
-            # Keep permissive — they cannot manage status, only read.
-            return
         raise AuthorizationError("Not allowed to view this order")
 
     async def _assert_can_change_status(
@@ -549,7 +578,7 @@ class OrderService:
             raise AuthorizationError(
                 "Patients may only cancel their own pending orders"
             )
-        if role == UserRole.PHARMACY_ADMIN:
+        if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
             if order.pharmacy_id and await self._owns_pharmacy(actor, order.pharmacy_id):
                 if new_status in _OWNER_MANAGE_STATUSES:
                     return
@@ -582,10 +611,9 @@ class OrderService:
         return res.scalar_one_or_none()
 
     async def _get_owned_pharmacy(self, actor: User) -> Optional[Pharmacy]:
-        res = await self.db.execute(
-            select(Pharmacy).where(Pharmacy.owner_user_id == actor.id)
-        )
-        return res.scalar_one_or_none()
+        from app.services.pharmacy_access import resolve_user_pharmacy
+
+        return await resolve_user_pharmacy(self.db, actor)
 
     async def _get_owned_partner(self, actor: User) -> Optional[PartnerCompany]:
         res = await self.db.execute(
@@ -594,12 +622,9 @@ class OrderService:
         return res.scalar_one_or_none()
 
     async def _owns_pharmacy(self, actor: User, pharmacy_id: str) -> bool:
-        res = await self.db.execute(
-            select(Pharmacy.id).where(
-                Pharmacy.id == pharmacy_id, Pharmacy.owner_user_id == actor.id
-            )
-        )
-        return res.scalar_one_or_none() is not None
+        from app.services.pharmacy_access import user_owns_pharmacy
+
+        return await user_owns_pharmacy(self.db, actor, pharmacy_id)
 
     async def _owns_partner(self, actor: User, partner_id: str) -> bool:
         res = await self.db.execute(
@@ -682,3 +707,84 @@ class OrderService:
             )
         )
         await self.db.flush()
+
+    # ── Stock reservation & prescription validation ───────────────────────
+
+    async def _adjust_stock_for_items(
+        self, items: List[dict], *, sign: int
+    ) -> None:
+        """Atomically add ``sign * quantity`` to each listing's stock_quantity.
+
+        ``sign=-1`` reserves stock (used on order create).
+        ``sign=+1`` releases stock (used when an order is cancelled).
+        Items without a product_listing_id (legacy free-form items) are skipped.
+        """
+        for it in items:
+            listing_id = it.get("product_listing_id")
+            qty = int(it.get("quantity") or 0)
+            if not listing_id or qty <= 0:
+                continue
+            await self.db.execute(
+                sa_update(ProductListing)
+                .where(ProductListing.id == listing_id)
+                .values(stock_quantity=ProductListing.stock_quantity + sign * qty)
+            )
+        await self.db.flush()
+
+    async def _release_stock_for_order(self, order: Order) -> None:
+        """Restore reserved stock for every item on a cancelled order."""
+        res = await self.db.execute(
+            select(OrderItem).where(OrderItem.order_id == order.id)
+        )
+        items = [
+            {"product_listing_id": oi.product_listing_id, "quantity": oi.quantity}
+            for oi in res.scalars().all()
+        ]
+        await self._adjust_stock_for_items(items, sign=+1)
+
+    async def _assert_prescription_for_items(
+        self,
+        items: List[dict],
+        prescription_id: Optional[str],
+        patient_id: str,
+    ) -> None:
+        """If any item requires a prescription, ensure one is attached and valid."""
+        product_ids = [it.get("product_id") for it in items if it.get("product_id")]
+        if not product_ids:
+            return
+
+        res = await self.db.execute(
+            select(ProductCatalogueItem.id, ProductCatalogueItem.name).where(
+                ProductCatalogueItem.id.in_(product_ids),
+                ProductCatalogueItem.prescription_required.is_(True),
+            )
+        )
+        rx_required = list(res.all())
+        if not rx_required:
+            return
+
+        if not prescription_id:
+            names = ", ".join(name for _, name in rx_required)
+            raise BusinessRuleError(
+                f"Prescription required for: {names}"
+            )
+
+        rx_res = await self.db.execute(
+            select(DigitalPrescription).where(
+                DigitalPrescription.id == prescription_id
+            )
+        )
+        rx = rx_res.scalar_one_or_none()
+        if not rx:
+            raise NotFoundError("Prescription", prescription_id)
+        if rx.patient_id != patient_id:
+            raise AuthorizationError("Prescription does not belong to this patient")
+        if rx.status not in (
+            PrescriptionStatus.REVIEWED,
+            PrescriptionStatus.FULFILLED,
+            PrescriptionStatus.PARTIALLY_FULFILLED,
+        ):
+            raise BusinessRuleError(
+                "Prescription must be reviewed by a pharmacist before ordering"
+            )
+

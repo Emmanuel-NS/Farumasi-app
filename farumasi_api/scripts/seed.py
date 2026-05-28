@@ -187,18 +187,21 @@ PHARMACIST_EXTRAS = [
         "specialization": "Clinical Pharmacy",
         "bio": "Specialist in chronic disease management with 8 years of experience in Rwanda.",
         "years_of_experience": 8,
+        "pharmacy_name": "Kigali City Pharmacy",
     },
     {
         "email": "pharmacist2@farumasi.com",
         "specialization": "Infectious Diseases",
         "bio": "Expert in HIV/AIDS treatment protocols and antimalarial therapy.",
         "years_of_experience": 6,
+        "pharmacy_name": "Kigali City Pharmacy",
     },
     {
         "email": "pharmacist3@farumasi.com",
         "specialization": "Maternal & Child Health",
         "bio": "Focused on prenatal vitamins, pediatric dosing, and maternal care medications.",
         "years_of_experience": 4,
+        "pharmacy_name": "Remera Medicare Pharmacy",
     },
 ]
 
@@ -379,6 +382,23 @@ async def seed():
                 print(f"  [skip] Pharmacy {phd['name']} exists")
 
         pharmacy = seeded_pharmacies[0] if seeded_pharmacies else None
+
+        # ─── Link pharmacist staff to their pharmacy ──────────────────────
+        pharmacies_by_name = {p.name: p for p in seeded_pharmacies}
+        for extra in PHARMACIST_EXTRAS:
+            target_name = extra.get("pharmacy_name")
+            if not target_name:
+                continue
+            target_pharm = pharmacies_by_name.get(target_name)
+            ph_user = email_to_user.get(extra["email"])
+            if not (target_pharm and ph_user):
+                continue
+            profile = (await db.execute(
+                select(PharmacistProfile).where(PharmacistProfile.user_id == ph_user.id)
+            )).scalar_one_or_none()
+            if profile and profile.pharmacy_id != target_pharm.id:
+                profile.pharmacy_id = target_pharm.id
+                print(f"  [link] {extra['email']} -> {target_name}")
 
         # ─── Partner company ──────────────────────────────────────────────
         partner_admin_user = email_to_user.get("partner_admin@farumasi.com")

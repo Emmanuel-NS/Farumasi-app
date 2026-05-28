@@ -116,6 +116,7 @@ def _validate_transition(old: str, new: str) -> None:
 _ADMIN_ROLES = {UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN}
 _OWNER_ROLES = _ADMIN_ROLES | {
     UserRole.PHARMACY_ADMIN,
+    UserRole.PHARMACIST,
     UserRole.PARTNER_COMPANY_ADMIN,
 }
 
@@ -154,14 +155,10 @@ class DeliveryService:
     async def _user_owns_order(self, actor: User, order: Order) -> bool:
         if actor.role in _ADMIN_ROLES:
             return True
-        if actor.role == UserRole.PHARMACY_ADMIN and order.pharmacy_id:
-            res = await self.db.execute(
-                select(Pharmacy.id).where(
-                    Pharmacy.id == order.pharmacy_id,
-                    Pharmacy.owner_user_id == actor.id,
-                )
-            )
-            return res.scalar_one_or_none() is not None
+        if actor.role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST) and order.pharmacy_id:
+            from app.services.pharmacy_access import user_owns_pharmacy
+
+            return await user_owns_pharmacy(self.db, actor, order.pharmacy_id)
         if actor.role == UserRole.PARTNER_COMPANY_ADMIN and order.partner_company_id:
             res = await self.db.execute(
                 select(PartnerCompany.id).where(
@@ -265,12 +262,16 @@ class DeliveryService:
             )
             return list(res.scalars().all())
 
-        if actor.role == UserRole.PHARMACY_ADMIN:
+        if actor.role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
+            from app.services.pharmacy_access import resolve_user_pharmacy
+
+            pharmacy = await resolve_user_pharmacy(self.db, actor)
+            if not pharmacy:
+                return []
             res = await self.db.execute(
                 select(Delivery)
                 .join(Order, Order.id == Delivery.order_id)
-                .join(Pharmacy, Pharmacy.id == Order.pharmacy_id)
-                .where(Pharmacy.owner_user_id == actor.id)
+                .where(Order.pharmacy_id == pharmacy.id)
                 .order_by(Delivery.created_at.desc())
             )
             return list(res.scalars().all())
@@ -324,6 +325,47 @@ class DeliveryService:
         if not await self._user_owns_order(actor, order):
             raise AuthorizationError("Not allowed to view this delivery")
         return delivery
+
+    async def get_by_order(self, order_id: str, actor: User) -> Optional[Delivery]:
+        """Return the delivery row attached to an order, scoped by actor role.
+
+        Patient must own the order; pharmacy staff must own the pharmacy;
+        partner admin must own the partner company; rider must be assigned.
+        Returns ``None`` if the order has no delivery row yet (e.g. pickup
+        order, or delivery not yet created).
+        """
+        order = await self._get_order(order_id)
+
+        # Authorisation: reuse the same ownership rules as the scoped getter.
+        if actor.role in _ADMIN_ROLES:
+            pass
+        elif actor.role == UserRole.PATIENT:
+            patient_res = await self.db.execute(
+                select(PatientProfile).where(
+                    PatientProfile.id == order.patient_id
+                )
+            )
+            patient = patient_res.scalar_one_or_none()
+            if not patient or patient.user_id != actor.id:
+                raise AuthorizationError("Not your order")
+        elif actor.role == UserRole.RIDER:
+            rider = await self._get_rider_for_user(actor.id)
+            # Rider must be currently assigned to this order's delivery.
+            res = await self.db.execute(
+                select(Delivery).where(
+                    Delivery.order_id == order_id,
+                    Delivery.rider_id == rider.id,
+                )
+            )
+            return res.scalar_one_or_none()
+        else:
+            if not await self._user_owns_order(actor, order):
+                raise AuthorizationError("Not allowed to view this delivery")
+
+        res = await self.db.execute(
+            select(Delivery).where(Delivery.order_id == order_id)
+        )
+        return res.scalar_one_or_none()
 
     # ── Assignment ─────────────────────────────────────────────────────────
     async def assign_delivery_by_id(

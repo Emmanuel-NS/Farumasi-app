@@ -1,4 +1,4 @@
-from typing import Optional
+﻿from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -41,12 +41,11 @@ async def create_pharmacy(
 @router.get("/me", response_model=PharmacyOut)
 async def get_my_pharmacy(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST, UserRole.SUPER_ADMIN)),
 ):
-    result = await db.execute(
-        select(Pharmacy).where(Pharmacy.owner_user_id == current_user.id)
-    )
-    pharmacy = result.scalars().first()
+    from app.services.pharmacy_access import resolve_user_pharmacy
+
+    pharmacy = await resolve_user_pharmacy(db, current_user)
     if not pharmacy:
         raise NotFoundError("Pharmacy")
     return pharmacy
@@ -56,12 +55,11 @@ async def get_my_pharmacy(
 async def update_my_pharmacy(
     data: PharmacyUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST, UserRole.SUPER_ADMIN)),
 ):
-    result = await db.execute(
-        select(Pharmacy).where(Pharmacy.owner_user_id == current_user.id)
-    )
-    pharmacy = result.scalars().first()
+    from app.services.pharmacy_access import resolve_user_pharmacy
+
+    pharmacy = await resolve_user_pharmacy(db, current_user)
     if not pharmacy:
         raise NotFoundError("Pharmacy")
     for field, value in data.model_dump(exclude_unset=True).items():
@@ -118,10 +116,9 @@ from app.services.product_service import ProductService
 
 
 async def _get_my_pharmacy(db: AsyncSession, current_user: User) -> Pharmacy:
-    result = await db.execute(
-        select(Pharmacy).where(Pharmacy.owner_user_id == current_user.id)
-    )
-    pharmacy = result.scalars().first()
+    from app.services.pharmacy_access import resolve_user_pharmacy
+
+    pharmacy = await resolve_user_pharmacy(db, current_user)
     if not pharmacy:
         raise NotFoundError("Pharmacy")
     return pharmacy
@@ -132,7 +129,7 @@ async def list_my_listings(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     pharmacy = await _get_my_pharmacy(db, current_user)
     items, total = await ProductService(db).list_listings(
@@ -145,7 +142,7 @@ async def list_my_listings(
 async def create_my_listing(
     data: ProductListingCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     pharmacy = await _get_my_pharmacy(db, current_user)
     payload = data.model_copy(update={"pharmacy_id": pharmacy.id, "partner_company_id": None})
@@ -163,7 +160,7 @@ async def list_my_pharmacy_orders(
     limit: int = Query(20, ge=1, le=100),
     status: str = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     items, total = await OrderService(db).list_pharmacy_orders(
         current_user, offset=offset, limit=limit, status=status
@@ -176,7 +173,7 @@ async def update_my_pharmacy_order_status(
     order_id: str,
     data: OrderStatusUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     return await OrderService(db).update_status(order_id, data, current_user)
 
@@ -194,7 +191,7 @@ from app.services.revenue_service import RevenueService
 @router.get("/me/revenue", response_model=list[RevenueRecordOut])
 async def list_my_pharmacy_revenue(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     pharmacy = await _get_my_pharmacy(db, current_user)
     return await RevenueService(db).list_records(pharmacy_id=pharmacy.id)
@@ -203,7 +200,7 @@ async def list_my_pharmacy_revenue(
 @router.get("/me/revenue/summary", response_model=RevenueSummary)
 async def get_my_pharmacy_revenue_summary(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     pharmacy = await _get_my_pharmacy(db, current_user)
     return await RevenueService(db).get_summary(pharmacy_id=pharmacy.id)
@@ -212,7 +209,7 @@ async def get_my_pharmacy_revenue_summary(
 @router.get("/me/withdrawals", response_model=list[WithdrawalOut])
 async def list_my_pharmacy_withdrawals(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     pharmacy = await _get_my_pharmacy(db, current_user)
     return await RevenueService(db).list_withdrawals(pharmacy_id=pharmacy.id)
@@ -222,7 +219,7 @@ async def list_my_pharmacy_withdrawals(
 async def create_my_pharmacy_withdrawal(
     data: WithdrawalCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     pharmacy = await _get_my_pharmacy(db, current_user)
     return await RevenueService(db).request_withdrawal(
@@ -245,7 +242,7 @@ from sqlalchemy import func as sa_func, case as sa_case
 @router.get("/me/drivers", response_model=list[PharmacyDriverOut])
 async def list_my_pharmacy_drivers(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     pharmacy = await _get_my_pharmacy(db, current_user)
     completed_expr = sa_func.sum(
@@ -291,7 +288,7 @@ async def list_my_pharmacy_drivers(
 async def list_my_pharmacy_deliveries(
     status: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     pharmacy = await _get_my_pharmacy(db, current_user)
     stmt = (
@@ -304,3 +301,4 @@ async def list_my_pharmacy_deliveries(
         stmt = stmt.where(Delivery.status == status)
     rows = (await db.execute(stmt)).scalars().all()
     return list(rows)
+

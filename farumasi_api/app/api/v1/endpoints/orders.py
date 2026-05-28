@@ -7,12 +7,14 @@ from app.core.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
+from app.schemas.delivery import DeliveryOut
 from app.schemas.order import (
     OrderCreate,
     OrderOut,
     OrderStatusUpdate,
     PaymentStatusUpdate,
 )
+from app.services.delivery_service import DeliveryService
 from app.services.order_service import OrderService
 
 router = APIRouter()
@@ -82,6 +84,23 @@ async def get_order(
     actor: User = Depends(get_current_user),
 ):
     return await OrderService(db).get_order(order_id, actor)
+
+
+@router.get("/{order_id}/delivery", response_model=Optional[DeliveryOut])
+async def get_order_delivery(
+    order_id: str,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    """Return the delivery row attached to this order (or ``null`` if none).
+
+    Authorisation: patient owner, pharmacy/partner staff, assigned rider,
+    or super-admin. Used by patient & pharmacist portals to track delivery
+    progress and assigned rider without needing the delivery_id.
+    """
+    # Ensure the order is visible to the caller using the same ACL as get_order.
+    await OrderService(db).get_order(order_id, actor)
+    return await DeliveryService(db).get_by_order(order_id, actor)
 
 
 @router.patch("/{order_id}/status", response_model=OrderOut)

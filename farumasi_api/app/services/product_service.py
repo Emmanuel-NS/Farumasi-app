@@ -43,7 +43,7 @@ from app.services.notification_service import NotificationService
 
 _PRODUCT_MANAGERS = {UserRole.SUPER_ADMIN, UserRole.PHARMACIST}
 _REQUEST_REVIEWERS = {UserRole.SUPER_ADMIN, UserRole.PHARMACIST}
-_REQUEST_CREATORS = {UserRole.PHARMACY_ADMIN, UserRole.PARTNER_COMPANY_ADMIN}
+_REQUEST_CREATORS = {UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST, UserRole.PARTNER_COMPANY_ADMIN}
 
 
 def _ensure_role(actor: User, allowed: set[str], action: str) -> None:
@@ -326,11 +326,11 @@ class ProductService:
         pharmacy_id: Optional[str] = None
         partner_company_id: Optional[str] = None
         requester_type: str
-        if actor.role == UserRole.PHARMACY_ADMIN:
+        if actor.role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
             pharmacy = await self._find_owned_pharmacy(actor.id)
             if not pharmacy:
                 raise BusinessRuleError(
-                    "You must own a pharmacy before creating a product request"
+                    "You must be linked to a pharmacy before creating a product request"
                 )
             pharmacy_id = pharmacy.id
             requester_type = "pharmacy"
@@ -525,7 +525,20 @@ class ProductService:
         result = await self.db.execute(
             select(Pharmacy).where(Pharmacy.owner_user_id == user_id)
         )
-        return result.scalars().first()
+        pharmacy = result.scalars().first()
+        if pharmacy:
+            return pharmacy
+        # Fall back: pharmacist staff assigned to a pharmacy
+        res = await self.db.execute(
+            select(PharmacistProfile.pharmacy_id).where(
+                PharmacistProfile.user_id == user_id
+            )
+        )
+        pid = res.scalar_one_or_none()
+        if not pid:
+            return None
+        res = await self.db.execute(select(Pharmacy).where(Pharmacy.id == pid))
+        return res.scalar_one_or_none()
 
     async def _find_owned_partner(self, user_id: str) -> Optional[PartnerCompany]:
         result = await self.db.execute(
@@ -545,8 +558,8 @@ class ProductService:
         if actor.role == UserRole.SUPER_ADMIN:
             return
         if pharmacy_id:
-            if actor.role != UserRole.PHARMACY_ADMIN:
-                raise AuthorizationError("Only pharmacy_admin can list under a pharmacy")
+            if actor.role not in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
+                raise AuthorizationError("Only pharmacy staff can list under a pharmacy")
             pharmacy = await self._find_owned_pharmacy(actor.id)
             if not pharmacy or pharmacy.id != pharmacy_id:
                 raise AuthorizationError("You do not own this pharmacy")
@@ -563,8 +576,8 @@ class ProductService:
         if actor.role == UserRole.SUPER_ADMIN:
             return
         if listing.pharmacy_id:
-            if actor.role != UserRole.PHARMACY_ADMIN:
-                raise AuthorizationError("Only pharmacy_admin can modify pharmacy listings")
+            if actor.role not in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
+                raise AuthorizationError("Only pharmacy staff can modify pharmacy listings")
             pharmacy = await self._find_owned_pharmacy(actor.id)
             if not pharmacy or pharmacy.id != listing.pharmacy_id:
                 raise AuthorizationError("You do not own this listing's pharmacy")

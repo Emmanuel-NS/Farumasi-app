@@ -21,6 +21,9 @@ class PharmacistProfile(Base, UUIDMixin, TimestampMixin):
     user_id: Mapped[str] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True
     )
+    pharmacy_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("pharmacies.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     license_number: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     verification_status: Mapped[str] = mapped_column(
         String(50), default=VerificationStatus.UNVERIFIED
