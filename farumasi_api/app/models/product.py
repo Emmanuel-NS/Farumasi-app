@@ -51,7 +51,7 @@ class ProductCatalogueItem(Base, UUIDMixin, TimestampMixin):
     created_by_user_id: Mapped[str] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────
     approved_by_pharmacist: Mapped[Optional["PharmacistProfile"]] = relationship(
