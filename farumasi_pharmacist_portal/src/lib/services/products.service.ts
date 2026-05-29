@@ -18,6 +18,7 @@ export interface BackendProduct {
   image_url?: string | null;
   created_at: string;
   price_from?: number | null;
+  price_to?: number | null;
   listing_count?: number | null;
 }
 

@@ -312,7 +312,7 @@ function ProductCard({
         <div className="mt-auto pt-3 flex items-end justify-between gap-2">
           {product.price_from != null && product.price_from > 0 ? (
             <p className="text-[12px] font-extrabold text-farumasi-700">
-              From RWF {formatPrice(product.price_from)}
+              RWF {formatPrice(product.price_from)}{product.price_to != null && product.price_to > product.price_from ? `–${formatPrice(product.price_to)}` : ""}
             </p>
           ) : (
             <p className="text-[11px] text-slate-400 italic">No price listed</p>

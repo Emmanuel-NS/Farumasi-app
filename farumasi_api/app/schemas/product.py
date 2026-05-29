@@ -71,6 +71,7 @@ class ProductOut(FarumasiBaseModel):
     created_at: datetime
     # Populated when queried with listing stats
     price_from: Optional[float] = None
+    price_to: Optional[float] = None
     listing_count: Optional[int] = None
 
 

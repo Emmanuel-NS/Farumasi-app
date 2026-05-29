@@ -19,6 +19,8 @@ export interface BackendProduct {
   created_at: string;
   /** Lowest listing price across active pharmacy/partner listings (RWF) */
   price_from: number | null;
+  /** Highest listing price across active pharmacy/partner listings (RWF) */
+  price_to: number | null;
   /** Number of active sellers stocking this product */
   listing_count: number | null;
 }
@@ -38,12 +40,15 @@ export function adaptProduct(p: BackendProduct): Medicine {
   const displayPrice = p.price_from != null
     ? Math.round(p.price_from)
     : 1500 + (p.id.charCodeAt(0) % 10) * 500;
+  const maxPrice = p.price_to != null
+    ? Math.round(p.price_to)
+    : displayPrice;
   return {
     id: p.id,
     name: p.name,
     description: p.description ?? `${p.name}${p.strength ? ` ${p.strength}` : ""} — ${p.dosage_form ?? "medicine"}.`,
     price: displayPrice,
-    maxPrice: Math.round(displayPrice * 1.3),
+    maxPrice: maxPrice,
     imageUrl: p.image_url ?? PLACEHOLDER_IMAGE,
     category: p.category ?? "General",
     subCategory: p.dosage_form ?? undefined,

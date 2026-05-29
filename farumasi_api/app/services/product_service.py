@@ -140,6 +140,7 @@ class ProductService:
             select(
                 ProductListing.product_id.label("product_id"),
                 func.min(ProductListing.price).label("price_from"),
+                func.max(ProductListing.price).label("price_to"),
                 func.count(ProductListing.id).label("listing_count"),
             )
             .where(
@@ -156,6 +157,7 @@ class ProductService:
             select(
                 ProductCatalogueItem,
                 listing_stats.c.price_from,
+                listing_stats.c.price_to,
                 listing_stats.c.listing_count,
             )
             .outerjoin(listing_stats, ProductCatalogueItem.id == listing_stats.c.product_id)
@@ -193,7 +195,8 @@ class ProductService:
         for row in rows:
             item: ProductCatalogueItem = row[0]
             item.price_from = row[1]  # type: ignore[attr-defined]
-            item.listing_count = int(row[2]) if row[2] is not None else 0  # type: ignore[attr-defined]
+            item.price_to = row[2]  # type: ignore[attr-defined]
+            item.listing_count = int(row[3]) if row[3] is not None else 0  # type: ignore[attr-defined]
             products.append(item)
         return products, total
 
