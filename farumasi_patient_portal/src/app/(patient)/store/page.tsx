@@ -27,10 +27,6 @@ import {
   ChevronUp,
   ChevronDown,
   MapPin,
-  Sunrise,
-  Moon,
-  Clock,
-  AlertTriangle,
   CheckCircle,
   // Category icons — mirrors Flutter _getCategoryIcon
   Stethoscope,     // Pain Relief   (Icons.healing)
@@ -864,92 +860,31 @@ function StorePageInner() {
               </div>
             </div>
 
-            {/* Scrollable body */}
-            <div className="overflow-y-auto flex-1 p-5 space-y-4">
-              {/* Overview */}
-              {(quickView.overviewDescription || quickView.description) && (
-                <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">About</p>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    {quickView.overviewDescription || quickView.description}
-                  </p>
-                </div>
-              )}
+            {/* Patient Overview card */}
+            <div className="p-5">
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">
+                {/* Section label */}
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                  Patient Overview
+                </p>
 
-              {/* Dosage details */}
-              {quickView.dosageDetails && (
-                <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Dosage</p>
-                  <p className="text-sm text-slate-600 leading-relaxed">{quickView.dosageDetails}</p>
-                </div>
-              )}
+                {/* Overview text */}
+                <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                  {quickView.overviewDescription || quickView.description}
+                </p>
 
-              {/* Safety / warnings */}
-              {quickView.safetyInfo && (
-                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3.5">
-                  <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3 h-3" /> Safety &amp; Warnings
-                  </p>
-                  <p className="text-sm text-amber-800 leading-relaxed">{quickView.safetyInfo}</p>
-                </div>
-              )}
-
-              {(quickView.doseMorning || quickView.doseAfternoon || quickView.doseEvening) && (
-                <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t.store_dosing}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {quickView.doseMorning && quickView.doseMorning !== "None" && (
-                      <span className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold px-3 py-1.5 rounded-full">
-                        <Sunrise className="w-3 h-3" /> {t.store_morning} &middot; {quickView.doseMorning}
-                      </span>
-                    )}
-                    {quickView.doseAfternoon && quickView.doseAfternoon !== "None" && (
-                      <span className="flex items-center gap-1.5 bg-sky-50 border border-sky-200 text-sky-800 text-xs font-semibold px-3 py-1.5 rounded-full">
-                        <Sun className="w-3 h-3" /> {t.store_afternoon} &middot; {quickView.doseAfternoon}
-                      </span>
-                    )}
-                    {quickView.doseEvening && quickView.doseEvening !== "None" && (
-                      <span className="flex items-center gap-1.5 bg-violet-50 border border-violet-200 text-violet-800 text-xs font-semibold px-3 py-1.5 rounded-full">
-                        <Moon className="w-3 h-3" /> {t.store_evening} &middot; {quickView.doseEvening}
-                      </span>
-                    )}
-                    {quickView.doseTimeInterval && (
-                      <span className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold px-3 py-1.5 rounded-full">
-                        <Clock className="w-3 h-3" /> {quickView.doseTimeInterval}
-                      </span>
-                    )}
+                {/* Dosage Guide — shown if any dosage data exists */}
+                {(quickView.dosageDetails || quickView.dosage) && (
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">
+                      Dosage Guide
+                    </p>
+                    <p className="text-sm text-emerald-900 leading-relaxed">
+                      {quickView.dosageDetails || quickView.dosage}
+                    </p>
                   </div>
-                </div>
-              )}
-
-              {quickView.sideEffects && !quickView.safetyInfo && (
-                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3.5">
-                  <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3 h-3" /> {t.store_side_effects}
-                  </p>
-                  <p className="text-sm text-amber-800 leading-relaxed">{quickView.sideEffects}</p>
-                </div>
-              )}
-
-              {quickView.marketingPharmacies.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">{t.store_available_at}</p>
-                  <div className="space-y-1.5">
-                    {quickView.marketingPharmacies.slice(0, 3).map((p, i) => (
-                      <div key={i} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-                        <span className="text-sm text-slate-700 font-medium">{p.pharmacyName}</span>
-                        <span className={cn(
-                          "text-xs font-bold",
-                          p.stockStatus === "available" ? "text-farumasi-600" :
-                          p.stockStatus === "low_stock"  ? "text-amber-600" : "text-red-500"
-                        )}>
-                          {p.stockStatus === "available" ? t.store_in_stock : p.stockStatus === "low_stock" ? t.store_low_stock : t.store_out_of_stock}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Footer */}
