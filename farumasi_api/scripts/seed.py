@@ -169,16 +169,204 @@ DEMO_USERS = [
 ]
 
 DEMO_PRODUCTS = [
-    {"name": "Amoxicillin 500mg", "generic_name": "Amoxicillin", "dosage_form": "Capsule", "strength": "500mg", "prescription_required": True, "category": "Antibiotics"},
-    {"name": "Paracetamol 500mg", "generic_name": "Paracetamol", "dosage_form": "Tablet", "strength": "500mg", "prescription_required": False, "category": "Analgesics"},
-    {"name": "Metformin 500mg", "generic_name": "Metformin", "dosage_form": "Tablet", "strength": "500mg", "prescription_required": True, "category": "Antidiabetics"},
-    {"name": "Amlodipine 5mg", "generic_name": "Amlodipine", "dosage_form": "Tablet", "strength": "5mg", "prescription_required": True, "category": "Antihypertensives"},
-    {"name": "Artemether/Lumefantrine", "generic_name": "Artemether+Lumefantrine", "dosage_form": "Tablet", "strength": "20/120mg", "prescription_required": True, "category": "Antimalarials"},
-    {"name": "Ibuprofen 400mg", "generic_name": "Ibuprofen", "dosage_form": "Tablet", "strength": "400mg", "prescription_required": False, "category": "Analgesics"},
-    {"name": "Omeprazole 20mg", "generic_name": "Omeprazole", "dosage_form": "Capsule", "strength": "20mg", "prescription_required": False, "category": "Gastrointestinal"},
-    {"name": "Ciprofloxacin 500mg", "generic_name": "Ciprofloxacin", "dosage_form": "Tablet", "strength": "500mg", "prescription_required": True, "category": "Antibiotics"},
-    {"name": "Salbutamol Inhaler", "generic_name": "Salbutamol", "dosage_form": "Inhaler", "strength": "100mcg", "prescription_required": True, "category": "Respiratory"},
-    {"name": "Vitamin C 500mg", "generic_name": "Ascorbic Acid", "dosage_form": "Tablet", "strength": "500mg", "prescription_required": False, "category": "Vitamins & Supplements"},
+    # ── Analgesics / Pain Relief ──────────────────────────────────────────
+    {
+        "name": "Paracetamol 500mg", "generic_name": "Paracetamol",
+        "dosage_form": "Tablet", "strength": "500mg",
+        "prescription_required": False, "category": "Analgesics",
+        "manufacturer": "Sulfo Industries Rwanda",
+        "description": "First-line analgesic and antipyretic for mild to moderate pain and fever.",
+    },
+    {
+        "name": "Ibuprofen 400mg", "generic_name": "Ibuprofen",
+        "dosage_form": "Tablet", "strength": "400mg",
+        "prescription_required": False, "category": "Analgesics",
+        "manufacturer": "Strides Pharma",
+        "description": "NSAID for pain relief, fever, and inflammation.",
+    },
+    {
+        "name": "Diclofenac 50mg", "generic_name": "Diclofenac Sodium",
+        "dosage_form": "Tablet", "strength": "50mg",
+        "prescription_required": False, "category": "Analgesics",
+        "manufacturer": "Novartis",
+        "description": "Anti-inflammatory analgesic for musculoskeletal and joint pain.",
+    },
+    {
+        "name": "Tramadol 50mg", "generic_name": "Tramadol HCl",
+        "dosage_form": "Capsule", "strength": "50mg",
+        "prescription_required": True, "category": "Analgesics",
+        "manufacturer": "Grünenthal",
+        "description": "Opioid analgesic for moderate to severe pain.",
+    },
+    # ── Antibiotics ───────────────────────────────────────────────────────
+    {
+        "name": "Amoxicillin 500mg", "generic_name": "Amoxicillin",
+        "dosage_form": "Capsule", "strength": "500mg",
+        "prescription_required": True, "category": "Antibiotics",
+        "manufacturer": "GSK",
+        "description": "Broad-spectrum penicillin antibiotic for respiratory, ear, and urinary infections.",
+    },
+    {
+        "name": "Ciprofloxacin 500mg", "generic_name": "Ciprofloxacin",
+        "dosage_form": "Tablet", "strength": "500mg",
+        "prescription_required": True, "category": "Antibiotics",
+        "manufacturer": "Bayer",
+        "description": "Fluoroquinolone antibiotic for UTIs, typhoid, and GI infections.",
+    },
+    {
+        "name": "Metronidazole 400mg", "generic_name": "Metronidazole",
+        "dosage_form": "Tablet", "strength": "400mg",
+        "prescription_required": True, "category": "Antibiotics",
+        "manufacturer": "Aventis Pharma",
+        "description": "Antibiotic and antiprotozoal for anaerobic bacterial and parasitic infections.",
+    },
+    {
+        "name": "Azithromycin 500mg", "generic_name": "Azithromycin",
+        "dosage_form": "Tablet", "strength": "500mg",
+        "prescription_required": True, "category": "Antibiotics",
+        "manufacturer": "Pfizer",
+        "description": "Macrolide antibiotic for respiratory tract infections, STIs, and skin infections.",
+    },
+    {
+        "name": "Doxycycline 100mg", "generic_name": "Doxycycline Hyclate",
+        "dosage_form": "Capsule", "strength": "100mg",
+        "prescription_required": True, "category": "Antibiotics",
+        "manufacturer": "Actavis",
+        "description": "Tetracycline antibiotic used for malaria prophylaxis, chest infections, and STIs.",
+    },
+    # ── Antimalarials ─────────────────────────────────────────────────────
+    {
+        "name": "Artemether/Lumefantrine 20/120mg", "generic_name": "Artemether+Lumefantrine",
+        "dosage_form": "Tablet", "strength": "20/120mg",
+        "prescription_required": True, "category": "Antimalarials",
+        "manufacturer": "Novartis (Coartem)",
+        "description": "First-line ACT treatment for uncomplicated Plasmodium falciparum malaria.",
+    },
+    {
+        "name": "Quinine Sulphate 300mg", "generic_name": "Quinine Sulphate",
+        "dosage_form": "Tablet", "strength": "300mg",
+        "prescription_required": True, "category": "Antimalarials",
+        "manufacturer": "Guilini Pharma",
+        "description": "Antimalarial for treatment of severe and complicated malaria.",
+    },
+    # ── Antidiabetics ─────────────────────────────────────────────────────
+    {
+        "name": "Metformin 500mg", "generic_name": "Metformin HCl",
+        "dosage_form": "Tablet", "strength": "500mg",
+        "prescription_required": True, "category": "Antidiabetics",
+        "manufacturer": "Merck",
+        "description": "First-line oral antidiabetic for type 2 diabetes; improves insulin sensitivity.",
+    },
+    {
+        "name": "Glibenclamide 5mg", "generic_name": "Glibenclamide",
+        "dosage_form": "Tablet", "strength": "5mg",
+        "prescription_required": True, "category": "Antidiabetics",
+        "manufacturer": "Sanofi",
+        "description": "Sulfonylurea used to lower blood glucose in type 2 diabetes.",
+    },
+    # ── Antihypertensives / Cardiovascular ────────────────────────────────
+    {
+        "name": "Amlodipine 5mg", "generic_name": "Amlodipine Besylate",
+        "dosage_form": "Tablet", "strength": "5mg",
+        "prescription_required": True, "category": "Antihypertensives",
+        "manufacturer": "Pfizer",
+        "description": "Calcium channel blocker for hypertension and angina.",
+    },
+    {
+        "name": "Lisinopril 10mg", "generic_name": "Lisinopril",
+        "dosage_form": "Tablet", "strength": "10mg",
+        "prescription_required": True, "category": "Antihypertensives",
+        "manufacturer": "AstraZeneca",
+        "description": "ACE inhibitor for hypertension, heart failure, and post-MI management.",
+    },
+    {
+        "name": "Hydrochlorothiazide 25mg", "generic_name": "Hydrochlorothiazide",
+        "dosage_form": "Tablet", "strength": "25mg",
+        "prescription_required": True, "category": "Antihypertensives",
+        "manufacturer": "Novartis",
+        "description": "Thiazide diuretic used as add-on therapy for hypertension.",
+    },
+    # ── Gastrointestinal ──────────────────────────────────────────────────
+    {
+        "name": "Omeprazole 20mg", "generic_name": "Omeprazole",
+        "dosage_form": "Capsule", "strength": "20mg",
+        "prescription_required": False, "category": "Gastrointestinal",
+        "manufacturer": "AstraZeneca",
+        "description": "Proton pump inhibitor for acid reflux, gastric ulcers, and GERD.",
+    },
+    {
+        "name": "Oral Rehydration Salts", "generic_name": "ORS (Glucose-Electrolyte)",
+        "dosage_form": "Sachet", "strength": "27.9g/sachet",
+        "prescription_required": False, "category": "Gastrointestinal",
+        "manufacturer": "Unicef/WHO Standard",
+        "description": "First-line treatment for dehydration from diarrhea and vomiting.",
+    },
+    {
+        "name": "Mebendazole 500mg", "generic_name": "Mebendazole",
+        "dosage_form": "Tablet", "strength": "500mg",
+        "prescription_required": False, "category": "Gastrointestinal",
+        "manufacturer": "Janssen",
+        "description": "Anthelmintic for intestinal worm infections (roundworm, hookworm, whipworm).",
+    },
+    # ── Respiratory ───────────────────────────────────────────────────────
+    {
+        "name": "Salbutamol Inhaler 100mcg", "generic_name": "Salbutamol",
+        "dosage_form": "Inhaler", "strength": "100mcg/dose",
+        "prescription_required": True, "category": "Respiratory",
+        "manufacturer": "GSK (Ventolin)",
+        "description": "Short-acting bronchodilator for asthma and COPD symptom relief.",
+    },
+    {
+        "name": "Beclomethasone Inhaler 200mcg", "generic_name": "Beclomethasone Dipropionate",
+        "dosage_form": "Inhaler", "strength": "200mcg/dose",
+        "prescription_required": True, "category": "Respiratory",
+        "manufacturer": "Chiesi",
+        "description": "Inhaled corticosteroid for maintenance therapy in asthma.",
+    },
+    # ── Vitamins & Supplements ────────────────────────────────────────────
+    {
+        "name": "Vitamin C 500mg", "generic_name": "Ascorbic Acid",
+        "dosage_form": "Tablet", "strength": "500mg",
+        "prescription_required": False, "category": "Vitamins & Supplements",
+        "manufacturer": "Bayer",
+        "description": "Essential vitamin for immune support and antioxidant protection.",
+    },
+    {
+        "name": "Vitamin D3 1000IU", "generic_name": "Cholecalciferol",
+        "dosage_form": "Tablet", "strength": "1000IU",
+        "prescription_required": False, "category": "Vitamins & Supplements",
+        "manufacturer": "Solgar",
+        "description": "Vitamin D supplement for bone health, immune function, and calcium absorption.",
+    },
+    {
+        "name": "Ferrous Sulphate 200mg", "generic_name": "Ferrous Sulphate",
+        "dosage_form": "Tablet", "strength": "200mg",
+        "prescription_required": False, "category": "Vitamins & Supplements",
+        "manufacturer": "Actavis",
+        "description": "Iron supplement for iron-deficiency anaemia and pregnancy supplementation.",
+    },
+    {
+        "name": "Folic Acid 5mg", "generic_name": "Folic Acid",
+        "dosage_form": "Tablet", "strength": "5mg",
+        "prescription_required": False, "category": "Vitamins & Supplements",
+        "manufacturer": "Strides Pharma",
+        "description": "B-vitamin supplement for anaemia prevention and neural tube defect prevention in pregnancy.",
+    },
+    # ── Allergy / Cold ────────────────────────────────────────────────────
+    {
+        "name": "Cetirizine 10mg", "generic_name": "Cetirizine HCl",
+        "dosage_form": "Tablet", "strength": "10mg",
+        "prescription_required": False, "category": "Antihistamines",
+        "manufacturer": "UCB",
+        "description": "Non-drowsy antihistamine for allergic rhinitis, urticaria, and hay fever.",
+    },
+    {
+        "name": "Loratadine 10mg", "generic_name": "Loratadine",
+        "dosage_form": "Tablet", "strength": "10mg",
+        "prescription_required": False, "category": "Antihistamines",
+        "manufacturer": "Schering-Plough",
+        "description": "Long-acting antihistamine for allergy symptoms with minimal sedation.",
+    },
 ]
 
 PHARMACIST_EXTRAS = [
@@ -404,7 +592,7 @@ async def seed():
         partner_admin_user = email_to_user.get("partner_admin@farumasi.com")
         existing_partner = (await db.execute(select(PartnerCompany).limit(1))).scalar_one_or_none()
         if not existing_partner:
-            partner = PartnerCompany(
+            partner_company = PartnerCompany(
                 owner_user_id=(partner_admin_user or fallback_user).id,
                 name="MediHub Rwanda",
                 business_registration_number="RWA-PART-001",
@@ -416,12 +604,19 @@ async def seed():
                 email="info@medihub.rw",
                 status=EntityStatus.ACTIVE,
             )
-            db.add(partner)
+            db.add(partner_company)
             await db.flush()
-            print(f"  [+] Partner: {partner.name}")
+            print(f"  [+] Partner: {partner_company.name}")
+        else:
+            partner_company = existing_partner
+            print(f"  [skip] Partner company already exists")
 
         # ─── Products + Listings ──────────────────────────────────────────
+        # pharmacy[0] = Kigali City Pharmacy  (all products, price tier A)
+        # pharmacy[1] = Remera Medicare       (all products, price tier B)
+        # partner_company = MediHub Rwanda    (first 15 products, price tier C)
         admin_user = email_to_user.get("admin@farumasi.com") or fallback_user
+        pharm2 = seeded_pharmacies[1] if len(seeded_pharmacies) > 1 else None
         seeded_products = []
         for i, pd in enumerate(DEMO_PRODUCTS):
             existing_prod = (await db.execute(select(ProductCatalogueItem).where(ProductCatalogueItem.name == pd["name"]).limit(1))).scalar_one_or_none()
@@ -434,22 +629,67 @@ async def seed():
                 db.add(product)
                 await db.flush()
                 seeded_products.append(product)
+            else:
+                seeded_products.append(existing_prod)
 
-                if pharmacy:
+        # Ensure every product has a listing for pharmacy[0]
+        if pharmacy:
+            for i, product in enumerate(seeded_products):
+                existing_l = (await db.execute(
+                    select(ProductListing)
+                    .where(ProductListing.pharmacy_id == pharmacy.id, ProductListing.product_id == product.id)
+                )).scalar_one_or_none()
+                if not existing_l:
                     db.add(ProductListing(
                         pharmacy_id=pharmacy.id,
                         product_id=product.id,
-                        price=1500 + (i * 250),
+                        price=round(1500 + (i * 250), 2),
                         stock_quantity=100,
                         expiry_date=date.today() + timedelta(days=365),
                         availability_status=ListingAvailability.AVAILABLE,
                         status=EntityStatus.ACTIVE,
                     ))
-            else:
-                seeded_products.append(existing_prod)
+
+        # Ensure every product has a listing for pharmacy[1] (Remera Medicare)
+        if pharm2:
+            for i, product in enumerate(seeded_products):
+                existing_l = (await db.execute(
+                    select(ProductListing)
+                    .where(ProductListing.pharmacy_id == pharm2.id, ProductListing.product_id == product.id)
+                )).scalar_one_or_none()
+                if not existing_l:
+                    db.add(ProductListing(
+                        pharmacy_id=pharm2.id,
+                        product_id=product.id,
+                        price=round(1600 + (i * 220), 2),
+                        stock_quantity=80,
+                        expiry_date=date.today() + timedelta(days=400),
+                        availability_status=ListingAvailability.AVAILABLE,
+                        status=EntityStatus.ACTIVE,
+                    ))
+            print(f"  [+] Listings ensured for {pharm2.name}")
+
+        # Ensure the partner company has listings for first 15 products
+        if partner_company:
+            for i, product in enumerate(seeded_products[:15]):
+                existing_l = (await db.execute(
+                    select(ProductListing)
+                    .where(ProductListing.partner_company_id == partner_company.id, ProductListing.product_id == product.id)
+                )).scalar_one_or_none()
+                if not existing_l:
+                    db.add(ProductListing(
+                        partner_company_id=partner_company.id,
+                        product_id=product.id,
+                        price=round(1400 + (i * 230), 2),
+                        stock_quantity=200,
+                        expiry_date=date.today() + timedelta(days=500),
+                        availability_status=ListingAvailability.AVAILABLE,
+                        status=EntityStatus.ACTIVE,
+                    ))
+            print(f"  [+] Listings ensured for partner: {partner_company.name}")
 
         if seeded_products:
-            print(f"  [+] {len(DEMO_PRODUCTS)} products seeded/skipped with pharmacy listings")
+            print(f"  [+] {len(seeded_products)} products seeded/verified with listings")
 
         # ─── Sample prescriptions (patient-uploaded) ──────────────────────
         patient1_user = email_to_user.get("patient@farumasi.com")
@@ -521,27 +761,6 @@ async def seed():
             if pp.verification_status != VerificationStatus.VERIFIED:
                 pp.verification_status = VerificationStatus.VERIFIED
                 print(f"  [update] Verified pharmacist profile: {pp.user_id}")
-
-        # ─── Add product listings to second pharmacy too ───────────────────
-        if len(seeded_pharmacies) > 1:
-            pharm2 = seeded_pharmacies[1]
-            all_products = (await db.execute(select(ProductCatalogueItem))).scalars().all()
-            for i, prod in enumerate(all_products):
-                existing_listing = (await db.execute(
-                    select(ProductListing)
-                    .where(ProductListing.pharmacy_id == pharm2.id, ProductListing.product_id == prod.id)
-                )).scalar_one_or_none()
-                if not existing_listing:
-                    db.add(ProductListing(
-                        pharmacy_id=pharm2.id,
-                        product_id=prod.id,
-                        price=1600 + (i * 200),
-                        stock_quantity=80,
-                        expiry_date=date.today() + timedelta(days=400),
-                        availability_status=ListingAvailability.AVAILABLE,
-                        status=EntityStatus.ACTIVE,
-                    ))
-            print(f"  [+] Product listings added to {pharm2.name}")
 
         # ─── Health articles ───────────────────────────────────────────────
         pharmacist1_user = email_to_user.get("pharmacist@farumasi.com")

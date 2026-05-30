@@ -14,8 +14,20 @@ import {
   MapPin, CheckCircle, XCircle, Clock, ChevronRight,
 } from "lucide-react";
 
-const TABS = ["Description", "Dosage by Age", "Pharmacies"] as const;
-type Tab = (typeof TABS)[number];
+function categoryBg(cat?: string): string {
+  const c = (cat ?? "").toLowerCase();
+  if (c.includes("antibiotic"))                              return "bg-blue-100 text-blue-700 border-blue-200";
+  if (c.includes("analgesic") || c.includes("pain"))        return "bg-orange-100 text-orange-700 border-orange-200";
+  if (c.includes("malaria"))                                 return "bg-red-100 text-red-700 border-red-200";
+  if (c.includes("diabet") || c.includes("chronic"))        return "bg-purple-100 text-purple-700 border-purple-200";
+  if (c.includes("vitamin") || c.includes("supplement"))    return "bg-yellow-100 text-yellow-700 border-yellow-200";
+  if (c.includes("respiratory") || c.includes("cold") || c.includes("asthma"))
+                                                             return "bg-sky-100 text-sky-700 border-sky-200";
+  if (c.includes("gastro") || c.includes("digestive"))      return "bg-amber-100 text-amber-700 border-amber-200";
+  if (c.includes("hypertension"))                           return "bg-rose-100 text-rose-700 border-rose-200";
+  if (c.includes("antihistamine") || c.includes("allergy")) return "bg-teal-100 text-teal-700 border-teal-200";
+  return "bg-farumasi-100 text-farumasi-700 border-farumasi-200";
+}
 
 export default function MedicineDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -57,7 +69,7 @@ export default function MedicineDetailPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="p-4 lg:p-6">
       {/* Back */}
       <button
         onClick={() => router.back()}
@@ -67,7 +79,7 @@ export default function MedicineDetailPage() {
         Back to Store
       </button>
 
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="grid lg:grid-cols-[320px_1fr] gap-8">
         {/* Left: image */}
         <div>
           <div className="rounded-3xl overflow-hidden bg-slate-100 h-72 lg:h-80 flex items-center justify-center">
@@ -160,27 +172,17 @@ export default function MedicineDetailPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="mt-10">
-        <div className="flex bg-slate-100 rounded-2xl p-1 gap-1 w-fit mb-6">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                tab === t ? "bg-white text-farumasi-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+      {/* Info sections */}
+      <div className="mt-10 space-y-4">
 
-        {tab === "Description" && (
-          <div className="grid lg:grid-cols-2 gap-4">
+        {/* Two-column layout */}
+        <div className="grid lg:grid-cols-[1fr_2fr] gap-4">
 
-            {/* Left: Patient Overview */}
-            <div className="bg-white rounded-3xl border border-slate-100 p-5 space-y-3 h-fit">
+            {/* Left column */}
+            <div className="space-y-4">
+
+            {/* Patient Overview */}
+            <div className="bg-white rounded-3xl border border-slate-100 p-5 space-y-3">
               <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
                 Patient Overview
               </p>
@@ -195,6 +197,52 @@ export default function MedicineDetailPage() {
                   <p className="text-sm text-farumasi-800">{med.dosageSummary}</p>
                 </div>
               )}
+            </div>
+
+            {/* Product Details */}
+            <div className="bg-white rounded-3xl border border-slate-100 p-5">
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Product Details</p>
+              <div className="space-y-2">
+                {med.manufacturer && (
+                  <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-2.5">
+                    <span className="text-[11px] font-bold text-slate-400 w-24 shrink-0">Manufacturer</span>
+                    <span className="flex-1 min-w-0 text-[13px] font-semibold text-slate-800 break-words">{med.manufacturer}</span>
+                  </div>
+                )}
+                {med.category && (
+                  <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-2.5">
+                    <span className="text-[11px] font-bold text-slate-400 w-24 shrink-0">Category</span>
+                    <span className={cn("min-w-0 text-[11px] font-bold px-2.5 py-0.5 rounded-full border break-words", categoryBg(med.category))}>
+                      {med.category}
+                    </span>
+                  </div>
+                )}
+                {med.subCategory && (
+                  <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-2.5">
+                    <span className="text-[11px] font-bold text-slate-400 w-24 shrink-0">Type</span>
+                    <span className="flex-1 min-w-0 text-[13px] font-semibold text-slate-700 capitalize break-words">{med.subCategory}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-2.5">
+                  <span className="text-[11px] font-bold text-slate-400 w-24 shrink-0">Prescription</span>
+                  <span className={cn(
+                    "text-[11px] font-bold px-2.5 py-0.5 rounded-full border",
+                    med.requiresPrescription
+                      ? "bg-violet-50 text-violet-700 border-violet-200"
+                      : "bg-farumasi-50 text-farumasi-700 border-farumasi-200",
+                  )}>
+                    {med.requiresPrescription ? "Required (Rx)" : "Not Required (OTC)"}
+                  </span>
+                </div>
+                {med.composition && (
+                  <div className="flex items-start gap-3 bg-slate-50 rounded-xl px-4 py-2.5">
+                    <span className="text-[11px] font-bold text-slate-400 w-24 shrink-0 pt-0.5">Composition</span>
+                    <span className="flex-1 min-w-0 text-[13px] text-slate-700 break-words">{med.composition}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             </div>
 
             {/* Right: Detailed Information */}
@@ -245,30 +293,28 @@ export default function MedicineDetailPage() {
                 }}
               />
             </div>
-          </div>
-        )}
+        </div>
 
-        {tab === "Dosage by Age" && (
+        {/* Dosage by Age */}
+        {med.ageDosages && med.ageDosages.length > 0 && (
           <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-3">
-            {med.ageDosages && med.ageDosages.length > 0 ? (
-              med.ageDosages.map((d, i) => (
-                <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{d.range}</p>
-                  </div>
-                  <p className="text-sm font-bold text-farumasi-700">{d.instructions}</p>
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Dosage by Age</p>
+            {med.ageDosages.map((d, i) => (
+              <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{d.range}</p>
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-slate-500">Dosage info not available. Consult a pharmacist.</p>
-            )}
+                <p className="text-sm font-bold text-farumasi-700">{d.instructions}</p>
+              </div>
+            ))}
           </div>
         )}
 
-        {tab === "Pharmacies" && (
+        {/* Pharmacies */}
+        {med.marketingPharmacies && med.marketingPharmacies.length > 0 && (
           <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-3">
-            {med.marketingPharmacies && med.marketingPharmacies.length > 0 ? (
-              med.marketingPharmacies.map((p, i) => (
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Available At</p>
+            {med.marketingPharmacies.map((p, i) => (
                 <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center">
@@ -289,9 +335,7 @@ export default function MedicineDetailPage() {
                   </div>
                 </div>
               ))
-            ) : (
-              <p className="text-sm text-slate-500">No pharmacy listings available.</p>
-            )}
+            }
           </div>
         )}
       </div>

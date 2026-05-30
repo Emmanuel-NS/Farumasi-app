@@ -10,7 +10,7 @@ import {
   HelpCircle, ChevronDown, ChevronRight, FileSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { mockKPIs } from "@/data/mock";
+import { useLayoutDataStore } from "@/lib/store/layout-data";
 
 interface NavChild { name: string; href: string }
 interface NavItem {
@@ -21,7 +21,7 @@ interface NavItem {
   children?: NavChild[];
 }
 
-const navigation: NavItem[] = [
+const baseNavigation: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   {
     name: "Products", icon: Package,
@@ -35,8 +35,8 @@ const navigation: NavItem[] = [
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Revenue", href: "/revenue", icon: DollarSign },
   { name: "Customers", href: "/customers", icon: Users },
-  { name: "Notifications", href: "/notifications", icon: Bell, badge: mockKPIs.unreadNotifications },
-  { name: "Product Requests", href: "/requests", icon: FileSearch, badge: mockKPIs.pendingRequests },
+  { name: "Notifications", href: "/notifications", icon: Bell },
+  { name: "Product Requests", href: "/requests", icon: FileSearch },
   { name: "Compliance", href: "/compliance", icon: Shield },
   { name: "Team", href: "/team", icon: UserCog },
   { name: "Activity Logs", href: "/activity", icon: Activity },
@@ -49,6 +49,14 @@ interface SidebarProps { collapsed: boolean }
 export function Sidebar({ collapsed }: SidebarProps) {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<string[]>(["Products"]);
+  const unreadCount = useLayoutDataStore(s => s.unreadCount);
+  const pendingRequests = useLayoutDataStore(s => s.pendingRequests);
+
+  const navigation: NavItem[] = baseNavigation.map(item => {
+    if (item.name === "Notifications") return { ...item, badge: unreadCount };
+    if (item.name === "Product Requests") return { ...item, badge: pendingRequests };
+    return item;
+  });
 
   const toggleExpanded = (name: string) => {
     setExpandedItems(prev =>
@@ -116,7 +124,6 @@ export function Sidebar({ collapsed }: SidebarProps) {
                               <Link
                                 key={child.href}
                                 href={child.href}
-                                prefetch={true}
                                 className={cn(
                                   "flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-medium transition-colors",
                                   childActive
@@ -142,7 +149,6 @@ export function Sidebar({ collapsed }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href!}
-              prefetch={true}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
                 active

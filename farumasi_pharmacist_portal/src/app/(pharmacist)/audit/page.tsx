@@ -30,7 +30,7 @@ export default function AuditPage() {
   const load = () => {
     setLoading(true);
     auditService
-      .list({ limit: 200 })
+      .list({ limit: 100 })
       .then((r) => setLogs(r.items))
       .catch(() => toast.error("Failed to load audit logs"))
       .finally(() => setLoading(false));

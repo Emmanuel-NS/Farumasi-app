@@ -1,15 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { useAuthStore } from "@/lib/store/auth";
+import { useLayoutDataStore } from "@/lib/store/layout-data";
+
+const ALLOWED_ROLES = new Set(["pharmacy_admin", "partner_company_admin"]);
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [ready, setReady] = useState(false);
+  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const startPolling = useLayoutDataStore((s) => s.startPolling);
+
+  useEffect(() => {
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+    if (user && !ALLOWED_ROLES.has(user.role)) {
+      logout();
+      router.replace("/login");
+      return;
+    }
+    setReady(true);
+  }, [token, user, router, logout]);
+
+  // Single poller for all layout-level live data (60s interval keeps API quiet)
+  useEffect(() => {
+    if (!ready) return;
+    const stop = startPolling(60_000);
+    return stop;
+  }, [ready, startPolling]);
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-sm text-muted-foreground">
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600">
-      <Topbar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+      <Topbar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar collapsed={collapsed} />
         <main className="flex-1 overflow-y-auto scrollbar-hide p-6 bg-slate-50 rounded-tl-2xl">

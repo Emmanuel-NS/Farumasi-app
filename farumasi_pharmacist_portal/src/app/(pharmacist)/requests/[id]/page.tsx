@@ -6,10 +6,10 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { formatPrice, formatDateTime } from "@/lib/utils";
 import { ArrowLeft, CheckCircle, XCircle, FileText, Phone, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import api from "@/lib/api";
 import {
   prescriptionsService,
   type BackendPrescription,
+  type PrescriptionReviewStatus,
 } from "@/lib/services/prescriptions.service";
 
 export default function RequestDetailPage() {
@@ -23,7 +23,7 @@ export default function RequestDetailPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get<BackendPrescription>(`/prescriptions/${id}`);
+      const data = await prescriptionsService.getOne(id);
       setRx(data);
     } catch {
       setNotFound(true);
@@ -34,11 +34,22 @@ export default function RequestDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const setStatus = async (next: string) => {
+  const statusToReviewStatus: Record<string, PrescriptionReviewStatus> = {
+    cancelled: "rejected",
+    under_review: "clarification_needed",
+    reviewed: "approved",
+  };
+
+  const setStatus = async (next: "cancelled" | "under_review" | "reviewed") => {
     if (!rx) return;
     setActing(true);
     try {
-      const updated = await prescriptionsService.updateStatus(rx.id, next);
+      await prescriptionsService.submitReview({
+        prescription_id: rx.id,
+        review_status: statusToReviewStatus[next],
+        review_notes: `Marked as ${next.replace(/_/g, " ")} by pharmacist.`,
+      });
+      const updated = await prescriptionsService.getOne(rx.id);
       setRx(updated);
       toast.success(`Marked as ${next.replace(/_/g, " ")}`);
     } catch {

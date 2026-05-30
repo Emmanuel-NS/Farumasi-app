@@ -806,20 +806,20 @@ function ProductDetailPanel({ product, pharmacyMap, onClose, onEdit }: DetailPan
                 {product.manufacturer && (
                   <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-2.5">
                     <span className="text-[11px] font-bold text-slate-400 w-24 shrink-0">Manufacturer</span>
-                    <span className="text-[13px] font-semibold text-slate-800">{product.manufacturer}</span>
+                    <span className="flex-1 min-w-0 text-[13px] font-semibold text-slate-800 break-words">{product.manufacturer}</span>
                   </div>
                 )}
                 {product.category && (
                   <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-2.5">
                     <span className="text-[11px] font-bold text-slate-400 w-24 shrink-0">Category</span>
-                    <span className={cn("text-[11px] font-bold px-2.5 py-0.5 rounded-full border", catBg)}>
+                    <span className={cn("min-w-0 text-[11px] font-bold px-2.5 py-0.5 rounded-full border break-words", catBg)}>
                       {product.category.replace(/_/g, " ")}
                     </span>
                   </div>
                 )}
                 <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-2.5">
                   <span className="text-[11px] font-bold text-slate-400 w-24 shrink-0">Type</span>
-                  <span className="text-[13px] font-semibold text-slate-700 capitalize">
+                  <span className="flex-1 min-w-0 text-[13px] font-semibold text-slate-700 capitalize break-words">
                     {product.product_type.replace(/_/g, " ")}
                   </span>
                 </div>

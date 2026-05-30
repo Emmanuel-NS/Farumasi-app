@@ -82,4 +82,21 @@ export const pharmaciesService = {
     const { data } = await api.post<BackendListing>("/pharmacies/me/listings", input);
     return data;
   },
+
+  /** List all pharmacies (for name lookup in cross-pharmacy inventory view). */
+  async listAll(params?: { offset?: number; limit?: number }): Promise<{ items: BackendPharmacy[] }> {
+    // API caps limit at 100 — paginate to collect all pages
+    const pageSize = 100;
+    let offset = 0;
+    const all: BackendPharmacy[] = [];
+    while (true) {
+      const { data } = await api.get<{ items: BackendPharmacy[]; total: number }>("/pharmacies/", {
+        params: { offset, limit: pageSize, ...params },
+      });
+      all.push(...data.items);
+      if (all.length >= data.total || data.items.length < pageSize) break;
+      offset += pageSize;
+    }
+    return { items: all };
+  },
 };

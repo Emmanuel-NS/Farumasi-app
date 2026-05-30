@@ -18,6 +18,14 @@ export const listingsService = {
     return data;
   },
 
+  /** All listings for a specific product (cross-pharmacy view). */
+  async getListingsForProduct(productId: string): Promise<BackendListing[]> {
+    const { data } = await api.get<{ items: BackendListing[]; total: number }>("/listings/", {
+      params: { product_id: productId, limit: 100 },
+    });
+    return data.items;
+  },
+
   async updateListing(id: string, input: UpdateListingInput): Promise<BackendListing> {
     const { data } = await api.patch<BackendListing>(`/listings/${id}`, input);
     return data;

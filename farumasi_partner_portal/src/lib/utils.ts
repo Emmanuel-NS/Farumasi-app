@@ -50,14 +50,16 @@ export function timeAgo(iso: string): string {
 }
 
 export const orderStatusConfig: Record<OrderStatus, { label: string; color: string }> = {
-  new: { label: "New", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  pending: { label: "Pending", color: "bg-blue-100 text-blue-700 border-blue-200" },
   accepted: { label: "Accepted", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  rejected: { label: "Rejected", color: "bg-red-100 text-red-700 border-red-200" },
   preparing: { label: "Preparing", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  ready: { label: "Ready", color: "bg-teal-100 text-teal-700 border-teal-200" },
+  ready_for_pickup: { label: "Ready for Pickup", color: "bg-teal-100 text-teal-700 border-teal-200" },
   out_for_delivery: { label: "Out for Delivery", color: "bg-orange-100 text-orange-700 border-orange-200" },
+  delivered: { label: "Delivered", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   completed: { label: "Completed", color: "bg-green-100 text-green-700 border-green-200" },
   cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-600 border-gray-200" },
-  rejected: { label: "Rejected", color: "bg-red-100 text-red-700 border-red-200" },
+  failed: { label: "Failed", color: "bg-red-100 text-red-700 border-red-200" },
 };
 
 export const productStatusConfig: Record<ProductStatus, { label: string; color: string }> = {

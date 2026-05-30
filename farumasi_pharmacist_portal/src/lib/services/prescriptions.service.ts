@@ -36,6 +36,29 @@ export interface PaginatedPrescriptions {
   limit: number;
 }
 
+export type PrescriptionReviewStatus =
+  | "pending"
+  | "approved"
+  | "clarification_needed"
+  | "rejected";
+
+export interface PrescriptionReviewPayload {
+  prescription_id: string;
+  review_status: PrescriptionReviewStatus;
+  review_notes?: string;
+  safety_flags?: string[];
+}
+
+export interface PrescriptionReview {
+  id: string;
+  prescription_id: string;
+  pharmacist_id: string;
+  review_status: string;
+  review_notes?: string;
+  safety_flags?: string[];
+  created_at: string;
+}
+
 export const prescriptionsService = {
   async getAll(params?: {
     offset?: number;
@@ -46,8 +69,24 @@ export const prescriptionsService = {
     return data;
   },
 
-  async updateStatus(id: string, status: string): Promise<BackendPrescription> {
-    const { data } = await api.patch<BackendPrescription>(`/prescriptions/${id}/status`, { status });
+  async getOne(id: string): Promise<BackendPrescription> {
+    const { data } = await api.get<BackendPrescription>(`/prescriptions/${id}`);
+    return data;
+  },
+
+  /**
+   * Submit a prescription review. Backend reflects the outcome on the
+   * prescription row:
+   *  - approved             -> prescription.status = "reviewed"
+   *  - clarification_needed -> prescription.status = "under_review"
+   *  - rejected             -> prescription.status = "cancelled"
+   *  - pending              -> no change
+   */
+  async submitReview(payload: PrescriptionReviewPayload): Promise<PrescriptionReview> {
+    const { data } = await api.post<PrescriptionReview>(
+      "/pharmacists/prescription-reviews",
+      payload,
+    );
     return data;
   },
 };

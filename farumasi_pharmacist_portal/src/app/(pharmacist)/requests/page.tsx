@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatPrice, timeAgo } from "@/lib/utils";
+import Link from "next/link";
 import {
   FileText, Clock, Check, X, Send, Image as ImageIcon,
-  Wifi, Radio, Store, CheckCircle2, Eye, RefreshCw,
+  Wifi, Radio, Store, CheckCircle2, Eye, RefreshCw, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -70,27 +71,48 @@ export default function RequestsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const refreshOne = async (id: string) => {
+    try {
+      const updated = await prescriptionsService.getOne(id);
+      setPrescriptions((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    } catch {
+      // ignore — list refresh will catch up
+    }
+  };
+
   const handleAccept = async (id: string) => {
     try {
-      const updated = await prescriptionsService.updateStatus(id, "under_review");
-      setPrescriptions((prev) => prev.map((r) => (r.id === id ? updated : r)));
-      toast.success("Prescription accepted");
+      await prescriptionsService.submitReview({
+        prescription_id: id,
+        review_status: "clarification_needed",
+        review_notes: "Marked under review by pharmacist.",
+      });
+      await refreshOne(id);
+      toast.success("Marked under review");
     } catch { toast.error("Could not accept"); }
   };
 
   const handleReject = async (id: string) => {
     try {
-      const updated = await prescriptionsService.updateStatus(id, "cancelled");
-      setPrescriptions((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      await prescriptionsService.submitReview({
+        prescription_id: id,
+        review_status: "rejected",
+        review_notes: "Rejected by pharmacist.",
+      });
+      await refreshOne(id);
       toast.error("Prescription rejected");
     } catch { toast.error("Could not reject"); }
   };
 
   const handleReview = async (id: string) => {
     try {
-      const updated = await prescriptionsService.updateStatus(id, "reviewed");
-      setPrescriptions((prev) => prev.map((r) => (r.id === id ? updated : r)));
-      toast.success("Marked as reviewed");
+      await prescriptionsService.submitReview({
+        prescription_id: id,
+        review_status: "approved",
+        review_notes: "Approved by pharmacist.",
+      });
+      await refreshOne(id);
+      toast.success("Prescription approved");
     } catch { toast.error("Could not update"); }
   };
 
@@ -233,6 +255,14 @@ export default function RequestsPage() {
                 )}
 
                 <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                  <Link
+                    href={`/requests/${rx.id}`}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-farumasi-200 text-farumasi-600 hover:bg-farumasi-50 transition-colors"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    View
+                  </Link>
+
                   {rx.uploaded_file_url && (
                     <a
                       href={rx.uploaded_file_url}
@@ -250,7 +280,7 @@ export default function RequestsPage() {
                       onClick={() => setBroadcastModal(rx.id)}
                       className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Radio className="w-3.5 h-3.5" />
                       Network Status
                     </button>
                   )}

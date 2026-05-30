@@ -1,7 +1,17 @@
 // ─── Core enums ───────────────────────────────────────────────────────────────
 
 export type ProductStatus = "available" | "unavailable" | "low_stock" | "out_of_stock" | "suspended" | "pending_update";
-export type OrderStatus = "new" | "accepted" | "preparing" | "ready" | "out_for_delivery" | "completed" | "cancelled" | "rejected";
+export type OrderStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "preparing"
+  | "ready_for_pickup"
+  | "out_for_delivery"
+  | "delivered"
+  | "completed"
+  | "cancelled"
+  | "failed";
 export type RequestStatus = "draft" | "submitted" | "under_review" | "requires_info" | "approved" | "rejected";
 export type WithdrawalStatus = "pending" | "processing" | "completed" | "rejected";
 export type VerificationStatus = "unverified" | "pending" | "verified" | "suspended";

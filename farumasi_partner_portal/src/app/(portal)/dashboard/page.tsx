@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  DollarSign, ShoppingCart, Package, AlertTriangle, TrendingUp,
-  Bell, Clock, CheckCircle2, XCircle, ArrowRight, Boxes, LayoutDashboard
+  DollarSign, ShoppingCart, Package, AlertTriangle,
+  ArrowRight, LayoutDashboard, Loader2
 } from "lucide-react";
 import Link from "next/link";
 import { KpiCard } from "@/components/shared/kpi-card";
@@ -14,63 +14,116 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { RevenueChart } from "@/components/charts/revenue-chart";
 import { OrdersChart } from "@/components/charts/orders-chart";
-import { TopProductsChart } from "@/components/charts/top-products-chart";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
 import {
-  mockKPIs, mockOrders, mockRevenueChart, mockOrdersChart,
-  mockTopProducts, mockListedProducts, mockActivityLogs, mockNotifications
+  mockRevenueChart, mockOrdersChart,
 } from "@/data/mock";
-import { formatCompactRWF, formatRWF, timeAgo } from "@/lib/utils";
+import { formatCompactRWF, timeAgo } from "@/lib/utils";
+import { useAuthStore } from "@/lib/store/auth";
+import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
+import { listingsService, type BackendListing } from "@/lib/services/listings.service";
+import type { OrderStatus, ProductStatus } from "@/types";
+import { toast } from "@/lib/toast";
+import { getApiError } from "@/lib/api";
+
+const LOW_THRESHOLD = 10;
+
+function uiStatus(l: BackendListing): ProductStatus {
+  if (l.availability_status === "out_of_stock" || l.stock_quantity <= 0) return "out_of_stock";
+  if (l.availability_status === "unavailable") return "unavailable";
+  if (l.stock_quantity <= LOW_THRESHOLD) return "low_stock";
+  return "available";
+}
+
+function shortId(id: string): string {
+  return `FRM-${id.slice(0, 8).toUpperCase()}`;
+}
 
 export default function DashboardPage() {
+  const user = useAuthStore(s => s.user);
   const [range, setRange] = useState<DateRangeValue>("month");
-  const lowStockProducts = mockListedProducts.filter(p => p.status === "low_stock" || p.status === "out_of_stock");
-  const recentOrders = mockOrders.slice(0, 5);
-  const unreadNotifications = mockNotifications.filter(n => !n.isRead);
+  const [orders, setOrders] = useState<BackendOrder[]>([]);
+  const [listings, setListings] = useState<BackendListing[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([
+      ordersService.listPartnerOrders({ offset: 0, limit: 50 }),
+      listingsService.listMyListings({ offset: 0, limit: 100 }),
+    ])
+      .then(([o, l]) => {
+        if (cancelled) return;
+        setOrders(o.items);
+        setListings(l.items);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        toast.error(getApiError(err, "Failed to load dashboard"));
+      })
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, []);
+
+  const kpis = useMemo(() => {
+    const monthlyRevenue = orders
+      .filter(o => o.status === "completed" || o.status === "delivered")
+      .reduce((s, o) => s + (o.net_amount ?? o.total_amount), 0);
+    const pendingOrders = orders.filter(o => o.status === "pending").length;
+    const totalProducts = listings.length;
+    const activeListings = listings.filter(l => uiStatus(l) === "available").length;
+    const lowStockCount = listings.filter(l => {
+      const s = uiStatus(l);
+      return s === "low_stock" || s === "out_of_stock";
+    }).length;
+    return { monthlyRevenue, pendingOrders, totalProducts, activeListings, lowStockCount };
+  }, [orders, listings]);
+
+  const recentOrders = orders.slice(0, 5);
+  const lowStockProducts = listings
+    .filter(l => { const s = uiStatus(l); return s === "low_stock" || s === "out_of_stock"; })
+    .slice(0, 4);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Welcome back, Kalisa David — here's your business overview"
+        description={`Welcome back, ${user?.full_name?.split(" ")[0] || "Partner"} — here's your business overview`}
         icon={LayoutDashboard}
       />
 
-      {/* KPI Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          title="Monthly Revenue"
-          value={formatCompactRWF(mockKPIs.monthlyRevenue)}
-          delta={mockKPIs.revenueGrowth}
-          deltaLabel="vs last month"
+          title="Revenue (Completed)"
+          value={formatCompactRWF(kpis.monthlyRevenue)}
           icon={DollarSign}
         />
         <KpiCard
           title="Active Listings"
-          value={`${mockKPIs.activeListings} / ${mockKPIs.totalProducts}`}
+          value={`${kpis.activeListings} / ${kpis.totalProducts}`}
           icon={Package}
           iconBg="bg-blue-100"
           iconColor="text-blue-600"
         />
         <KpiCard
           title="Pending Orders"
-          value={String(mockKPIs.pendingOrders)}
+          value={String(kpis.pendingOrders)}
           icon={ShoppingCart}
           iconBg="bg-amber-100"
           iconColor="text-amber-600"
         />
         <KpiCard
           title="Low Stock Items"
-          value={String(mockKPIs.lowStockCount)}
+          value={String(kpis.lowStockCount)}
           icon={AlertTriangle}
           iconBg="bg-red-100"
           iconColor="text-red-600"
         />
       </div>
 
-      {/* Charts Row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <Card className="xl:col-span-2">
           <CardHeader>
@@ -101,18 +154,14 @@ export default function DashboardPage() {
           <CardContent>
             <OrdersChart data={mockOrdersChart} height={180} />
             <div className="flex items-center justify-between mt-3 pt-3 border-t">
-              <span className="text-xs text-muted-foreground">Total this week</span>
-              <span className="text-sm font-bold text-foreground">
-                {mockOrdersChart.reduce((s, d) => s + d.value, 0)}
-              </span>
+              <span className="text-xs text-muted-foreground">Total tracked</span>
+              <span className="text-sm font-bold text-foreground">{orders.length}</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Lower Row: Recent Orders + Top Products + Alerts */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {/* Recent Orders */}
         <Card className="xl:col-span-2">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -134,13 +183,27 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentOrders.map(order => (
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                      <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> Loading…
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading && recentOrders.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                      No orders yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading && recentOrders.map(order => (
                   <TableRow key={order.id}>
-                    <TableCell className="font-mono text-xs">{order.orderNumber}</TableCell>
-                    <TableCell className="text-xs">{order.customerName}</TableCell>
-                    <TableCell className="text-xs font-medium">{formatCompactRWF(order.netAmount)}</TableCell>
-                    <TableCell><StatusBadge status={order.status} type="order" /></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{timeAgo(order.placedAt)}</TableCell>
+                    <TableCell className="font-mono text-xs">{shortId(order.id)}</TableCell>
+                    <TableCell className="text-xs">{order.patient?.user?.full_name || "—"}</TableCell>
+                    <TableCell className="text-xs font-medium">{formatCompactRWF(order.net_amount ?? order.total_amount)}</TableCell>
+                    <TableCell><StatusBadge status={order.status as OrderStatus} type="order" /></TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{timeAgo(order.created_at)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -148,20 +211,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Right column */}
         <div className="space-y-4">
-          {/* Top products */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Products</CardTitle>
-              <CardDescription>By total sales volume</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TopProductsChart data={mockTopProducts} height={180} />
-            </CardContent>
-          </Card>
-
-          {/* Inventory alerts */}
           {lowStockProducts.length > 0 && (
             <Card className="border-amber-200 bg-amber-50/50">
               <CardHeader className="pb-2">
@@ -174,10 +224,10 @@ export default function DashboardPage() {
                 {lowStockProducts.map(p => (
                   <div key={p.id} className="flex items-center justify-between">
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-foreground truncate">{p.product.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{p.stockQty} units remaining</p>
+                      <p className="text-xs font-medium text-foreground truncate">{p.product?.name || "Product"}</p>
+                      <p className="text-[11px] text-muted-foreground">{p.stock_quantity} units remaining</p>
                     </div>
-                    <StatusBadge status={p.status} type="product" />
+                    <StatusBadge status={uiStatus(p)} type="product" />
                   </div>
                 ))}
                 <Button variant="outline" size="sm" className="w-full mt-2 text-xs" asChild>
@@ -186,68 +236,15 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           )}
+
+          {!loading && lowStockProducts.length === 0 && (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle>Stock Health</CardTitle></CardHeader>
+              <CardContent className="text-xs text-muted-foreground">All listings have healthy stock levels.</CardContent>
+            </Card>
+          )}
         </div>
-      </div>
-
-      {/* Activity + Notifications footer row */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Recent Activity</CardTitle>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/activity" className="text-xs text-farumasi-600">View all <ArrowRight className="w-3 h-3 ml-1" /></Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {mockActivityLogs.map(log => (
-              <div key={log.id} className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0 mt-0.5">
-                  {log.performedBy.split(" ").map(w => w[0]).join("").slice(0, 2)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground">{log.action}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{log.details}</p>
-                </div>
-                <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo(log.timestamp)}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle>Notifications</CardTitle>
-                {unreadNotifications.length > 0 && (
-                  <span className="text-[10px] font-bold bg-farumasi-600 text-white rounded-full px-1.5 py-0.5">
-                    {unreadNotifications.length}
-                  </span>
-                )}
-              </div>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/notifications" className="text-xs text-farumasi-600">View all <ArrowRight className="w-3 h-3 ml-1" /></Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {mockNotifications.slice(0, 4).map(n => (
-              <div key={n.id} className="flex items-start gap-3">
-                <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${!n.isRead ? "bg-farumasi-500" : "bg-slate-200"}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-medium ${!n.isRead ? "text-foreground" : "text-muted-foreground"}`}>{n.title}</p>
-                  <p className="text-[11px] text-muted-foreground line-clamp-1">{n.message}</p>
-                </div>
-                <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo(n.timestamp)}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
 }
-
-

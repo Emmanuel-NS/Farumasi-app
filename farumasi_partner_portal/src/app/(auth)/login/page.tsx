@@ -8,18 +8,46 @@ import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { authService } from "@/lib/services/auth.service";
+import { useAuthStore } from "@/lib/store/auth";
+import { toast } from "@/lib/toast";
+
+const ALLOWED_ROLES = new Set(["pharmacy_admin", "partner_company_admin"]);
 
 export default function LoginPage() {
   const router = useRouter();
+  const setSession = useAuthStore((s) => s.setSession);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
-    // Simulate auth — replace with real API call
-    await new Promise(r => setTimeout(r, 800));
-    router.push("/dashboard");
+    try {
+      const tokens = await authService.login(email.trim(), password);
+      // Temporarily persist token so authService.getMe() can use it
+      if (typeof window !== "undefined") {
+        localStorage.setItem("farumasi_partner_token", tokens.access_token);
+      }
+      const me = await authService.getMe();
+      if (!ALLOWED_ROLES.has(me.role)) {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("farumasi_partner_token");
+        }
+        toast.error("This account is not a partner account.");
+        return;
+      }
+      setSession(tokens, me);
+      toast.success(`Welcome back, ${me.full_name.split(" ")[0]}!`);
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      toast.error(getApiError(err, "Sign-in failed. Check your email and password."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -75,7 +103,14 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label>Email Address</Label>
-              <Input type="email" placeholder="you@pharmacy.rw" required autoComplete="email" />
+              <Input
+                type="email"
+                placeholder="you@pharmacy.rw"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Password</Label>
@@ -86,6 +121,8 @@ export default function LoginPage() {
                   required
                   autoComplete="current-password"
                   className="pr-9"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
                 <button
                   type="button"
