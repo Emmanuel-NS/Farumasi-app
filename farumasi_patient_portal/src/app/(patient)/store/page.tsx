@@ -860,14 +860,14 @@ function StorePageInner() {
               {quickView.shortDescription || quickView.description}
             </p>
 
-            {/* Dosage Guide */}
-            {(quickView.dosageDetails || quickView.dosage) && (
+            {/* Dosage Guide — always use dosage_summary (short plain text) */}
+            {quickView.dosageSummary && (
               <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
                 <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">
                   Dosage Guide
                 </p>
                 <p className="text-sm text-emerald-900 leading-relaxed">
-                  {quickView.dosageDetails || quickView.dosage}
+                  {quickView.dosageSummary}
                 </p>
               </div>
             )}

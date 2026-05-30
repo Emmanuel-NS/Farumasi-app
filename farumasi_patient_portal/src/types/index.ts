@@ -39,7 +39,9 @@ export interface Medicine {
   shortDescription?: string;
   /** Overview paragraph for the product detail / quickview */
   overviewDescription?: string;
-  /** Dosage details text for quickview */
+  /** Short plain-text dosage summary (shown in Read more overlay) */
+  dosageSummary?: string;
+  /** Full dosage details — may be rich text (shown on detail page only) */
   dosageDetails?: string;
   /** Safety / warnings text for quickview */
   safetyInfo?: string;
