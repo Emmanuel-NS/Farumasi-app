@@ -269,12 +269,15 @@ class ProductService:
         self, listing_id: str, new_status: ListingAvailability, actor: User
     ) -> ProductListing:
         listing = await self._get_listing_or_404(listing_id)
-        # super_admin can suspend; owner can change other statuses
+        # super_admin and pharmacist (platform moderators) can suspend any listing;
+        # pharmacy owners can change other statuses on their own listings.
+        is_moderator = actor.role in (UserRole.SUPER_ADMIN, UserRole.PHARMACIST)
         if new_status == ListingAvailability.SUSPENDED:
-            if actor.role != UserRole.SUPER_ADMIN:
-                raise AuthorizationError("Only super_admin can suspend a listing")
+            if not is_moderator:
+                raise AuthorizationError("Only platform moderators can suspend a listing")
         else:
-            await self._assert_listing_owner(actor, listing)
+            if not is_moderator:
+                await self._assert_listing_owner(actor, listing)
 
         listing.availability_status = self._normalize_availability(
             new_status, listing.expiry_date, listing.stock_quantity
@@ -285,7 +288,9 @@ class ProductService:
 
     async def delete_listing(self, listing_id: str, actor: User) -> None:
         listing = await self._get_listing_or_404(listing_id)
-        await self._assert_listing_owner(actor, listing)
+        is_moderator = actor.role in (UserRole.SUPER_ADMIN, UserRole.PHARMACIST)
+        if not is_moderator:
+            await self._assert_listing_owner(actor, listing)
         await self.db.delete(listing)
         await self.db.commit()
 

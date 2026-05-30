@@ -11,7 +11,7 @@ import TipTapUnderline from "@tiptap/extension-underline";
 import {
   ArrowLeft, Pencil, Loader2, Building2, Calendar, TrendingUp,
   X, Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Undo2, Redo2,
-  ChevronDown,
+  ChevronDown, ShieldOff, Trash2, MoreVertical, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -24,7 +24,7 @@ import {
   type CreateProductInput,
   type UpdateProductInput,
 } from "@/lib/services/products.service";
-import { listingsService, type BackendListing } from "@/lib/services/listings.service";
+import { listingsService, type BackendListing, type ListingAvailability } from "@/lib/services/listings.service";
 import { pharmaciesService, type BackendPharmacy } from "@/lib/services/pharmacies.service";
 import { ordersService } from "@/lib/services/orders.service";
 
@@ -138,14 +138,64 @@ function AvailBadge({ status }: { status: string }) {
 
 /* ─── Pharmacy list modal ────────────────────────────────── */
 type PharmacyModalMode = "price" | "expiry";
+
+const SUSPEND_REASONS = [
+  "Price too high",
+  "Product expired",
+  "Stock quality concern",
+  "Regulatory violation",
+  "Counterfeit risk",
+  "Licence suspended",
+  "Other",
+] as const;
+
 function PharmacyListModal({
-  listings, pharmacyMap, mode, productName, onClose,
-}: { listings: BackendListing[]; pharmacyMap: Map<string, string>; mode: PharmacyModalMode; productName: string; onClose: () => void }) {
+  listings, pharmacyMap, mode, productName, onClose, onListingsChange,
+}: { listings: BackendListing[]; pharmacyMap: Map<string, string>; mode: PharmacyModalMode; productName: string; onClose: () => void; onListingsChange?: (updated: BackendListing[]) => void }) {
+  const [localListings, setLocalListingsRaw] = useState(listings);
+  const [actionTarget, setActionTarget] = useState<BackendListing | null>(null);
+  const [selectedReason, setSelectedReason] = useState(SUSPEND_REASONS[0]);
+  const [confirmAction, setConfirmAction] = useState<"suspend" | "out_of_stock" | "remove" | null>(null);
+  const [working, setWorking] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  function setLocalListings(updater: BackendListing[] | ((prev: BackendListing[]) => BackendListing[])) {
+    setLocalListingsRaw((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      onListingsChange?.(next);
+      return next;
+    });
+  }
+
   const sorted =
     mode === "price"
-      ? [...listings].sort((a, b) => a.price - b.price)
-      : [...listings].filter((l) => l.expiry_date).sort((a, b) => new Date(a.expiry_date!).getTime() - new Date(b.expiry_date!).getTime());
+      ? [...localListings].sort((a, b) => a.price - b.price)
+      : [...localListings].filter((l) => l.expiry_date).sort((a, b) => new Date(a.expiry_date!).getTime() - new Date(b.expiry_date!).getTime());
+
+  async function handleConfirm() {
+    if (!actionTarget || !confirmAction) return;
+    setWorking(true);
+    try {
+      if (confirmAction === "remove") {
+        await listingsService.deleteListing(actionTarget.id);
+        setLocalListings((prev) => prev.filter((l) => l.id !== actionTarget.id));
+        toast.success("Listing removed");
+      } else {
+        const status = confirmAction === "suspend" ? "suspended" : "out_of_stock";
+        const updated = await listingsService.setAvailability(actionTarget.id, status as ListingAvailability);
+        setLocalListings((prev) => prev.map((l) => l.id === updated.id ? updated : l));
+        toast.success(confirmAction === "suspend" ? "Listing suspended" : "Marked out of stock");
+      }
+    } catch { toast.error("Action failed — please try again"); }
+    finally {
+      setWorking(false);
+      setConfirmAction(null);
+      setActionTarget(null);
+    }
+  }
+
   return (
+    <>
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -156,46 +206,119 @@ function PharmacyListModal({
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"><X className="w-5 h-5" /></button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2" onClick={() => setOpenMenuId(null)}>
           {sorted.length === 0 ? (
             <p className="py-10 text-center text-sm text-slate-400">No data available</p>
           ) : sorted.map((l, i) => {
             const name = l.pharmacy_id ? (pharmacyMap.get(l.pharmacy_id) ?? "Unknown Pharmacy") : "Partner Wholesale";
-            if (mode === "price") {
-              return (
-                <div key={l.id} className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-3">
-                  <span className="text-xs font-bold text-slate-300 w-4 shrink-0">{i + 1}</span>
-                  <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
-                  <p className="flex-1 text-sm font-medium text-slate-700 truncate">{name}</p>
-                  <AvailBadge status={l.availability_status} />
-                  <p className="text-sm font-extrabold text-farumasi-700 whitespace-nowrap ml-1">RWF {l.price.toLocaleString()}</p>
+            const isSuspended = l.availability_status === "suspended";
+            return (
+              <div key={l.id} className={cn("flex items-center gap-3 rounded-xl px-4 py-3 relative", isSuspended ? "bg-red-50 border border-red-100" : "bg-slate-50")}>
+                {mode === "price" && <span className="text-xs font-bold text-slate-300 w-4 shrink-0">{i + 1}</span>}
+                <Building2 className={cn("w-4 h-4 shrink-0", isSuspended ? "text-red-400" : "text-slate-400")} />
+                <p className={cn("flex-1 text-sm font-medium truncate", isSuspended ? "text-red-700 line-through" : "text-slate-700")}>{name}</p>
+                {isSuspended && (
+                  <span className="text-[10px] font-bold text-red-600 bg-red-100 border border-red-200 px-2 py-0.5 rounded-full shrink-0">Suspended</span>
+                )}
+                {mode === "price" && !isSuspended && (
+                  <>
+                    <AvailBadge status={l.availability_status} />
+                    <p className="text-sm font-extrabold text-farumasi-700 whitespace-nowrap ml-1">RWF {l.price.toLocaleString()}</p>
+                  </>
+                )}
+                {mode === "expiry" && !isSuspended && (() => {
+                  const expDate   = l.expiry_date ? new Date(l.expiry_date) : null;
+                  const isExpired = expDate ? expDate.getTime() < Date.now() : false;
+                  const daysUntil = expDate ? Math.floor((expDate.getTime() - Date.now()) / 86400000) : null;
+                  const isNear    = daysUntil !== null && daysUntil < 90 && !isExpired;
+                  return (
+                    <>
+                      <span className="text-xs text-slate-400 shrink-0">{l.stock_quantity} units</span>
+                      {expDate ? (
+                        <span className={cn("text-xs font-bold px-2.5 py-1 rounded-lg shrink-0",
+                          isExpired ? "bg-red-50 text-red-700 border border-red-100"
+                          : isNear  ? "bg-amber-50 text-amber-700 border border-amber-100"
+                                    : "bg-farumasi-50 text-farumasi-700 border border-farumasi-100")}>
+                          {isExpired ? "Expired" : formatDate(expDate.toISOString())}
+                        </span>
+                      ) : <span className="text-xs text-slate-400 italic shrink-0">No expiry set</span>}
+                    </>
+                  );
+                })()}
+                {/* Action menu */}
+                <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => setOpenMenuId((prev) => prev === l.id ? null : l.id)} className="p-1 rounded-lg hover:bg-slate-200 text-slate-400 transition-colors">
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  {openMenuId === l.id && (
+                    <div className="absolute right-0 top-7 z-20 bg-white rounded-2xl shadow-xl border border-slate-100 w-48 py-1.5 text-sm">
+                      {!isSuspended && (
+                        <button onClick={() => { setActionTarget(l); setConfirmAction("suspend"); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-red-50 text-red-600 font-medium transition-colors">
+                          <ShieldOff className="w-4 h-4" /> Suspend Listing
+                        </button>
+                      )}
+                      {isSuspended && (
+                        <button onClick={async () => { setOpenMenuId(null); try { const u = await listingsService.setAvailability(l.id, "available"); setLocalListings((prev) => prev.map((x) => x.id === u.id ? u : x)); toast.success("Listing reinstated"); } catch { toast.error("Failed"); } }} className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-farumasi-50 text-farumasi-700 font-medium transition-colors">
+                          <ShieldOff className="w-4 h-4" /> Reinstate Listing
+                        </button>
+                      )}
+                      {!isSuspended && (
+                        <button onClick={() => { setActionTarget(l); setConfirmAction("out_of_stock"); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-amber-50 text-amber-700 font-medium transition-colors">
+                          <AlertTriangle className="w-4 h-4" /> Mark Out of Stock
+                        </button>
+                      )}
+                      <div className="border-t border-slate-100 my-1" />
+                      <button onClick={() => { setActionTarget(l); setConfirmAction("remove"); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-red-50 text-red-500 font-medium transition-colors">
+                        <Trash2 className="w-4 h-4" /> Remove Listing
+                      </button>
+                    </div>
+                  )}
                 </div>
-              );
-            } else {
-              const expDate   = l.expiry_date ? new Date(l.expiry_date) : null;
-              const isExpired = expDate ? expDate.getTime() < Date.now() : false;
-              const daysUntil = expDate ? Math.floor((expDate.getTime() - Date.now()) / 86400000) : null;
-              const isNear    = daysUntil !== null && daysUntil < 90 && !isExpired;
-              return (
-                <div key={l.id} className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-3">
-                  <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
-                  <p className="flex-1 text-sm font-medium text-slate-700 truncate">{name}</p>
-                  <span className="text-xs text-slate-400 shrink-0">{l.stock_quantity} units</span>
-                  {expDate ? (
-                    <span className={cn("text-xs font-bold px-2.5 py-1 rounded-lg shrink-0",
-                      isExpired ? "bg-red-50 text-red-700 border border-red-100"
-                      : isNear  ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                : "bg-farumasi-50 text-farumasi-700 border border-farumasi-100")}>
-                      {isExpired ? "Expired" : formatDate(expDate.toISOString())}
-                    </span>
-                  ) : <span className="text-xs text-slate-400 italic shrink-0">No expiry set</span>}
-                </div>
-              );
-            }
+              </div>
+            );
           })}
         </div>
       </div>
     </div>
+
+    {/* Confirm action modal */}
+    {confirmAction && actionTarget && (
+      <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setConfirmAction(null); setActionTarget(null); }} />
+        <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mx-auto", confirmAction === "remove" ? "bg-red-100" : confirmAction === "suspend" ? "bg-orange-100" : "bg-amber-100")}>
+            {confirmAction === "remove" ? <Trash2 className="w-6 h-6 text-red-600" /> : confirmAction === "suspend" ? <ShieldOff className="w-6 h-6 text-orange-600" /> : <AlertTriangle className="w-6 h-6 text-amber-600" />}
+          </div>
+          <div className="text-center">
+            <h3 className="text-[15px] font-bold text-slate-900">
+              {confirmAction === "remove" ? "Remove Listing" : confirmAction === "suspend" ? "Suspend Listing" : "Mark Out of Stock"}
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">{pharmacyMap.get(actionTarget.pharmacy_id ?? "") ?? "This pharmacy"} · {productName}</p>
+          </div>
+          {confirmAction === "suspend" && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Reason</p>
+              <div className="space-y-1.5">
+                {SUSPEND_REASONS.map((r) => (
+                  <button key={r} onClick={() => setSelectedReason(r)} className={cn("w-full text-left text-sm px-3.5 py-2 rounded-xl border transition-colors", selectedReason === r ? "bg-orange-50 border-orange-300 text-orange-800 font-semibold" : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100")}>{r}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          {confirmAction === "remove" && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-2.5 text-center">This permanently removes the pharmacy's listing. They can re-list later.</p>
+          )}
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => { setConfirmAction(null); setActionTarget(null); }} className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+            <button onClick={handleConfirm} disabled={working} className={cn("flex-1 h-10 rounded-xl text-white text-sm font-bold transition-colors flex items-center justify-center gap-2", confirmAction === "remove" ? "bg-red-600 hover:bg-red-700" : confirmAction === "suspend" ? "bg-orange-600 hover:bg-orange-700" : "bg-amber-600 hover:bg-amber-700", working && "opacity-70 cursor-not-allowed")}>
+              {working && <Loader2 className="w-4 h-4 animate-spin" />}
+              {confirmAction === "remove" ? "Remove" : confirmAction === "suspend" ? "Suspend" : "Confirm"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 
@@ -513,10 +636,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const initials = product.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "Rx";
   const desc     = parseDesc(product.description);
 
-  const prices     = listings.filter((l) => l.price > 0).map((l) => l.price);
+  const activeListings = listings.filter((l) => l.availability_status !== "suspended");
+  const prices     = activeListings.filter((l) => l.price > 0).map((l) => l.price);
   const minPrice   = prices.length ? Math.min(...prices) : null;
   const maxPrice   = prices.length ? Math.max(...prices) : null;
-  const expiryTs   = listings.filter((l) => l.expiry_date).map((l) => new Date(l.expiry_date!).getTime());
+  const expiryTs   = activeListings.filter((l) => l.expiry_date).map((l) => new Date(l.expiry_date!).getTime());
   const nearestExp = expiryTs.length ? new Date(Math.min(...expiryTs)) : null;
   const latestExp  = expiryTs.length ? new Date(Math.max(...expiryTs)) : null;
 
@@ -589,8 +713,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Pharmacies</p>
             {listingsLoading ? <Loader2 className="w-4 h-4 text-slate-300 animate-spin mt-1.5" /> : minPrice !== null ? (
               <>
-                <p className="text-sm font-extrabold text-slate-900 mt-1">RWF {minPrice.toLocaleString()}–{maxPrice?.toLocaleString()}</p>
-                <p className="text-xs text-farumasi-600 font-semibold mt-0.5">{listings.length} {listings.length === 1 ? "pharmacy" : "pharmacies"} →</p>
+                <p className="text-sm font-extrabold text-slate-900 mt-1">{minPrice === maxPrice ? `RWF ${minPrice!.toLocaleString()}` : `RWF ${minPrice!.toLocaleString()}–${maxPrice?.toLocaleString()}`}</p>
+                <p className="text-xs text-farumasi-600 font-semibold mt-0.5">{activeListings.length} {activeListings.length === 1 ? "pharmacy" : "pharmacies"} →</p>
               </>
             ) : <p className="text-sm text-slate-400 mt-1 italic">No listings</p>}
           </button>
@@ -726,10 +850,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
       {/* ── Sub-modals ────────────────────────────────────── */}
       {activeModal === "price" && (
-        <PharmacyListModal listings={listings} pharmacyMap={pharmacyMap} mode="price" productName={product.name} onClose={() => setActiveModal(null)} />
+        <PharmacyListModal listings={listings} pharmacyMap={pharmacyMap} mode="price" productName={product.name} onClose={() => setActiveModal(null)} onListingsChange={setListings} />
       )}
       {activeModal === "expiry" && (
-        <PharmacyListModal listings={listings} pharmacyMap={pharmacyMap} mode="expiry" productName={product.name} onClose={() => setActiveModal(null)} />
+        <PharmacyListModal listings={listings} pharmacyMap={pharmacyMap} mode="expiry" productName={product.name} onClose={() => setActiveModal(null)} onListingsChange={setListings} />
       )}
       {activeModal === "sales" && (
         <SalesChartModal productId={product.id} productName={product.name} onClose={() => setActiveModal(null)} />

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { productsService, adaptProduct } from "@/lib/services/products.service";
+import { pharmaciesService, type BackendListing, type BackendPharmacy } from "@/lib/services/pharmacies.service";
 import { useLanguageStore } from "@/store/language-store";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
@@ -39,6 +40,8 @@ export default function MedicineDetailPage() {
   const { add: cartAdd, items: cartItems } = useCartStore();
   const [med, setMed] = useState<Medicine | null>(null);
   const [loading, setLoading] = useState(true);
+  const [listings, setListings] = useState<BackendListing[]>([]);
+  const [pharmacyMap, setPharmacyMap] = useState<Map<string, BackendPharmacy>>(new Map());
 
   useEffect(() => {
     if (!id) return;
@@ -47,6 +50,18 @@ export default function MedicineDetailPage() {
       .then(setMed)
       .catch(() => setMed(null))
       .finally(() => setLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    pharmaciesService.listingsForProduct(id).then((ls) => {
+      setListings(ls);
+      const pharmIds = [...new Set(ls.map((l) => l.pharmacy_id).filter(Boolean) as string[])];
+      if (pharmIds.length === 0) return;
+      pharmaciesService.listPharmacies(0, 100).then((pharmas) => {
+        setPharmacyMap(new Map(pharmas.map((p) => [p.id, p])));
+      });
+    });
   }, [id]);
 
   if (loading) {
@@ -126,7 +141,12 @@ export default function MedicineDetailPage() {
           )}
 
           <p className="text-3xl font-extrabold text-farumasi-700 mb-1">
-            {formatPrice(med.price)}{med.maxPrice ? ` – ${formatPrice(med.maxPrice)}` : ""}
+            {(() => {
+              const prices = listings.map((l) => l.price).filter((p) => p > 0);
+              if (prices.length === 0) return formatPrice(med.price);
+              const min = Math.min(...prices), max = Math.max(...prices);
+              return min === max ? formatPrice(min) : `${formatPrice(min)} – ${formatPrice(max)}`;
+            })()}
           </p>
 
           {/* Quantity */}
@@ -311,31 +331,37 @@ export default function MedicineDetailPage() {
         )}
 
         {/* Pharmacies */}
-        {med.marketingPharmacies && med.marketingPharmacies.length > 0 && (
+        {listings.length > 0 && (
           <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-3">
             <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Available At</p>
-            {med.marketingPharmacies.map((p, i) => (
-                <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+            {listings.map((l) => {
+              const pharmacy = l.pharmacy_id ? pharmacyMap.get(l.pharmacy_id) : null;
+              const name = pharmacy?.name ?? (l.partner_company_id ? "Partner Wholesale" : "Unknown Pharmacy");
+              return (
+                <div key={l.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center">
                       <MapPin className="w-5 h-5 text-farumasi-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{p.pharmacyName}</p>
+                      <p className="text-sm font-semibold text-slate-900">{name}</p>
+                      {l.price > 0 && (
+                        <p className="text-xs font-bold text-farumasi-700">RWF {l.price.toLocaleString()}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {p.stockStatus === "available" ? (
+                    {l.availability_status === "available" ? (
                       <><CheckCircle className="w-4 h-4 text-farumasi-500" /><span className="text-xs font-medium text-farumasi-700">In Stock</span></>
-                    ) : p.stockStatus === "low_stock" ? (
+                    ) : l.availability_status === "low_stock" ? (
                       <><Clock className="w-4 h-4 text-amber-500" /><span className="text-xs font-medium text-amber-700">Low Stock</span></>
                     ) : (
                       <><XCircle className="w-4 h-4 text-red-400" /><span className="text-xs font-medium text-red-600">Out of Stock</span></>
                     )}
                   </div>
                 </div>
-              ))
-            }
+              );
+            })}
           </div>
         )}
       </div>

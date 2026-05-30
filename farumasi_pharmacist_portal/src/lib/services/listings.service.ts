@@ -1,7 +1,7 @@
 import api from "@/lib/api";
 import type { BackendListing } from "./pharmacies.service";
 
-export type ListingAvailability = "available" | "unavailable" | "out_of_stock";
+export type ListingAvailability = "available" | "unavailable" | "out_of_stock" | "suspended";
 
 export interface UpdateListingInput {
   price?: number;

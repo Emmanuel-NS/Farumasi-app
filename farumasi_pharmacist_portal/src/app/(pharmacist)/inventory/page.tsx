@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import api from "@/lib/api";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -11,10 +12,10 @@ import TipTapUnderline from "@tiptap/extension-underline";
 import {
   Search, X, ChevronLeft, ChevronRight,
   Loader2, Building2, Plus, Package,
-  ChevronDown, Pencil, Eye,
+  ChevronDown, Pencil, Eye, ImagePlus,
   Calendar, TrendingUp,
   Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Undo2, Redo2,
-  ArrowLeft,
+  ArrowLeft, ShieldOff, Trash2, MoreVertical, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -27,7 +28,7 @@ import {
   type CreateProductInput,
   type UpdateProductInput,
 } from "@/lib/services/products.service";
-import { listingsService, type BackendListing } from "@/lib/services/listings.service";
+import { listingsService, type BackendListing, type ListingAvailability } from "@/lib/services/listings.service";
 import { pharmaciesService, type BackendPharmacy } from "@/lib/services/pharmacies.service";
 import { ordersService } from "@/lib/services/orders.service";
 
@@ -331,27 +332,78 @@ function ProductCard({
 /* ─── Pharmacy list modal ────────────────────────────────── */
 type PharmacyModalMode = "price" | "expiry";
 
+const SUSPEND_REASONS = [
+  "Price too high",
+  "Product expired",
+  "Stock quality concern",
+  "Regulatory violation",
+  "Counterfeit risk",
+  "Licence suspended",
+  "Other",
+] as const;
+
 function PharmacyListModal({
   listings,
   pharmacyMap,
   mode,
   productName,
   onClose,
+  onListingsChange,
 }: {
   listings: BackendListing[];
   pharmacyMap: Map<string, string>;
   mode: PharmacyModalMode;
   productName: string;
   onClose: () => void;
+  onListingsChange?: (updated: BackendListing[]) => void;
 }) {
+  const [localListings, setLocalListingsRaw] = useState(listings);
+  const [actionTarget, setActionTarget] = useState<BackendListing | null>(null);
+  const [selectedReason, setSelectedReason] = useState(SUSPEND_REASONS[0]);
+  const [confirmAction, setConfirmAction] = useState<"suspend" | "out_of_stock" | "remove" | null>(null);
+  const [working, setWorking] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  function setLocalListings(updater: BackendListing[] | ((prev: BackendListing[]) => BackendListing[])) {
+    setLocalListingsRaw((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      onListingsChange?.(next);
+      return next;
+    });
+  }
+
   const sorted =
     mode === "price"
-      ? [...listings].sort((a, b) => a.price - b.price)
-      : [...listings]
+      ? [...localListings].sort((a, b) => a.price - b.price)
+      : [...localListings]
           .filter((l) => l.expiry_date)
           .sort((a, b) => new Date(a.expiry_date!).getTime() - new Date(b.expiry_date!).getTime());
 
+  async function handleConfirm() {
+    if (!actionTarget || !confirmAction) return;
+    setWorking(true);
+    try {
+      if (confirmAction === "remove") {
+        await listingsService.deleteListing(actionTarget.id);
+        setLocalListings((prev) => prev.filter((l) => l.id !== actionTarget.id));
+        toast.success("Listing removed");
+      } else {
+        const status = confirmAction === "suspend" ? "suspended" : "out_of_stock";
+        const updated = await listingsService.setAvailability(actionTarget.id, status as ListingAvailability);
+        setLocalListings((prev) => prev.map((l) => l.id === updated.id ? updated : l));
+        toast.success(confirmAction === "suspend" ? "Listing suspended" : "Marked out of stock");
+      }
+    } catch {
+      toast.error("Action failed — please try again");
+    } finally {
+      setWorking(false);
+      setConfirmAction(null);
+      setActionTarget(null);
+    }
+  }
+
   return (
+    <>
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div
@@ -372,7 +424,7 @@ function PharmacyListModal({
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2" onClick={() => setOpenMenuId(null)}>
           {sorted.length === 0 ? (
             <p className="py-10 text-center text-sm text-slate-400">No data available</p>
           ) : (
@@ -380,52 +432,194 @@ function PharmacyListModal({
               const name = l.pharmacy_id
                 ? (pharmacyMap.get(l.pharmacy_id) ?? "Unknown Pharmacy")
                 : "Partner Wholesale";
-              if (mode === "price") {
-                return (
-                  <div key={l.id} className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-3">
+              const isSuspended = l.availability_status === "suspended";
+
+              return (
+                <div
+                  key={l.id}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-4 py-3 relative",
+                    isSuspended ? "bg-red-50 border border-red-100" : "bg-slate-50",
+                  )}
+                >
+                  {mode === "price" && (
                     <span className="text-xs font-bold text-slate-300 w-4 shrink-0">{i + 1}</span>
-                    <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
-                    <p className="flex-1 text-sm font-medium text-slate-700 truncate">{name}</p>
-                    <AvailBadge status={l.availability_status} />
-                    <p className="text-sm font-extrabold text-farumasi-700 whitespace-nowrap ml-1">
-                      RWF {l.price.toLocaleString()}
-                    </p>
-                  </div>
-                );
-              } else {
-                const expDate   = l.expiry_date ? new Date(l.expiry_date) : null;
-                const isExpired = expDate ? expDate.getTime() < Date.now() : false;
-                const daysUntil = expDate ? Math.floor((expDate.getTime() - Date.now()) / 86400000) : null;
-                const isNear    = daysUntil !== null && daysUntil < 90 && !isExpired;
-                return (
-                  <div key={l.id} className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-3">
-                    <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
-                    <p className="flex-1 text-sm font-medium text-slate-700 truncate">{name}</p>
-                    <span className="text-xs text-slate-400 shrink-0">{l.stock_quantity} units</span>
-                    {expDate ? (
-                      <span
-                        className={cn(
-                          "text-xs font-bold px-2.5 py-1 rounded-lg shrink-0",
-                          isExpired
-                            ? "bg-red-50 text-red-700 border border-red-100"
-                            : isNear
-                            ? "bg-amber-50 text-amber-700 border border-amber-100"
-                            : "bg-farumasi-50 text-farumasi-700 border border-farumasi-100",
+                  )}
+                  <Building2 className={cn("w-4 h-4 shrink-0", isSuspended ? "text-red-400" : "text-slate-400")} />
+                  <p className={cn("flex-1 text-sm font-medium truncate", isSuspended ? "text-red-700 line-through" : "text-slate-700")}>{name}</p>
+
+                  {isSuspended && (
+                    <span className="text-[10px] font-bold text-red-600 bg-red-100 border border-red-200 px-2 py-0.5 rounded-full shrink-0">
+                      Suspended
+                    </span>
+                  )}
+
+                  {mode === "price" && !isSuspended && (
+                    <>
+                      <AvailBadge status={l.availability_status} />
+                      <p className="text-sm font-extrabold text-farumasi-700 whitespace-nowrap ml-1">
+                        RWF {l.price.toLocaleString()}
+                      </p>
+                    </>
+                  )}
+
+                  {mode === "expiry" && !isSuspended && (() => {
+                    const expDate   = l.expiry_date ? new Date(l.expiry_date) : null;
+                    const isExpired = expDate ? expDate.getTime() < Date.now() : false;
+                    const daysUntil = expDate ? Math.floor((expDate.getTime() - Date.now()) / 86400000) : null;
+                    const isNear    = daysUntil !== null && daysUntil < 90 && !isExpired;
+                    return (
+                      <>
+                        <span className="text-xs text-slate-400 shrink-0">{l.stock_quantity} units</span>
+                        {expDate ? (
+                          <span className={cn(
+                            "text-xs font-bold px-2.5 py-1 rounded-lg shrink-0",
+                            isExpired ? "bg-red-50 text-red-700 border border-red-100"
+                            : isNear  ? "bg-amber-50 text-amber-700 border border-amber-100"
+                                      : "bg-farumasi-50 text-farumasi-700 border border-farumasi-100",
+                          )}>
+                            {isExpired ? "Expired" : formatDate(expDate.toISOString())}
+                          </span>
+                        ) : <span className="text-xs text-slate-400 italic shrink-0">No expiry set</span>}
+                      </>
+                    );
+                  })()}
+
+                  {/* Action menu */}
+                  <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => setOpenMenuId((prev) => prev === l.id ? null : l.id)}
+                      className="p-1 rounded-lg hover:bg-slate-200 text-slate-400 transition-colors"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                    {openMenuId === l.id && (
+                      <div className="absolute right-0 top-7 z-20 bg-white rounded-2xl shadow-xl border border-slate-100 w-48 py-1.5 text-sm">
+                        {!isSuspended && (
+                          <button
+                            onClick={() => { setActionTarget(l); setConfirmAction("suspend"); setOpenMenuId(null); }}
+                            className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-red-50 text-red-600 font-medium transition-colors"
+                          >
+                            <ShieldOff className="w-4 h-4" /> Suspend Listing
+                          </button>
                         )}
-                      >
-                        {isExpired ? "Expired" : formatDate(expDate.toISOString())}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-400 italic shrink-0">No expiry set</span>
+                        {isSuspended && (
+                          <button
+                            onClick={async () => {
+                              setOpenMenuId(null);
+                              try {
+                                const updated = await listingsService.setAvailability(l.id, "available");
+                                setLocalListings((prev) => prev.map((x) => x.id === updated.id ? updated : x));
+                                toast.success("Listing reinstated");
+                              } catch { toast.error("Failed to reinstate"); }
+                            }}
+                            className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-farumasi-50 text-farumasi-700 font-medium transition-colors"
+                          >
+                            <ShieldOff className="w-4 h-4" /> Reinstate Listing
+                          </button>
+                        )}
+                        {!isSuspended && (
+                          <button
+                            onClick={() => { setActionTarget(l); setConfirmAction("out_of_stock"); setOpenMenuId(null); }}
+                            className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-amber-50 text-amber-700 font-medium transition-colors"
+                          >
+                            <AlertTriangle className="w-4 h-4" /> Mark Out of Stock
+                          </button>
+                        )}
+                        <div className="border-t border-slate-100 my-1" />
+                        <button
+                          onClick={() => { setActionTarget(l); setConfirmAction("remove"); setOpenMenuId(null); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-red-50 text-red-500 font-medium transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" /> Remove Listing
+                        </button>
+                      </div>
                     )}
                   </div>
-                );
-              }
+                </div>
+              );
             })
           )}
         </div>
       </div>
     </div>
+
+    {/* Confirm action modal */}
+    {confirmAction && actionTarget && (
+      <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setConfirmAction(null); setActionTarget(null); }} />
+        <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className={cn(
+            "w-12 h-12 rounded-2xl flex items-center justify-center mx-auto",
+            confirmAction === "remove" ? "bg-red-100" : confirmAction === "suspend" ? "bg-orange-100" : "bg-amber-100",
+          )}>
+            {confirmAction === "remove"
+              ? <Trash2 className="w-6 h-6 text-red-600" />
+              : confirmAction === "suspend"
+              ? <ShieldOff className="w-6 h-6 text-orange-600" />
+              : <AlertTriangle className="w-6 h-6 text-amber-600" />}
+          </div>
+          <div className="text-center">
+            <h3 className="text-[15px] font-bold text-slate-900">
+              {confirmAction === "remove" ? "Remove Listing" : confirmAction === "suspend" ? "Suspend Listing" : "Mark Out of Stock"}
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">
+              {pharmacyMap.get(actionTarget.pharmacy_id ?? "") ?? "This pharmacy"} · {productName}
+            </p>
+          </div>
+
+          {confirmAction === "suspend" && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Reason</p>
+              <div className="space-y-1.5">
+                {SUSPEND_REASONS.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setSelectedReason(r)}
+                    className={cn(
+                      "w-full text-left text-sm px-3.5 py-2 rounded-xl border transition-colors",
+                      selectedReason === r
+                        ? "bg-orange-50 border-orange-300 text-orange-800 font-semibold"
+                        : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100",
+                    )}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {confirmAction === "remove" && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-2.5 text-center">
+              This permanently removes the pharmacy's listing. They can re-list later.
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => { setConfirmAction(null); setActionTarget(null); }}
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={working}
+              className={cn(
+                "flex-1 h-10 rounded-xl text-white text-sm font-bold transition-colors flex items-center justify-center gap-2",
+                confirmAction === "remove" ? "bg-red-600 hover:bg-red-700" : confirmAction === "suspend" ? "bg-orange-600 hover:bg-orange-700" : "bg-amber-600 hover:bg-amber-700",
+                working && "opacity-70 cursor-not-allowed",
+              )}
+            >
+              {working && <Loader2 className="w-4 h-4 animate-spin" />}
+              {confirmAction === "remove" ? "Remove" : confirmAction === "suspend" ? "Suspend" : "Confirm"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 
@@ -596,10 +790,11 @@ function ProductDetailPanel({ product, pharmacyMap, onClose, onEdit }: DetailPan
     return () => { cancelled = true; };
   }, [product.id]);
 
-  const prices    = listings.filter((l) => l.price > 0).map((l) => l.price);
+  const activeListings = listings.filter((l) => l.availability_status !== "suspended");
+  const prices    = activeListings.filter((l) => l.price > 0).map((l) => l.price);
   const minPrice  = prices.length ? Math.min(...prices) : null;
   const maxPrice  = prices.length ? Math.max(...prices) : null;
-  const expiryTs  = listings.filter((l) => l.expiry_date).map((l) => new Date(l.expiry_date!).getTime());
+  const expiryTs  = activeListings.filter((l) => l.expiry_date).map((l) => new Date(l.expiry_date!).getTime());
   const nearestExp = expiryTs.length ? new Date(Math.min(...expiryTs)) : null;
   const latestExp  = expiryTs.length ? new Date(Math.max(...expiryTs)) : null;
 
@@ -680,10 +875,10 @@ function ProductDetailPanel({ product, pharmacyMap, onClose, onEdit }: DetailPan
                 ) : minPrice !== null ? (
                   <>
                     <p className="text-[11px] font-extrabold text-slate-900 leading-tight mt-0.5">
-                      RWF {minPrice.toLocaleString()}–{maxPrice?.toLocaleString()}
+                      {minPrice === maxPrice ? `RWF ${minPrice!.toLocaleString()}` : `RWF ${minPrice!.toLocaleString()}–${maxPrice?.toLocaleString()}`}
                     </p>
                     <p className="text-[10px] text-farumasi-600 font-semibold mt-0.5">
-                      {listings.length} {listings.length === 1 ? "pharmacy" : "pharmacies"} →
+                      {activeListings.length} {activeListings.length === 1 ? "pharmacy" : "pharmacies"} →
                     </p>
                   </>
                 ) : (
@@ -850,6 +1045,7 @@ function ProductDetailPanel({ product, pharmacyMap, onClose, onEdit }: DetailPan
           mode="price"
           productName={product.name}
           onClose={() => setActiveModal(null)}
+          onListingsChange={setListings}
         />
       )}
       {activeModal === "expiry" && (
@@ -859,6 +1055,7 @@ function ProductDetailPanel({ product, pharmacyMap, onClose, onEdit }: DetailPan
           mode="expiry"
           productName={product.name}
           onClose={() => setActiveModal(null)}
+          onListingsChange={setListings}
         />
       )}
       {activeModal === "sales" && (
@@ -888,18 +1085,37 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
     strength:              product.strength ?? "",
     dosage_form:           product.dosage_form ?? "",
     manufacturer:          product.manufacturer ?? "",
-    category:              product.category ?? "",
     product_type:          product.product_type as CreateProductInput["product_type"],
     prescription_required: product.prescription_required,
+    image_url:             product.image_url ?? "",
   });
-  const [desc,    setDesc]    = useState<ParsedDesc>(parsed);
-  const [saving,  setSaving]  = useState(false);
-  const [section, setSection] = useState<"identity" | "description">("identity");
+  const [categories, setCategories] = useState<string[]>(
+    () => (product.category ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+  );
+  const [desc,      setDesc]      = useState<ParsedDesc>(parsed);
+  const [saving,    setSaving]    = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [section,   setSection]   = useState<"identity" | "description">("identity");
+  const imgInputRef = useRef<HTMLInputElement>(null);
 
   const setF = <K extends keyof typeof form>(key: K, val: (typeof form)[K]) =>
     setForm((p) => ({ ...p, [key]: val }));
   const setD = <K extends keyof ParsedDesc>(key: K, val: string) =>
     setDesc((p) => ({ ...p, [key]: val }));
+
+  const handleImageUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data } = await api.post<{ url: string }>("/uploads/image", fd);
+      setF("image_url", data.url);
+    } catch {
+      toast.error("Image upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -913,7 +1129,8 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
         strength:     form.strength?.trim() || null,
         dosage_form:  form.dosage_form?.trim() || null,
         manufacturer: form.manufacturer?.trim() || null,
-        category:     form.category?.trim() || null,
+        category:     categories.length ? categories.join(", ") : null,
+        image_url:    form.image_url?.trim() || null,
         description:  serializeDesc(desc),
       });
       onSaved(updated);
@@ -929,14 +1146,10 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
   const labelCls = "block text-xs font-bold text-slate-600 mb-1.5";
 
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
-      <div className="flex-1 bg-black/40 backdrop-blur-[2px]" />
-      <div
-        className="bg-slate-50 w-full sm:w-[580px] h-full flex flex-col shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="bg-white px-6 pt-5 pb-4 border-b border-slate-100 shrink-0">
+    <div className="h-full flex flex-col bg-slate-50">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-100 shrink-0">
+        <div className="max-w-3xl mx-auto px-6 pt-5 pb-4">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-bold text-slate-900">Edit Product</h3>
@@ -972,11 +1185,62 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
             ))}
           </div>
         </div>
+      </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col">
-          <div className="flex-1 px-6 py-5 space-y-4">
+          <div className="flex-1 max-w-3xl mx-auto w-full px-6 py-5 space-y-4">
             {section === "identity" ? (
               <>
+                {/* Product Image */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Product Image</p>
+                  <input
+                    ref={imgInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  {form.image_url ? (
+                    <div className="relative w-full h-40 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                      <Image src={form.image_url} alt="Product image" fill className="object-contain" unoptimized />
+                      <button
+                        type="button"
+                        onClick={() => setF("image_url", "")}
+                        className="absolute top-2 right-2 p-1.5 rounded-lg bg-white/90 shadow text-slate-500 hover:text-red-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => imgInputRef.current?.click()}
+                      disabled={uploading}
+                      className="w-full h-36 rounded-xl border-2 border-dashed border-slate-200 hover:border-farumasi-300 flex flex-col items-center justify-center gap-2 transition-colors bg-slate-50 hover:bg-farumasi-50 disabled:opacity-60"
+                    >
+                      {uploading ? <Loader2 className="w-6 h-6 text-farumasi-400 animate-spin" /> : <ImagePlus className="w-6 h-6 text-slate-400" />}
+                      <span className="text-xs font-semibold text-slate-500">
+                        {uploading ? "Uploading…" : "Click to upload product image"}
+                      </span>
+                      <span className="text-[10px] text-slate-400">JPG, PNG, WEBP · max 10 MB</span>
+                    </button>
+                  )}
+                  <div>
+                    <label className={labelCls}>Or paste image URL</label>
+                    <input
+                      value={form.image_url ?? ""}
+                      onChange={(e) => setF("image_url", e.target.value)}
+                      placeholder="https://example.com/product.jpg"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+
                 {/* Basic info */}
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
                   <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
@@ -1049,19 +1313,32 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
                     Classification
                   </p>
                   <div>
-                    <label className={labelCls}>Category</label>
-                    <div className="relative">
-                      <select
-                        value={form.category ?? ""}
-                        onChange={(e) => setF("category", e.target.value)}
-                        className={cn(inputCls, "pr-10 appearance-none cursor-pointer")}
-                      >
-                        <option value="">— Select category —</option>
-                        {BACKEND_CATEGORIES.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <label className={labelCls}>
+                      Category <span className="text-slate-400 font-normal text-[10px]">(select all that apply)</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {BACKEND_CATEGORIES.map((c) => {
+                        const active = categories.includes(c);
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() =>
+                              setCategories((prev) =>
+                                active ? prev.filter((x) => x !== c) : [...prev, c],
+                              )
+                            }
+                            className={cn(
+                              "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all",
+                              active
+                                ? "bg-farumasi-600 text-white border-farumasi-600 shadow-sm"
+                                : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300",
+                            )}
+                          >
+                            {c}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                   <div>
@@ -1203,25 +1480,26 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
           </div>
 
           {/* Footer */}
-          <div className="bg-white px-6 pb-6 pt-3 border-t border-slate-100 shrink-0 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 py-3 rounded-xl bg-farumasi-600 text-white text-sm font-bold hover:bg-farumasi-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
-            >
-              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              {saving ? "Saving…" : "Save Changes"}
-            </button>
+          <div className="bg-white border-t border-slate-100 shrink-0">
+            <div className="max-w-3xl mx-auto px-6 pb-6 pt-3 flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 py-3 rounded-xl bg-farumasi-600 text-white text-sm font-bold hover:bg-farumasi-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+              >
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
           </div>
         </form>
-      </div>
     </div>
   );
 }
@@ -1234,14 +1512,35 @@ interface AddDrawerProps {
 
 function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
   const [form, setForm] = useState<CreateProductInput>({
-    name: "", generic_name: "", category: "",
+    name: "", generic_name: "",
     product_type: "medicine", dosage_form: "", strength: "",
-    manufacturer: "", prescription_required: false,
+    manufacturer: "", prescription_required: false, image_url: "",
   });
-  const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [desc,      setDesc]      = useState<ParsedDesc>({});
+  const [saving,    setSaving]    = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [section,   setSection]   = useState<"identity" | "description">("identity");
+  const imgInputRef = useRef<HTMLInputElement>(null);
 
   const set = <K extends keyof CreateProductInput>(key: K, val: CreateProductInput[K]) =>
     setForm((p) => ({ ...p, [key]: val }));
+  const setD = <K extends keyof ParsedDesc>(key: K, val: string) =>
+    setDesc((p) => ({ ...p, [key]: val }));
+
+  const handleImageUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data } = await api.post<{ url: string }>("/uploads/image", fd);
+      set("image_url", data.url);
+    } catch {
+      toast.error("Image upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1252,10 +1551,12 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
         ...form,
         name:         form.name.trim(),
         generic_name: form.generic_name?.trim() || null,
-        category:     form.category?.trim() || null,
+        category:     categories.length ? categories.join(", ") : null,
         dosage_form:  form.dosage_form?.trim() || null,
         strength:     form.strength?.trim() || null,
         manufacturer: form.manufacturer?.trim() || null,
+        image_url:    form.image_url?.trim() || null,
+        description:  serializeDesc(desc),
       });
       onCreated(created);
     } catch {
@@ -1269,198 +1570,358 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
   const labelCls = "block text-xs font-bold text-slate-600 mb-1.5";
 
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
-      <div className="flex-1 bg-black/40 backdrop-blur-[2px]" />
-      <div
-        className="bg-slate-50 w-full sm:w-[500px] h-full flex flex-col shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="bg-white px-6 pt-5 pb-4 border-b border-slate-100 shrink-0 flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">Add New Product</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Submit to the catalogue for partner pharmacies to stock.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col">
-          <div className="px-6 py-5 space-y-4 flex-1">
-            {/* Product Identity */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
-                Product Identity
-              </p>
-              <div>
-                <label className={labelCls}>
-                  Product Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  required
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  placeholder="e.g. Paracetamol 500mg"
-                  className={inputCls}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Generic Name</label>
-                  <input
-                    value={form.generic_name ?? ""}
-                    onChange={(e) => set("generic_name", e.target.value)}
-                    placeholder="e.g. Acetaminophen"
-                    className={inputCls}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>Strength</label>
-                  <input
-                    value={form.strength ?? ""}
-                    onChange={(e) => set("strength", e.target.value)}
-                    placeholder="e.g. 500mg"
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Dosage Form</label>
-                  <div className="relative">
-                    <select
-                      value={form.dosage_form ?? ""}
-                      onChange={(e) => set("dosage_form", e.target.value)}
-                      className={cn(inputCls, "pr-10 appearance-none cursor-pointer")}
-                    >
-                      <option value="">— Select —</option>
-                      {DOSAGE_FORMS.map((f) => (
-                        <option key={f} value={f}>{f}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Manufacturer</label>
-                  <input
-                    value={form.manufacturer ?? ""}
-                    onChange={(e) => set("manufacturer", e.target.value)}
-                    placeholder="e.g. Cipla Ltd"
-                    className={inputCls}
-                  />
-                </div>
-              </div>
+    <div className="h-full flex flex-col bg-slate-50">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-100 shrink-0">
+        <div className="max-w-3xl mx-auto px-6 pt-5 pb-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Add New Product</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Submit to the catalogue for partner pharmacies to stock.</p>
             </div>
-
-            {/* Classification */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
-                Classification
-              </p>
-              <div>
-                <label className={labelCls}>Category</label>
-                <div className="relative">
-                  <select
-                    value={form.category ?? ""}
-                    onChange={(e) => set("category", e.target.value)}
-                    className={cn(inputCls, "pr-10 appearance-none cursor-pointer")}
-                  >
-                    <option value="">— Select category —</option>
-                    {BACKEND_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Product Type</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {PRODUCT_TYPES.map((t) => (
-                    <button
-                      key={t.value}
-                      type="button"
-                      onClick={() => set("product_type", t.value as CreateProductInput["product_type"])}
-                      className={cn(
-                        "py-2 rounded-xl text-xs font-semibold border transition-all",
-                        form.product_type === t.value
-                          ? "bg-farumasi-600 text-white border-farumasi-600 shadow-sm"
-                          : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300",
-                      )}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex gap-2">
+            {(
+              [
+                { key: "identity",    label: "Product Identity" },
+                { key: "description", label: "Description"      },
+              ] as const
+            ).map((s) => (
               <button
+                key={s.key}
                 type="button"
-                onClick={() => set("prescription_required", !form.prescription_required)}
+                onClick={() => setSection(s.key)}
                 className={cn(
-                  "w-full flex items-center gap-3 rounded-xl px-4 py-3.5 border cursor-pointer transition-all text-left",
-                  form.prescription_required
-                    ? "bg-violet-50 border-violet-200"
-                    : "bg-slate-50 border-slate-200",
+                  "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all",
+                  section === s.key
+                    ? "bg-farumasi-600 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
                 )}
               >
-                <div
-                  className={cn(
-                    "relative shrink-0 rounded-full transition-colors",
-                    form.prescription_required ? "bg-violet-600" : "bg-slate-300",
-                  )}
-                  style={{ height: 22, width: 40 }}
-                >
-                  <div
-                    className={cn(
-                      "absolute top-0.5 rounded-full bg-white shadow transition-transform",
-                      form.prescription_required ? "translate-x-5" : "translate-x-0.5",
-                    )}
-                    style={{ height: 18, width: 18 }}
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col">
+          <div className="flex-1 max-w-3xl mx-auto w-full px-6 py-5 space-y-4">
+            {section === "identity" ? (
+              <>
+                {/* Product Image */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Product Image</p>
+                  <input
+                    ref={imgInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                      e.target.value = "";
+                    }}
                   />
+                  {form.image_url ? (
+                    <div className="relative w-full h-40 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                      <Image src={form.image_url} alt="Product image" fill className="object-contain" unoptimized />
+                      <button
+                        type="button"
+                        onClick={() => set("image_url", "")}
+                        className="absolute top-2 right-2 p-1.5 rounded-lg bg-white/90 shadow text-slate-500 hover:text-red-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => imgInputRef.current?.click()}
+                      disabled={uploading}
+                      className="w-full h-36 rounded-xl border-2 border-dashed border-slate-200 hover:border-farumasi-300 flex flex-col items-center justify-center gap-2 transition-colors bg-slate-50 hover:bg-farumasi-50 disabled:opacity-60"
+                    >
+                      {uploading ? <Loader2 className="w-6 h-6 text-farumasi-400 animate-spin" /> : <ImagePlus className="w-6 h-6 text-slate-400" />}
+                      <span className="text-xs font-semibold text-slate-500">
+                        {uploading ? "Uploading…" : "Click to upload product image"}
+                      </span>
+                      <span className="text-[10px] text-slate-400">JPG, PNG, WEBP · max 10 MB</span>
+                    </button>
+                  )}
+                  <div>
+                    <label className={labelCls}>Or paste image URL</label>
+                    <input
+                      value={form.image_url ?? ""}
+                      onChange={(e) => set("image_url", e.target.value)}
+                      placeholder="https://example.com/product.jpg"
+                      className={inputCls}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <p className={cn("text-sm font-bold", form.prescription_required ? "text-violet-800" : "text-slate-700")}>
-                    Requires Prescription (Rx)
+
+                {/* Basic info */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                    Basic Information
                   </p>
-                  <p className="text-xs text-slate-400">
-                    {form.prescription_required
-                      ? "Patients need a valid prescription"
-                      : "Available over the counter"}
-                  </p>
+                  <div>
+                    <label className={labelCls}>
+                      Product Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      required
+                      value={form.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      placeholder="e.g. Paracetamol 500mg"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Generic Name</label>
+                      <input
+                        value={form.generic_name ?? ""}
+                        onChange={(e) => set("generic_name", e.target.value)}
+                        placeholder="e.g. Acetaminophen"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Strength</label>
+                      <input
+                        value={form.strength ?? ""}
+                        onChange={(e) => set("strength", e.target.value)}
+                        placeholder="e.g. 500mg"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Dosage Form</label>
+                      <div className="relative">
+                        <select
+                          value={form.dosage_form ?? ""}
+                          onChange={(e) => set("dosage_form", e.target.value)}
+                          className={cn(inputCls, "pr-10 appearance-none cursor-pointer")}
+                        >
+                          <option value="">— Select —</option>
+                          {DOSAGE_FORMS.map((f) => (
+                            <option key={f} value={f}>{f}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Manufacturer</label>
+                      <input
+                        value={form.manufacturer ?? ""}
+                        onChange={(e) => set("manufacturer", e.target.value)}
+                        placeholder="e.g. Cipla Ltd"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                {/* Classification */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                    Classification
+                  </p>
+                  <div>
+                    <label className={labelCls}>
+                      Category <span className="text-slate-400 font-normal text-[10px]">(select all that apply)</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {BACKEND_CATEGORIES.map((c) => {
+                        const active = categories.includes(c);
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() =>
+                              setCategories((prev) =>
+                                active ? prev.filter((x) => x !== c) : [...prev, c],
+                              )
+                            }
+                            className={cn(
+                              "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all",
+                              active
+                                ? "bg-farumasi-600 text-white border-farumasi-600 shadow-sm"
+                                : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300",
+                            )}
+                          >
+                            {c}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Product Type</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {PRODUCT_TYPES.map((t) => (
+                        <button
+                          key={t.value}
+                          type="button"
+                          onClick={() => set("product_type", t.value as CreateProductInput["product_type"])}
+                          className={cn(
+                            "py-2 rounded-xl text-xs font-semibold border transition-all",
+                            form.product_type === t.value
+                              ? "bg-farumasi-600 text-white border-farumasi-600 shadow-sm"
+                              : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300",
+                          )}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => set("prescription_required", !form.prescription_required)}
+                    className={cn(
+                      "w-full flex items-center gap-3 rounded-xl px-4 py-3.5 border cursor-pointer transition-all text-left",
+                      form.prescription_required
+                        ? "bg-violet-50 border-violet-200"
+                        : "bg-slate-50 border-slate-200 hover:border-slate-300",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "relative shrink-0 rounded-full transition-colors",
+                        form.prescription_required ? "bg-violet-600" : "bg-slate-300",
+                      )}
+                      style={{ height: 22, width: 40 }}
+                    >
+                      <div
+                        className={cn(
+                          "absolute top-0.5 rounded-full bg-white shadow transition-transform",
+                          form.prescription_required ? "translate-x-5" : "translate-x-0.5",
+                        )}
+                        style={{ height: 18, width: 18 }}
+                      />
+                    </div>
+                    <div>
+                      <p className={cn("text-sm font-bold", form.prescription_required ? "text-violet-800" : "text-slate-700")}>
+                        Requires Prescription (Rx)
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {form.prescription_required
+                          ? "Patients need a valid prescription"
+                          : "Available over the counter"}
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Patient-facing content */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+                  <div>
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                      Patient Card Content
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Shown on the product card patients see in the app.
+                    </p>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Short Description</label>
+                    <textarea
+                      value={desc.short ?? ""}
+                      onChange={(e) => setD("short", e.target.value)}
+                      rows={3}
+                      placeholder="Brief description of what this medicine treats or is used for…"
+                      className={cn(inputCls, "resize-none leading-relaxed")}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Dosage Summary</label>
+                    <textarea
+                      value={desc.dosage_summary ?? ""}
+                      onChange={(e) => setD("dosage_summary", e.target.value)}
+                      rows={2}
+                      placeholder="e.g. Take 1–2 tablets every 4–6 hours as needed, max 8 per day."
+                      className={cn(inputCls, "resize-none leading-relaxed")}
+                    />
+                  </div>
+                </div>
+
+                {/* Rich article sections */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-5">
+                  <div>
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                      Detailed Article
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Comprehensive information shown in the product detail view.
+                    </p>
+                  </div>
+                  <div>
+                    <label className={cn(labelCls, "flex items-center gap-2")}>
+                      <span className="w-2 h-2 rounded-full bg-farumasi-500 shrink-0" /> Overview
+                    </label>
+                    <RichEditor
+                      initialContent={desc.overview}
+                      onChange={(html) => setD("overview", html)}
+                      placeholder="Write an overview — what this medicine is, what it treats, how it works…"
+                    />
+                  </div>
+                  <div>
+                    <label className={cn(labelCls, "flex items-center gap-2")}>
+                      <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" /> Dosage &amp; Administration
+                    </label>
+                    <RichEditor
+                      initialContent={desc.dosage_details}
+                      onChange={(html) => setD("dosage_details", html)}
+                      placeholder="Recommended dosage, administration route, timing, and missed-dose guidance…"
+                    />
+                  </div>
+                  <div>
+                    <label className={cn(labelCls, "flex items-center gap-2")}>
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" /> Safety &amp; Warnings
+                    </label>
+                    <RichEditor
+                      initialContent={desc.safety}
+                      onChange={(html) => setD("safety", html)}
+                      placeholder="Contraindications, side effects, drug interactions, and special warnings…"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="bg-white border-t border-slate-100 shrink-0">
+            <div className="max-w-3xl mx-auto px-6 pb-6 pt-3 flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 py-3 rounded-xl bg-farumasi-600 text-white text-sm font-bold hover:bg-farumasi-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+              >
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {saving ? "Adding…" : "Add to Catalogue"}
               </button>
             </div>
           </div>
-
-          <div className="bg-white px-6 pb-6 pt-3 border-t border-slate-100 shrink-0 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 py-3 rounded-xl bg-farumasi-600 text-white text-sm font-bold hover:bg-farumasi-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4" />
-              )}
-              {saving ? "Adding…" : "Add to Catalogue"}
-            </button>
-          </div>
         </form>
-      </div>
     </div>
   );
 }
@@ -1476,6 +1937,7 @@ export default function InventoryPage() {
   const router = useRouter();
 
   const chipRef = useRef<HTMLDivElement>(null);
+
   const scrollChips = (dir: "l" | "r") =>
     chipRef.current?.scrollBy({ left: dir === "l" ? -160 : 160, behavior: "smooth" });
 
@@ -1517,6 +1979,19 @@ export default function InventoryPage() {
       );
     return list;
   }, [products, search, category]);
+
+  if (showAdd) {
+    return (
+      <AddProductDrawer
+        onClose={() => setShowAdd(false)}
+        onCreated={(p) => {
+          setProducts((prev) => [p, ...prev]);
+          setShowAdd(false);
+          toast.success(`"${p.name}" added to catalogue`);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -1633,17 +2108,6 @@ export default function InventoryPage() {
         )}
       </div>
 
-      {/* Overlays */}
-      {showAdd && (
-        <AddProductDrawer
-          onClose={() => setShowAdd(false)}
-          onCreated={(p) => {
-            setProducts((prev) => [p, ...prev]);
-            setShowAdd(false);
-            toast.success(`"${p.name}" added to catalogue`);
-          }}
-        />
-      )}
     </div>
   );
 }

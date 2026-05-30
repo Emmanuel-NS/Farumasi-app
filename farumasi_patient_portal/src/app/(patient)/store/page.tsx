@@ -758,7 +758,7 @@ function StorePageInner() {
                   {/* Price — 12px bold green; shows pharmacy-specific price when pharmacy is selected */}
                   <p className="text-[12px] font-bold text-farumasi-600 mt-1">
                     {formatPrice(displayPrice)}
-                    {!selectedPharmacy && med.maxPrice ? ` – ${formatPrice(med.maxPrice)}` : ""}
+                    {!selectedPharmacy && med.maxPrice && med.maxPrice !== med.price ? ` – ${formatPrice(med.maxPrice)}` : ""}
                     {selectedPharmacy && (
                       <span className="ml-1 text-[10px] font-normal text-slate-400">
                         @ {selectedPharmacy.split(" ")[0]}
