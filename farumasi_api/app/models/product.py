@@ -162,3 +162,21 @@ class ProductRequest(Base, UUIDMixin, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<ProductRequest {self.product_name}>"
+
+
+class ProductCategory(Base, UUIDMixin, TimestampMixin):
+    """Pharmacist-managed product categories with icon metadata.
+
+    Acts as the single source of truth for category names + icons across all
+    portals. Pharmacists create/edit/delete; patients read.
+    """
+
+    __tablename__ = "product_categories"
+
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    icon_name: Mapped[str] = mapped_column(String(60), nullable=False, default="general")
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    display_order: Mapped[int] = mapped_column(default=0)
+
+    def __repr__(self) -> str:
+        return f"<ProductCategory {self.name}>"

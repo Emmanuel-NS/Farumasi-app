@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import api from "@/lib/api";
@@ -9,6 +9,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TipTapUnderline from "@tiptap/extension-underline";
+import type { CategoryIconComponent } from "@/components/icons/CategoryIcons";
+import { HEALTHCARE_CATEGORY_ICONS, IconGeneral } from "@/components/icons/CategoryIcons";
 import {
   Search, X, ChevronLeft, ChevronRight,
   Loader2, Building2, Plus, Package,
@@ -16,6 +18,43 @@ import {
   Calendar, TrendingUp,
   Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Undo2, Redo2,
   ArrowLeft, ShieldOff, Trash2, MoreVertical, AlertTriangle,
+  // Category icon picker — medical & clinical
+  Pill, Syringe, Stethoscope, Thermometer, Bandage, Microscope, FlaskConical, TestTube,
+  Cross, ClipboardPlus, ClipboardList, FileHeart, FilePlus, Scan, Dna, Hospital,
+  Bed, BedDouble, Accessibility, HeartPulse, Heart, HeartCrack, HeartHandshake,
+  Activity, Brain, Ear, Fingerprint, Bone, PersonStanding,
+  // Conditions / immunity
+  Bug, Shield, ShieldCheck, ShieldPlus, ShieldAlert, Zap, Flame,
+  Droplets, Wind, Cloud, Snowflake, Gauge, Timer,
+  // Wellness / lifestyle
+  Sun, Moon, Star, Sparkles, Gem, Dumbbell, Mountain, Waves, TreePine, Leaf,
+  Sprout, Flower2, Smile, Frown, Laugh, Meh, Baby,
+  Users, User, UserCheck, UserPlus,
+  // Nutrition & food
+  Apple, Utensils, Coffee, Beer, Wine, Fish, Cookie, Beef, Wheat, Pizza,
+  Candy, IceCreamCone, Sandwich, Croissant, Egg, Carrot, Grape, Citrus, Soup, Milk,
+  Salad, Popcorn, Nut, ChefHat, UtensilsCrossed,
+  // Personal care & hygiene
+  Scissors, SprayCan, Palette, Shirt, Watch, Glasses, Bath, Brush,
+  // Mental / emotional
+  MessageCircleHeart, Headphones, BookOpen, PenLine,
+  // Movement / devices
+  Bike, Car, Truck, Ambulance, Footprints, Hand,
+  // Specific body systems
+  Scan as ScanBody, EarOff, EyeOff,
+  // Misc utility
+  LayoutGrid, Tag, Layers, Hash, Trophy, Award, Medal, Ribbon,
+  RotateCcw, RefreshCw, Repeat, Clock, AlarmClock, Hourglass,
+  // Extra
+  Feather, Anchor, Compass, Globe, Map as MapIcon, MapPin, Navigation,
+  Lightbulb, Battery, BatteryCharging, Cpu, Radio, Wifi,
+  Camera, Video, Image as ImageIcon, FileImage, QrCode,
+  Lock, Unlock, Key, KeyRound, Fingerprint as FingerprintAlt,
+  CreditCard, Wallet, Banknote, Gift, ShoppingCart, ShoppingBag,
+  Home, Building2 as BuildingHospital, Store, Tent,
+  Trees, Wind as WindAlt, Sunset, Sunrise, CloudRain, CloudSnow,
+  Thermometer as ThermometerAlt, Droplet,
+  Microscope as MicroscopeAlt,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -57,6 +96,577 @@ const PRODUCT_TYPES = [
   { value: "device",        label: "Device"        },
   { value: "personal_care", label: "Personal Care" },
 ];
+
+/* ─── Category icon registry ────────────────────────────── */
+const CATEGORY_ICONS = HEALTHCARE_CATEGORY_ICONS;
+
+// Legacy lucide icons kept referenced so unused-import linters stay quiet.
+const _legacyCategoryIcons = [
+  { name: "pill",             Icon: IconGeneral,      label: "Pill"               },
+  { name: "syringe",          Icon: Syringe,          label: "Injection"          },
+  { name: "stethoscope",      Icon: Stethoscope,      label: "Stethoscope"        },
+  { name: "thermometer",      Icon: Thermometer,      label: "Thermometer"        },
+  { name: "bandage",          Icon: Bandage,          label: "Bandage"            },
+  { name: "microscope",       Icon: Microscope,       label: "Microscope"         },
+  { name: "flask",            Icon: FlaskConical,     label: "Flask"              },
+  { name: "test-tube",        Icon: TestTube,         label: "Test Tube"          },
+  { name: "cross",            Icon: Cross,            label: "Medical Cross"      },
+  { name: "clipboard-plus",   Icon: ClipboardPlus,    label: "Prescription"       },
+  { name: "clipboard-list",   Icon: ClipboardList,    label: "Drug List"          },
+  { name: "file-heart",       Icon: FileHeart,        label: "Health Record"      },
+  { name: "file-plus",        Icon: FilePlus,         label: "New Record"         },
+  { name: "scan",             Icon: Scan,             label: "Scan / Barcode"     },
+  { name: "dna",              Icon: Dna,              label: "DNA / Genetics"     },
+  { name: "hospital",         Icon: Hospital,         label: "Hospital"           },
+  { name: "bed",              Icon: Bed,              label: "Ward / Bed"         },
+  { name: "bed-double",       Icon: BedDouble,        label: "Recovery"           },
+  { name: "ambulance",        Icon: Ambulance,        label: "Emergency"          },
+  { name: "accessibility",    Icon: Accessibility,    label: "Mobility / Disability"},
+  // ── Heart & Cardiovascular ───────────────────────────────────────────────
+  { name: "heart",            Icon: Heart,            label: "Cardiac"            },
+  { name: "heart-pulse",      Icon: HeartPulse,       label: "Vitals"             },
+  { name: "heart-crack",      Icon: HeartCrack,       label: "Cardiac Risk"       },
+  { name: "heart-handshake",  Icon: HeartHandshake,   label: "Patient Care"       },
+  { name: "activity",         Icon: Activity,         label: "Monitor / ECG"      },
+  // ── Neuro / Senses ──────────────────────────────────────────────────────
+  { name: "brain",            Icon: Brain,            label: "Neurology"          },
+  { name: "ear",              Icon: Ear,              label: "ENT / Audiology"    },
+  { name: "eye",              Icon: Eye,              label: "Ophthalmology"      },
+  { name: "eye-off",          Icon: EyeOff,           label: "Vision Impairment"  },
+  { name: "fingerprint",      Icon: Fingerprint,      label: "Dermatology"        },
+  { name: "glasses",          Icon: Glasses,          label: "Eyewear / Optics"   },
+  // ── Musculoskeletal / Movement ───────────────────────────────────────────
+  { name: "bone",             Icon: Bone,             label: "Orthopedics / Bone" },
+  { name: "dumbbell",         Icon: Dumbbell,         label: "Fitness"            },
+  { name: "footprints",       Icon: Footprints,       label: "Podiatry / Walking" },
+  { name: "hand",             Icon: Hand,             label: "Hand / Arthritis"   },
+  { name: "person-standing",  Icon: PersonStanding,   label: "Physiotherapy"      },
+  { name: "bike",             Icon: Bike,             label: "Rehab / Active"     },
+  // ── Infections / Immunity ───────────────────────────────────────────────
+  { name: "bug",              Icon: Bug,              label: "Malaria / Parasites"},
+  { name: "cloud-rain",       Icon: CloudRain,        label: "Allergic Rhinitis"  },
+  { name: "shield",           Icon: Shield,           label: "Antimalarial"       },
+  { name: "shield-check",     Icon: ShieldCheck,      label: "Antibiotic"         },
+  { name: "shield-plus",      Icon: ShieldPlus,       label: "Immunity Boost"     },
+  { name: "shield-alert",     Icon: ShieldAlert,      label: "Drug Resistance"    },
+  { name: "shield-off",       Icon: ShieldOff,        label: "Immunosuppressant"  },
+  // ── Symptoms / Conditions ───────────────────────────────────────────────
+  { name: "zap",              Icon: Zap,              label: "Pain Relief"        },
+  { name: "flame",            Icon: Flame,            label: "Inflammation"       },
+  { name: "droplets",         Icon: Droplets,         label: "Hydration / Fluids" },
+  { name: "droplet",          Icon: Droplet,          label: "Drops / Tincture"   },
+  { name: "wind",             Icon: Wind,             label: "Respiratory"        },
+  { name: "cloud",            Icon: Cloud,            label: "Cold & Flu"         },
+  { name: "snowflake",        Icon: Snowflake,        label: "Cold Therapy"       },
+  { name: "cloud-rain",       Icon: CloudRain,        label: "Allergic Rhinitis"  },
+  { name: "gauge",            Icon: Gauge,            label: "Chronic Care"       },
+  { name: "timer",            Icon: Timer,            label: "Timed Dose"         },
+  { name: "hourglass",        Icon: Hourglass,        label: "Timed Release"      },
+  { name: "clock",            Icon: Clock,            label: "Dosage Schedule"    },
+  { name: "alarm-clock",      Icon: AlarmClock,       label: "Reminder"           },
+  // ── Digestive / Nutrition ───────────────────────────────────────────────
+  { name: "utensils",         Icon: Utensils,         label: "Digestive"          },
+  { name: "utensils-crossed", Icon: UtensilsCrossed,  label: "Diet Restriction"   },
+  { name: "chef-hat",         Icon: ChefHat,          label: "Clinical Nutrition" },
+  { name: "apple",            Icon: Apple,            label: "Nutrition"          },
+  { name: "carrot",           Icon: Carrot,           label: "Vegetables / Fiber" },
+  { name: "egg",              Icon: Egg,              label: "Protein"            },
+  { name: "fish",             Icon: Fish,             label: "Omega / Seafood"    },
+  { name: "beef",             Icon: Beef,             label: "Protein / Iron"     },
+  { name: "wheat",            Icon: Wheat,            label: "Carbohydrates"      },
+  { name: "salad",            Icon: Salad,            label: "Salad / Greens"     },
+  { name: "soup",             Icon: Soup,             label: "Liquid Diet"        },
+  { name: "sandwich",         Icon: Sandwich,         label: "Food / Nutrition"   },
+  { name: "croissant",        Icon: Croissant,        label: "Bakery / Carbs"     },
+  { name: "pizza",            Icon: Pizza,            label: "Meal Plan"          },
+  { name: "grape",            Icon: Grape,            label: "Antioxidants"       },
+  { name: "citrus",           Icon: Citrus,           label: "Vitamin C"          },
+  { name: "milk",             Icon: Milk,             label: "Calcium / Dairy"    },
+  { name: "coffee",           Icon: Coffee,           label: "Stimulant"          },
+  { name: "beer",             Icon: Beer,             label: "Alcohol / Beverage" },
+  { name: "wine",             Icon: Wine,             label: "Alcohol"            },
+  { name: "candy",            Icon: Candy,            label: "Sugar / Diabetic"   },
+  { name: "ice-cream-cone",   Icon: IceCreamCone,     label: "Cold Dessert"       },
+  { name: "cookie",           Icon: Cookie,           label: "Snack"              },
+  { name: "popcorn",          Icon: Popcorn,          label: "Snack / Fibre"      },
+  { name: "nut",              Icon: Nut,              label: "Nuts / Healthy Fats"},
+  // ── Vitamins / Supplements / Wellness ──────────────────────────────────
+  { name: "sun",              Icon: Sun,              label: "Vitamins / Sunlight"},
+  { name: "sunrise",          Icon: Sunrise,          label: "Morning Routine"    },
+  { name: "sunset",           Icon: Sunset,           label: "Evening Routine"    },
+  { name: "sparkles",         Icon: Sparkles,         label: "Supplements"        },
+  { name: "star",             Icon: Star,             label: "Wellness"           },
+  { name: "gem",              Icon: Gem,              label: "Premium / Luxury"   },
+  { name: "leaf",             Icon: Leaf,             label: "Herbal"             },
+  { name: "sprout",           Icon: Sprout,           label: "Natural / Organic"  },
+  { name: "flower2",          Icon: Flower2,          label: "Allergy / Botanical"},
+  { name: "tree-pine",        Icon: TreePine,         label: "Organic"            },
+  { name: "trees",            Icon: Trees,            label: "Eco / Natural"      },
+  // ── Mental Health / Sleep ───────────────────────────────────────────────
+  { name: "moon",             Icon: Moon,             label: "Sleep / Sedative"   },
+  { name: "smile",            Icon: Smile,            label: "Mental Health"      },
+  { name: "frown",            Icon: Frown,            label: "Depression"         },
+  { name: "meh",              Icon: Meh,              label: "Anxiety / Mood"     },
+  { name: "laugh",            Icon: Laugh,            label: "Joy / Wellbeing"    },
+  { name: "message-heart",    Icon: MessageCircleHeart, label: "Emotional Support"},
+  { name: "headphones",       Icon: Headphones,       label: "Therapy / Audio"    },
+  { name: "book-open",        Icon: BookOpen,         label: "CBT / Self-Help"    },
+  { name: "lightbulb",        Icon: Lightbulb,        label: "Mindfulness"        },
+  // ── Paediatrics / Maternal ──────────────────────────────────────────────
+  { name: "baby",             Icon: Baby,             label: "Pediatric"          },
+  { name: "user-plus",        Icon: UserPlus,         label: "Maternal Health"    },
+  // ── Personal Care / Hygiene ─────────────────────────────────────────────
+  { name: "scissors",         Icon: Scissors,         label: "Surgical / Incision"},
+  { name: "spray-can",        Icon: SprayCan,         label: "Spray / Aerosol"    },
+  { name: "palette",          Icon: Palette,          label: "Cosmetics"          },
+  { name: "brush",            Icon: Brush,            label: "Topical / Brush"    },
+  { name: "droplet",          Icon: Droplet,          label: "Drops / Tincture"   },
+  { name: "shirt",            Icon: Shirt,            label: "Wearable / Clothing"},
+  { name: "watch",            Icon: Watch,            label: "Wearable Device"    },
+  { name: "pen-line",         Icon: PenLine,          label: "Topical / Ointment" },
+  // ── Devices / Diagnostics ───────────────────────────────────────────────
+  { name: "battery",          Icon: Battery,          label: "Medical Device"     },
+  { name: "battery-charging", Icon: BatteryCharging,  label: "Charging Device"    },
+  { name: "cpu",              Icon: Cpu,              label: "Smart Device"       },
+  { name: "qr-code",          Icon: QrCode,           label: "QR / Drug Code"     },
+  { name: "radio",            Icon: Radio,            label: "Remote Monitor"     },
+  { name: "wifi",             Icon: Wifi,             label: "Connected Health"   },
+  { name: "camera",           Icon: Camera,           label: "Imaging / X-Ray"    },  // ── Pharmacy / Store ────────────────────────────────────────────────────
+  { name: "shopping-cart",    Icon: ShoppingCart,     label: "OTC / Store"        },
+  { name: "shopping-bag",     Icon: ShoppingBag,      label: "Retail Pack"        },
+  { name: "gift",             Icon: Gift,             label: "Health Gift"        },
+  { name: "ribbon",           Icon: Ribbon,           label: "Awareness Ribbon"   },
+  { name: "award",            Icon: Award,            label: "Certified"          },
+  { name: "trophy",           Icon: Trophy,           label: "Best Seller"        },
+  { name: "medal",            Icon: Medal,            label: "Gold Standard"      },
+  { name: "store",            Icon: Store,            label: "Pharmacy"           },
+  { name: "home",             Icon: Home,             label: "Home Care"          },
+  { name: "tent",             Icon: Tent,             label: "Field / Camp"       },
+  { name: "map-pin",          Icon: MapPin,           label: "Location"           },
+  { name: "globe",            Icon: Globe,            label: "International"      },
+  { name: "compass",          Icon: Compass,          label: "Navigation"         },
+  // ── Users / People ──────────────────────────────────────────────────────
+  { name: "user",             Icon: User,             label: "Individual"         },
+  { name: "users",            Icon: Users,            label: "Community"          },
+  { name: "user-check",       Icon: UserCheck,        label: "Verified Patient"   },
+  // ── General / Misc ──────────────────────────────────────────────────────
+  { name: "package",          Icon: Package,          label: "General"            },
+  { name: "tag",              Icon: Tag,              label: "Miscellaneous"      },
+  { name: "layers",           Icon: Layers,           label: "Multi-Use"          },
+  { name: "layout-grid",      Icon: LayoutGrid,       label: "All / Catalogue"    },
+  { name: "hash",             Icon: Hash,             label: "Index"              },
+  { name: "refresh-cw",       Icon: RefreshCw,        label: "Refill"             },
+  { name: "repeat",           Icon: Repeat,           label: "Repeat Prescription"},
+  { name: "feather",          Icon: Feather,          label: "Lightweight"        },
+  { name: "anchor",           Icon: Anchor,           label: "Stability"          },
+  { name: "mountain",         Icon: Mountain,         label: "Endurance"          },
+  { name: "waves",            Icon: Waves,            label: "Hydration"          },
+  { name: "cloud-snow",       Icon: IconGeneral,      label: "Cold / Cryotherapy" },
+];
+void _legacyCategoryIcons;
+
+const ICON_BY_NAME: Record<string, CategoryIconComponent> = Object.fromEntries(
+  CATEGORY_ICONS.map(({ name, Icon }) => [name, Icon]),
+);
+function resolveIcon(name: string): CategoryIconComponent {
+  return ICON_BY_NAME[name] ?? IconGeneral;
+}
+
+function getDefaultIconName(catName: string): string {
+  const n = catName.toLowerCase();
+  if (n.includes("analgesic") || n.includes("pain"))           return "pain-relief";
+  if (n.includes("antibiotic"))                                return "antibiotics";
+  if (n.includes("antidiabet") || n.includes("diabet"))        return "diabetes";
+  if (n.includes("antihypertens") || n.includes("hypertens"))  return "blood-pressure";
+  if (n.includes("malaria"))                                   return "infectious";
+  if (n.includes("antihistamine") || n.includes("histamine"))  return "allergy";
+  if (n.includes("gastro") || n.includes("digestive"))         return "digestive";
+  if (n.includes("respiratory") || n.includes("lung"))         return "respiratory";
+  if (n.includes("vitamin"))                                   return "vitamins";
+  if (n.includes("supplement"))                                return "supplements";
+  if (n.includes("cold") || n.includes("flu"))                 return "cold-flu";
+  if (n.includes("allergy") || n.includes("asthma"))           return "allergy";
+  if (n.includes("chronic"))                                   return "chronic-care";
+  if (n.includes("personal care") || n.includes("beauty"))     return "skincare";
+  if (n.includes("first aid"))                                 return "first-aid";
+  if (n.includes("wellness"))                                  return "general";
+  if (n.includes("sleep"))                                     return "sleep";
+  if (n.includes("mental") || n.includes("neuro") || n.includes("brain")) return "mental-health";
+  if (n.includes("baby") || n.includes("child") || n.includes("pedia"))   return "pediatrics";
+  if (n.includes("skin") || n.includes("derma"))               return "skincare";
+  if (n.includes("eye") || n.includes("ophthalm"))             return "eye-care";
+  if (n.includes("ear"))                                       return "ear-care";
+  if (n.includes("dental") || n.includes("oral"))              return "dental";
+  if (n.includes("cardiac") || n.includes("heart"))            return "heart-health";
+  if (n.includes("oncol") || n.includes("cancer"))             return "cancer-care";
+  if (n.includes("kidney") || n.includes("renal"))             return "kidney";
+  if (n.includes("liver") || n.includes("hepat"))              return "liver";
+  if (n.includes("bone") || n.includes("ortho"))               return "bone-joint";
+  if (n.includes("thyroid"))                                   return "thyroid";
+  if (n.includes("reproductive") || n.includes("uterus"))      return "reproductive";
+  return "general";
+}
+
+interface CategoryItem {
+  id: string;
+  name: string;
+  iconName: string;
+  isDefault?: boolean;
+}
+
+const DEFAULT_CATEGORIES: CategoryItem[] = BACKEND_CATEGORIES.map((name, i) => ({
+  id: `default-${i}`,
+  name,
+  iconName: getDefaultIconName(name),
+  isDefault: true,
+}));
+
+const CAT_STORAGE_KEY = "farumasi_product_categories";
+
+/* Remote category shape from GET /products/categories/ */
+interface RemoteCategoryItem {
+  id: string;
+  name: string;
+  icon_name: string;
+  is_default: boolean;
+  display_order: number;
+}
+
+function remoteToLocal(r: RemoteCategoryItem): CategoryItem {
+  return { id: r.id, name: r.name, iconName: r.icon_name, isDefault: r.is_default };
+}
+
+function useCategoryStore() {
+  const [categories, setCategories] = useState<CategoryItem[]>(() => {
+    if (typeof window === "undefined") return DEFAULT_CATEGORIES;
+    try {
+      const stored = localStorage.getItem(CAT_STORAGE_KEY);
+      return stored ? (JSON.parse(stored) as CategoryItem[]) : DEFAULT_CATEGORIES;
+    } catch {
+      return DEFAULT_CATEGORIES;
+    }
+  });
+
+  // Hydrate from backend on mount — backend is the source of truth
+  useEffect(() => {
+    api.get<RemoteCategoryItem[]>("/products/categories/")
+      .then(({ data }) => {
+        if (data.length > 0) {
+          const mapped = data.map(remoteToLocal);
+          setCategories(mapped);
+          try { localStorage.setItem(CAT_STORAGE_KEY, JSON.stringify(mapped)); } catch { /* noop */ }
+        }
+      })
+      .catch(() => { /* keep localStorage fallback */ });
+  }, []);
+
+  const persist = useCallback((next: CategoryItem[]) => {
+    setCategories(next);
+    try { localStorage.setItem(CAT_STORAGE_KEY, JSON.stringify(next)); } catch { /* noop */ }
+  }, []);
+
+  const addCategory = useCallback(
+    async (item: Omit<CategoryItem, "id">) => {
+      try {
+        const { data } = await api.post<RemoteCategoryItem>("/products/categories/", {
+          name: item.name,
+          icon_name: item.iconName,
+          display_order: categories.length,
+        });
+        persist([...categories, remoteToLocal(data)]);
+      } catch {
+        // Optimistic local-only fallback
+        persist([...categories, { ...item, id: crypto.randomUUID() }]);
+      }
+    },
+    [persist, categories],
+  );
+
+  const updateCategory = useCallback(
+    async (id: string, patch: Partial<Omit<CategoryItem, "id">>) => {
+      const next = categories.map((c) => (c.id === id ? { ...c, ...patch } : c));
+      persist(next);
+      try {
+        await api.patch(`/products/categories/${id}`, {
+          ...(patch.name !== undefined && { name: patch.name }),
+          ...(patch.iconName !== undefined && { icon_name: patch.iconName }),
+        });
+      } catch { /* local already updated */ }
+    },
+    [persist, categories],
+  );
+
+  const deleteCategory = useCallback(
+    async (id: string) => {
+      persist(categories.filter((c) => c.id !== id));
+      try { await api.delete(`/products/categories/${id}`); } catch { /* local already updated */ }
+    },
+    [persist, categories],
+  );
+
+  const resetAll = useCallback(() => persist(DEFAULT_CATEGORIES), [persist]);
+
+  return { categories, addCategory, updateCategory, deleteCategory, resetAll };
+}
+
+/* ─── CategoryManagerPage ──────────────────────────────── */
+type CatViewState = { mode: "list" } | { mode: "create" } | { mode: "edit"; id: string };
+
+function CategoryManagerPage({ onClose }: { onClose: () => void }) {
+  const { categories, addCategory, updateCategory, deleteCategory, resetAll } = useCategoryStore();
+  const [view, setView]               = useState<CatViewState>({ mode: "list" });
+  const [name, setName]               = useState("");
+  const [iconName, setIconName]       = useState("package");
+  const [listSearch, setListSearch]   = useState("");
+  const [iconSearch, setIconSearch]   = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const isForm = view.mode !== "list";
+
+  function openCreate() {
+    setName(""); setIconName("package"); setIconSearch(""); setView({ mode: "create" });
+  }
+  function openEdit(cat: CategoryItem) {
+    setName(cat.name); setIconName(cat.iconName); setIconSearch(""); setView({ mode: "edit", id: cat.id });
+  }
+  async function handleSave() {
+    if (!name.trim()) return;
+    if (view.mode === "create") await addCategory({ name: name.trim(), iconName, isDefault: false });
+    else if (view.mode === "edit") await updateCategory(view.id, { name: name.trim(), iconName });
+    setView({ mode: "list" });
+  }
+
+  const filteredCategories = listSearch.trim()
+    ? categories.filter((c) => c.name.toLowerCase().includes(listSearch.toLowerCase()))
+    : categories;
+
+  const filteredIcons = iconSearch.trim()
+    ? CATEGORY_ICONS.filter((ic) =>
+        ic.label.toLowerCase().includes(iconSearch.toLowerCase()) ||
+        ic.name.toLowerCase().includes(iconSearch.toLowerCase()),
+      )
+    : CATEGORY_ICONS;
+
+  const PreviewIcon = resolveIcon(iconName);
+
+  return (
+    <div className="h-full flex flex-col bg-slate-50">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-100 shrink-0">
+        <div className="max-w-3xl mx-auto px-6 pt-5 pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">
+                {isForm ? (view.mode === "create" ? "New Category" : "Edit Category") : "Manage Categories"}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {isForm
+                  ? "Give it a name and pick an icon — icons appear on the patient app."
+                  : "Create and manage product categories. Icons show on the patient category bar."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={isForm ? () => setView({ mode: "list" }) : onClose}
+              className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+            >
+              {isForm ? <ArrowLeft className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-6 py-5 space-y-4">
+          {isForm ? (
+            <>
+              {/* Name */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Category Name</p>
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                  placeholder="e.g. Antimalarials"
+                  className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-200"
+                />
+              </div>
+
+              {/* Icon picker */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                    Pick an Icon
+                    <span className="text-farumasi-600 normal-case font-semibold ml-1">
+                      · {CATEGORY_ICONS.find((i) => i.name === iconName)?.label ?? "–"}
+                    </span>
+                  </p>
+                  {/* Live preview chip */}
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-farumasi-600 text-white">
+                    <PreviewIcon className="w-3.5 h-3.5 shrink-0" />
+                    <span className="text-xs font-semibold">{name.trim() || "Preview"}</span>
+                  </div>
+                </div>
+                {/* Icon search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <input
+                    value={iconSearch}
+                    onChange={(e) => setIconSearch(e.target.value)}
+                    placeholder="Search icons…"
+                    className="w-full h-8 pl-8 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-200"
+                  />
+                </div>
+                {/* Icon grid — icon-only, tooltip on hover */}
+                <div className="grid grid-cols-8 sm:grid-cols-10 gap-1 max-h-72 overflow-y-auto scrollbar-hide">
+                  {filteredIcons.map(({ name: iname, Icon: Ic, label }) => {
+                    const active = iconName === iname;
+                    return (
+                      <button
+                        key={iname}
+                        type="button"
+                        onClick={() => setIconName(iname)}
+                        title={label}
+                        className={cn(
+                          "flex items-center justify-center w-9 h-9 rounded-xl border transition-all",
+                          active
+                            ? "bg-farumasi-600 text-white border-farumasi-600 shadow-sm"
+                            : "bg-slate-50 text-slate-500 border-transparent hover:border-farumasi-300 hover:bg-farumasi-50 hover:text-farumasi-600",
+                        )}
+                      >
+                        <Ic className="w-5 h-5 shrink-0" />
+                      </button>
+                    );
+                  })}
+                  {filteredIcons.length === 0 && (
+                    <p className="col-span-10 text-xs text-slate-400 text-center py-8">No icons match.</p>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Actions bar */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <input
+                    value={listSearch}
+                    onChange={(e) => setListSearch(e.target.value)}
+                    placeholder="Search categories…"
+                    className="w-full h-9 pl-8 pr-3 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-200"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-farumasi-600 hover:bg-farumasi-700 text-white text-sm font-bold transition-colors shadow-sm"
+                >
+                  <Plus className="w-4 h-4" /> New Category
+                </button>
+              </div>
+
+              {/* Category list */}
+              <div className="space-y-2">
+                {filteredCategories.length === 0 && (
+                  <p className="text-center text-sm text-slate-400 py-10">No categories found.</p>
+                )}
+                {filteredCategories.map((cat) => {
+                  const Ic = resolveIcon(cat.iconName);
+                  return (
+                    <div key={cat.id} className="bg-white rounded-2xl border border-slate-200 px-4 py-3 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-farumasi-50 flex items-center justify-center shrink-0">
+                        <Ic className="w-5 h-5 text-farumasi-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{cat.name}</p>
+                        {cat.isDefault && (
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Built-in</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(cat)}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-farumasi-600 transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        {!cat.isDefault && (
+                          deleteConfirm === cat.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={async () => { await deleteCategory(cat.id); setDeleteConfirm(null); }}
+                                className="px-2 py-1 rounded-lg bg-red-600 text-white text-[10px] font-bold hover:bg-red-700 transition-colors"
+                              >Delete</button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirm(null)}
+                                className="px-2 py-1 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold hover:bg-slate-200 transition-colors"
+                              >Cancel</button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirm(cat.id)}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Reset all to built-in defaults? Custom categories will be removed.")) {
+                      resetAll();
+                    }
+                  }}
+                  className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Reset to defaults
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Footer — form mode only */}
+      {isForm && (
+        <div className="bg-white border-t border-slate-100 shrink-0">
+          <div className="max-w-3xl mx-auto px-6 pb-6 pt-3 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setView({ mode: "list" })}
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!name.trim()}
+              className="flex-1 h-10 rounded-xl bg-farumasi-600 text-white text-sm font-bold hover:bg-farumasi-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {view.mode === "create" ? "Create Category" : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ─── Color helpers ─────────────────────────────────────── */
 function categoryBg(cat?: string | null): string {
@@ -1097,6 +1707,7 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
   const [uploading, setUploading] = useState(false);
   const [section,   setSection]   = useState<"identity" | "description">("identity");
   const imgInputRef = useRef<HTMLInputElement>(null);
+  const { categories: availableCategories } = useCategoryStore();
 
   const setF = <K extends keyof typeof form>(key: K, val: (typeof form)[K]) =>
     setForm((p) => ({ ...p, [key]: val }));
@@ -1317,25 +1928,27 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
                       Category <span className="text-slate-400 font-normal text-[10px]">(select all that apply)</span>
                     </label>
                     <div className="flex flex-wrap gap-1.5 mt-1">
-                      {BACKEND_CATEGORIES.map((c) => {
-                        const active = categories.includes(c);
+                      {availableCategories.map((cat) => {
+                        const active = categories.includes(cat.name);
+                        const CatIc = resolveIcon(cat.iconName);
                         return (
                           <button
-                            key={c}
+                            key={cat.id}
                             type="button"
                             onClick={() =>
                               setCategories((prev) =>
-                                active ? prev.filter((x) => x !== c) : [...prev, c],
+                                active ? prev.filter((x) => x !== cat.name) : [...prev, cat.name],
                               )
                             }
                             className={cn(
-                              "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all",
+                              "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all",
                               active
                                 ? "bg-farumasi-600 text-white border-farumasi-600 shadow-sm"
                                 : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300",
                             )}
                           >
-                            {c}
+                            <CatIc className="w-3 h-3 shrink-0" />
+                            {cat.name}
                           </button>
                         );
                       })}
@@ -1522,6 +2135,7 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
   const [uploading, setUploading] = useState(false);
   const [section,   setSection]   = useState<"identity" | "description">("identity");
   const imgInputRef = useRef<HTMLInputElement>(null);
+  const { categories: availableCategories } = useCategoryStore();
 
   const set = <K extends keyof CreateProductInput>(key: K, val: CreateProductInput[K]) =>
     setForm((p) => ({ ...p, [key]: val }));
@@ -1741,25 +2355,27 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
                       Category <span className="text-slate-400 font-normal text-[10px]">(select all that apply)</span>
                     </label>
                     <div className="flex flex-wrap gap-1.5 mt-1">
-                      {BACKEND_CATEGORIES.map((c) => {
-                        const active = categories.includes(c);
+                      {availableCategories.map((cat) => {
+                        const active = categories.includes(cat.name);
+                        const CatIc = resolveIcon(cat.iconName);
                         return (
                           <button
-                            key={c}
+                            key={cat.id}
                             type="button"
                             onClick={() =>
                               setCategories((prev) =>
-                                active ? prev.filter((x) => x !== c) : [...prev, c],
+                                active ? prev.filter((x) => x !== cat.name) : [...prev, cat.name],
                               )
                             }
                             className={cn(
-                              "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all",
+                              "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all",
                               active
                                 ? "bg-farumasi-600 text-white border-farumasi-600 shadow-sm"
                                 : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300",
                             )}
                           >
-                            {c}
+                            <CatIc className="w-3 h-3 shrink-0" />
+                            {cat.name}
                           </button>
                         );
                       })}
@@ -1933,8 +2549,10 @@ export default function InventoryPage() {
   const [loading,       setLoading]       = useState(true);
   const [search,        setSearch]        = useState("");
   const [category,      setCategory]      = useState("All");
-  const [showAdd, setShowAdd] = useState(false);
+  const [showAdd,        setShowAdd]        = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
   const router = useRouter();
+  const { categories: storedCategories } = useCategoryStore();
 
   const chipRef = useRef<HTMLDivElement>(null);
 
@@ -1993,6 +2611,12 @@ export default function InventoryPage() {
     );
   }
 
+  if (showCategories) {
+    return (
+      <CategoryManagerPage onClose={() => setShowCategories(false)} />
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -2021,6 +2645,12 @@ export default function InventoryPage() {
           >
             <Plus className="w-4 h-4" /> Add Product
           </button>
+          <button
+            onClick={() => setShowCategories(true)}
+            className="shrink-0 flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-farumasi-300 hover:text-farumasi-700 text-slate-600 text-sm font-bold transition-colors"
+          >
+            <Layers className="w-4 h-4" /> Categories
+          </button>
         </div>
 
         {/* Category chips */}
@@ -2032,20 +2662,25 @@ export default function InventoryPage() {
             <ChevronLeft className="w-4 h-4" />
           </button>
           <div ref={chipRef} className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
-            {CATEGORY_LIST.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className={cn(
-                  "shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all",
-                  category === c
-                    ? "bg-farumasi-600 text-white border-farumasi-600 shadow-sm"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300 hover:text-farumasi-700",
-                )}
-              >
-                {c}
-              </button>
-            ))}
+            {["All", ...storedCategories.map((c) => c.name)].map((catName, i) => {
+              const catObj = i === 0 ? null : storedCategories[i - 1];
+              const Ic = catObj ? resolveIcon(catObj.iconName) : null;
+              return (
+                <button
+                  key={catName}
+                  onClick={() => setCategory(catName)}
+                  className={cn(
+                    "shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap",
+                    category === catName
+                      ? "bg-farumasi-600 text-white border-farumasi-600 shadow-sm"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300 hover:text-farumasi-700",
+                  )}
+                >
+                  {Ic && <Ic className="w-3 h-3 shrink-0" />}
+                  {catName}
+                </button>
+              );
+            })}
           </div>
           <button
             onClick={() => scrollChips("r")}

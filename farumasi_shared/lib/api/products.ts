@@ -24,6 +24,27 @@ export const productsApi = {
     getClient().patch<ProductOut>(`/products/${id}/status`, { status }),
 };
 
+export const categoriesApi = {
+  /** All categories ordered by display_order. No auth required. */
+  list: () =>
+    getClient().get<{ id: string; name: string; icon_name: string; is_default: boolean; display_order: number; created_at: string }[]>(
+      "/products/categories/",
+    ),
+
+  create: (payload: { name: string; icon_name: string; display_order?: number }) =>
+    getClient().post("/products/categories/", payload),
+
+  update: (id: string, payload: { name?: string; icon_name?: string; display_order?: number }) =>
+    getClient().patch(`/products/categories/${id}`, payload),
+
+  delete: (id: string) =>
+    getClient().delete(`/products/categories/${id}`),
+
+  /** Bulk upsert from pharmacist localStorage → backend. */
+  sync: (items: { name: string; icon_name: string; display_order: number }[]) =>
+    getClient().put("/products/categories/sync", items),
+};
+
 export const listingsApi = {
   search: (params: {
     product_id?: string;

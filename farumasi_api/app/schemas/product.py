@@ -244,3 +244,26 @@ class ProductRequestOut(FarumasiBaseModel):
     reviewed_by_pharmacist_id: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     created_at: datetime
+
+
+# ─── Product Categories ───────────────────────────────────────────────────
+
+class ProductCategoryCreate(FarumasiBaseModel):
+    name: str
+    icon_name: str = "general"
+    display_order: int = 0
+
+
+class ProductCategoryUpdate(FarumasiBaseModel):
+    name: Optional[str] = None
+    icon_name: Optional[str] = None
+    display_order: Optional[int] = None
+
+
+class ProductCategoryOut(FarumasiBaseModel):
+    id: str
+    name: str
+    icon_name: str
+    is_default: bool
+    display_order: int
+    created_at: datetime

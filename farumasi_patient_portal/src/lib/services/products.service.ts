@@ -118,4 +118,11 @@ export const productsService = {
     const data = await this.getProducts({ limit: 100, only_with_listings: true });
     return data.items.map(adaptProduct);
   },
+
+  async getCategories(): Promise<{ id: string; name: string; icon_name: string; is_default: boolean; display_order: number }[]> {
+    const { data } = await api.get<{ id: string; name: string; icon_name: string; is_default: boolean; display_order: number }[]>(
+      "/products/categories/",
+    );
+    return data;
+  },
 };

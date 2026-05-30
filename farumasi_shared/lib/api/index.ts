@@ -37,7 +37,7 @@ export { hospitalsApi } from "./hospitals";
 export { pharmacistsApi } from "./pharmacists";
 export { pharmaciesApi } from "./pharmacies";
 export { partnersApi } from "./partners";
-export { productsApi, listingsApi, insuranceApi } from "./products";
+export { productsApi, categoriesApi, listingsApi, insuranceApi } from "./products";
 export { prescriptionsApi } from "./prescriptions";
 export { recommendationsApi } from "./recommendations";
 export { ordersApi } from "./orders";

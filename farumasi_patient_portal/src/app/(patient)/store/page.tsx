@@ -28,64 +28,61 @@ import {
   ChevronDown,
   MapPin,
   CheckCircle,
-  // Category icons — mirrors Flutter _getCategoryIcon
-  Stethoscope,     // Pain Relief   (Icons.healing)
-  FlaskConical,    // Antibiotics   (Icons.science)
-  Sun,             // Vitamins      (Icons.wb_sunny)
-  Snowflake,       // Cold & Flu    (Icons.snowing)
-  Sparkles,        // Skincare      (Icons.face_retouching_natural)
-  ShieldCheck,     // Hygiene
-  Dumbbell,        // Nutrition     (Icons.fitness_center)
-  Heart,           // Sexual Health (Icons.favorite)
-  Accessibility,   // Mobility Aids (Icons.accessible)
-  Baby,            // Mother & Baby (Icons.child_friendly)
-  HeartPulse,      // Devices       (Icons.monitor_heart → nearest available)
-  Cross,           // First Aid     (Icons.medical_services)
-  Pill,            // Chronic Care  (Icons.medication_liquid)
-  Activity,        // Diabetes
-  Wind,            // Allergy
-  Bug,             // Malaria
-  Droplets,        // Digestive Health
-  LayoutGrid,      // All
-  MoreHorizontal,  // Others
+  LayoutGrid,
 } from "lucide-react";
+import { HEALTHCARE_CATEGORY_ICONS, IconGeneral } from "@/components/icons/CategoryIcons";
+import type { CategoryIconComponent } from "@/components/icons/CategoryIcons";
 
-// ── Category → Icon mapping — exact mirrors of Flutter _getCategoryIcon ─────
-const CATEGORY_ICONS: Record<string, React.ElementType> = {
-  "All":              LayoutGrid,
-  "Pain Relief":      Stethoscope,
-  "Antibiotics":      FlaskConical,
-  "Vitamins":         Sun,
-  "Cold & Flu":       Snowflake,
-  "Skincare":         Sparkles,
-  "Hygiene":          ShieldCheck,
-  "Nutrition":        Dumbbell,
-  "Sexual Health":    Heart,
-  "Mobility Aids":    Accessibility,
-  "Mother & Baby":    Baby,
-  "Devices":          HeartPulse,
-  "First Aid":        Cross,
-  "Chronic Care":     Pill,
-  "Diabetes":         Activity,
-  "Allergy":          Wind,
-  "Malaria":          Bug,
-  "Digestive Health": Droplets,
-  "Others":           MoreHorizontal,
-};
+// ── Category → custom icon resolution ───────────────────────────────────────
+const _ICON_BY_NAME: Record<string, CategoryIconComponent> = Object.fromEntries(
+  HEALTHCARE_CATEGORY_ICONS.map(({ name, Icon }) => [name, Icon]),
+);
 
-function getCategoryIcon(cat: string): React.ElementType {
-  return CATEGORY_ICONS[cat] ?? LayoutGrid;
+function getDefaultIconKey(catName: string): string {
+  const n = catName.toLowerCase();
+  if (n.includes("analgesic") || n.includes("pain"))           return "pain-relief";
+  if (n.includes("antibiotic"))                                return "antibiotics";
+  if (n.includes("antidiabet") || n.includes("diabet"))        return "diabetes";
+  if (n.includes("antihypertens") || n.includes("hypertens"))  return "blood-pressure";
+  if (n.includes("malaria"))                                   return "infectious";
+  if (n.includes("antihistamine") || n.includes("histamine"))  return "allergy";
+  if (n.includes("gastro") || n.includes("digestive"))         return "digestive";
+  if (n.includes("respiratory") || n.includes("lung"))         return "respiratory";
+  if (n.includes("vitamin"))                                   return "vitamins";
+  if (n.includes("supplement"))                                return "supplements";
+  if (n.includes("cold") || n.includes("flu"))                 return "cold-flu";
+  if (n.includes("allergy") || n.includes("asthma"))           return "allergy";
+  if (n.includes("chronic"))                                   return "chronic-care";
+  if (n.includes("personal care") || n.includes("beauty"))     return "skincare";
+  if (n.includes("first aid"))                                 return "first-aid";
+  if (n.includes("hygiene"))                                   return "wound-care";
+  if (n.includes("nutrition"))                                 return "nutrition";
+  if (n.includes("sleep"))                                     return "sleep";
+  if (n.includes("mental") || n.includes("neuro"))             return "mental-health";
+  if (n.includes("baby") || n.includes("child") || n.includes("pedia")) return "pediatrics";
+  if (n.includes("mother"))                                    return "mother-baby";
+  if (n.includes("skin") || n.includes("derma"))               return "skincare";
+  if (n.includes("eye") || n.includes("ophthalm"))             return "eye-care";
+  if (n.includes("ear"))                                       return "ear-care";
+  if (n.includes("dental") || n.includes("oral"))              return "dental";
+  if (n.includes("cardiac") || n.includes("heart"))            return "heart-health";
+  if (n.includes("oncol") || n.includes("cancer"))             return "cancer-care";
+  if (n.includes("kidney") || n.includes("renal"))             return "kidney";
+  if (n.includes("liver") || n.includes("hepat"))              return "liver";
+  if (n.includes("bone") || n.includes("ortho"))               return "bone-joint";
+  if (n.includes("thyroid"))                                   return "thyroid";
+  if (n.includes("mobility") || n.includes("wheelchair"))      return "mobility";
+  if (n.includes("device"))                                    return "devices";
+  if (n.includes("sexual"))                                    return "sexual-health";
+  if (n.includes("women") || n.includes("female"))             return "womens-health";
+  if (n.includes("men") || n.includes("male"))                 return "mens-health";
+  if (n.includes("others") || n.includes("general"))           return "general";
+  return "general";
 }
 
-// Fixed category order — mirrors Flutter _getCategoryIcon listing order
-const CATEGORIES: string[] = [
-  "All",
-  "Pain Relief", "Antibiotics", "Vitamins", "Cold & Flu",
-  "Skincare", "Hygiene", "Nutrition", "Sexual Health",
-  "Mobility Aids", "Mother & Baby", "Devices",
-  "First Aid", "Chronic Care", "Diabetes",
-  "Allergy", "Malaria", "Digestive Health", "Others",
-];
+function getCategoryIcon(cat: string): CategoryIconComponent {
+  return _ICON_BY_NAME[getDefaultIconKey(cat)] ?? IconGeneral;
+}
 
 export default function StorePage() {
   return (
@@ -102,6 +99,7 @@ function StorePageInner() {
 
   // ── Real data from backend ────────────────────────────────────────────────
   const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [backendCategories, setBackendCategories] = useState<{ name: string; icon_name: string }[]>([]);
   const [activePrescription, setActivePrescription] = useState<DigitalPrescription | null>(null);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -111,10 +109,23 @@ function StorePageInner() {
   const [orderingRecId, setOrderingRecId] = useState<string | null>(null);
 
   useEffect(() => {
-    productsService.getAllProducts()
-      .then(setMedicines)
-      .catch(() => toast.error("Failed to load products"))
-      .finally(() => setLoadingProducts(false));
+    Promise.all([
+      productsService.getAllProducts(),
+      productsService.getCategories(),
+    ]).then(([prods, cats]) => {
+      setMedicines(prods);
+      // Count products per category — a product may belong to multiple (comma-separated)
+      const countMap: Record<string, number> = {};
+      for (const p of prods) {
+        for (const cat of p.category.split(",").map((s) => s.trim()).filter(Boolean)) {
+          countMap[cat] = (countMap[cat] ?? 0) + 1;
+        }
+      }
+      const sorted = cats
+        .map((c) => ({ name: c.name, icon_name: c.icon_name }))
+        .sort((a, b) => (countMap[b.name] ?? 0) - (countMap[a.name] ?? 0));
+      setBackendCategories(sorted);
+    }).catch(() => toast.error("Failed to load products")).finally(() => setLoadingProducts(false));
     // Load pharmacies and filter to only those with at least one available product in stock
     Promise.all([
       pharmaciesService.listPharmacies(0, 200),
@@ -200,6 +211,30 @@ function StorePageInner() {
   const [canScrollLeft, setCanScrollLeft]   = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
+
+  const onCatMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = categoryScrollRef.current;
+    if (!el) return;
+    dragState.current = { isDragging: true, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
+    el.style.cursor = "grabbing";
+    el.style.userSelect = "none";
+  };
+  const onCatMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = categoryScrollRef.current;
+    if (!el || !dragState.current.isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    el.scrollLeft = dragState.current.scrollLeft - (x - dragState.current.startX);
+  };
+  const onCatMouseUp = () => {
+    const el = categoryScrollRef.current;
+    if (!el) return;
+    dragState.current.isDragging = false;
+    el.style.cursor = "";
+    el.style.userSelect = "";
+    updateScrollState();
+  };
   // Pharmacy filter — mirrors Flutter PharmacyDetailScreen navigation
   const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
   const [selectedPharmacyId, setSelectedPharmacyId] = useState<string | null>(null);
@@ -223,9 +258,10 @@ function StorePageInner() {
   // Toggle category — clicking "All" clears all; clicking active deselects; clicking inactive adds
   function toggleCategory(cat: string) {
     if (cat === "All") { setSelectedCategories(new Set()); return; }
+    const norm = cat.toLowerCase();
     setSelectedCategories((prev) => {
       const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      if (next.has(norm)) next.delete(norm); else next.add(norm);
       return next;
     });
   }
@@ -258,7 +294,14 @@ function StorePageInner() {
       );
     }
     if (selectedCategories.size > 0) {
-      list = list.filter((m) => selectedCategories.has(m.category));
+      // A product may belong to multiple categories (comma-separated string)
+      // Match if ANY of its categories is in the selected set
+      list = list.filter((m) =>
+        m.category
+          .split(",")
+          .map((s) => s.trim().toLowerCase())
+          .some((c) => selectedCategories.has(c))
+      );
     }
     // Pharmacy filter: show only products stocked at the selected pharmacy
     if (selectedPharmacyId && pharmacyListings.size > 0) {
@@ -514,17 +557,24 @@ function StorePageInner() {
             <div
               ref={categoryScrollRef}
               onScroll={updateScrollState}
-              className="flex gap-4 overflow-x-auto scrollbar-hide pb-1 cursor-pointer"
+              onMouseDown={onCatMouseDown}
+              onMouseMove={onCatMouseMove}
+              onMouseUp={onCatMouseUp}
+              onMouseLeave={onCatMouseUp}
+              className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 pt-1 px-1 cursor-grab"
+              style={{ WebkitOverflowScrolling: "touch", scrollBehavior: "smooth", touchAction: "pan-x" }}
             >
-              {CATEGORIES.map((cat) => {
-                const isAll = cat === "All";
-                const selected = isAll ? selectedCategories.size === 0 : selectedCategories.has(cat);
-                const Icon = getCategoryIcon(cat);
+              {/* "All" chip always first */}
+              {[{ name: "All", icon_name: "" }, ...backendCategories].map((cat) => {
+                const isAll = cat.name === "All";
+                const selected = isAll ? selectedCategories.size === 0 : selectedCategories.has(cat.name.toLowerCase());
+                const Icon = isAll ? LayoutGrid : (_ICON_BY_NAME[cat.icon_name] ?? IconGeneral);
                 return (
                   <button
-                    key={cat}
-                    onClick={() => toggleCategory(cat)}
+                    key={cat.name}
+                    onClick={() => toggleCategory(cat.name)}
                     className="flex flex-col items-center shrink-0 gap-2 hover:opacity-90 transition-opacity"
+                    style={{ touchAction: "pan-x" }}
                   >
                     {/* Circle icon container — matches Flutter 12px padding + shape: circle */}
                     <div
@@ -551,7 +601,7 @@ function StorePageInner() {
                           : "font-medium text-[#334155]"
                       )}
                     >
-                      {getCatLabel(cat)}
+                      {getCatLabel(cat.name)}
                     </span>
                   </button>
                 );

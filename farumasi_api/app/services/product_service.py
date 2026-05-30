@@ -24,9 +24,11 @@ from app.models.insurance import InsuranceProvider
 from app.models.partner import PartnerCompany
 from app.models.pharmacist import PharmacistProfile
 from app.models.pharmacy import Pharmacy
-from app.models.product import ProductCatalogueItem, ProductListing, ProductRequest
+from app.models.product import ProductCatalogueItem, ProductListing, ProductRequest, ProductCategory
 from app.models.user import User
 from app.schemas.product import (
+    ProductCategoryCreate,
+    ProductCategoryUpdate,
     ProductCreate,
     ProductListingCreate,
     ProductListingUpdate,
@@ -199,6 +201,93 @@ class ProductService:
             item.listing_count = int(row[3]) if row[3] is not None else 0  # type: ignore[attr-defined]
             products.append(item)
         return products, total
+
+    async def list_categories(self) -> list[ProductCategory]:
+        """Return all categories ordered by display_order then name."""
+        rows = await self.db.execute(
+            select(ProductCategory).order_by(ProductCategory.display_order, ProductCategory.name)
+        )
+        return list(rows.scalars().all())
+
+    async def create_category(self, data: ProductCategoryCreate) -> ProductCategory:
+        existing = await self.db.execute(
+            select(ProductCategory).where(ProductCategory.name == data.name)
+        )
+        if existing.scalar_one_or_none():
+            raise ValidationError(f"Category '{data.name}' already exists")
+        cat = ProductCategory(
+            id=str(__import__('uuid').uuid4()),
+            name=data.name,
+            icon_name=data.icon_name,
+            display_order=data.display_order,
+            is_default=False,
+        )
+        self.db.add(cat)
+        await self.db.commit()
+        await self.db.refresh(cat)
+        return cat
+
+    async def update_category(self, category_id: str, data: ProductCategoryUpdate) -> ProductCategory:
+        row = await self.db.execute(
+            select(ProductCategory).where(ProductCategory.id == category_id)
+        )
+        cat = row.scalar_one_or_none()
+        if not cat:
+            raise NotFoundError("Category not found")
+        if data.name is not None:
+            # Check uniqueness only if name is changing
+            if data.name != cat.name:
+                dup = await self.db.execute(
+                    select(ProductCategory).where(ProductCategory.name == data.name)
+                )
+                if dup.scalar_one_or_none():
+                    raise ValidationError(f"Category '{data.name}' already exists")
+            cat.name = data.name
+        if data.icon_name is not None:
+            cat.icon_name = data.icon_name
+        if data.display_order is not None:
+            cat.display_order = data.display_order
+        await self.db.commit()
+        await self.db.refresh(cat)
+        return cat
+
+    async def delete_category(self, category_id: str) -> None:
+        row = await self.db.execute(
+            select(ProductCategory).where(ProductCategory.id == category_id)
+        )
+        cat = row.scalar_one_or_none()
+        if not cat:
+            raise NotFoundError("Category not found")
+        await self.db.delete(cat)
+        await self.db.commit()
+
+    async def upsert_categories(self, items: list[dict]) -> list[ProductCategory]:
+        """Bulk upsert categories from pharmacist portal localStorage sync.
+        Each item: {name, icon_name, display_order}.
+        """
+        result = []
+        for item in items:
+            row = await self.db.execute(
+                select(ProductCategory).where(ProductCategory.name == item["name"])
+            )
+            cat = row.scalar_one_or_none()
+            if cat:
+                cat.icon_name = item.get("icon_name", cat.icon_name)
+                cat.display_order = item.get("display_order", cat.display_order)
+            else:
+                cat = ProductCategory(
+                    id=str(__import__('uuid').uuid4()),
+                    name=item["name"],
+                    icon_name=item.get("icon_name", "general"),
+                    display_order=item.get("display_order", 0),
+                    is_default=False,
+                )
+                self.db.add(cat)
+            result.append(cat)
+        await self.db.commit()
+        for cat in result:
+            await self.db.refresh(cat)
+        return result
 
     # ════════════════════════════════════════════════════════════════════
     # Listings
