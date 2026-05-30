@@ -12,7 +12,6 @@ import type { Medicine } from "@/types";
 import {
   ArrowLeft, Star, AlertCircle, ShoppingCart, Upload,
   MapPin, CheckCircle, XCircle, Clock, ChevronRight,
-  Sunrise, Sun, Moon, AlertTriangle, ShieldAlert, Package, Pill as PillIcon,
 } from "lucide-react";
 
 const TABS = ["Description", "Dosage by Age", "Pharmacies"] as const;
@@ -22,7 +21,7 @@ export default function MedicineDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const lang = useLanguageStore((s) => s.lang);
-  const [tab, setTab] = useState<Tab>("Description");
+  const [activeInfoTab, setActiveInfoTab] = useState<"overview" | "dosage" | "safety">("overview");
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const { add: cartAdd, items: cartItems } = useCartStore();
@@ -178,120 +177,74 @@ export default function MedicineDetailPage() {
         </div>
 
         {tab === "Description" && (
-          <div className="space-y-4">
-            {/* About / Overview */}
-            <div className="bg-white rounded-3xl border border-slate-100 p-6">
-              <h3 className="font-bold text-slate-900 mb-3">About {med.name}</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                {med.overviewDescription || med.description || "No description available."}
+          <div className="grid lg:grid-cols-2 gap-4">
+
+            {/* Left: Patient Overview */}
+            <div className="bg-white rounded-3xl border border-slate-100 p-5 space-y-3 h-fit">
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                Patient Overview
               </p>
-              {med.composition && (
-                <div className="mt-4 p-3.5 bg-slate-50 rounded-2xl">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Active Ingredients</p>
-                  <p className="text-sm text-slate-700">{med.composition}</p>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                {med.shortDescription || med.description || "No description available."}
+              </p>
+              {med.dosageSummary && (
+                <div className="bg-farumasi-50 rounded-xl px-3.5 py-2.5 border border-farumasi-100">
+                  <p className="text-[10px] font-bold text-farumasi-700 mb-0.5 uppercase tracking-wide">
+                    Dosage Guide
+                  </p>
+                  <p className="text-sm text-farumasi-800">{med.dosageSummary}</p>
                 </div>
               )}
             </div>
 
-            {/* Dosage details */}
-            {med.dosageDetails && (
-              <div className="bg-white rounded-3xl border border-slate-100 p-6">
-                <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
-                  <PillIcon className="w-4 h-4 text-farumasi-500" /> Dosage
-                </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">{med.dosageDetails}</p>
-              </div>
-            )}
+            {/* Right: Detailed Information */}
+            <div className="bg-white rounded-3xl border border-slate-100 p-5">
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">
+                Detailed Information
+              </p>
 
-            {/* Dosing schedule (time-based) */}
-            {(med.doseMorning || med.doseAfternoon || med.doseEvening || med.dosage) && (
-              <div className="bg-white rounded-3xl border border-slate-100 p-6">
-                <h3 className="font-bold text-slate-900 mb-4">Dosing Schedule</h3>
-                {med.dosage && !med.dosageDetails && (
-                  <p className="text-sm text-slate-500 mb-4 leading-relaxed bg-slate-50 rounded-2xl px-4 py-3">{med.dosage}</p>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {med.doseMorning && med.doseMorning !== "None" && (
-                    <div className="flex flex-col items-center bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
-                      <Sunrise className="w-6 h-6 text-amber-500 mb-1" />
-                      <p className="text-xs font-bold text-amber-600 uppercase tracking-wide">Morning</p>
-                      <p className="text-sm font-extrabold text-amber-900 mt-1">{med.doseMorning}</p>
-                    </div>
-                  )}
-                  {med.doseAfternoon && med.doseAfternoon !== "None" && (
-                    <div className="flex flex-col items-center bg-sky-50 border border-sky-100 rounded-2xl p-4 text-center">
-                      <Sun className="w-6 h-6 text-sky-500 mb-1" />
-                      <p className="text-xs font-bold text-sky-600 uppercase tracking-wide">Afternoon</p>
-                      <p className="text-sm font-extrabold text-sky-900 mt-1">{med.doseAfternoon}</p>
-                    </div>
-                  )}
-                  {med.doseEvening && med.doseEvening !== "None" && (
-                    <div className="flex flex-col items-center bg-violet-50 border border-violet-100 rounded-2xl p-4 text-center">
-                      <Moon className="w-6 h-6 text-violet-500 mb-1" />
-                      <p className="text-xs font-bold text-violet-600 uppercase tracking-wide">Evening</p>
-                      <p className="text-sm font-extrabold text-violet-900 mt-1">{med.doseEvening}</p>
-                    </div>
-                  )}
-                </div>
-                {med.doseTimeInterval && (
-                  <p className="text-xs text-slate-400 mt-3 flex items-center justify-center gap-1.5">
-                    <Clock className="w-3 h-3" /> {med.doseTimeInterval}
-                  </p>
-                )}
+              {/* Tab pills */}
+              <div className="flex gap-1.5 mb-4">
+                {(["overview", "dosage", "safety"] as const).map((t) => {
+                  const has =
+                    t === "overview" ? !!med.overviewDescription
+                    : t === "dosage"  ? !!med.dosageDetails
+                    : !!med.safetyInfo;
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => has && setActiveInfoTab(t)}
+                      className={cn(
+                        "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all capitalize",
+                        activeInfoTab === t
+                          ? "bg-farumasi-600 text-white shadow-sm"
+                          : has
+                          ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          : "bg-slate-50 text-slate-300 cursor-default",
+                      )}
+                    >
+                      {t === "dosage" ? "Dosage" : t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                  );
+                })}
               </div>
-            )}
 
-            {/* Safety / Warnings */}
-            {(med.safetyInfo || med.sideEffects || med.warnings) && (
-              <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-4">
-                {med.safetyInfo && (
-                  <div>
-                    <h3 className="font-bold text-amber-700 mb-2 flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4" /> Safety &amp; Warnings
-                    </h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">{med.safetyInfo}</p>
-                  </div>
-                )}
-                {!med.safetyInfo && med.sideEffects && (
-                  <div>
-                    <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-500" /> Side Effects
-                    </h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">{med.sideEffects}</p>
-                  </div>
-                )}
-                {med.warnings && (
-                  <div className={med.safetyInfo || med.sideEffects ? "pt-4 border-t border-slate-100" : ""}>
-                    <h3 className="font-bold text-red-700 mb-2 flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4" /> Warnings
-                    </h3>
-                    <p className="text-sm text-red-600 leading-relaxed">{med.warnings}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Storage + Drug Interactions */}
-            {(med.storage || med.interactions) && (
-              <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-4">
-                {med.storage && (
-                  <div>
-                    <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
-                      <Package className="w-4 h-4 text-slate-500" /> Storage
-                    </h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">{med.storage}</p>
-                  </div>
-                )}
-                {med.interactions && (
-                  <div className="pt-4 border-t border-slate-100">
-                    <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
-                      <PillIcon className="w-4 h-4 text-slate-500" /> Drug Interactions
-                    </h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">{med.interactions}</p>
-                  </div>
-                )}
-              </div>
-            )}
+              {/* Rich HTML content */}
+              <div
+                className="rich-content"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    activeInfoTab === "overview"
+                      ? med.overviewDescription ||
+                        "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No overview available.</p>"
+                      : activeInfoTab === "dosage"
+                      ? med.dosageDetails ||
+                        "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No dosage details available.</p>"
+                      : med.safetyInfo ||
+                        "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No safety information available.</p>",
+                }}
+              />
+            </div>
           </div>
         )}
 
