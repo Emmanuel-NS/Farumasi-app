@@ -855,9 +855,9 @@ function StorePageInner() {
               Patient Overview
             </p>
 
-            {/* Overview text */}
+            {/* Overview text — use short description (plain text), not overview (may be HTML) */}
             <p className="text-sm text-slate-700 leading-relaxed">
-              {quickView.overviewDescription || quickView.description}
+              {quickView.shortDescription || quickView.description}
             </p>
 
             {/* Dosage Guide */}
