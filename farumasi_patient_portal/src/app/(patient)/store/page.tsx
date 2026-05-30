@@ -827,101 +827,52 @@ function StorePageInner() {
       {/* ── Quick View Modal ─────────────────────────────── */}
       {quickView && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={() => setQuickView(null)}
         >
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+
+          {/* Compact Patient Overview card */}
           <div
-            className="relative w-full sm:max-w-md bg-white rounded-t-[32px] sm:rounded-[28px] overflow-hidden shadow-2xl z-10 max-h-[85vh] flex flex-col"
+            className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl z-10 p-5 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header image */}
-            <div className="relative h-48 bg-slate-100 shrink-0">
-              {quickView.imageUrl ? (
-                <img src={quickView.imageUrl} alt={quickView.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Pill className="w-16 h-16 text-slate-200" />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-              <button
-                onClick={() => setQuickView(null)}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <div className="absolute bottom-3 left-4 right-12">
-                <span className="text-xs font-semibold text-white/70 bg-white/15 px-2 py-0.5 rounded-full">{quickView.category}</span>
-                <h2 className="text-white font-extrabold text-lg leading-snug mt-1">{quickView.name}</h2>
-                {quickView.manufacturer && (
-                  <p className="text-xs text-white/70 mt-0.5">by {quickView.manufacturer}</p>
-                )}
-              </div>
-            </div>
+            {/* Close */}
+            <button
+              onClick={() => setQuickView(null)}
+              className="absolute top-3 right-3 w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
 
-            {/* Patient Overview card */}
-            <div className="p-5">
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">
-                {/* Section label */}
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                  Patient Overview
+            {/* Product name */}
+            <p className="text-xs font-semibold text-farumasi-600 uppercase tracking-wider pr-8">
+              {quickView.name}
+            </p>
+
+            {/* Section label */}
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+              Patient Overview
+            </p>
+
+            {/* Overview text */}
+            <p className="text-sm text-slate-700 leading-relaxed">
+              {quickView.overviewDescription || quickView.description}
+            </p>
+
+            {/* Dosage Guide */}
+            {(quickView.dosageDetails || quickView.dosage) && (
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">
+                  Dosage Guide
                 </p>
-
-                {/* Overview text */}
-                <p className="text-sm text-slate-700 leading-relaxed font-medium">
-                  {quickView.overviewDescription || quickView.description}
+                <p className="text-sm text-emerald-900 leading-relaxed">
+                  {quickView.dosageDetails || quickView.dosage}
                 </p>
-
-                {/* Dosage Guide — shown if any dosage data exists */}
-                {(quickView.dosageDetails || quickView.dosage) && (
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
-                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">
-                      Dosage Guide
-                    </p>
-                    <p className="text-sm text-emerald-900 leading-relaxed">
-                      {quickView.dosageDetails || quickView.dosage}
-                    </p>
-                  </div>
-                )}
               </div>
-            </div>
+            )}
 
-            {/* Footer */}
-            <div className="p-4 border-t border-slate-100 flex gap-3 shrink-0">
-              <Link
-                href={`/store/${quickView.id}`}
-                onClick={() => setQuickView(null)}
-                className="flex-1 h-11 rounded-2xl border-2 border-farumasi-600 text-farumasi-700 font-bold text-sm flex items-center justify-center hover:bg-farumasi-50 transition-colors"
-              >
-                {t.store_full_details}
-              </Link>
-              <button
-                onClick={() => {
-                  if (quickView.requiresPrescription) {
-                    toast.error(
-                      tf(t.toast_rx_modal, { name: quickView.name }),
-                      { duration: 5000 }
-                    );
-                    return;
-                  }
-                  cartAdd(quickView);
-                  toast.success(tf(t.toast_added, { name: quickView.name }));
-                  setQuickView(null);
-                }}
-                className={cn(
-                  "flex-1 h-11 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors",
-                  quickView.requiresPrescription
-                    ? "bg-amber-500 hover:bg-amber-600"
-                    : "bg-farumasi-600 hover:bg-farumasi-700"
-                )}
-              >
-                {quickView.requiresPrescription
-                  ? <><AlertCircle className="w-4 h-4" /> {t.store_rx_btn}</>
-                  : <><ShoppingCart className="w-4 h-4" /> {t.store_add_cart}</>
-                }
-              </button>
-            </div>
+            {/* placeholder to close overlay — no footer needed; About > on card goes to full page */}
           </div>
         </div>
       )}
