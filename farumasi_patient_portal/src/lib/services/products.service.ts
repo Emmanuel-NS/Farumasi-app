@@ -35,6 +35,19 @@ export interface PaginatedProducts {
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=80";
 
+interface ParsedDesc {
+  short?: string;
+  dosage_summary?: string;
+  overview?: string;
+  dosage_details?: string;
+  safety?: string;
+}
+
+function parseDesc(raw: string | null | undefined): ParsedDesc {
+  if (!raw) return {};
+  try { return JSON.parse(raw) as ParsedDesc; } catch { return {}; }
+}
+
 export function adaptProduct(p: BackendProduct): Medicine {
   // Use real listing price if available, fall back to deterministic placeholder
   const displayPrice = p.price_from != null
@@ -43,10 +56,19 @@ export function adaptProduct(p: BackendProduct): Medicine {
   const maxPrice = p.price_to != null
     ? Math.round(p.price_to)
     : displayPrice;
+
+  const desc = parseDesc(p.description);
+  const shortDesc = desc.short?.trim() ||
+    `${p.name}${p.strength ? ` ${p.strength}` : ""} — ${p.dosage_form ?? "medicine"}.`;
+
   return {
     id: p.id,
     name: p.name,
-    description: p.description ?? `${p.name}${p.strength ? ` ${p.strength}` : ""} — ${p.dosage_form ?? "medicine"}.`,
+    description: shortDesc,
+    shortDescription: shortDesc,
+    overviewDescription: desc.overview?.trim() || undefined,
+    dosageDetails: desc.dosage_details?.trim() || desc.dosage_summary?.trim() || undefined,
+    safetyInfo: desc.safety?.trim() || undefined,
     price: displayPrice,
     maxPrice: maxPrice,
     imageUrl: p.image_url ?? PLACEHOLDER_IMAGE,

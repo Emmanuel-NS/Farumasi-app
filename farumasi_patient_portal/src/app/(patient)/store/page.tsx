@@ -119,9 +119,13 @@ function StorePageInner() {
       .then(setMedicines)
       .catch(() => toast.error("Failed to load products"))
       .finally(() => setLoadingProducts(false));
-    pharmaciesService.listPharmacies(0, 50)
-      .then(setPharmacies)
-      .catch(() => {});
+    // Load pharmacies and filter to only those with at least one available product in stock
+    Promise.all([
+      pharmaciesService.listPharmacies(0, 200),
+      pharmaciesService.listActivePharmacyIds(),
+    ]).then(([all, activeIds]) => {
+      setPharmacies(all.filter((p) => activeIds.has(p.id)));
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -202,7 +206,23 @@ function StorePageInner() {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   // Pharmacy filter — mirrors Flutter PharmacyDetailScreen navigation
   const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
+  const [selectedPharmacyId, setSelectedPharmacyId] = useState<string | null>(null);
   const [pharmacies, setPharmacies] = useState<BackendPharmacy[]>([]);
+  // product_id → { price, status } for the currently selected pharmacy
+  const [pharmacyListings, setPharmacyListings] = useState<Map<string, { price: number; status: string }>>(new Map());
+
+  // Fetch listings for selected pharmacy so we can filter products to what's available there.
+  // This useEffect MUST be declared after selectedPharmacyId / setPharmacyListings are initialized.
+  useEffect(() => {
+    if (!selectedPharmacyId) {
+      setPharmacyListings(new Map());
+      return;
+    }
+    pharmaciesService.listingsForPharmacy(selectedPharmacyId).then((listings) => {
+      const map = new Map(listings.map((l) => [l.product_id, { price: l.price, status: l.availability_status }]));
+      setPharmacyListings(map);
+    }).catch(() => {});
+  }, [selectedPharmacyId]);
 
   // Toggle category — clicking "All" clears all; clicking active deselects; clicking inactive adds
   function toggleCategory(cat: string) {
@@ -244,11 +264,15 @@ function StorePageInner() {
     if (selectedCategories.size > 0) {
       list = list.filter((m) => selectedCategories.has(m.category));
     }
+    // Pharmacy filter: show only products stocked at the selected pharmacy
+    if (selectedPharmacyId && pharmacyListings.size > 0) {
+      list = list.filter((m) => pharmacyListings.has(m.id));
+    }
     if (sort === "price_asc")  list.sort((a, b) => a.price - b.price);
     if (sort === "price_desc") list.sort((a, b) => b.price - a.price);
     if (sort === "rating")     list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     return list;
-  }, [query, selectedCategories, sort, medicines]);
+  }, [query, selectedCategories, sort, medicines, selectedPharmacyId, pharmacyListings]);
 
   // Dynamic heading — mirrors Flutter's conditional title
   const sectionTitle = selectedPharmacy
@@ -560,7 +584,7 @@ function StorePageInner() {
             <h2 className="text-[19px] font-bold text-[#0F172A]">{t.store_pharmacies}</h2>
             {selectedPharmacy && (
               <button
-                onClick={() => setSelectedPharmacy(null)}
+                onClick={() => { setSelectedPharmacy(null); setSelectedPharmacyId(null); }}
                 className="flex items-center gap-1 text-xs text-farumasi-700 font-semibold bg-farumasi-50 px-3 py-1.5 rounded-full hover:bg-farumasi-100 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
@@ -577,7 +601,15 @@ function StorePageInner() {
               return (
                 <button
                   key={pharmacy.id}
-                  onClick={() => setSelectedPharmacy(isSelected ? null : pharmacy.name)}
+                  onClick={() => {
+                    if (isSelected) {
+                      setSelectedPharmacy(null);
+                      setSelectedPharmacyId(null);
+                    } else {
+                      setSelectedPharmacy(pharmacy.name);
+                      setSelectedPharmacyId(pharmacy.id);
+                    }
+                  }}
                   className={cn(
                     "flex bg-white rounded-[14px] border overflow-hidden transition-all shrink-0 text-left",
                     isSelected
@@ -650,9 +682,9 @@ function StorePageInner() {
         >
           {filtered.map((med) => {
             const isInCart = (cartItems[med.id]?.qty ?? 0) > 0;
-            // Pharmacy-specific price — mirrors Flutter PharmacyDetailScreen showing per-pharmacy pricing
-            const pharmacyEntry = selectedPharmacy
-              ? med.marketingPharmacies.find((p) => p.pharmacyName === selectedPharmacy)
+            // Pharmacy-specific price — from the real listings map for selected pharmacy
+            const pharmacyEntry = selectedPharmacyId
+              ? pharmacyListings.get(med.id)
               : null;
             const displayPrice = pharmacyEntry?.price ?? med.price;
 
@@ -834,7 +866,33 @@ function StorePageInner() {
 
             {/* Scrollable body */}
             <div className="overflow-y-auto flex-1 p-5 space-y-4">
-              <p className="text-sm text-slate-600 leading-relaxed">{quickView.description}</p>
+              {/* Overview */}
+              {(quickView.overviewDescription || quickView.description) && (
+                <div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">About</p>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    {quickView.overviewDescription || quickView.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Dosage details */}
+              {quickView.dosageDetails && (
+                <div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Dosage</p>
+                  <p className="text-sm text-slate-600 leading-relaxed">{quickView.dosageDetails}</p>
+                </div>
+              )}
+
+              {/* Safety / warnings */}
+              {quickView.safetyInfo && (
+                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3.5">
+                  <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3 h-3" /> Safety &amp; Warnings
+                  </p>
+                  <p className="text-sm text-amber-800 leading-relaxed">{quickView.safetyInfo}</p>
+                </div>
+              )}
 
               {(quickView.doseMorning || quickView.doseAfternoon || quickView.doseEvening) && (
                 <div>
@@ -864,7 +922,7 @@ function StorePageInner() {
                 </div>
               )}
 
-              {quickView.sideEffects && (
+              {quickView.sideEffects && !quickView.safetyInfo && (
                 <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3.5">
                   <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                     <AlertTriangle className="w-3 h-3" /> {t.store_side_effects}

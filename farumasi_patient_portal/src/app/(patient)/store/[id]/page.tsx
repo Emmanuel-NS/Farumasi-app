@@ -179,10 +179,12 @@ export default function MedicineDetailPage() {
 
         {tab === "Description" && (
           <div className="space-y-4">
-            {/* About */}
+            {/* About / Overview */}
             <div className="bg-white rounded-3xl border border-slate-100 p-6">
               <h3 className="font-bold text-slate-900 mb-3">About {med.name}</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">{med.description ?? "No description available."}</p>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                {med.overviewDescription || med.description || "No description available."}
+              </p>
               {med.composition && (
                 <div className="mt-4 p-3.5 bg-slate-50 rounded-2xl">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Active Ingredients</p>
@@ -191,11 +193,21 @@ export default function MedicineDetailPage() {
               )}
             </div>
 
-            {/* Dosing schedule */}
+            {/* Dosage details */}
+            {med.dosageDetails && (
+              <div className="bg-white rounded-3xl border border-slate-100 p-6">
+                <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <PillIcon className="w-4 h-4 text-farumasi-500" /> Dosage
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">{med.dosageDetails}</p>
+              </div>
+            )}
+
+            {/* Dosing schedule (time-based) */}
             {(med.doseMorning || med.doseAfternoon || med.doseEvening || med.dosage) && (
               <div className="bg-white rounded-3xl border border-slate-100 p-6">
                 <h3 className="font-bold text-slate-900 mb-4">Dosing Schedule</h3>
-                {med.dosage && (
+                {med.dosage && !med.dosageDetails && (
                   <p className="text-sm text-slate-500 mb-4 leading-relaxed bg-slate-50 rounded-2xl px-4 py-3">{med.dosage}</p>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -229,10 +241,18 @@ export default function MedicineDetailPage() {
               </div>
             )}
 
-            {/* Side Effects + Warnings */}
-            {(med.sideEffects || med.warnings) && (
+            {/* Safety / Warnings */}
+            {(med.safetyInfo || med.sideEffects || med.warnings) && (
               <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-4">
-                {med.sideEffects && (
+                {med.safetyInfo && (
+                  <div>
+                    <h3 className="font-bold text-amber-700 mb-2 flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4" /> Safety &amp; Warnings
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">{med.safetyInfo}</p>
+                  </div>
+                )}
+                {!med.safetyInfo && med.sideEffects && (
                   <div>
                     <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-500" /> Side Effects
@@ -241,7 +261,7 @@ export default function MedicineDetailPage() {
                   </div>
                 )}
                 {med.warnings && (
-                  <div className="pt-4 border-t border-slate-100">
+                  <div className={med.safetyInfo || med.sideEffects ? "pt-4 border-t border-slate-100" : ""}>
                     <h3 className="font-bold text-red-700 mb-2 flex items-center gap-2">
                       <ShieldAlert className="w-4 h-4" /> Warnings
                     </h3>

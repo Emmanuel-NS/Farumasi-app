@@ -35,6 +35,14 @@ export interface Medicine {
   id: string;
   name: string;
   description: string;
+  /** Short one-liner shown on product cards */
+  shortDescription?: string;
+  /** Overview paragraph for the product detail / quickview */
+  overviewDescription?: string;
+  /** Dosage details text for quickview */
+  dosageDetails?: string;
+  /** Safety / warnings text for quickview */
+  safetyInfo?: string;
   price: number;
   maxPrice?: number;
   imageUrl: string;
