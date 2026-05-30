@@ -250,7 +250,7 @@ function ProductCard({
             className="object-cover"
             sizes="320px"
             onError={() => setImgErr(true)}
-            unoptimized={product.image_url.startsWith("data:")}
+            unoptimized={!product.image_url.startsWith("https://images.unsplash.com")}
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">

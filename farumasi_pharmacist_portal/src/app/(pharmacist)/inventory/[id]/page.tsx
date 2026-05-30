@@ -545,7 +545,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="px-6 pt-6 pb-2 flex items-start gap-5 max-w-5xl mx-auto w-full">
           <div className="shrink-0 w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
             {product.image_url ? (
-              <Image src={product.image_url} alt={product.name} width={80} height={80} className="object-cover rounded-3xl" unoptimized={product.image_url?.startsWith("data:") ?? false} />
+              <Image src={product.image_url} alt={product.name} width={80} height={80} className="object-cover rounded-3xl" unoptimized={!product.image_url?.startsWith("https://images.unsplash.com")} />
             ) : (
               <span className="text-2xl font-black text-white">{initials}</span>
             )}
