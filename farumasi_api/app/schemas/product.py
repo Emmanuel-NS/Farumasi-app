@@ -162,6 +162,7 @@ class ProductListingOut(FarumasiBaseModel):
     location_longitude: Optional[float] = None
     status: str
     created_at: datetime
+    product: Optional[ProductOut] = None
 
 
 # ─── Product Requests ─────────────────────────────────────────────────────

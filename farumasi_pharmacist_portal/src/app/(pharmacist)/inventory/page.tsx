@@ -969,7 +969,7 @@ function PharmacyListModal({
 }) {
   const [localListings, setLocalListingsRaw] = useState(listings);
   const [actionTarget, setActionTarget] = useState<BackendListing | null>(null);
-  const [selectedReason, setSelectedReason] = useState(SUSPEND_REASONS[0]);
+  const [selectedReason, setSelectedReason] = useState<string>(SUSPEND_REASONS[0]);
   const [confirmAction, setConfirmAction] = useState<"suspend" | "out_of_stock" | "remove" | null>(null);
   const [working, setWorking] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -2130,7 +2130,7 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
     manufacturer: "", prescription_required: false, image_url: "",
   });
   const [categories, setCategories] = useState<string[]>([]);
-  const [desc,      setDesc]      = useState<ParsedDesc>({});
+  const [desc,      setDesc]      = useState<ParsedDesc>({ short: "", dosage_summary: "", overview: "", dosage_details: "", safety: "" });
   const [saving,    setSaving]    = useState(false);
   const [uploading, setUploading] = useState(false);
   const [section,   setSection]   = useState<"identity" | "description">("identity");

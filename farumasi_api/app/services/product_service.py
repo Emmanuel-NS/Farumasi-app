@@ -6,6 +6,7 @@ from typing import List, Optional, Sequence, Tuple
 
 from sqlalchemy import and_, or_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.constants import (
     EntityStatus,
@@ -307,6 +308,15 @@ class ProductService:
         product = await self._get_product_or_404(data.product_id)
         if product.approval_status != ProductApprovalStatus.APPROVED:
             raise BusinessRuleError("Cannot list an unapproved product")
+        # 3b. prevent duplicate listing by same entity
+        dup_q = select(ProductListing).where(ProductListing.product_id == data.product_id)
+        if data.pharmacy_id:
+            dup_q = dup_q.where(ProductListing.pharmacy_id == data.pharmacy_id)
+        else:
+            dup_q = dup_q.where(ProductListing.partner_company_id == data.partner_company_id)
+        existing = (await self.db.execute(dup_q)).scalars().first()
+        if existing:
+            raise BusinessRuleError("This product is already listed by your organisation. Edit the existing listing instead.")
         # 4. expired-cannot-be-available
         availability = self._normalize_availability(
             data.availability_status, data.expiry_date, data.stock_quantity
@@ -395,21 +405,32 @@ class ProductService:
         product_id: Optional[str] = None,
         availability_status: Optional[str] = None,
     ) -> Tuple[List[ProductListing], int]:
-        q = select(ProductListing)
+        filters = []
         if pharmacy_id:
-            q = q.where(ProductListing.pharmacy_id == pharmacy_id)
+            filters.append(ProductListing.pharmacy_id == pharmacy_id)
         if partner_company_id:
-            q = q.where(ProductListing.partner_company_id == partner_company_id)
+            filters.append(ProductListing.partner_company_id == partner_company_id)
         if product_id:
-            q = q.where(ProductListing.product_id == product_id)
+            filters.append(ProductListing.product_id == product_id)
         if availability_status:
-            q = q.where(ProductListing.availability_status == availability_status)
-        total = (
-            await self.db.execute(select(func.count()).select_from(q.subquery()))
-        ).scalar_one()
-        result = await self.db.execute(
-            q.order_by(ProductListing.created_at.desc()).offset(offset).limit(limit)
+            filters.append(ProductListing.availability_status == availability_status)
+
+        count_q = select(func.count()).select_from(ProductListing)
+        if filters:
+            count_q = count_q.where(*filters)
+        total = (await self.db.execute(count_q)).scalar_one()
+
+        data_q = (
+            select(ProductListing)
+            .options(selectinload(ProductListing.product))
+            .order_by(ProductListing.created_at.desc())
+            .offset(offset)
+            .limit(limit)
         )
+        if filters:
+            data_q = data_q.where(*filters)
+
+        result = await self.db.execute(data_q)
         return list(result.scalars().all()), total
 
     # ════════════════════════════════════════════════════════════════════

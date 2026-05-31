@@ -21,6 +21,9 @@ export interface BackendOrder {
   partner_company_id: string | null;
   selected_recommendation_id?: string | null;
   order_status: string;
+  /** Alias for order_status used by some service layers */
+  status?: string;
+  pharmacy_name?: string;
   payment_status: string;
   delivery_method: string | null;
   delivery_address: string | null;

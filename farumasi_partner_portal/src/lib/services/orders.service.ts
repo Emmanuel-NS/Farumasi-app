@@ -66,7 +66,7 @@ export const ordersService = {
     limit?: number;
     status?: string;
   }): Promise<PaginatedOrders> {
-    const { data } = await api.get<PaginatedOrders>("/pharmacies/me/orders", { params });
+    const { data } = await api.get<PaginatedOrders>("/partners/me/orders", { params });
     return { ...data, items: data.items.map(norm) };
   },
 
@@ -76,7 +76,7 @@ export const ordersService = {
   },
 
   async updateOrderStatus(id: string, status: string): Promise<BackendOrder> {
-    const { data } = await api.patch<BackendOrder>(`/pharmacies/me/orders/${id}/status`, { order_status: status });
+    const { data } = await api.patch<BackendOrder>(`/partners/me/orders/${id}/status`, { order_status: status });
     return norm(data);
   },
 

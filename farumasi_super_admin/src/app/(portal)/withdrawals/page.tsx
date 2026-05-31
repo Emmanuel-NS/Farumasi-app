@@ -1,19 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { mockWithdrawals } from "@/data/mock";
+import { useState, useEffect, useCallback } from "react";
 import { formatRWF, formatDate } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, FilterTabs, StatCard, Button } from "@/components/ui";
 import { ArrowDownToLine, CheckCircle2, XCircle } from "lucide-react";
-import { WithdrawalStatus } from "@/types";
+import { WithdrawalStatus, WithdrawalRequest } from "@/types";
+import { withdrawalsService } from "@/lib/services/withdrawals.service";
 
 const STATUS_FILTERS: (WithdrawalStatus | "All")[] = ["All", "Pending", "Under Review", "Approved", "Processed", "Rejected"];
 
 export default function WithdrawalsPage() {
   const [status, setStatus] = useState<WithdrawalStatus | "All">("All");
-  const pending = mockWithdrawals.filter(w => w.status === "Pending");
+  const [allWithdrawals, setAllWithdrawals] = useState<WithdrawalRequest[]>([]);
 
-  const filtered = status === "All" ? mockWithdrawals : mockWithdrawals.filter(w => w.status === status);
+  const load = useCallback(() => {
+    withdrawalsService.getWithdrawals().then(setAllWithdrawals).catch(() => {});
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const pending = allWithdrawals.filter(w => w.status === "Pending");
+  const filtered = status === "All" ? allWithdrawals : allWithdrawals.filter(w => w.status === status);
+
+  async function handleApprove(id: string) {
+    await withdrawalsService.approve(id).catch(() => {});
+    load();
+  }
+  async function handleReject(id: string) {
+    await withdrawalsService.reject(id).catch(() => {});
+    load();
+  }
 
   return (
     <div className="space-y-5">
@@ -24,8 +40,8 @@ export default function WithdrawalsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Pending" value={pending.length} icon={ArrowDownToLine} color="text-amber-700" />
         <StatCard label="Pending Amount" value={formatRWF(pending.reduce((a, w) => a + w.amount, 0))} icon={ArrowDownToLine} color="text-amber-700" />
-        <StatCard label="Completed" value={mockWithdrawals.filter(w => w.status === "Processed").length} icon={CheckCircle2} color="text-emerald-700" />
-        <StatCard label="Total Records" value={mockWithdrawals.length} icon={ArrowDownToLine} color="text-slate-700" />
+        <StatCard label="Completed" value={allWithdrawals.filter(w => w.status === "Processed").length} icon={CheckCircle2} color="text-emerald-700" />
+        <StatCard label="Total Records" value={allWithdrawals.length} icon={ArrowDownToLine} color="text-slate-700" />
       </div>
 
       <Card>
@@ -64,8 +80,8 @@ export default function WithdrawalsPage() {
                 <Td>
                   {w.status === "Pending" && (
                     <div className="flex items-center gap-1">
-                      <Button variant="success" size="xs"><CheckCircle2 className="w-3.5 h-3.5" /> Approve</Button>
-                      <Button variant="destructive" size="xs"><XCircle className="w-3.5 h-3.5" /> Reject</Button>
+                      <Button variant="success" size="xs" onClick={() => handleApprove(w.id)}><CheckCircle2 className="w-3.5 h-3.5" /> Approve</Button>
+                      <Button variant="destructive" size="xs" onClick={() => handleReject(w.id)}><XCircle className="w-3.5 h-3.5" /> Reject</Button>
                     </div>
                   )}
                 </Td>

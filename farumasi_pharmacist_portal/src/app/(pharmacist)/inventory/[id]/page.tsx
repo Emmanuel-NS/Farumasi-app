@@ -154,7 +154,7 @@ function PharmacyListModal({
 }: { listings: BackendListing[]; pharmacyMap: Map<string, string>; mode: PharmacyModalMode; productName: string; onClose: () => void; onListingsChange?: (updated: BackendListing[]) => void }) {
   const [localListings, setLocalListingsRaw] = useState(listings);
   const [actionTarget, setActionTarget] = useState<BackendListing | null>(null);
-  const [selectedReason, setSelectedReason] = useState(SUSPEND_REASONS[0]);
+  const [selectedReason, setSelectedReason] = useState<string>(SUSPEND_REASONS[0]);
   const [confirmAction, setConfirmAction] = useState<"suspend" | "out_of_stock" | "remove" | null>(null);
   const [working, setWorking] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);

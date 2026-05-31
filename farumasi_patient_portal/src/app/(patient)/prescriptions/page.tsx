@@ -176,7 +176,7 @@ function PrescriptionHistory({
                       Prescription from {rx.doctorName}
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {rx.hospitalName ?? "Hospital"} Â· {formatDate(rx.issuedAt)}
+                      {rx.hospitalName ?? "Hospital"} · {formatDate(rx.issuedAt)}
                     </p>
                     {rx.diagnosis && (
                       <p className="text-xs text-slate-600 mt-1 font-medium">{rx.diagnosis}</p>

@@ -108,8 +108,8 @@ export function Thead({ children }: { children: React.ReactNode }) {
 export function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
   return <th className={cn("text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 whitespace-nowrap", className)}>{children}</th>;
 }
-export function Td({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <td className={cn("px-4 py-3 text-slate-700 border-b border-slate-50 align-middle", className)}>{children}</td>;
+export function Td({ children, className, colSpan }: { children: React.ReactNode; className?: string; colSpan?: number }) {
+  return <td colSpan={colSpan} className={cn("px-4 py-3 text-slate-700 border-b border-slate-50 align-middle", className)}>{children}</td>;
 }
 export function Tr({ children, className, onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) {
   return <tr className={cn("hover:bg-slate-50/80 transition-colors", onClick && "cursor-pointer", className)} onClick={onClick}>{children}</tr>;

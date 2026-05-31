@@ -53,22 +53,22 @@ export interface WithdrawalCreatePayload {
 
 export const revenueService = {
   async getSummary(): Promise<BackendRevenueSummary> {
-    const { data } = await api.get<BackendRevenueSummary>("/pharmacies/me/revenue/summary");
+    const { data } = await api.get<BackendRevenueSummary>("/partners/me/revenue/summary");
     return data;
   },
 
   async listTransactions(): Promise<BackendRevenueRecord[]> {
-    const { data } = await api.get<BackendRevenueRecord[]>("/pharmacies/me/revenue");
+    const { data } = await api.get<BackendRevenueRecord[]>("/partners/me/revenue");
     return data;
   },
 
   async listWithdrawals(): Promise<BackendWithdrawal[]> {
-    const { data } = await api.get<BackendWithdrawal[]>("/pharmacies/me/withdrawals");
+    const { data } = await api.get<BackendWithdrawal[]>("/partners/me/withdrawals");
     return data;
   },
 
   async requestWithdrawal(payload: WithdrawalCreatePayload): Promise<BackendWithdrawal> {
-    const { data } = await api.post<BackendWithdrawal>("/pharmacies/me/withdrawals", payload);
+    const { data } = await api.post<BackendWithdrawal>("/partners/me/withdrawals", payload);
     return data;
   },
 };

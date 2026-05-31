@@ -1,18 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { mockPharmacies } from "@/data/mock";
+import { useState, useEffect } from "react";
 import { formatDate, cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, SearchInput, FilterTabs, Button } from "@/components/ui";
 import { ShoppingBag, Plus } from "lucide-react";
+import { pharmaciesService } from "@/lib/services/pharmacies.service";
+import type { Pharmacy } from "@/types";
 
-const STATUS_FILTERS = ["All", "Active", "Inactive", "Suspended"];
+const STATUS_FILTERS = ["All", "Approved", "Pending", "Suspended"];
 
 export default function PharmaciesPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
+  const [allPharmacies, setAllPharmacies] = useState<Pharmacy[]>([]);
+  const [total, setTotal] = useState(0);
 
-  const filtered = mockPharmacies.filter((p) => {
+  useEffect(() => {
+    pharmaciesService.getPharmacies({ limit: 100 }).then(({ items, total }) => {
+      setAllPharmacies(items);
+      setTotal(total);
+    }).catch(() => {});
+  }, []);
+
+  const filtered = allPharmacies.filter((p) => {
     const matchSearch = search === "" || p.name.toLowerCase().includes(search.toLowerCase()) || p.district.toLowerCase().includes(search.toLowerCase());
     const matchStatus = status === "All" || p.status === status;
     return matchSearch && matchStatus;
@@ -20,7 +30,7 @@ export default function PharmaciesPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Pharmacies" subtitle={`${mockPharmacies.length} registered pharmacies`} breadcrumb="Platform Management">
+      <PageHeader title="Pharmacies" subtitle={`${total} registered pharmacies`} breadcrumb="Platform Management">
         <Button variant="primary" size="sm"><Plus className="w-4 h-4" /> Add Pharmacy</Button>
       </PageHeader>
 

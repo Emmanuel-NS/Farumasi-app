@@ -17,13 +17,12 @@ import { OrdersChart } from "@/components/charts/orders-chart";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
-import {
-  mockRevenueChart, mockOrdersChart,
-} from "@/data/mock";
 import { formatCompactRWF, timeAgo } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store/auth";
 import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
 import { listingsService, type BackendListing } from "@/lib/services/listings.service";
+import { revenueService, type BackendRevenueRecord } from "@/lib/services/revenue.service";
+import type { ChartDataPoint } from "@/types";
 import type { OrderStatus, ProductStatus } from "@/types";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
@@ -46,19 +45,22 @@ export default function DashboardPage() {
   const [range, setRange] = useState<DateRangeValue>("month");
   const [orders, setOrders] = useState<BackendOrder[]>([]);
   const [listings, setListings] = useState<BackendListing[]>([]);
+  const [revenue, setRevenue] = useState<BackendRevenueRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      ordersService.listPartnerOrders({ offset: 0, limit: 50 }),
-      listingsService.listMyListings({ offset: 0, limit: 100 }),
+      ordersService.listPartnerOrders({ offset: 0, limit: 100 }),
+      listingsService.listMyListings({ offset: 0, limit: 200 }),
+      revenueService.listTransactions().catch(() => [] as BackendRevenueRecord[]),
     ])
-      .then(([o, l]) => {
+      .then(([o, l, r]) => {
         if (cancelled) return;
         setOrders(o.items);
         setListings(l.items);
+        setRevenue(r);
       })
       .catch(err => {
         if (cancelled) return;
@@ -81,6 +83,48 @@ export default function DashboardPage() {
     }).length;
     return { monthlyRevenue, pendingOrders, totalProducts, activeListings, lowStockCount };
   }, [orders, listings]);
+
+  // Build orders chart: last 7 days by date
+  const ordersChart = useMemo<ChartDataPoint[]>(() => {
+    const map: Record<string, number> = {};
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i);
+      const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      map[key] = 0;
+    }
+    orders.forEach(o => {
+      const key = new Date(o.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      if (key in map) map[key] = (map[key] || 0) + 1;
+    });
+    return Object.entries(map).map(([label, value]) => ({ label, value }));
+  }, [orders]);
+
+  // Build revenue chart: last 6 months by month
+  const revenueChart = useMemo<ChartDataPoint[]>(() => {
+    const map: Record<string, { value: number; secondary: number }> = {};
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+      map[key] = { value: 0, secondary: 0 };
+    }
+    revenue.forEach(r => {
+      const key = new Date(r.created_at).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+      if (key in map) {
+        map[key].value += r.net_amount;
+        map[key].secondary += r.platform_commission;
+      }
+    });
+    // If no real revenue, derive from completed orders
+    if (revenue.length === 0) {
+      orders.filter(o => o.status === "completed" || o.status === "delivered").forEach(o => {
+        const key = new Date(o.created_at).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+        if (key in map) map[key].value += o.net_amount ?? o.total_amount;
+      });
+    }
+    return Object.entries(map).map(([label, { value, secondary }]) => ({ label, value, secondary }));
+  }, [revenue, orders]);
 
   const recentOrders = orders.slice(0, 5);
   const lowStockProducts = listings
@@ -142,7 +186,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <RevenueChart data={mockRevenueChart} height={220} />
+            <RevenueChart data={revenueChart} height={220} />
           </CardContent>
         </Card>
 
@@ -152,7 +196,7 @@ export default function DashboardPage() {
             <CardDescription>Daily order count — {RANGE_LABELS[range]}</CardDescription>
           </CardHeader>
           <CardContent>
-            <OrdersChart data={mockOrdersChart} height={180} />
+            <OrdersChart data={ordersChart} height={180} />
             <div className="flex items-center justify-between mt-3 pt-3 border-t">
               <span className="text-xs text-muted-foreground">Total tracked</span>
               <span className="text-sm font-bold text-foreground">{orders.length}</span>

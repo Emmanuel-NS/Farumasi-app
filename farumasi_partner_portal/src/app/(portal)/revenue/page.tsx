@@ -12,7 +12,6 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DateRangeFilter, type DateRangeValue, RANGE_LABELS, getDateRangeStart } from "@/components/shared/date-range-filter";
 import { RevenueChart } from "@/components/charts/revenue-chart";
-import { mockRevenueChart } from "@/data/mock";
 import { formatCompactRWF, timeAgo } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
@@ -75,6 +74,22 @@ export default function RevenuePage() {
     },
     [withdrawals, range]
   );
+
+  const chartData = useMemo(() => {
+    const grouped: Record<string, { value: number; commission: number }> = {};
+    filteredTransactions.forEach(t => {
+      const d = new Date(t.created_at);
+      const label = range === "week"
+        ? d.toLocaleDateString("en-US", { weekday: "short" })
+        : range === "month"
+        ? `${d.toLocaleDateString("en-US", { month: "short" })} ${d.getDate()}`
+        : d.toLocaleDateString("en-US", { month: "short" });
+      if (!grouped[label]) grouped[label] = { value: 0, commission: 0 };
+      grouped[label].value += t.net_amount;
+      grouped[label].commission += t.platform_commission;
+    });
+    return Object.entries(grouped).map(([label, v]) => ({ label, value: v.value, commission: v.commission }));
+  }, [filteredTransactions, range]);
 
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
@@ -204,7 +219,7 @@ export default function RevenuePage() {
             </div>
           </CardHeader>
           <CardContent>
-            <RevenueChart data={mockRevenueChart} height={240} />
+            <RevenueChart data={chartData} height={240} />
           </CardContent>
         </Card>
       </div>

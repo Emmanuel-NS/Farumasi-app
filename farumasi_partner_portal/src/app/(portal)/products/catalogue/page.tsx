@@ -2,58 +2,86 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Search, Filter, Pill, FlaskConical, Thermometer, Heart, Package2, Loader2 } from "lucide-react";
+import {
+  Search, Pill, FlaskConical, Heart, Package2, Loader2, CheckCircle2,
+  ShieldCheck, Building2, Globe, Layers, SlidersHorizontal,
+} from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
 import { listingsService, type BackendProduct } from "@/lib/services/listings.service";
+import { cn } from "@/lib/utils";
 
-const categoryIcons: Record<string, React.ElementType> = {
-  medicines: Pill,
-  medical_devices: Heart,
-  diagnostics: FlaskConical,
-  supplements: Package2,
-  consumables: Thermometer,
-};
+// Map category names (from DB) → icon + badge color
+function getCategoryMeta(cat: string): { Icon: React.ElementType; badgeCls: string } {
+  const c = (cat ?? "").toLowerCase();
+  if (c.includes("antibiotic") || c.includes("antimalarial") || c.includes("antiviral"))
+    return { Icon: FlaskConical, badgeCls: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+  if (c.includes("antihypertensive") || c.includes("cardiac") || c.includes("diuretic"))
+    return { Icon: Heart, badgeCls: "bg-rose-50 text-rose-700 border-rose-200" };
+  if (c.includes("antidiabetic") || c.includes("insulin"))
+    return { Icon: Layers, badgeCls: "bg-violet-50 text-violet-700 border-violet-200" };
+  if (c.includes("analgesic") || c.includes("nsaid") || c.includes("pain"))
+    return { Icon: Pill, badgeCls: "bg-orange-50 text-orange-700 border-orange-200" };
+  if (c.includes("respiratory") || c.includes("inhaler") || c.includes("bronch"))
+    return { Icon: Package2, badgeCls: "bg-cyan-50 text-cyan-700 border-cyan-200" };
+  if (c.includes("vitamin") || c.includes("supplement") || c.includes("mineral"))
+    return { Icon: Package2, badgeCls: "bg-yellow-50 text-yellow-700 border-yellow-200" };
+  if (c.includes("gastrointestinal") || c.includes("gastro"))
+    return { Icon: Pill, badgeCls: "bg-teal-50 text-teal-700 border-teal-200" };
+  if (c.includes("antihistamine"))
+    return { Icon: Pill, badgeCls: "bg-pink-50 text-pink-700 border-pink-200" };
+  return { Icon: Pill, badgeCls: "bg-slate-100 text-slate-600 border-slate-200" };
+}
 
-const categoryColors: Record<string, "info" | "purple" | "warning" | "success" | "neutral"> = {
-  medicines: "info",
-  medical_devices: "purple",
-  diagnostics: "warning",
-  supplements: "success",
-  consumables: "neutral",
-};
-
-const CAT_MAP: Record<string, string> = {
-  Medicines: "medicines",
-  Devices: "medical_devices",
-  Diagnostics: "diagnostics",
-  Supplements: "supplements",
-  Consumables: "consumables",
-};
-const categories = ["All", "Medicines", "Devices", "Diagnostics", "Supplements", "Consumables"];
+interface ListFormState {
+  product: BackendProduct;
+  price: string;
+  stock: string;
+  fulfillment: string;
+}
 
 export default function CataloguePage() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [products, setProducts] = useState<BackendProduct[]>([]);
+  const [listedIds, setListedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [dialog, setDialog] = useState<ListFormState | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    listingsService
-      .listApprovedProducts({ offset: 0, limit: 100 })
-      .then(res => !cancelled && setProducts(res.items))
-      .catch(err => !cancelled && toast.error(getApiError(err, "Failed to load catalogue")))
+    Promise.allSettled([
+      listingsService.listApprovedProducts({ offset: 0, limit: 100 }),
+      listingsService.listMyListings({ offset: 0, limit: 100 }),
+    ])
+      .then(([catalogueResult, listingsResult]) => {
+        if (cancelled) return;
+        if (catalogueResult.status === "fulfilled") {
+          setProducts(catalogueResult.value.items);
+        } else {
+          toast.error(getApiError(catalogueResult.reason, "Failed to load catalogue"));
+        }
+        if (listingsResult.status === "fulfilled") {
+          setListedIds(new Set(listingsResult.value.items.map(l => l.product_id)));
+        }
+      })
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, []);
+
+  // Derive unique categories from loaded products
+  const categories = useMemo(() => {
+    const cats = new Set(products.map(p => p.category).filter(Boolean) as string[]);
+    return ["All", ...Array.from(cats).sort()];
+  }, [products]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -61,35 +89,40 @@ export default function CataloguePage() {
       const matchesSearch = !q
         || p.name.toLowerCase().includes(q)
         || (p.brand ?? "").toLowerCase().includes(q)
-        || (p.generic_name ?? "").toLowerCase().includes(q);
-      const matchesCat = activeCategory === "All" || p.category === CAT_MAP[activeCategory];
+        || (p.generic_name ?? "").toLowerCase().includes(q)
+        || (p.manufacturer ?? "").toLowerCase().includes(q);
+      const matchesCat = activeCategory === "All" || p.category === activeCategory;
       return matchesSearch && matchesCat;
     });
   }, [products, search, activeCategory]);
 
-  const handleList = async (p: BackendProduct) => {
-    const priceStr = window.prompt(`Set price (RWF) for "${p.name}":`, "");
-    if (!priceStr) return;
-    const price = parseFloat(priceStr);
-    if (Number.isNaN(price) || price <= 0) {
-      toast.error("Invalid price");
-      return;
-    }
-    const stockStr = window.prompt("Initial stock quantity:", "0");
-    if (stockStr === null) return;
-    const stock = parseInt(stockStr, 10);
-    if (Number.isNaN(stock) || stock < 0) {
-      toast.error("Invalid stock");
-      return;
-    }
-    setAdding(p.id);
+  const openDialog = (p: BackendProduct) => {
+    setDialog({ product: p, price: "", stock: "0", fulfillment: "60" });
+  };
+
+  const handleSubmit = async () => {
+    if (!dialog) return;
+    const price = parseFloat(dialog.price);
+    const stock = parseInt(dialog.stock, 10);
+    const fulfillment = parseInt(dialog.fulfillment, 10);
+    if (Number.isNaN(price) || price <= 0) { toast.error("Enter a valid price"); return; }
+    if (Number.isNaN(stock) || stock < 0) { toast.error("Enter a valid stock quantity"); return; }
+    if (Number.isNaN(fulfillment) || fulfillment < 0) { toast.error("Enter valid fulfillment time"); return; }
+    setSubmitting(true);
     try {
-      await listingsService.createListing({ product_id: p.id, price, stock_quantity: stock });
-      toast.success(`${p.name} added to your listings`);
+      await listingsService.createListing({
+        product_id: dialog.product.id,
+        price,
+        stock_quantity: stock,
+        fulfillment_time_minutes: fulfillment,
+      });
+      toast.success(`${dialog.product.name} added to your listings`);
+      setListedIds(prev => new Set([...prev, dialog.product.id]));
+      setDialog(null);
     } catch (err: unknown) {
       toast.error(getApiError(err, "Failed to create listing"));
     } finally {
-      setAdding(null);
+      setSubmitting(false);
     }
   };
 
@@ -107,7 +140,7 @@ export default function CataloguePage() {
           <Input placeholder="Search products, brands…" className="pl-8 h-8 text-xs" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8">
-          <Filter className="w-3.5 h-3.5" /> Filter
+          <SlidersHorizontal className="w-3.5 h-3.5" /> Filter
         </Button>
         <div className="flex gap-2 flex-wrap">
           {categories.map(cat => (
@@ -136,72 +169,89 @@ export default function CataloguePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(product => {
             const cat = product.category ?? "";
-            const Icon = categoryIcons[cat] ?? Package2;
-            const badgeVariant = categoryColors[cat] ?? "neutral";
+            const { Icon, badgeCls } = getCategoryMeta(cat);
+            const isListed = listedIds.has(product.id);
             return (
-              <Card key={product.id} className="hover:shadow-md transition-shadow">
+              <Card key={product.id} className="hover:shadow-md transition-shadow flex flex-col">
                 <CardHeader className="pb-2">
                   <div className="flex items-start gap-3">
-                    <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
+                    <div className="w-14 h-14 rounded-xl bg-farumasi-50 overflow-hidden flex items-center justify-center shrink-0 border border-farumasi-100">
                       {product.image_url ? (
                         <Image src={product.image_url} alt={product.name} width={56} height={56} className="object-cover w-full h-full" />
                       ) : (
-                        <Icon className="w-5 h-5 text-slate-600" />
+                        <Icon className="w-6 h-6 text-farumasi-400" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-sm leading-snug line-clamp-2">{product.name}</CardTitle>
+                      <CardTitle className="text-sm font-bold leading-snug line-clamp-2">{product.name}</CardTitle>
                       {product.generic_name && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{product.generic_name}</p>
+                        <p className="text-[11px] text-farumasi-600 font-medium mt-0.5 truncate">{product.generic_name}</p>
+                      )}
+                      {product.brand && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">by {product.brand}</p>
                       )}
                     </div>
+                    {product.prescription_required && (
+                      <span className="shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[9px] font-bold text-amber-700 uppercase tracking-wide">
+                        <ShieldCheck className="w-2.5 h-2.5" />
+                        Rx
+                      </span>
+                    )}
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0 space-y-3">
+                <CardContent className="pt-0 space-y-3 flex flex-col flex-1">
+                  {/* Category + dosage pill row */}
                   <div className="flex flex-wrap gap-1.5">
-                    {cat && <Badge variant={badgeVariant} className="capitalize">{cat.replace("_", " ")}</Badge>}
-                    {product.prescription_required && (
-                      <Badge variant="warning">Prescription Required</Badge>
+                    {cat && (
+                      <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold border", badgeCls)}>
+                        {cat}
+                      </span>
                     )}
                     {product.dosage_form && (
-                      <Badge variant="neutral">{product.dosage_form}</Badge>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    {product.brand && (
-                      <div>
-                        <p className="text-muted-foreground">Brand</p>
-                        <p className="font-medium">{product.brand}</p>
-                      </div>
-                    )}
-                    {product.manufacturer && (
-                      <div>
-                        <p className="text-muted-foreground">Manufacturer</p>
-                        <p className="font-medium truncate">{product.manufacturer}</p>
-                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-medium text-slate-600">
+                        {product.dosage_form}
+                      </span>
                     )}
                     {product.strength && (
-                      <div>
-                        <p className="text-muted-foreground">Strength</p>
-                        <p className="font-medium">{product.strength}</p>
-                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-blue-50 text-[10px] font-semibold text-blue-700 border border-blue-100">
+                        {product.strength}
+                      </span>
                     )}
                   </div>
 
+                  {/* Description */}
                   {product.description && (
-                    <p className="text-[11px] text-muted-foreground line-clamp-2">{product.description}</p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">{product.description}</p>
                   )}
 
-                  <div className="flex gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      className="flex-1 text-xs h-7"
-                      disabled={adding === product.id}
-                      onClick={() => handleList(product)}
-                    >
-                      {adding === product.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "+ List Product"}
-                    </Button>
+                  {/* Manufacturer + country */}
+                  <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+                    {product.manufacturer && (
+                      <span className="flex items-center gap-1 truncate">
+                        <Building2 className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{product.manufacturer}</span>
+                      </span>
+                    )}
+                    {product.country_of_origin && (
+                      <span className="flex items-center gap-1 shrink-0">
+                        <Globe className="w-3 h-3" />
+                        {product.country_of_origin}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Action */}
+                  <div className="mt-auto pt-2">
+                    {isListed ? (
+                      <div className="flex items-center justify-center gap-1.5 h-8 text-xs text-green-700 bg-green-50 rounded-lg border border-green-200 font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Already Listed
+                      </div>
+                    ) : (
+                      <Button size="sm" className="w-full text-xs h-8" onClick={() => openDialog(product)}>
+                        + List Product
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -209,6 +259,66 @@ export default function CataloguePage() {
           })}
         </div>
       )}
+
+      {/* List product dialog */}
+      <Dialog open={!!dialog} onOpenChange={open => !open && setDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">List Product</DialogTitle>
+            {dialog && (
+              <p className="text-xs text-muted-foreground mt-1">{dialog.product.name}</p>
+            )}
+          </DialogHeader>
+          {dialog && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Price (RWF) <span className="text-red-500">*</span></Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="e.g. 5000"
+                  className="h-8 text-xs"
+                  value={dialog.price}
+                  onChange={e => setDialog(d => d ? { ...d, price: e.target.value } : d)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Initial Stock Quantity <span className="text-red-500">*</span></Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="e.g. 50"
+                  className="h-8 text-xs"
+                  value={dialog.stock}
+                  onChange={e => setDialog(d => d ? { ...d, stock: e.target.value } : d)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Fulfillment Time (minutes)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="5"
+                  placeholder="e.g. 60"
+                  className="h-8 text-xs"
+                  value={dialog.fulfillment}
+                  onChange={e => setDialog(d => d ? { ...d, fulfillment: e.target.value } : d)}
+                />
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setDialog(null)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "List Product"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

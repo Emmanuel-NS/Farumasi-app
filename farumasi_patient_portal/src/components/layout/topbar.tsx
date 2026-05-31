@@ -15,6 +15,8 @@ import {
   Search, LogOut, LogIn, User, Settings, X,
 } from "lucide-react";
 
+import { notificationsService } from "@/lib/services/notifications.service";
+
 const notifCategoryColor: Record<string, string> = {
   order: "text-farumasi-600",
   order_shipped: "text-indigo-600",
@@ -40,7 +42,14 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
   const cartItemCount = Object.values(useCartStore((s) => s.items)).reduce((acc, e) => acc + e.qty, 0);
   const [showProfile, setShowProfile] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
-  const unread = 0; // notifications not yet wired
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    notificationsService.getUnreadCount().then(setUnread).catch(() => {});
+    const id = setInterval(() => {
+      notificationsService.getUnreadCount().then(setUnread).catch(() => {});
+    }, 30_000);
+    return () => clearInterval(id);
+  }, []);
   const t = useTranslation();
   const isGuest = useAuthStore((s) => s.isGuest);
   const logout = useAuthStore((s) => s.logout);

@@ -1,32 +1,41 @@
 "use client";
 
-import { useState } from "react";
-import { mockOrders } from "@/data/mock";
+import { useState, useEffect } from "react";
 import { formatDate, formatRWF, orderStatusColor } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, SearchInput, FilterTabs } from "@/components/ui";
 import { ShoppingCart } from "lucide-react";
-import { OrderStatus } from "@/types";
+import { OrderStatus, Order } from "@/types";
+import { ordersService } from "@/lib/services/orders.service";
 
 const STATUS_FILTERS: (OrderStatus | "All")[] = ["All", "Pending", "Processing", "Ready", "Out for Delivery", "Delivered", "Cancelled"];
 
 export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<OrderStatus | "All">("All");
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [total, setTotal] = useState(0);
 
-  const filtered = mockOrders.filter((o) => {
+  useEffect(() => {
+    ordersService.getOrders({ limit: 100 }).then(({ items, total }) => {
+      setAllOrders(items);
+      setTotal(total);
+    }).catch(() => {});
+  }, []);
+
+  const filtered = allOrders.filter((o) => {
     const matchSearch = search === "" || o.patientName.toLowerCase().includes(search.toLowerCase()) || o.id.toLowerCase().includes(search.toLowerCase());
     const matchStatus = status === "All" || o.status === status;
     return matchSearch && matchStatus;
   });
 
-  const statusCounts = mockOrders.reduce((acc, o) => {
+  const statusCounts = allOrders.reduce((acc, o) => {
     acc[o.status] = (acc[o.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Orders" subtitle={`${mockOrders.length} total orders`} breadcrumb="Operations">
+      <PageHeader title="Orders" subtitle={`${total} total orders`} breadcrumb="Operations">
         <div className="flex items-center gap-2">
           {(["Pending", "Processing", "Out for Delivery"] as OrderStatus[]).map(s => (
             <Badge key={s} variant={s === "Pending" ? "warning" : s === "Processing" ? "info" : "purple"}>

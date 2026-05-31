@@ -13,6 +13,7 @@ from app.models.doctor import DoctorProfile
 from app.models.pharmacist import PharmacistProfile
 from app.models.rider import RiderProfile
 from app.repositories.base import BaseRepository
+from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserUpdate, UserStatusUpdate
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
@@ -21,7 +22,7 @@ from app.services.notification_service import NotificationService
 class UserService:
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.repo = BaseRepository[User](User, db)
+        self.repo = UserRepository(db)
 
     async def get_user(self, user_id: str) -> User:
         user = await self.repo.get_by_id(user_id)

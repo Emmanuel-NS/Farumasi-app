@@ -132,7 +132,10 @@ async def list_my_partner_listings(
     items, total = await ProductService(db).list_listings(
         offset=offset, limit=limit, partner_company_id=company.id
     )
-    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+    # Eagerly serialize ORM objects into Pydantic models while session is still open
+    # (ensures nested product relationship is captured before session closes)
+    items_out = [ProductListingOut.model_validate(item) for item in items]
+    return PaginatedResponse(items=items_out, total=total, offset=offset, limit=limit)
 
 
 @router.post("/me/listings", response_model=ProductListingOut, status_code=201)

@@ -1,13 +1,24 @@
 "use client";
 
-import { mockAuditLogs } from "@/data/mock";
+import { useEffect, useState } from "react";
 import { formatDateTime, timeAgo, cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, StatCard, SearchInput } from "@/components/ui";
-import { FileText, Activity } from "lucide-react";
-import { useState } from "react";
-import { AuditAction } from "@/types";
+import { FileText, Activity, Loader2 } from "lucide-react";
+import api from "@/lib/api";
 
-const actionVariant = (a: AuditAction) => {
+interface BackendAuditLog {
+  id: string;
+  actor_user_id?: string | null;
+  action: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  old_value?: unknown;
+  new_value?: unknown;
+  ip_address?: string | null;
+  created_at: string;
+}
+
+const actionVariant = (a: string) => {
   if (a === "DELETE") return "error";
   if (a === "CREATE") return "success";
   if (a === "UPDATE") return "info";
@@ -17,21 +28,48 @@ const actionVariant = (a: AuditAction) => {
 };
 
 export default function AuditPage() {
+  const [logs, setLogs] = useState<BackendAuditLog[]>([]);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const filtered = mockAuditLogs.filter(a =>
-    search === "" || a.actorName.toLowerCase().includes(search.toLowerCase()) || a.resourceLabel.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    setLoading(true);
+    api
+      .get<{ items: BackendAuditLog[]; total: number }>("/audit/", {
+        params: { limit: 100, offset: 0 },
+      })
+      .then((r) => {
+        setLogs(r.data.items);
+        setTotal(r.data.total);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = logs.filter(
+    (a) =>
+      search === "" ||
+      (a.entity_type ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (a.action).toLowerCase().includes(search.toLowerCase()) ||
+      (a.entity_id ?? "").toLowerCase().includes(search.toLowerCase())
   );
+
+  const today = filtered.filter(
+    (a) => new Date(a.created_at).toDateString() === new Date().toDateString()
+  ).length;
+
+  const uniqueActors = new Set(logs.map((a) => a.actor_user_id).filter(Boolean)).size;
 
   return (
     <div className="space-y-5">
       <PageHeader title="Audit Logs" subtitle="Complete audit trail for all platform actions" breadcrumb="Compliance" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Events" value={mockAuditLogs.length} icon={FileText} color="text-farumasi-700" />
-        <StatCard label="Today" value={mockAuditLogs.filter(a => new Date(a.createdAt).toDateString() === new Date().toDateString()).length} icon={Activity} color="text-blue-700" />
-        <StatCard label="High Risk" value={0} icon={FileText} color="text-red-700" />
-        <StatCard label="Unique Actors" value={new Set(mockAuditLogs.map(a => a.actorId)).size} icon={Activity} color="text-slate-700" />
+        <StatCard label="Total Events" value={total} icon={FileText} color="text-farumasi-700" />
+        <StatCard label="Today" value={today} icon={Activity} color="text-blue-700" />
+        <StatCard label="Loaded" value={logs.length} icon={FileText} color="text-green-700" />
+        <StatCard label="Unique Actors" value={uniqueActors} icon={Activity} color="text-slate-700" />
       </div>
 
       <Card>
@@ -42,30 +80,40 @@ export default function AuditPage() {
         <Table>
           <Thead>
             <tr>
-              <Th>Actor</Th>
+              <Th>Actor ID</Th>
               <Th>Action</Th>
               <Th>Resource</Th>
-              <Th>Details</Th>
+              <Th>Entity ID</Th>
               <Th>IP Address</Th>
-              <Th>Risk</Th>
               <Th>Timestamp</Th>
             </tr>
           </Thead>
           <tbody>
-            {filtered.map((log) => (
+            {loading && (
+              <Tr>
+                <Td colSpan={6} className="text-center py-8">
+                  <Loader2 className="w-4 h-4 animate-spin inline mr-2 text-slate-400" />
+                  <span className="text-sm text-slate-400">Loading audit logs…</span>
+                </Td>
+              </Tr>
+            )}
+            {!loading && filtered.length === 0 && (
+              <Tr>
+                <Td colSpan={6} className="text-center py-8 text-sm text-slate-400">No audit logs found.</Td>
+              </Tr>
+            )}
+            {!loading && filtered.map((log) => (
               <Tr key={log.id}>
                 <Td>
-                  <div>
-                    <p className="text-[12px] font-semibold text-slate-900">{log.actorName}</p>
-                    <p className="text-[10px] text-slate-400">{log.actorRole}</p>
-                  </div>
+                  <p className="text-[11px] font-mono text-slate-500 truncate max-w-28">
+                    {log.actor_user_id?.slice(0, 12) ?? "System"}…
+                  </p>
                 </Td>
-                <Td><Badge variant={actionVariant(log.action)}>{log.action}</Badge></Td>
-                <Td><Badge variant="default">{log.resourceType}</Badge></Td>
-                <Td className="text-[11px] text-slate-500 max-w-40 truncate">{log.details}</Td>
-                <Td className="text-[11px] font-mono text-slate-400">{log.ipAddress}</Td>
-                <Td><Badge variant="neutral">Normal</Badge></Td>
-                <Td className="text-[11px] text-slate-400 whitespace-nowrap">{timeAgo(log.createdAt)}</Td>
+                <Td><Badge variant={actionVariant(log.action) as "error" | "success" | "info" | "warning" | "neutral" | "default"}>{log.action}</Badge></Td>
+                <Td><Badge variant="default">{log.entity_type ?? "—"}</Badge></Td>
+                <Td className="text-[11px] font-mono text-slate-400 max-w-32 truncate">{log.entity_id ?? "—"}</Td>
+                <Td className="text-[11px] font-mono text-slate-400">{log.ip_address ?? "—"}</Td>
+                <Td className="text-[11px] text-slate-400 whitespace-nowrap">{timeAgo(log.created_at)}</Td>
               </Tr>
             ))}
           </tbody>

@@ -1,0 +1,28 @@
+import axios from "axios";
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+const TOKEN_KEY = "farumasi_admin_token";
+
+const api = axios.create({ baseURL: BASE_URL });
+
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    if (err.response?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem(TOKEN_KEY);
+      window.location.href = "/login";
+    }
+    return Promise.reject(err);
+  },
+);
+
+export default api;
+export { TOKEN_KEY };

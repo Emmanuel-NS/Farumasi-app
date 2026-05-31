@@ -11,9 +11,9 @@ import { Label } from "@/components/ui/label";
 import { authService } from "@/lib/services/auth.service";
 import { useAuthStore } from "@/lib/store/auth";
 import { toast } from "@/lib/toast";
-import api, { getApiError } from "@/lib/api";
+import { getApiError } from "@/lib/api";
 
-const ALLOWED_ROLES = new Set(["pharmacy_admin", "partner_company_admin", "pharmacist"]);
+const ALLOWED_ROLES = new Set(["partner_company_admin", "super_admin"]);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -38,21 +38,8 @@ export default function LoginPage() {
         if (typeof window !== "undefined") {
           localStorage.removeItem("farumasi_partner_token");
         }
-        toast.error(
-          me.role === "pharmacist"
-            ? "Farumasi internal pharmacists should use the Pharmacist Portal."
-            : "This account is not a partner account."
-        );
+        toast.error("This account does not have access to the Partner Portal.");
         return;
-      }
-      // For pharmacist role: require a pharmacy affiliation (partner pharmacy staff only)
-      if (me.role === "pharmacist") {
-        const { data: profile } = await api.get<{ pharmacy_id?: string | null }>("/pharmacists/me");
-        if (!profile.pharmacy_id) {
-          if (typeof window !== "undefined") localStorage.removeItem("farumasi_partner_token");
-          toast.error("Your account is for the Farumasi Pharmacist Portal, not the Partner Portal.");
-          return;
-        }
       }
       setSession(tokens, me);
       toast.success(`Welcome back, ${me.full_name.split(" ")[0]}!`);

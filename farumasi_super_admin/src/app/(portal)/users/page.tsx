@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { mockUsers } from "@/data/mock";
+import { useState, useEffect } from "react";
 import { formatDate, userStatusColor, cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, SearchInput, FilterTabs, Button } from "@/components/ui";
-import { UserRole, UserStatus } from "@/types";
+import { UserRole, UserStatus, User } from "@/types";
 import { Users, UserPlus } from "lucide-react";
+import { usersService } from "@/lib/services/users.service";
 
 const ALL_ROLES: (UserRole | "All")[] = ["All", "Patient", "Doctor", "Pharmacist", "Supplier", "Rider", "Admin"];
 const statusVariant = (s: UserStatus): "success" | "warning" | "error" | "neutral" => {
@@ -18,8 +18,17 @@ const statusVariant = (s: UserStatus): "success" | "warning" | "error" | "neutra
 export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "All">("All");
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [total, setTotal] = useState(0);
 
-  const filtered = mockUsers.filter((u) => {
+  useEffect(() => {
+    usersService.getUsers({ limit: 100 }).then(({ items, total }) => {
+      setAllUsers(items);
+      setTotal(total);
+    }).catch(() => {});
+  }, []);
+
+  const filtered = allUsers.filter((u) => {
     const matchSearch = search === "" || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
     const matchRole = roleFilter === "All" || u.role === roleFilter;
     return matchSearch && matchRole;
@@ -27,7 +36,7 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Users" subtitle={`${mockUsers.length.toLocaleString()} total users across all roles`} breadcrumb="Platform Management">
+      <PageHeader title="Users" subtitle={`${total.toLocaleString()} total users across all roles`} breadcrumb="Platform Management">
         <Button variant="primary" size="sm"><UserPlus className="w-4 h-4" /> Invite User</Button>
       </PageHeader>
 

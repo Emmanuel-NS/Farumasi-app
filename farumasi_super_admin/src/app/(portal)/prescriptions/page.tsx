@@ -1,14 +1,26 @@
 "use client";
 
-import { mockPrescriptions } from "@/data/mock";
+import { useState, useEffect } from "react";
 import { formatDate } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, StatCard } from "@/components/ui";
 import { FileText, CheckCircle2, Clock } from "lucide-react";
+import { prescriptionsService } from "@/lib/services/prescriptions.service";
+import type { PrescriptionRecord } from "@/types";
 
 export default function PrescriptionsPage() {
-  const active = mockPrescriptions.filter(p => p.status === "Pending").length;
-  const dispensed = mockPrescriptions.filter(p => p.status === "Fulfilled").length;
-  const expired = mockPrescriptions.filter(p => p.status === "Expired").length;
+  const [prescriptions, setPrescriptions] = useState<PrescriptionRecord[]>([]);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    prescriptionsService.getPrescriptions({ limit: 100 }).then(({ items, total }) => {
+      setPrescriptions(items);
+      setTotal(total);
+    }).catch(() => {});
+  }, []);
+
+  const active = prescriptions.filter(p => p.status === "Pending").length;
+  const dispensed = prescriptions.filter(p => p.status === "Fulfilled").length;
+  const expired = prescriptions.filter(p => p.status === "Expired").length;
 
   return (
     <div className="space-y-5">
@@ -18,7 +30,7 @@ export default function PrescriptionsPage() {
         <StatCard label="Pending" value={active} icon={Clock} color="text-blue-700" />
         <StatCard label="Fulfilled" value={dispensed} icon={CheckCircle2} color="text-emerald-700" />
         <StatCard label="Expired" value={expired} icon={FileText} color="text-red-700" />
-        <StatCard label="Total" value={mockPrescriptions.length} icon={FileText} color="text-slate-700" />
+        <StatCard label="Total" value={total} icon={FileText} color="text-slate-700" />
       </div>
 
       <Card>
@@ -42,7 +54,7 @@ export default function PrescriptionsPage() {
             </tr>
           </Thead>
           <tbody>
-            {mockPrescriptions.map((p) => (
+            {prescriptions.map((p) => (
               <Tr key={p.id}>
                 <Td className="text-[11px] font-mono text-slate-600">{p.id}</Td>
                 <Td className="text-[12px] font-semibold text-slate-900">{p.patientName}</Td>

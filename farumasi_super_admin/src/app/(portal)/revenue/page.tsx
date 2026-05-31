@@ -1,10 +1,12 @@
 "use client";
 
-import { mockRevenue, mockFinanceSummary, mockAnalyticsSeries } from "@/data/mock";
+import { useEffect, useState } from "react";
 import { formatRWF, formatDate } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent, PageHeader, Badge, Table, Thead, Th, Td, Tr, StatCard } from "@/components/ui";
 import { DollarSign, TrendingUp, Truck } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { revenueService, type RevenueSummary } from "@/lib/services/revenue.service";
+import type { RevenueRecord } from "@/types";
 
 const sourceTypeBadge = (type: string) => {
   if (type === "Delivery Fee") return "info";
@@ -15,12 +17,32 @@ const sourceTypeBadge = (type: string) => {
 };
 
 export default function RevenuePage() {
-  const chartData = mockAnalyticsSeries.slice(0, 30).map(d => ({
-    date: d.date.slice(5),
-    revenue: Math.round(d.revenue / 1000000),
-  }));
+  const [records, setRecords] = useState<RevenueRecord[]>([]);
+  const [summary, setSummary] = useState<RevenueSummary | null>(null);
 
-  const deliveryFeeTotal = mockRevenue
+  useEffect(() => {
+    revenueService.getRevenue({ limit: 100 }).then(setRecords).catch(() => {});
+    revenueService.getSummary().then(setSummary).catch(() => {});
+  }, []);
+
+  const chartData = (() => {
+    const months: Record<string, number> = {};
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months[`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`] = 0;
+    }
+    records.forEach((r) => {
+      const key = r.date.slice(0, 7);
+      if (key in months) months[key] = (months[key] ?? 0) + r.amount;
+    });
+    return Object.entries(months).map(([m, v]) => ({
+      date: m.slice(5),
+      revenue: Math.round(v / 1000),
+    }));
+  })();
+
+  const deliveryFeeTotal = records
     .filter(r => r.sourceType === "Delivery Fee")
     .reduce((sum, r) => sum + r.amount, 0);
 
@@ -29,11 +51,11 @@ export default function RevenuePage() {
       <PageHeader title="Revenue Management" subtitle="Platform revenue streams and transaction records" breadcrumb="Finance" />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard label="Total Revenue" value={formatRWF(mockFinanceSummary.totalRevenue)} icon={DollarSign} color="text-farumasi-700" />
-        <StatCard label="Revenue Growth" value={`${mockFinanceSummary.revenueGrowth}%`} icon={TrendingUp} color="text-emerald-700" />
-        <StatCard label="Commission Earned" value={formatRWF(mockFinanceSummary.commissionEarned)} icon={TrendingUp} color="text-blue-700" />
+        <StatCard label="Total Revenue" value={formatRWF(summary?.total_gross ?? 0)} icon={DollarSign} color="text-farumasi-700" />
+        <StatCard label="Commission Earned" value={formatRWF(summary?.total_commission ?? 0)} icon={TrendingUp} color="text-blue-700" />
+        <StatCard label="Net Revenue" value={formatRWF(summary?.total_net ?? 0)} icon={TrendingUp} color="text-emerald-700" />
         <StatCard label="Delivery Fees" value={formatRWF(deliveryFeeTotal)} icon={Truck} color="text-teal-700" />
-        <StatCard label="Pending Payouts" value={formatRWF(mockFinanceSummary.pendingPayouts)} icon={DollarSign} color="text-amber-700" />
+        <StatCard label="Pending Records" value={summary?.pending_count ?? 0} icon={DollarSign} color="text-amber-700" />
       </div>
 
       <Card>
@@ -71,7 +93,7 @@ export default function RevenuePage() {
             </tr>
           </Thead>
           <tbody>
-            {mockRevenue.map((r) => (
+            {records.map((r) => (
               <Tr key={r.id}>
                 <Td className="text-[11px] font-mono text-slate-500">{r.id}</Td>
                 <Td className="text-[12px] text-slate-700">{r.source}</Td>

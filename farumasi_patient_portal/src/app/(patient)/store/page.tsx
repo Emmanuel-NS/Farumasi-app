@@ -29,6 +29,7 @@ import {
   MapPin,
   CheckCircle,
   LayoutGrid,
+  Pill,
 } from "lucide-react";
 import { HEALTHCARE_CATEGORY_ICONS, IconGeneral } from "@/components/icons/CategoryIcons";
 import type { CategoryIconComponent } from "@/components/icons/CategoryIcons";

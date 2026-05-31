@@ -1,13 +1,28 @@
 "use client";
 
-import { mockWithdrawals } from "@/data/mock";
+import { useEffect, useState, useCallback } from "react";
 import { formatRWF, formatDate } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, StatCard, Button } from "@/components/ui";
 import { CreditCard, CheckCircle2 } from "lucide-react";
+import { withdrawalsService } from "@/lib/services/withdrawals.service";
+import type { WithdrawalRequest } from "@/types";
 
 export default function PayoutsPage() {
-  const approved = mockWithdrawals.filter(w => w.status === "Approved");
+  const [allWithdrawals, setAllWithdrawals] = useState<WithdrawalRequest[]>([]);
+
+  const load = useCallback(() => {
+    withdrawalsService.getWithdrawals().then(setAllWithdrawals).catch(() => {});
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const approved = allWithdrawals.filter(w => w.status === "Approved");
   const total = approved.reduce((a, w) => a + w.amount, 0);
+
+  async function handleMarkPaid(id: string) {
+    await withdrawalsService.markPaid(id).catch(() => {});
+    load();
+  }
 
   return (
     <div className="space-y-5">
@@ -18,8 +33,8 @@ export default function PayoutsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Ready for Payout" value={approved.length} icon={CreditCard} color="text-blue-700" />
         <StatCard label="Payout Amount" value={formatRWF(total)} icon={CreditCard} color="text-farumasi-700" />
-        <StatCard label="Processing" value={mockWithdrawals.filter(w => w.status === "Under Review").length} icon={CreditCard} color="text-amber-700" />
-        <StatCard label="Completed" value={mockWithdrawals.filter(w => w.status === "Processed").length} icon={CheckCircle2} color="text-emerald-700" />
+        <StatCard label="Processing" value={allWithdrawals.filter(w => w.status === "Under Review").length} icon={CreditCard} color="text-amber-700" />
+        <StatCard label="Completed" value={allWithdrawals.filter(w => w.status === "Processed").length} icon={CheckCircle2} color="text-emerald-700" />
       </div>
 
       <Card>
@@ -39,7 +54,7 @@ export default function PayoutsPage() {
             </tr>
           </Thead>
           <tbody>
-            {mockWithdrawals.filter(w => ["Approved", "Processed"].includes(w.status)).map((w) => (
+            {allWithdrawals.filter(w => ["Approved", "Processed"].includes(w.status)).map((w) => (
               <Tr key={w.id}>
                 <Td>
                   <div>
@@ -55,7 +70,7 @@ export default function PayoutsPage() {
                 <Td className="text-[12px] text-slate-400">{w.processedAt ? formatDate(w.processedAt) : "—"}</Td>
                 <Td>
                   {w.status === "Approved" && (
-                    <Button variant="success" size="xs"><CheckCircle2 className="w-3.5 h-3.5" /> Process</Button>
+                    <Button variant="success" size="xs" onClick={() => handleMarkPaid(w.id)}><CheckCircle2 className="w-3.5 h-3.5" /> Process</Button>
                   )}
                 </Td>
               </Tr>

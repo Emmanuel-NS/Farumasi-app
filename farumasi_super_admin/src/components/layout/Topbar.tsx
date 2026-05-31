@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn, timeAgo } from "@/lib/utils";
-import { mockNotifications } from "@/data/mock";
+import api from "@/lib/api";
 import {
   Bell, Search, Menu, ChevronDown, Settings, LogOut,
   AlertTriangle, Info, Shield, User,
@@ -55,7 +55,19 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [search, setSearch] = useState("");
-  const unread = mockNotifications.filter((n) => !n.isRead).length;
+  const [notifications, setNotifications] = useState<Array<{ id: string; title: string; message?: string | null; notification_type?: string; is_read: boolean; created_at: string }>>([]);
+
+  useEffect(() => {
+    type NotifItem = { id: string; title: string; message?: string | null; notification_type?: string; is_read: boolean; created_at: string };
+    api.get<{ items: NotifItem[] } | NotifItem[]>("/notifications/", { params: { limit: 20 } })
+      .then(r => {
+        const data = r.data;
+        setNotifications(Array.isArray(data) ? data : (data as { items: NotifItem[] }).items ?? []);
+      })
+      .catch(() => setNotifications([]));
+  }, []);
+
+  const unread = notifications.filter((n) => !n.is_read).length;
 
   const notifIcon = (severity: string) => {
     switch (severity) {
@@ -126,19 +138,21 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
                 {unread > 0 && <span className="text-xs text-farumasi-600 font-medium">{unread} unread</span>}
               </div>
               <div className="max-h-80 overflow-y-auto scrollbar-hide">
-                {mockNotifications.map((notif) => (
+                {notifications.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-8">No notifications.</p>
+                ) : notifications.map((notif) => (
                   <div
                     key={notif.id}
                     className={cn(
                       "flex gap-3 px-4 py-3 hover:bg-slate-50 border-b border-slate-100 transition-colors cursor-pointer",
-                      !notif.isRead && "bg-farumasi-50/60"
+                      !notif.is_read && "bg-farumasi-50/60"
                     )}
                   >
-                    <div className="mt-0.5 shrink-0">{notifIcon(notif.type)}</div>
+                    <div className="mt-0.5 shrink-0">{notifIcon(notif.notification_type ?? "info")}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={cn("text-xs font-semibold", !notif.isRead && "text-farumasi-800")}>{notif.title}</p>
-                      <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{notif.message}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">{timeAgo(notif.createdAt)}</p>
+                      <p className={cn("text-xs font-semibold", !notif.is_read && "text-farumasi-800")}>{notif.title}</p>
+                      <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{notif.message ?? ""}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{timeAgo(notif.created_at)}</p>
                     </div>
                   </div>
                 ))}

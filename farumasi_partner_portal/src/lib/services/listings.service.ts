@@ -90,12 +90,12 @@ export const listingsService = {
   },
 
   async listMyListings(params?: { offset?: number; limit?: number }): Promise<PaginatedListings> {
-    const { data } = await api.get<PaginatedListings>("/pharmacies/me/listings", { params });
+    const { data } = await api.get<PaginatedListings>("/partners/me/listings", { params });
     return data;
   },
 
   async createListing(input: CreateListingInput): Promise<BackendListing> {
-    const { data } = await api.post<BackendListing>("/pharmacies/me/listings", input);
+    const { data } = await api.post<BackendListing>("/partners/me/listings", input);
     return data;
   },
 

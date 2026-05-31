@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  /* FARUMASI brand green */
+  --color-farumasi-50: #ecfdf4;
+  --color-farumasi-100: #d1fae5;
+  --color-farumasi-200: #a7f3d0;
+  --color-farumasi-300: #6ee7b7;
+  --color-farumasi-400: #34d399;
+  --color-farumasi-500: #10b981;
+  --color-farumasi-600: #1e9e68;
+  --color-farumasi-700: #047857;
+  --color-farumasi-800: #065f46;
+  --color-farumasi-900: #064e3b;
+
+  /* Fonts */
+  --font-sans: var(--font-inter);
+}
+
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

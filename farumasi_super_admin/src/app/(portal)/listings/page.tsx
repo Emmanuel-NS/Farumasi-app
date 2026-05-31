@@ -1,21 +1,50 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
-import { mockListings } from "@/data/mock";
+import { useEffect, useState } from "react";
 import { formatDate, formatRWF } from "@/lib/utils";
-import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, SearchInput, Button } from "@/components/ui";
-import { Store } from "lucide-react";
+import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, SearchInput } from "@/components/ui";
+import { Store, Loader2 } from "lucide-react";
+import api from "@/lib/api";
+
+interface BackendListing {
+  id: string;
+  product?: { name?: string } | null;
+  pharmacy_id?: string | null;
+  partner_company_id?: string | null;
+  price: number;
+  stock_quantity: number;
+  availability_status: string;
+  status: string;
+  created_at: string;
+}
 
 export default function ListingsPage() {
+  const [listings, setListings] = useState<BackendListing[]>([]);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const filtered = mockListings.filter((l) =>
-    search === "" || l.productName.toLowerCase().includes(search.toLowerCase()) || l.pharmacyName.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    setLoading(true);
+    api
+      .get<{ items: BackendListing[]; total: number }>("/listings/", { params: { limit: 100, offset: 0 } })
+      .then((r) => { setListings(r.data.items); setTotal(r.data.total); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = listings.filter(
+    (l) =>
+      search === "" ||
+      (l.product?.name ?? "").toLowerCase().includes(search.toLowerCase())
   );
+
+  const statusVariant = (s: string) =>
+    s === "available" ? "success" : s === "out_of_stock" ? "error" : "warning";
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Marketplace Listings" subtitle={`${mockListings.length} active listings`} breadcrumb="Marketplace" />
+      <PageHeader title="Marketplace Listings" subtitle={`${total} total listings`} breadcrumb="Marketplace" />
 
       <Card>
         <CardHeader>
@@ -29,28 +58,39 @@ export default function ListingsPage() {
           <Thead>
             <tr>
               <Th>Product</Th>
-              <Th>Pharmacy</Th>
+              <Th>Owner</Th>
               <Th>Price</Th>
               <Th>Stock</Th>
+              <Th>Availability</Th>
               <Th>Status</Th>
-              <Th>Views</Th>
-              <Th>Orders</Th>
               <Th>Listed</Th>
             </tr>
           </Thead>
           <tbody>
-            {filtered.map((l) => (
+            {loading && (
+              <Tr>
+                <Td colSpan={7} className="text-center py-8">
+                  <Loader2 className="w-4 h-4 animate-spin inline mr-2 text-slate-400" />
+                  <span className="text-sm text-slate-400">Loading listings…</span>
+                </Td>
+              </Tr>
+            )}
+            {!loading && filtered.length === 0 && (
+              <Tr><Td colSpan={7} className="text-center py-8 text-sm text-slate-400">No listings found.</Td></Tr>
+            )}
+            {!loading && filtered.map((l) => (
               <Tr key={l.id}>
                 <Td>
-                  <p className="text-[12px] font-semibold text-slate-900">{l.productName}</p>
+                  <p className="text-[12px] font-semibold text-slate-900">{l.product?.name ?? "—"}</p>
                 </Td>
-                <Td className="text-[12px] text-slate-600">{l.pharmacyName}</Td>
+                <Td className="text-[11px] font-mono text-slate-400 max-w-28 truncate">
+                  {(l.pharmacy_id ?? l.partner_company_id ?? "—").slice(0, 12)}…
+                </Td>
                 <Td className="text-[12px] font-semibold text-farumasi-700">{formatRWF(l.price)}</Td>
-                <Td className="text-[12px] font-semibold text-slate-700">{l.stockQuantity}</Td>
-                <Td><Badge variant={l.status === "Active" ? "success" : "neutral"}>{l.status}</Badge></Td>
-                <Td className="text-[12px] text-slate-500">{l.views30d.toLocaleString()}</Td>
-                <Td className="text-[12px] font-semibold text-slate-700">{l.sales30d}</Td>
-                <Td className="text-[12px] text-slate-400">{formatDate(l.lastUpdated)}</Td>
+                <Td className="text-[12px] font-semibold text-slate-700">{l.stock_quantity}</Td>
+                <Td><Badge variant={statusVariant(l.availability_status) as "success" | "error" | "warning"}>{l.availability_status}</Badge></Td>
+                <Td><Badge variant={l.status === "active" ? "success" : "neutral"}>{l.status}</Badge></Td>
+                <Td className="text-[12px] text-slate-400">{formatDate(l.created_at)}</Td>
               </Tr>
             ))}
           </tbody>

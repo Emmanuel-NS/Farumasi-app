@@ -8,12 +8,15 @@ export interface BackendOrderItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  product?: { id: string; name: string; image_url?: string | null } | null;
 }
 
 export interface BackendOrder {
   id: string;
   order_code?: string;
   order_status: string;
+  /** Alias for order_status — normalised by service layer */
+  status: string;
   payment_status: string;
   payment_method?: string;
   total_amount: number;
@@ -49,6 +52,12 @@ export interface PaginatedOrders {
   limit: number;
 }
 
+/** Normalise order_status → also populate .status alias */
+function norm(o: BackendOrder): BackendOrder {
+  const status = o.order_status ?? o.status ?? "";
+  return { ...o, status, order_status: status };
+}
+
 export const ordersService = {
   async getPharmacyOrders(params?: {
     offset?: number;
@@ -56,12 +65,12 @@ export const ordersService = {
     status?: string;
   }): Promise<PaginatedOrders> {
     const { data } = await api.get<PaginatedOrders>("/orders/pharmacy/all", { params });
-    return data;
+    return { ...data, items: data.items.map(norm) };
   },
 
   async getOrderById(id: string): Promise<BackendOrder> {
     const { data } = await api.get<BackendOrder>(`/orders/${id}`);
-    return data;
+    return norm(data);
   },
 
   async updateStatus(id: string, order_status: string, notes?: string): Promise<BackendOrder> {
@@ -69,7 +78,7 @@ export const ordersService = {
       order_status,
       ...(notes ? { notes } : {}),
     });
-    return data;
+    return norm(data);
   },
 
   async assignDelivery(deliveryId: string, riderId: string): Promise<void> {
@@ -80,13 +89,13 @@ export const ordersService = {
     const { data } = await api.patch<BackendOrder>(`/orders/${orderId}/rider-code`, {
       rider_access_code: riderCode,
     });
-    return data;
+    return norm(data);
   },
 
   async verifyAccessCode(orderId: string, accessCode: string): Promise<BackendOrder> {
     const { data } = await api.post<BackendOrder>(`/orders/${orderId}/verify-access-code`, {
       access_code: accessCode,
     });
-    return data;
+    return norm(data);
   },
 };

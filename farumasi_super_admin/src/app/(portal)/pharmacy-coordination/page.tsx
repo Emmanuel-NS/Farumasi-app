@@ -1,13 +1,21 @@
 "use client";
 
-import { mockPharmacies } from "@/data/mock";
+import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent, PageHeader, Badge, ProgressBar, StatCard } from "@/components/ui";
 import { Pill, ShoppingBag, Star } from "lucide-react";
+import { pharmaciesService } from "@/lib/services/pharmacies.service";
+import type { Pharmacy } from "@/types";
 
 export default function PharmacyCoordinationPage() {
-  const criticalStock = mockPharmacies.filter(p => p.stockLevel === "Critical").length;
-  const goodStock = mockPharmacies.filter(p => p.stockLevel === "Good").length;
-  const highPerformers = mockPharmacies.filter(p => p.fulfillmentRate >= 80).length;
+  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+
+  useEffect(() => {
+    pharmaciesService.getPharmacies({ limit: 100 }).then(({ items }) => setPharmacies(items)).catch(() => {});
+  }, []);
+
+  const criticalStock = pharmacies.filter(p => p.stockLevel === "Critical").length;
+  const goodStock = pharmacies.filter(p => p.stockLevel === "Good").length;
+  const highPerformers = pharmacies.filter(p => p.fulfillmentRate >= 80).length;
 
   return (
     <div className="space-y-5">
@@ -17,11 +25,11 @@ export default function PharmacyCoordinationPage() {
         <StatCard label="Good Stock" value={goodStock} icon={ShoppingBag} color="text-farumasi-700" />
         <StatCard label="Critical Stock" value={criticalStock} icon={Pill} color="text-red-700" />
         <StatCard label="High Performers" value={highPerformers} icon={Star} color="text-emerald-700" />
-        <StatCard label="Approved Pharmacies" value={mockPharmacies.filter(p => p.status === "Approved").length} icon={ShoppingBag} color="text-blue-700" />
+        <StatCard label="Approved Pharmacies" value={pharmacies.filter(p => p.status === "Approved").length} icon={ShoppingBag} color="text-blue-700" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {mockPharmacies.map((p) => (
+        {pharmacies.map((p) => (
           <div key={p.id} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
             <div className="flex items-start justify-between mb-3">
               <div>

@@ -183,8 +183,7 @@ export default function LoginPage() {
             </div>
 
             {tab === "login" && (
-              <div className="flex items-center justify-between pt-0.5">
-                <p className="text-xs text-slate-400">Demo: <span className="font-medium text-slate-600">patient@test.com</span> / <span className="font-medium text-slate-600">Test1234!</span></p>
+              <div className="flex items-center justify-end pt-0.5">
                 <Link href="#" className="text-xs text-farumasi-600 font-semibold hover:underline">Forgot?</Link>
               </div>
             )}

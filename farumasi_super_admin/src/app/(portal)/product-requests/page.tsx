@@ -1,25 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { mockProductRequests } from "@/data/mock";
+import { useState, useEffect } from "react";
 import { formatDate, requestStatusColor } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, SearchInput, FilterTabs, Button } from "@/components/ui";
 import { ClipboardList, CheckCircle2, XCircle } from "lucide-react";
-import { ProductRequestStatus } from "@/types";
+import { ProductRequestStatus, ProductRequest } from "@/types";
+import { productRequestsService } from "@/lib/services/product-requests.service";
 
 const STATUS_FILTERS: (ProductRequestStatus | "All")[] = ["All", "Submitted", "Approved", "Rejected", "Under Review"];
 
 export default function ProductRequestsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ProductRequestStatus | "All">("All");
+  const [allRequests, setAllRequests] = useState<ProductRequest[]>([]);
 
-  const filtered = mockProductRequests.filter((r) => {
+  useEffect(() => {
+    productRequestsService.getProductRequests({ limit: 100 }).then(({ items }) => {
+      setAllRequests(items);
+    }).catch(() => {});
+  }, []);
+
+  const filtered = allRequests.filter((r) => {
     const matchSearch = search === "" || r.productName.toLowerCase().includes(search.toLowerCase()) || r.requestedByName.toLowerCase().includes(search.toLowerCase());
     const matchStatus = status === "All" || r.status === status;
     return matchSearch && matchStatus;
   });
 
-  const pending = mockProductRequests.filter(r => r.status === "Submitted").length;
+  const pending = allRequests.filter(r => r.status === "Submitted").length;
 
   return (
     <div className="space-y-5">
