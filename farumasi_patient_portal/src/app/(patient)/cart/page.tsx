@@ -84,7 +84,7 @@ const PATIENT_INSURANCE = "RSSB";
  * Map<sellerId, Map<productId, { price, status, fulfillmentMin, expiryDate }>>
  * Built from real backend listing data.
  */
-type ListingEntry = { price: number; status: string; fulfillmentMin: number; expiryDate: string | null };
+type ListingEntry = { listingId: string; price: number; status: string; fulfillmentMin: number; expiryDate: string | null };
 type ListingsMap = Map<string, Map<string, ListingEntry>>;
 
 /**
@@ -302,6 +302,7 @@ export default function CartPage() {
   const [payMethod, setPayMethod]             = useState<"momo" | "airtel">("momo");
   const [deferDeliveryFee, setDeferDeliveryFee] = useState(false);
   const [momoPhone, setMomoPhone]             = useState("");
+  const [accessCode, setAccessCode]           = useState("");
   const [isPlacingOrder, setIsPlacingOrder]   = useState(false);
   const [confirmedOrderCode, setConfirmedOrderCode] = useState<string>("");
   const [pharmacyList, setPharmacyList]       = useState<Pharmacy[]>([]);
@@ -333,6 +334,7 @@ export default function CartPage() {
             if (!sellerId) return;
             if (!map.has(sellerId)) map.set(sellerId, new Map());
             map.get(sellerId)!.set(productId, {
+              listingId: listing.id,
               price: listing.price,
               status: listing.availability_status,
               fulfillmentMin: listing.fulfillment_time_minutes,
@@ -999,6 +1001,7 @@ export default function CartPage() {
     const canContinue  =
       name.trim().length > 0 &&
       phone.trim().length > 0 &&
+      accessCode.trim().length >= 4 &&
       (!needsAddress || (street.trim().length > 0 && !!district));
 
     return (
@@ -1113,6 +1116,30 @@ export default function CartPage() {
           </div>
         )}
 
+        {/* Access code — required for pickup and delivery security */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-3 mb-5">
+          <div>
+            <h3 className="text-sm font-bold text-slate-700">Order Access Code</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              {fulfillment === "pickup"
+                ? "Show this code at the pharmacy counter to collect your medicines."
+                : "Give this code to the rider at the door to confirm delivery."}
+              {" "}Minimum 4 characters.
+            </p>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">
+              Access Code <span className="text-red-400">*</span>
+            </label>
+            <input
+              value={accessCode}
+              onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+              placeholder="e.g. LION2025"
+              className="w-full h-11 rounded-2xl border border-slate-200 px-4 text-sm text-slate-800 font-mono tracking-widest outline-none focus:border-farumasi-400 focus:ring-2 focus:ring-farumasi-100 transition-all"
+            />
+          </div>
+        </div>
+
         <button
           disabled={!canContinue}
           onClick={() => setStep("payment")}
@@ -1131,7 +1158,7 @@ export default function CartPage() {
 
   // ── STEP 4: Payment ───────────────────────────────────────────
   if (step === "payment") {
-    const canPlace   = momoPhone.trim().length >= 9;
+    const canPlace   = momoPhone.trim().length >= 9 && !!selectedOption;
 
     return (
       <div className="p-4 md:p-6 max-w-2xl mx-auto">
@@ -1319,11 +1346,17 @@ export default function CartPage() {
             if (!canPlace || isPlacingOrder) return;
             setIsPlacingOrder(true);
             try {
-              const orderItems = enriched.map((e: CartEntry) => ({
-                product_name: e.medicine.name,
-                quantity: e.qty,
-                unit_price: e.medicine.price,
-              }));
+              const orderItems = enriched.map((e: CartEntry) => {
+                const listingEntry = selectedOption?.pharmacy.id
+                  ? listingsMap.get(selectedOption.pharmacy.id)?.get(e.medicine.id)
+                  : undefined;
+                return {
+                  ...(listingEntry?.listingId ? { product_listing_id: listingEntry.listingId } : {}),
+                  product_name: e.medicine.name,
+                  quantity: e.qty,
+                  unit_price: listingEntry?.price ?? e.medicine.price,
+                };
+              });
               const deliveryAddr = fulfillment === "delivery"
                 ? `${street}, ${district}`
                 : undefined;
@@ -1339,6 +1372,7 @@ export default function CartPage() {
                   : undefined,
                 notes: notes || undefined,
                 items: orderItems,
+                patient_access_code: accessCode.trim() || undefined,
               });
               setConfirmedOrderCode(result.order_code ?? result.id ?? ORDER_NUM);
               clear();
@@ -1393,6 +1427,18 @@ export default function CartPage() {
             {orderCode}
           </span>
         </div>
+
+        {/* Access code reminder */}
+        {accessCode && (
+          <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center gap-3">
+            <Lock className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-amber-700">Your Access Code</p>
+              <p className="text-base font-extrabold text-amber-900 tracking-widest font-mono">{accessCode}</p>
+              <p className="text-xs text-amber-600 mt-0.5">Show this at the pharmacy counter</p>
+            </div>
+          </div>
+        )}
 
         {/* Pharmacy reveal */}
         {selectedOption && (
@@ -1478,6 +1524,18 @@ export default function CartPage() {
           {confirmedOrderCode || ORDER_NUM}
         </span>
       </div>
+
+      {/* Access code reminder */}
+      {accessCode && (
+        <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center gap-3">
+          <Lock className="w-5 h-5 text-amber-600 shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-amber-700">Your Access Code</p>
+            <p className="text-base font-extrabold text-amber-900 tracking-widest font-mono">{accessCode}</p>
+            <p className="text-xs text-amber-600 mt-0.5">Give this to the rider when they arrive</p>
+          </div>
+        </div>
+      )}
 
       {/* Pharmacy reveal */}
       {selectedOption && (

@@ -22,6 +22,7 @@ export interface CreateOrderPayload {
   delivery_latitude?: number;
   delivery_longitude?: number;
   notes?: string;
+  patient_access_code?: string;
   items?: { product_listing_id?: string; product_name?: string; quantity: number; unit_price?: number }[];
 }
 

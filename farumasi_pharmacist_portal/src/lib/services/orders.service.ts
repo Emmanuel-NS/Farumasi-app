@@ -2,20 +2,28 @@ import api from "@/lib/api";
 
 export interface BackendOrderItem {
   id: string;
+  product_listing_id?: string | null;
+  product_id?: string | null;
+  product_name: string;
   quantity: number;
   unit_price: number;
   total_price: number;
-  product?: { id: string; name: string; image_url?: string };
 }
 
 export interface BackendOrder {
   id: string;
-  status: string;
+  order_code?: string;
+  order_status: string;
   payment_status: string;
   payment_method?: string;
   total_amount: number;
+  subtotal?: number;
+  delivery_fee?: number;
+  delivery_method?: string;
   delivery_address?: string;
   notes?: string;
+  patient_access_code?: string | null;
+  rider_access_code?: string | null;
   created_at: string;
   updated_at: string;
   items: BackendOrderItem[];
@@ -24,9 +32,13 @@ export interface BackendOrder {
     user?: { id: string; full_name: string; email: string; phone?: string };
   };
   pharmacy?: { id: string; name: string };
-  rider?: {
+  delivery?: {
     id: string;
-    user?: { id: string; full_name: string };
+    status: string;
+    rider?: {
+      id: string;
+      user?: { id: string; full_name: string };
+    };
   };
 }
 
@@ -47,8 +59,34 @@ export const ordersService = {
     return data;
   },
 
-  async updateStatus(id: string, status: string): Promise<BackendOrder> {
-    const { data } = await api.patch<BackendOrder>(`/orders/${id}/status`, { status });
+  async getOrderById(id: string): Promise<BackendOrder> {
+    const { data } = await api.get<BackendOrder>(`/orders/${id}`);
+    return data;
+  },
+
+  async updateStatus(id: string, order_status: string, notes?: string): Promise<BackendOrder> {
+    const { data } = await api.patch<BackendOrder>(`/orders/${id}/status`, {
+      order_status,
+      ...(notes ? { notes } : {}),
+    });
+    return data;
+  },
+
+  async assignDelivery(deliveryId: string, riderId: string): Promise<void> {
+    await api.patch(`/deliveries/${deliveryId}/assign`, { rider_id: riderId });
+  },
+
+  async setRiderCode(orderId: string, riderCode: string): Promise<BackendOrder> {
+    const { data } = await api.patch<BackendOrder>(`/orders/${orderId}/rider-code`, {
+      rider_access_code: riderCode,
+    });
+    return data;
+  },
+
+  async verifyAccessCode(orderId: string, accessCode: string): Promise<BackendOrder> {
+    const { data } = await api.post<BackendOrder>(`/orders/${orderId}/verify-access-code`, {
+      access_code: accessCode,
+    });
     return data;
   },
 };

@@ -56,6 +56,13 @@ class Order(Base, UUIDMixin, TimestampMixin):
     # Payment reference (MoMo transaction ID, etc.)
     payment_reference: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
+    # Access codes
+    patient_access_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    rider_access_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # Customer notes
+    notes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
     # ── Relationships ─────────────────────────────────────────────────────
     patient: Mapped["PatientProfile"] = relationship("PatientProfile", back_populates="orders")
     prescription: Mapped[Optional["DigitalPrescription"]] = relationship("DigitalPrescription")

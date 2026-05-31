@@ -18,12 +18,14 @@ const mobileNavItems = [
   { label: "Health",    href: "/health",    icon: Heart },
 ];
 
+const ALLOWED_ROLES = new Set(["pharmacist", "super_admin"]);
+
 export default function PharmacistLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [activePanel, setActivePanel] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading, hydrate } = useAuthStore();
+  const { isAuthenticated, isLoading, hydrate, user, logout } = useAuthStore();
 
   useEffect(() => {
     hydrate();
@@ -47,6 +49,31 @@ export default function PharmacistLayout({ children }: { children: React.ReactNo
   }
 
   if (!isAuthenticated) return null;
+
+  // Wrong-portal guard: block pharmacy_admin / partner accounts
+  if (user && !ALLOWED_ROLES.has(user.role)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-white gap-6 px-6 text-center">
+        <div className="w-20 h-20 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center text-3xl">🏥</div>
+        <div className="space-y-1.5 max-w-sm">
+          <h2 className="text-xl font-bold text-slate-900">Wrong portal</h2>
+          <p className="text-sm text-slate-500">
+            Your account (<span className="font-semibold text-slate-700">{user.full_name}</span>) is a{" "}
+            <span className="font-semibold text-slate-700">{user.role}</span> account.
+            Partner pharmacies and companies should use the <strong>Partner Portal</strong>.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => { logout(); router.replace("/auth/login"); }}
+            className="px-5 py-2.5 bg-farumasi-600 text-white text-sm font-semibold rounded-xl hover:bg-farumasi-700 transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600">

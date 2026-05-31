@@ -7,18 +7,27 @@ import { Topbar } from "@/components/layout/topbar";
 import { useAuthStore } from "@/lib/store/auth";
 import { useLayoutDataStore } from "@/lib/store/layout-data";
 
-const ALLOWED_ROLES = new Set(["pharmacy_admin", "partner_company_admin"]);
+const ALLOWED_ROLES = new Set(["pharmacy_admin", "partner_company_admin", "pharmacist"]);
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [ready, setReady] = useState(false);
+  // Guard against Zustand not having hydrated from localStorage yet (SSR / Fast Refresh).
+  // We defer auth checks until after client-side mount so the persisted token is available.
+  const [hydrated, setHydrated] = useState(false);
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const startPolling = useLayoutDataStore((s) => s.startPolling);
 
+  // Mark as hydrated after first client-side render (localStorage is available by then).
   useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
     if (!token) {
       router.replace("/login");
       return;
@@ -29,7 +38,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       return;
     }
     setReady(true);
-  }, [token, user, router, logout]);
+  }, [hydrated, token, user, router, logout]);
 
   // Single poller for all layout-level live data (60s interval keeps API quiet)
   useEffect(() => {

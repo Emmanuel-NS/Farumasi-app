@@ -31,6 +31,16 @@ export interface BackendOrder {
   net_partner_amount: number;
   payment_reference?: string | null;
   items: BackendOrderItem[];
+  // Nested objects populated by backend since Phase 11
+  pharmacy?: { id: string; name: string } | null;
+  delivery?: {
+    id: string;
+    status: string;
+    rider?: {
+      id: string;
+      user?: { id: string; full_name?: string | null; phone?: string | null } | null;
+    } | null;
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,7 +79,7 @@ export function adaptOrder(o: BackendOrder): Order {
     date: new Date(o.created_at).toLocaleDateString("en-GB", {
       day: "numeric", month: "short", year: "numeric",
     }),
-    pharmacy: o.pharmacy_id ? `Pharmacy #${o.pharmacy_id.slice(0, 6)}` : "FARUMASI Partner",
+    pharmacy: o.pharmacy?.name ?? (o.pharmacy_id ? `Pharmacy #${o.pharmacy_id.slice(0, 6)}` : "FARUMASI Partner"),
     pharmacyPrice: o.subtotal,
     deliveryFee: o.delivery_fee,
     prescriptionImageUrl: undefined,
@@ -80,5 +90,7 @@ export function adaptOrder(o: BackendOrder): Order {
     selectedRecommendationId: o.selected_recommendation_id ?? undefined,
     pharmacyId: o.pharmacy_id ?? undefined,
     partnerCompanyId: o.partner_company_id ?? undefined,
+    assignedDriverName: o.delivery?.rider?.user?.full_name ?? undefined,
+    assignedDriverPhone: o.delivery?.rider?.user?.phone ?? undefined,
   };
 }

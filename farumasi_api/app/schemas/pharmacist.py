@@ -33,6 +33,7 @@ class PharmacistProfileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     user_id: str
+    pharmacy_id: Optional[str] = None
     license_number: Optional[str] = None
     specialization: Optional[str] = None
     bio: Optional[str] = None

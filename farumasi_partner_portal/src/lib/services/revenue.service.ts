@@ -38,7 +38,7 @@ export interface BackendWithdrawal {
   amount: number;
   payout_method: string;
   payout_details?: Record<string, unknown> | null;
-  status: string;
+  status: "pending" | "processing" | "completed" | "rejected";
   admin_notes?: string | null;
   processed_by_user_id?: string | null;
   created_at: string;

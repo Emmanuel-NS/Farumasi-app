@@ -47,10 +47,13 @@ export interface PrescriptionRequest {
 export type OrderStatus =
   | "pending"
   | "confirmed"
+  | "accepted"
+  | "rejected"
   | "preparing"
   | "ready_for_pickup"
   | "out_for_delivery"
   | "delivered"
+  | "completed"
   | "cancelled"
   | "failed";
 

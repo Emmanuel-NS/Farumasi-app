@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { ArrowLeft, MapPin, Phone, Package, CheckCircle2, XCircle, Truck, Loader2, FileText, User2 } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Package, CheckCircle2, XCircle, Truck, Loader2, FileText, User2, Key, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,12 +20,11 @@ function shortId(id: string): string {
 }
 
 const PROGRESS_FORWARD: Record<string, { next: OrderStatus; label: string }> = {
-  pending: { next: "accepted", label: "Accept Order" },
-  accepted: { next: "preparing", label: "Start Preparing" },
-  preparing: { next: "ready_for_pickup", label: "Mark Ready" },
-  ready_for_pickup: { next: "out_for_delivery", label: "Out for Delivery" },
-  out_for_delivery: { next: "delivered", label: "Mark Delivered" },
-  delivered: { next: "completed", label: "Complete Order" },
+  pending:           { next: "accepted",         label: "Accept Order" },
+  accepted:          { next: "preparing",         label: "Start Preparing" },
+  preparing:         { next: "ready_for_pickup",  label: "Mark Ready for Pickup" },
+  // Pickup orders stop at ready_for_pickup — partner pharmacy has no delivery role.
+  // Delivery orders also stop here; Farumasi pharmacist handles the delivery leg.
 };
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,6 +35,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [error, setError] = useState<string | null>(null);
   const [delivery, setDelivery] = useState<BackendDelivery | null>(null);
   const [prescription, setPrescription] = useState<BackendPrescription | null>(null);
+  const [verifyCodeInput, setVerifyCodeInput] = useState("");
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +84,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       toast.error(getApiError(err, "Failed to update order"));
     } finally {
       setActing(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!order || !verifyCodeInput.trim()) return;
+    setVerifying(true);
+    try {
+      const updated = await ordersService.verifyAccessCode(order.id, verifyCodeInput.trim());
+      setOrder(updated);
+      toast.success("Access code verified — order completed!");
+      setVerifyCodeInput("");
+    } catch (err: unknown) {
+      toast.error(getApiError(err, "Incorrect access code"));
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -280,9 +296,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         View uploaded prescription
                       </a>
                     )}
-                    {prescription.patient?.user?.full_name && (
+                    {prescription.patient?.full_name && (
                       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <User2 className="w-3 h-3" /> {prescription.patient.user.full_name}
+                        <User2 className="w-3 h-3" /> {prescription.patient.full_name}
                       </div>
                     )}
                   </>
@@ -330,6 +346,47 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                   {forward.label}
                 </Button>
+              )}
+
+              {/* Pickup access code verification: pharmacy confirms patient's code */}
+              {!order.is_delivery && order.status === "ready_for_pickup" && (
+                <div className="border border-amber-200 rounded-xl p-3 space-y-2 bg-amber-50">
+                  <p className="text-xs font-semibold text-amber-700 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Verify Patient Code
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    Ask the patient for their access code. Correct code completes the order.
+                  </p>
+                  <input
+                    value={verifyCodeInput}
+                    onChange={(e) => setVerifyCodeInput(e.target.value.toUpperCase())}
+                    placeholder="Enter patient code…"
+                    className="w-full h-9 rounded-lg border border-amber-200 bg-white px-3 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                  <Button
+                    className="w-full gap-1.5 text-sm bg-amber-500 hover:bg-amber-600 text-white"
+                    disabled={verifying || !verifyCodeInput.trim()}
+                    onClick={handleVerifyCode}
+                  >
+                    {verifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
+                    Confirm Pickup
+                  </Button>
+                </div>
+              )}
+
+              {/* Delivery: show rider access code so pharmacy knows which rider to release to */}
+              {order.is_delivery && order.rider_access_code && order.status === "ready_for_pickup" && (
+                <div className="border border-blue-100 rounded-xl p-3 space-y-1 bg-blue-50">
+                  <p className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5" />
+                    Rider Access Code
+                  </p>
+                  <p className="text-lg font-extrabold text-blue-900 font-mono tracking-widest">
+                    {order.rider_access_code}
+                  </p>
+                  <p className="text-xs text-blue-600">Rider must show this code to collect the medicines.</p>
+                </div>
               )}
               {canReject && (
                 <Button

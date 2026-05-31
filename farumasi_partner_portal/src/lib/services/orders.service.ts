@@ -11,7 +11,9 @@ export interface BackendOrderItem {
 
 export interface BackendOrder {
   id: string;
-  status: string;
+  order_status: string;
+  status: string;          // alias for order_status — set by service normalizer
+  order_code?: string | null;
   payment_status?: string;
   payment_method?: string;
   total_amount: number;
@@ -20,10 +22,13 @@ export interface BackendOrder {
   commission?: number;
   net_amount?: number;
   delivery_address?: string;
+  delivery_method?: string;
   is_delivery?: boolean;
   notes?: string;
   prescription_id?: string | null;
   prescription_url?: string | null;
+  rider_access_code?: string | null;
+  patient_access_code?: string | null;
   created_at: string;
   updated_at: string;
   completed_at?: string | null;
@@ -33,6 +38,10 @@ export interface BackendOrder {
     user?: { id: string; full_name: string; email: string; phone?: string };
   };
   pharmacy?: { id: string; name: string };
+  delivery?: {
+    id: string;
+    rider?: { id: string; user?: { id: string; full_name: string } };
+  };
   rider?: { id: string; user?: { id: string; full_name: string } };
 }
 
@@ -43,6 +52,14 @@ export interface PaginatedOrders {
   limit: number;
 }
 
+/** Backend sends `order_status`; normalise to also populate `status` for UI.
+ *  Also normalises `is_delivery` from `delivery_method` if missing. */
+function norm(o: BackendOrder): BackendOrder {
+  const status = o.order_status ?? o.status ?? "";
+  const is_delivery = o.is_delivery !== undefined ? o.is_delivery : o.delivery_method === "delivery";
+  return { ...o, status, order_status: status, is_delivery };
+}
+
 export const ordersService = {
   async listPartnerOrders(params?: {
     offset?: number;
@@ -50,16 +67,23 @@ export const ordersService = {
     status?: string;
   }): Promise<PaginatedOrders> {
     const { data } = await api.get<PaginatedOrders>("/pharmacies/me/orders", { params });
-    return data;
+    return { ...data, items: data.items.map(norm) };
   },
 
   async getOrder(id: string): Promise<BackendOrder> {
     const { data } = await api.get<BackendOrder>(`/orders/${id}`);
-    return data;
+    return norm(data);
   },
 
   async updateOrderStatus(id: string, status: string): Promise<BackendOrder> {
-    const { data } = await api.patch<BackendOrder>(`/pharmacies/me/orders/${id}/status`, { status });
-    return data;
+    const { data } = await api.patch<BackendOrder>(`/pharmacies/me/orders/${id}/status`, { order_status: status });
+    return norm(data);
+  },
+
+  async verifyAccessCode(orderId: string, accessCode: string): Promise<BackendOrder> {
+    const { data } = await api.post<BackendOrder>(`/orders/${orderId}/verify-access-code`, {
+      access_code: accessCode,
+    });
+    return norm(data);
   },
 };

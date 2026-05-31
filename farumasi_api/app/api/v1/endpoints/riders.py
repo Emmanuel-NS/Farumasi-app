@@ -26,6 +26,32 @@ from app.core.exceptions import NotFoundError
 router = APIRouter()
 
 
+@router.get(
+    "",
+    response_model=list[RiderProfileOut],
+    summary="List riders (staff only)",
+)
+async def list_riders(
+    available_only: bool = True,
+    actor: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.OPERATIONS_ADMIN,
+            UserRole.PHARMACIST,
+        )
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return a list of riders. Pass ``available_only=false`` to include
+    offline riders. Used by pharmacists to pick a rider for delivery assignment."""
+    from sqlalchemy.orm import selectinload as _sel
+    stmt = select(RiderProfile).options(_sel(RiderProfile.user))
+    if available_only:
+        stmt = stmt.where(RiderProfile.availability_status == "online")
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
 async def _get_rider(user_id: str, db: AsyncSession) -> RiderProfile:
     result = await db.execute(
         select(RiderProfile).where(RiderProfile.user_id == user_id)

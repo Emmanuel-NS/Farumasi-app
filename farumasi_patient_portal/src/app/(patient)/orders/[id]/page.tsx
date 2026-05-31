@@ -25,12 +25,11 @@ export default function OrderTrackingPage() {
   const t = useTranslation();
 
   const STATUS_STEPS = [
-    { key: "pending",          label: t.order_step_placed },
-    { key: "confirmed",        label: t.order_step_confirmed },
-    { key: "preparing",        label: t.order_step_preparing },
-    { key: "ready_for_pickup", label: t.order_step_ready },
-    { key: "out_for_delivery", label: t.order_step_delivering },
-    { key: "delivered",        label: t.order_step_delivered },
+    { key: "pending_review",    label: t.order_step_placed },
+    { key: "pharmacy_accepted", label: t.order_step_confirmed },
+    { key: "ready_for_pickup",  label: t.order_step_ready },
+    { key: "out_for_delivery",  label: t.order_step_delivering },
+    { key: "delivered",         label: t.order_step_delivered },
   ];
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -157,16 +156,28 @@ export default function OrderTrackingPage() {
       {order.status === "out_for_delivery" && (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 mb-5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-farumasi-100 flex items-center justify-center font-bold text-farumasi-700 text-base shrink-0">
-            JK
+            {order.assignedDriverName
+              ? order.assignedDriverName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+              : "DR"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-900">Jean Kayitare</p>
+            <p className="text-sm font-bold text-slate-900">{order.assignedDriverName ?? t.order_driver}</p>
             <p className="text-xs text-slate-500">{t.order_driver}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center hover:bg-farumasi-100 transition-colors">
-              <Phone className="w-4 h-4 text-farumasi-600" />
-            </button>
+            {order.assignedDriverPhone && (
+              <a
+                href={`tel:${order.assignedDriverPhone}`}
+                className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center hover:bg-farumasi-100 transition-colors"
+              >
+                <Phone className="w-4 h-4 text-farumasi-600" />
+              </a>
+            )}
+            {!order.assignedDriverPhone && (
+              <button className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center hover:bg-farumasi-100 transition-colors">
+                <Phone className="w-4 h-4 text-farumasi-600" />
+              </button>
+            )}
             <button className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center hover:bg-farumasi-100 transition-colors">
               <MessageCircle className="w-4 h-4 text-farumasi-600" />
             </button>

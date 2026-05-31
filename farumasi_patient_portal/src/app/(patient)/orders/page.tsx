@@ -12,8 +12,7 @@ import { Package, ChevronRight, Clock, Store } from "lucide-react";
 import type { Order } from "@/types";
 
 const ACTIVE_STATUSES = new Set([
-  "pending_review", "finding_pharmacy", "pharmacy_accepted",
-  "payment_pending", "ready_for_pickup", "driver_assigned", "out_for_delivery",
+  "pending_review", "pharmacy_accepted", "ready_for_pickup", "out_for_delivery",
 ]);
 
 export default function OrdersPage() {

@@ -15,7 +15,7 @@ export interface BackendProductRequest {
   intended_use?: string | null;
   proposed_price?: number | null;
   documents_urls?: string[] | null;
-  status: string;
+  status: "draft" | "submitted" | "under_review" | "requires_info" | "approved" | "rejected";
   review_notes?: string | null;
   reviewed_by_pharmacist_id?: string | null;
   reviewed_at?: string | null;

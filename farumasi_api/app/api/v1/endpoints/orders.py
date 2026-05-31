@@ -13,6 +13,8 @@ from app.schemas.order import (
     OrderOut,
     OrderStatusUpdate,
     PaymentStatusUpdate,
+    SetRiderAccessCodeRequest,
+    VerifyAccessCodeRequest,
 )
 from app.services.delivery_service import DeliveryService
 from app.services.order_service import OrderService
@@ -132,3 +134,27 @@ async def update_payment_status_alias(
 ):
     """Backward-compatible alias for ``/payment-status``."""
     return await OrderService(db).update_payment_status(order_id, data, actor)
+
+
+@router.patch("/{order_id}/rider-code", response_model=OrderOut)
+async def set_rider_access_code(
+    order_id: str,
+    data: SetRiderAccessCodeRequest,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    """Farumasi pharmacist sets a rider access code so the rider can pick up
+    medicines from the partner pharmacy."""
+    return await OrderService(db).set_rider_access_code(order_id, data, actor)
+
+
+@router.post("/{order_id}/verify-access-code", response_model=OrderOut)
+async def verify_access_code(
+    order_id: str,
+    data: VerifyAccessCodeRequest,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    """Verify patient access code to complete pickup (→ completed) or
+    confirm delivery received (→ delivered)."""
+    return await OrderService(db).verify_access_code(order_id, data, actor)

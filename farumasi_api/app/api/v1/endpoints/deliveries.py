@@ -66,6 +66,7 @@ async def assign_delivery_legacy(
             UserRole.OPERATIONS_ADMIN,
             UserRole.PHARMACY_ADMIN,
             UserRole.PARTNER_COMPANY_ADMIN,
+            UserRole.PHARMACIST,
         )
     ),
 ):
@@ -93,6 +94,7 @@ async def assign_delivery(
             UserRole.OPERATIONS_ADMIN,
             UserRole.PHARMACY_ADMIN,
             UserRole.PARTNER_COMPANY_ADMIN,
+            UserRole.PHARMACIST,
         )
     ),
 ):

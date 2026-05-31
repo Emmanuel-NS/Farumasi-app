@@ -15,6 +15,13 @@ class RiderAvailabilityUpdate(BaseModel):
     availability_status: RiderAvailability
 
 
+class RiderUserBrief(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+
+
 class RiderProfileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
@@ -25,6 +32,7 @@ class RiderProfileOut(BaseModel):
     availability_status: str
     verification_status: str
     payout_method: Optional[str] = None
+    user: Optional[RiderUserBrief] = None
 
 
 class RiderEarningsOut(BaseModel):

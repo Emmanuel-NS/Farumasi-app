@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const logout = useAuthStore((s) => s.logout);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,6 +22,17 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
+      // Only Farumasi internal pharmacists (and super_admin) may access this portal
+      const user = useAuthStore.getState().user;
+      if (user && user.role !== "pharmacist" && user.role !== "super_admin") {
+        logout();
+        setError(
+          user.role === "pharmacy_admin" || user.role === "partner_company_admin"
+            ? "This portal is for Farumasi pharmacists only. Partner pharmacies should use the Partner Portal."
+            : "You don't have access to this portal."
+        );
+        return;
+      }
       router.push("/overview");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Login failed";

@@ -31,6 +31,7 @@ from app.models.order import Order, OrderItem
 from app.models.partner import PartnerCompany
 from app.models.patient import PatientProfile
 from app.models.pharmacy import Pharmacy
+from app.models.rider import RiderProfile
 from app.models.prescription import DigitalPrescription, PrescriptionItem
 from app.models.product import ProductCatalogueItem, ProductListing
 from app.models.recommendation import PharmacyRecommendation
@@ -42,6 +43,8 @@ from app.schemas.order import (
     OrderItemCreate,
     OrderStatusUpdate,
     PaymentStatusUpdate,
+    SetRiderAccessCodeRequest,
+    VerifyAccessCodeRequest,
 )
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
@@ -125,6 +128,8 @@ class OrderService:
             platform_commission=commission,
             total_amount=total,
             net_partner_amount=net_partner,
+            patient_access_code=data.patient_access_code or None,
+            notes=data.notes or None,
         )
         self.db.add(order)
         await self.db.flush()
@@ -213,6 +218,13 @@ class OrderService:
         status: Optional[str] = None,
     ) -> Tuple[List[Order], int]:
         pharmacy = await self._get_owned_pharmacy(actor)
+        # Farumasi internal pharmacists (no pharmacy affiliation) see ALL orders
+        # platform-wide, like a read-only super-admin.
+        if not pharmacy and actor.role == UserRole.PHARMACIST:
+            conds: list = []
+            if status:
+                conds.append(Order.order_status == status)
+            return await self._paginate(*conds, offset=offset, limit=limit)
         if not pharmacy:
             raise NotFoundError("Pharmacy")
         conds = [Order.pharmacy_id == pharmacy.id]
@@ -334,6 +346,50 @@ class OrderService:
             new_value={"payment_status": data.payment_status},
         )
 
+        return await self._reload(order.id)
+
+    async def set_rider_access_code(
+        self, order_id: str, data: SetRiderAccessCodeRequest, actor: User
+    ) -> Order:
+        """Farumasi internal pharmacist sets a rider access code on a delivery order."""
+        order = await self.repo.get_by_id(order_id)
+        if not order:
+            raise NotFoundError("Order", order_id)
+        await self._assert_can_change_status(order, actor, order.order_status)
+        if order.delivery_method != "delivery":
+            raise BusinessRuleError("Rider access codes are only for delivery orders")
+        order.rider_access_code = data.rider_access_code
+        await self.db.flush()
+        return await self._reload(order.id)
+
+    async def verify_access_code(
+        self, order_id: str, data: VerifyAccessCodeRequest, actor: User
+    ) -> Order:
+        """Verify the patient access code (by pharmacy/rider at completion).
+
+        On success advances the order status:
+        - pickup orders at ready_for_pickup → completed
+        - delivery orders at out_for_delivery → delivered
+        """
+        order = await self.repo.get_by_id(order_id)
+        if not order:
+            raise NotFoundError("Order", order_id)
+        if not order.patient_access_code:
+            raise BusinessRuleError("This order has no access code set")
+        if order.patient_access_code.lower() != data.access_code.lower():
+            raise AuthorizationError("Incorrect access code")
+        if order.delivery_method == "pickup":
+            if order.order_status != OrderStatus.READY_FOR_PICKUP:
+                raise BusinessRuleError("Order must be ready_for_pickup to complete with access code")
+            order.order_status = OrderStatus.COMPLETED
+        else:
+            if order.order_status != OrderStatus.OUT_FOR_DELIVERY:
+                raise BusinessRuleError("Order must be out_for_delivery to verify delivery access code")
+            order.order_status = OrderStatus.DELIVERED
+        await self.db.flush()
+        if order.order_status == OrderStatus.COMPLETED:
+            await self._create_revenue(order)
+        await self.db.flush()
         return await self._reload(order.id)
 
     # ── Item resolution ───────────────────────────────────────────────────
@@ -553,6 +609,10 @@ class OrderService:
                 return
             raise AuthorizationError("Not allowed to view this order")
         if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
+            # Farumasi internal pharmacist (no pharmacy) has platform-wide read access
+            pharmacy = await self._get_owned_pharmacy(actor)
+            if not pharmacy and role == UserRole.PHARMACIST:
+                return
             if order.pharmacy_id and await self._owns_pharmacy(actor, order.pharmacy_id):
                 return
             raise AuthorizationError("Not allowed to view this order")
@@ -579,6 +639,12 @@ class OrderService:
                 "Patients may only cancel their own pending orders"
             )
         if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
+            # Farumasi internal pharmacist (no pharmacy) can manage any order's status
+            pharmacy = await self._get_owned_pharmacy(actor)
+            if not pharmacy and role == UserRole.PHARMACIST:
+                if new_status in _OWNER_MANAGE_STATUSES:
+                    return
+                raise AuthorizationError("Not allowed to change this order's status")
             if order.pharmacy_id and await self._owns_pharmacy(actor, order.pharmacy_id):
                 if new_status in _OWNER_MANAGE_STATUSES:
                     return
@@ -658,11 +724,22 @@ class OrderService:
         )
         return res.scalar_one_or_none()
 
+    def _order_options(self):
+        """Common eager-load options: items, patient, pharmacy name, delivery + rider."""
+        return [
+            selectinload(Order.items),
+            selectinload(Order.pharmacy),
+            selectinload(Order.patient).selectinload(PatientProfile.user),
+            selectinload(Order.delivery).selectinload(Delivery.rider).selectinload(
+                RiderProfile.user
+            ),
+        ]
+
     async def _reload(self, order_id: str) -> Optional[Order]:
         res = await self.db.execute(
             select(Order)
             .where(Order.id == order_id)
-            .options(selectinload(Order.items))
+            .options(*self._order_options())
         )
         return res.scalar_one_or_none()
 
@@ -674,7 +751,7 @@ class OrderService:
             count_q = count_q.where(*conds)
         total = (await self.db.execute(count_q)).scalar_one()
 
-        q = select(Order).options(selectinload(Order.items))
+        q = select(Order).options(*self._order_options())
         if conds:
             q = q.where(*conds)
         q = q.order_by(Order.created_at.desc()).offset(offset).limit(limit)

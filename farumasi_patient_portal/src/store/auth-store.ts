@@ -5,6 +5,8 @@ import type { AuthUser } from "@/types";
 
 interface AuthStore {
   isGuest: boolean;
+  /** True while hydrateAuth is resolving — prevents GuestGate from flashing lock screen */
+  isHydrating: boolean;
   user: AuthUser | null;
   accessToken: string | null;
   /** Sign in with email + password; fetches user profile automatically */
@@ -33,6 +35,7 @@ function clearTokens() {
 
 export const useAuthStore = create<AuthStore>()((set) => ({
   isGuest: true,
+  isHydrating: true,
   user: null,
   accessToken: null,
 
@@ -65,18 +68,18 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     if (typeof window === "undefined") return;
     if (isMockMode()) {
       const token = localStorage.getItem("farumasi_access_token");
-      if (!token) { set({ isGuest: true }); return; }
-      set({ isGuest: false, accessToken: token, user: { id: "mock-1", name: "Demo Patient", email: "patient@farumasi.com", phone: "+250788000000", role: "patient" } });
+      if (!token) { set({ isGuest: true, isHydrating: false }); return; }
+      set({ isGuest: false, isHydrating: false, accessToken: token, user: { id: "mock-1", name: "Demo Patient", email: "patient@farumasi.com", phone: "+250788000000", role: "patient" } });
       return;
     }
     const token = localStorage.getItem("farumasi_access_token");
-    if (!token) { set({ isGuest: true }); return; }
+    if (!token) { set({ isGuest: true, isHydrating: false }); return; }
     try {
       const user = await authService.getMe();
-      set({ isGuest: false, user, accessToken: token });
+      set({ isGuest: false, isHydrating: false, user, accessToken: token });
     } catch {
       clearTokens();
-      set({ isGuest: true, user: null, accessToken: null });
+      set({ isGuest: true, isHydrating: false, user: null, accessToken: null });
     }
   },
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { X, Bell, MessageCircle, HelpCircle, Trash2 } from "lucide-react";
+import { X } from "lucide-react";
 import { cn, timeAgo } from "@/lib/utils";
-import type { AppNotification, ChatThread } from "@/types";
+import { notificationsService, type BackendNotification } from "@/lib/services/notifications.service";
 
 interface RightPanelProps {
   activePanel: string;
@@ -32,30 +32,54 @@ export function RightPanel({ activePanel, onClose }: RightPanelProps) {
 }
 
 function NotificationsPanel() {
-  const [notifs, setNotifs] = useState<AppNotification[]>([]);
+  const [notifs, setNotifs] = useState<BackendNotification[]>([]);
+  const [loading, setLoading] = useState(true);
   const catIcon: Record<string, string> = { request: "📋", order: "📦", inventory: "📦", system: "⚙️", chat: "💬" };
+
+  useEffect(() => {
+    notificationsService.list({ limit: 30 })
+      .then((res) => setNotifs(res.items))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const markRead = async (id: string) => {
+    setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read_status: true } : n));
+    await notificationsService.markRead(id).catch(() => {});
+  };
+
+  const markAllRead = async () => {
+    setNotifs((prev) => prev.map((n) => ({ ...n, read_status: true })));
+    await notificationsService.markAllRead().catch(() => {});
+  };
+
+  const unreadCount = notifs.filter((n) => !n.read_status).length;
 
   return (
     <div>
       <div className="px-5 py-3 flex justify-between items-center">
-        <span className="text-xs text-slate-500">{notifs.filter(n => !n.isRead).length} unread</span>
-        <button onClick={() => setNotifs(p => p.map(n => ({ ...n, isRead: true })))} className="text-xs text-farumasi-600 font-medium hover:underline">
+        <span className="text-xs text-slate-500">{unreadCount} unread</span>
+        <button onClick={markAllRead} className="text-xs text-farumasi-600 font-medium hover:underline">
           Mark all read
         </button>
       </div>
-      {notifs.map((n) => (
+      {loading ? (
+        <div className="py-10 text-center text-xs text-slate-400">Loading…</div>
+      ) : notifs.length === 0 ? (
+        <div className="py-10 text-center text-xs text-slate-400">No notifications yet</div>
+      ) : notifs.map((n) => (
         <div
           key={n.id}
-          className={cn("group flex gap-3 px-5 py-3.5 border-b border-slate-50 hover:bg-slate-50 cursor-pointer", !n.isRead && "bg-farumasi-50/50")}
-          onClick={() => setNotifs(p => p.map(x => x.id === n.id ? { ...x, isRead: true } : x))}
+          className={cn("group flex gap-3 px-5 py-3.5 border-b border-slate-50 hover:bg-slate-50 cursor-pointer", !n.read_status && "bg-farumasi-50/50")}
+          onClick={() => markRead(n.id)}
         >
-          <span className="text-xl shrink-0">{catIcon[n.category] ?? "🔔"}</span>
+          <span className="text-xl shrink-0">{catIcon[n.category ?? "system"] ?? "🔔"}</span>
           <div className="flex-1 min-w-0">
-            <p className={cn("text-sm text-slate-900", !n.isRead ? "font-bold" : "font-medium")}>{n.title}</p>
+            <p className={cn("text-sm text-slate-900", !n.read_status ? "font-bold" : "font-medium")}>{n.title}</p>
             <p className="text-xs text-slate-500 mt-0.5">{n.message}</p>
-            <p className="text-[10px] text-slate-400 mt-1">{timeAgo(n.time)}</p>
+            <p className="text-[10px] text-slate-400 mt-1">{timeAgo(n.created_at)}</p>
           </div>
-          {!n.isRead && <div className="w-2 h-2 rounded-full bg-farumasi-500 shrink-0 mt-1.5" />}
+          {!n.read_status && <div className="w-2 h-2 rounded-full bg-farumasi-500 shrink-0 mt-1.5" />}
         </div>
       ))}
       <div className="p-4">

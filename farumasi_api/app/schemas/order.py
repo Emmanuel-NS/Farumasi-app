@@ -8,7 +8,6 @@ from pydantic import field_validator, model_validator
 from app.schemas.common import FarumasiBaseModel
 from app.core.constants import OrderStatus, PaymentStatus, DeliveryMethod
 
-
 class OrderItemCreate(FarumasiBaseModel):
     """Input item for order creation.
 
@@ -74,6 +73,9 @@ class OrderCreate(FarumasiBaseModel):
     delivery_latitude: Optional[float] = None
     delivery_longitude: Optional[float] = None
     items: Optional[List[OrderItemCreate]] = None
+    # Secret word the patient sets at checkout; required to verify pickup/delivery
+    patient_access_code: Optional[str] = None
+    notes: Optional[str] = None
 
     @model_validator(mode="after")
     def _require_one_path(self) -> "OrderCreate":
@@ -106,6 +108,35 @@ class OrderItemOut(FarumasiBaseModel):
     created_at: datetime
 
 
+# ── Nested brief schemas for order responses ──────────────────────────────────
+
+class OrderPharmacyBrief(FarumasiBaseModel):
+    id: str
+    name: str
+
+
+class OrderUserBrief(FarumasiBaseModel):
+    id: str
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+
+
+class OrderPatientBrief(FarumasiBaseModel):
+    id: str
+    user: Optional[OrderUserBrief] = None
+
+
+class OrderRiderBrief(FarumasiBaseModel):
+    id: str
+    user: Optional[OrderUserBrief] = None
+
+
+class OrderDeliveryBrief(FarumasiBaseModel):
+    id: str
+    status: str
+    rider: Optional[OrderRiderBrief] = None
+
+
 class OrderOut(FarumasiBaseModel):
     id: str
     order_code: str
@@ -125,6 +156,16 @@ class OrderOut(FarumasiBaseModel):
     net_partner_amount: float
     payment_reference: Optional[str] = None
     items: List[OrderItemOut] = []
+    # Nested relationship data — populated when relationships are loaded
+    patient: Optional[OrderPatientBrief] = None
+    pharmacy: Optional[OrderPharmacyBrief] = None
+    delivery: Optional[OrderDeliveryBrief] = None
+    # Access codes — patient_access_code only visible to the patient who placed
+    # the order and to Farumasi pharmacists. rider_access_code only visible to
+    # the assigned rider and Farumasi pharmacists.
+    patient_access_code: Optional[str] = None
+    rider_access_code: Optional[str] = None
+    notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -137,3 +178,13 @@ class OrderStatusUpdate(FarumasiBaseModel):
 class PaymentStatusUpdate(FarumasiBaseModel):
     payment_status: PaymentStatus
     payment_reference: Optional[str] = None
+
+
+class SetRiderAccessCodeRequest(FarumasiBaseModel):
+    """Pharmacist sets a rider access code on a delivery order."""
+    rider_access_code: str
+
+
+class VerifyAccessCodeRequest(FarumasiBaseModel):
+    """Verify the patient's access code at pickup or delivery completion."""
+    access_code: str

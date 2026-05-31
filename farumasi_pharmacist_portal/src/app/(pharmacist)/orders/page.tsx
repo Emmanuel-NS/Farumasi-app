@@ -15,34 +15,36 @@ import type { OrderStatus } from "@/types";
 const STATUS_FILTERS: { value: "all" | OrderStatus; label: string }[] = [
   { value: "all",               label: "All" },
   { value: "pending",           label: "Pending" },
-  { value: "confirmed",         label: "Confirmed" },
+  { value: "accepted",          label: "Accepted" },
+  { value: "rejected",          label: "Rejected" },
   { value: "preparing",         label: "Preparing" },
   { value: "ready_for_pickup",  label: "Ready for Pickup" },
   { value: "out_for_delivery",  label: "Out for Delivery" },
   { value: "delivered",         label: "Delivered" },
   { value: "cancelled",         label: "Cancelled" },
-  { value: "failed",            label: "Failed" },
 ];
 
-/* Maps order status to the step index (0-based) in the timeline */
-const STATUS_STEP: Record<OrderStatus, number> = {
+/* Maps backend order_status to timeline step index (0-based) */
+const STATUS_STEP: Partial<Record<string, number>> = {
   pending:           0,
-  confirmed:         1,
+  accepted:          1,
+  rejected:          5,
   preparing:         2,
   ready_for_pickup:  3,
   out_for_delivery:  4,
   delivered:         5,
+  completed:         5,
   cancelled:         5,
   failed:            5,
 };
 
 const TIMELINE_STEPS = [
-  { icon: CircleDot,   label: "Request Created",        desc: "Order received from patient" },
-  { icon: UserCheck,   label: "Reviewed by Pharmacist", desc: "Prescription reviewed & confirmed" },
-  { icon: PackageCheck,label: "Pharmacy Assigned",       desc: "Preparing medicines" },
-  { icon: CreditCard,  label: "Payment",                 desc: "Payment processed" },
-  { icon: Truck,       label: "Out for Delivery",        desc: "Driver en route" },
-  { icon: Clock,       label: "Delivered",               desc: "Order received by patient" },
+  { icon: CircleDot,    label: "Order Received",      desc: "New order from patient" },
+  { icon: UserCheck,    label: "Accepted",             desc: "Pharmacist confirmed order" },
+  { icon: PackageCheck, label: "Preparing",            desc: "Medicines being prepared" },
+  { icon: CreditCard,   label: "Ready for Pickup",     desc: "Order ready / awaiting rider" },
+  { icon: Truck,        label: "Out for Delivery",     desc: "Rider en route to patient" },
+  { icon: Clock,        label: "Delivered",            desc: "Order received by patient" },
 ];
 
 export default function OrdersPage() {
@@ -50,21 +52,35 @@ export default function OrdersPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [orders, setOrders]    = useState<BackendOrder[]>([]);
   const [loading, setLoading]  = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const params = filter !== "all" ? { status: filter, limit: 50 } : { limit: 50 };
       const res = await ordersService.getPharmacyOrders(params);
       setOrders(res.items);
-    } catch {
-      toast.error("Failed to load orders");
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      if (status === 404) {
+        setLoadError(typeof detail === "string" ? detail : "Your account is not linked to a pharmacy. Contact your administrator.");
+      } else {
+        toast.error("Failed to load orders");
+      }
     } finally {
       setLoading(false);
     }
   }, [filter]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-refresh every 30 seconds so new patient orders appear without manual reload
+  useEffect(() => {
+    const interval = setInterval(load, 30_000);
+    return () => clearInterval(interval);
+  }, [load]);
 
   const filtered = orders;
 
@@ -108,6 +124,12 @@ export default function OrdersPage() {
           <div className="w-8 h-8 border-4 border-farumasi-200 border-t-farumasi-600 rounded-full animate-spin mb-3" />
           <p className="text-slate-400 text-sm">Loading orders…</p>
         </div>
+      ) : loadError ? (
+        <div className="py-24 flex flex-col items-center text-center">
+          <ShoppingBag className="w-16 h-16 text-slate-200 mb-3" />
+          <p className="text-slate-700 font-semibold mb-1">Account not linked</p>
+          <p className="text-slate-500 text-sm max-w-sm">{loadError}</p>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="py-24 flex flex-col items-center text-center">
           <ShoppingBag className="w-16 h-16 text-slate-200 mb-3" />
@@ -117,8 +139,8 @@ export default function OrdersPage() {
         <div className="space-y-3">
           {filtered.map((order) => {
             const isExpanded = expanded === order.id;
-            const step       = STATUS_STEP[order.status as OrderStatus] ?? 0;
-            const isCancelled = order.status === "cancelled";
+            const step       = STATUS_STEP[order.order_status] ?? 0;
+            const isCancelled = order.order_status === "cancelled" || order.order_status === "rejected";
 
             return (
               <div
@@ -137,7 +159,7 @@ export default function OrdersPage() {
                       <p className="text-xs text-slate-500">{order.patient?.user?.phone ?? "—"}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <StatusBadge status={order.status} />
+                      <StatusBadge status={order.order_status} />
                       {isExpanded
                         ? <ChevronUp className="w-4 h-4 text-slate-400" />
                         : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -149,7 +171,7 @@ export default function OrdersPage() {
                     {order.items.map((item, i) => (
                       <div key={i} className="flex justify-between text-sm py-0.5">
                         <span className="text-slate-700">
-                          {item.product?.name ?? "Item"}{" "}
+                          {item.product_name}{" "}
                           <span className="text-slate-400">x{item.quantity}</span>
                         </span>
                         <span className="text-slate-600">{formatPrice(item.total_price)} RWF</span>
@@ -166,9 +188,9 @@ export default function OrdersPage() {
                         {formatDate(order.created_at)}{order.payment_method ? ` · ${order.payment_method.replace(/_/g, " ")}` : ""}
                       </p>
                     </div>
-                    {order.rider?.user?.full_name && (
+                        {order.delivery?.rider?.user?.full_name && (
                       <p className="text-xs text-slate-500 flex items-center gap-1">
-                        🚚 {order.rider.user.full_name}
+                        🚚 {order.delivery.rider.user.full_name}
                       </p>
                     )}
                   </div>
@@ -209,9 +231,10 @@ export default function OrdersPage() {
                         const isFuture    = !isCompleted;
                         const Icon        = s.icon;
 
-                        /* Last step override for cancelled */
-                        const labelText = isCancelled && idx === 5 ? "Cancelled" : s.label;
-                        const descText  = isCancelled && idx === 5 ? "Order was cancelled" : s.desc;
+                        /* Last step override for cancelled/rejected */
+                        const isRejected = order.order_status === "rejected";
+                        const labelText = isCancelled && idx === 5 ? (isRejected ? "Rejected" : "Cancelled") : s.label;
+                        const descText  = isCancelled && idx === 5 ? (isRejected ? "Order was rejected" : "Order was cancelled") : s.desc;
 
                         return (
                           <div key={idx} className="flex items-start gap-3">

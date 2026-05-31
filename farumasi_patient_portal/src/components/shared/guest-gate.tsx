@@ -16,7 +16,9 @@ interface GuestGateProps {
  */
 export function GuestGate({ children, feature = "this feature" }: GuestGateProps) {
   const isGuest = useAuthStore((s) => s.isGuest);
+  const isHydrating = useAuthStore((s) => s.isHydrating);
 
+  if (isHydrating) return null;
   if (!isGuest) return <>{children}</>;
 
   return (
