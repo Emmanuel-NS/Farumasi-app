@@ -102,6 +102,7 @@ class OrderItemOut(FarumasiBaseModel):
     product_listing_id: Optional[str] = None
     product_id: Optional[str] = None
     product_name: str
+    product_image_url: Optional[str] = None
     quantity: int
     unit_price: float
     total_price: float

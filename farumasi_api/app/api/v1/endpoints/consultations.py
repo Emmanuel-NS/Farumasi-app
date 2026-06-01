@@ -258,7 +258,7 @@ async def send_message(
         raise HTTPException(status_code=400, detail="Message must include text or an attachment.")
 
     attachment_type = data.attachment_type
-    if has_attachment and attachment_type not in ("image", "file"):
+    if has_attachment and attachment_type not in ("image", "file", "product"):
         attachment_type = "image" if (data.attachment_url or "").lower().endswith(
             (".png", ".jpg", ".jpeg", ".webp", ".gif")
         ) else "file"

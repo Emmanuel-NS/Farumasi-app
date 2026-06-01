@@ -204,7 +204,14 @@ function StorePageInner() {
 
   // ── Multi-select categories — mirrors Flutter Set<String> _selectedCategories ──
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const [sort, setSort]       = useState<"default" | "price_asc" | "price_desc" | "rating">("default");
+  const [sort, setSort]       = useState<"default" | "price_asc" | "price_desc">("default");
+  const PRODUCT_TYPES = [
+    { value: "medicine",         label: "Medicine" },
+    { value: "medical_device",   label: "Medical Device" },
+    { value: "food_supplements", label: "Food Supplements" },
+    { value: "cosmetics",        label: "Cosmetics" },
+  ] as const;
+  const [selectedProductType, setSelectedProductType] = useState<string>("All");
   const { items: cartItems, add: cartAdd, remove: cartRemove } = useCartStore();
   const [quickView, setQuickView] = useState<Medicine | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -308,11 +315,14 @@ function StorePageInner() {
     if (selectedPharmacyId && pharmacyListings.size > 0) {
       list = list.filter((m) => pharmacyListings.has(m.id));
     }
+    // Product type filter
+    if (selectedProductType !== "All") {
+      list = list.filter((m) => (m.product_type ?? "").toLowerCase() === selectedProductType);
+    }
     if (sort === "price_asc")  list.sort((a, b) => a.price - b.price);
     if (sort === "price_desc") list.sort((a, b) => b.price - a.price);
-    if (sort === "rating")     list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     return list;
-  }, [query, selectedCategories, sort, medicines, selectedPharmacyId, pharmacyListings]);
+  }, [query, selectedCategories, sort, selectedProductType, medicines, selectedPharmacyId, pharmacyListings]);
 
   // Dynamic heading — mirrors Flutter's conditional title
   const sectionTitle = selectedPharmacy
@@ -476,41 +486,56 @@ function StorePageInner() {
           )}
         >
           <SlidersHorizontal className="w-4 h-4" />
-          <span>Sort</span>
+          <span>Filters{(sort !== "default" || selectedProductType !== "All") ? ` (${(sort !== "default" ? 1 : 0) + (selectedProductType !== "All" ? 1 : 0)})` : ""}</span>
         </button>
       </div>
 
-      {/* ── Sort options (when filters open) ─────────────── */}
+      {/* ── Filter panel (when open) ─────────────────────── */}
       {showFilters && (
-        <div className="flex items-center gap-3 mb-5 flex-wrap bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_sort_by}</span>
-          {(
-            [
-              { val: "default",    label: t.store_sort_default },
-              { val: "price_asc",  label: t.store_sort_price_asc },
-              { val: "price_desc", label: t.store_sort_price_desc },
-              { val: "rating",     label: t.store_sort_rating },
-            ] as { val: typeof sort; label: string }[]
-          ).map(({ val, label }) => (
-            <button
-              key={val}
-              onClick={() => setSort(val)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
-                sort === val
-                  ? "bg-farumasi-600 text-white border-farumasi-600"
-                  : "border-slate-200 text-slate-600 hover:border-farumasi-400"
-              )}
-            >
-              <span
+        <div className="mb-5 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-4">
+          {/* Sort row */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_sort_by}</span>
+            {(
+              [
+                { val: "default",    label: t.store_sort_default },
+                { val: "price_asc",  label: t.store_sort_price_asc },
+                { val: "price_desc", label: t.store_sort_price_desc },
+              ] as { val: typeof sort; label: string }[]
+            ).map(({ val, label }) => (
+              <button
+                key={val}
+                onClick={() => setSort(val)}
                 className={cn(
-                  "w-3.5 h-3.5 rounded-full border-2 shrink-0",
-                  sort === val ? "border-white bg-white/40" : "border-slate-300"
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
+                  sort === val
+                    ? "bg-farumasi-600 text-white border-farumasi-600"
+                    : "border-slate-200 text-slate-600 hover:border-farumasi-400"
                 )}
-              />
-              {label}
-            </button>
-          ))}
+              >
+                <span className={cn("w-3.5 h-3.5 rounded-full border-2 shrink-0", sort === val ? "border-white bg-white/40" : "border-slate-300")} />
+                {label}
+              </button>
+            ))}
+          </div>
+          {/* Product type row */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium text-slate-600 shrink-0">Type</span>
+            {([{ value: "All", label: "All" }, ...PRODUCT_TYPES] as { value: string; label: string }[]).map((pt) => (
+              <button
+                key={pt.value}
+                onClick={() => setSelectedProductType(pt.value)}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
+                  selectedProductType === pt.value
+                    ? "bg-farumasi-600 text-white border-farumasi-600"
+                    : "border-slate-200 text-slate-600 hover:border-farumasi-400"
+                )}
+              >
+                {pt.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -645,29 +670,41 @@ function StorePageInner() {
             )}
             {pharmacies.map((pharmacy) => {
               const isSelected = selectedPharmacy === pharmacy.name;
+              const mapUrl = pharmacy.latitude && pharmacy.longitude
+                ? `https://www.google.com/maps?q=${pharmacy.latitude},${pharmacy.longitude}`
+                : pharmacy.address
+                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pharmacy.name + " " + pharmacy.address)}`
+                : null;
               return (
-                <button
+                <div
                   key={pharmacy.id}
-                  onClick={() => {
-                    if (isSelected) {
-                      setSelectedPharmacy(null);
-                      setSelectedPharmacyId(null);
-                    } else {
-                      setSelectedPharmacy(pharmacy.name);
-                      setSelectedPharmacyId(pharmacy.id);
-                    }
-                  }}
                   className={cn(
-                    "flex bg-white rounded-[14px] border overflow-hidden transition-all shrink-0 text-left",
+                    "relative flex bg-white rounded-[14px] border overflow-hidden transition-all shrink-0",
                     isSelected
                       ? "border-farumasi-500 shadow-[0_0_0_2px_rgba(30,158,104,0.25)] shadow-md"
                       : "border-[#E6EAEE] shadow-[0_5px_10px_rgba(15,23,42,0.07)] hover:shadow-md hover:border-farumasi-300"
                   )}
                   style={{ width: 250, height: 106 }}
                 >
-                  {/* Icon placeholder — no image URL in current data model */}
+                  {/* Invisible full-card selection button */}
+                  <button
+                    className="absolute inset-0 w-full h-full z-0"
+                    aria-label={`Select ${pharmacy.name}`}
+                    onClick={() => {
+                      if (isSelected) { setSelectedPharmacy(null); setSelectedPharmacyId(null); }
+                      else { setSelectedPharmacy(pharmacy.name); setSelectedPharmacyId(pharmacy.id); }
+                    }}
+                  />
+                  {/* Image / placeholder */}
                   <div className="w-24 shrink-0 overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    <MapPin className="w-7 h-7 text-slate-300" />
+                    {pharmacy.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={pharmacy.image_url} alt={pharmacy.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-farumasi-50 to-slate-100">
+                        <MapPin className="w-7 h-7 text-farumasi-300" />
+                      </div>
+                    )}
                     {isSelected && (
                       <div className="absolute inset-0 bg-farumasi-600/30 flex items-center justify-center">
                         <div className="w-7 h-7 rounded-full bg-farumasi-600 flex items-center justify-center">
@@ -679,7 +716,7 @@ function StorePageInner() {
                     )}
                   </div>
                   {/* Text panel */}
-                  <div className="flex flex-col justify-center px-3 py-2 min-w-0 flex-1">
+                  <div className="flex flex-col justify-center px-3 py-2 min-w-0 flex-1 relative z-10 pointer-events-none">
                     <p className={cn(
                       "text-[14px] font-bold leading-snug line-clamp-2",
                       isSelected ? "text-farumasi-700" : "text-[#0F172A]"
@@ -699,7 +736,20 @@ function StorePageInner() {
                       </span>
                     )}
                   </div>
-                </button>
+                  {/* Map link — z-20 so it sits above the selection button */}
+                  {mapUrl && (
+                    <a
+                      href={mapUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-2 right-2 z-20 w-7 h-7 rounded-full bg-white/90 shadow-sm border border-slate-200 flex items-center justify-center hover:bg-farumasi-50 hover:border-farumasi-300 transition-colors"
+                      title="View on Google Maps"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-farumasi-600" />
+                    </a>
+                  )}
+                </div>
               );
             })}
           </div>

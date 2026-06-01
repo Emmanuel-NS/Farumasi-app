@@ -1,5 +1,4 @@
 import api from "@/lib/api";
-import { isMockMode } from "@/lib/env";
 import type { HealthArticle } from "@/types";
 import {
   adaptArticle,
@@ -7,43 +6,142 @@ import {
   type PaginatedArticles,
 } from "@/lib/mappers/articles.mapper";
 
+export type ArticleSort = "newest" | "oldest" | "likes" | "views" | "shares" | "comments";
+
 export interface ListArticlesQuery {
   category?: string;
+  categories?: string[];
+  articleType?: string;
+  sortBy?: ArticleSort;
+  savedOnly?: boolean;
   offset?: number;
   limit?: number;
 }
 
-function mockArticles(): HealthArticle[] {
-  return [
-    { id: "1", slug: "malaria-prevention-tips", title: "Malaria Prevention Tips for the Rainy Season", subtitle: "Viral Infection", summary: "Key steps to protect yourself during high-risk periods.", fullContent: "1. Sleep under an insecticide-treated net every night.\n2. Use mosquito repellent containing DEET.\n3. Drain stagnant water around your home.\n4. Take prescribed prophylactics if traveling to high-risk zones.\n5. See a doctor immediately if you develop fever, chills or headache.", imageUrl: "", source: "Farumasi", category: "Viral Infection", readTimeMin: 2, publishedAt: new Date("2026-05-01") },
-    { id: "2", slug: "managing-diabetes-diet", title: "Managing Diabetes Through Diet", subtitle: "Chronic Care", summary: "What to eat (and avoid) when living with Type 2 diabetes.", fullContent: "A balanced diet is central to managing blood glucose. Prioritize whole grains, legumes, and non-starchy vegetables. Limit refined sugars and white bread. Monitor portion sizes and eat at consistent times. Consult your dietitian for a personalised meal plan.", imageUrl: "", source: "Farumasi", category: "Chronic Care", readTimeMin: 3, publishedAt: new Date("2026-04-20") },
-    { id: "3", slug: "breastfeeding-benefits", title: "The Benefits of Exclusive Breastfeeding", subtitle: "Mother & Babies", summary: "Why the first 6 months matter most for you and your baby.", fullContent: "Breast milk provides the ideal nutrition for newborns. It contains antibodies that help fight off viruses and bacteria. Exclusive breastfeeding for 6 months reduces the risk of ear infections, respiratory illness and bouts of diarrhea. It also supports healthy weight and may reduce allergy risk.", imageUrl: "", source: "Farumasi", category: "Mother & Babies", readTimeMin: 2, publishedAt: new Date("2026-05-10") },
-    { id: "4", slug: "hydration-myths", title: "Hydration Myths Busted", subtitle: "Wellness", summary: "Is 8 glasses a day really necessary? The science says maybe not.", fullContent: "The \"8 glasses a day\" rule has little scientific backing. Your needs depend on body size, activity level, climate and diet. A practical guide: drink when thirsty, aim for pale-yellow urine, and increase intake during exercise or hot weather.", imageUrl: "", source: "Farumasi", category: "Wellness", readTimeMin: 2, publishedAt: new Date("2026-05-15") },
-  ];
+export interface ArticleComment {
+  id: string;
+  articleId: string;
+  userId: string;
+  parentId?: string | null;
+  content: string;
+  createdAt: Date;
+  userName?: string | null;
+}
+
+interface BackendComment {
+  id: string;
+  article_id: string;
+  user_id: string;
+  parent_id?: string | null;
+  content: string;
+  created_at: string;
+  user_name?: string | null;
+}
+
+function adaptComment(c: BackendComment): ArticleComment {
+  return {
+    id: c.id,
+    articleId: c.article_id,
+    userId: c.user_id,
+    parentId: c.parent_id ?? null,
+    content: c.content,
+    createdAt: new Date(c.created_at),
+    userName: c.user_name ?? null,
+  };
+}
+
+function buildListParams(query: ListArticlesQuery): Record<string, unknown> {
+  return {
+    category: query.category,
+    categories: query.categories && query.categories.length > 0 ? query.categories : undefined,
+    article_type: query.articleType,
+    sort_by: query.sortBy,
+    saved_only: query.savedOnly ? true : undefined,
+    offset: query.offset ?? 0,
+    limit: query.limit ?? 50,
+  };
 }
 
 export const articlesService = {
   async listPublished(query: ListArticlesQuery = {}): Promise<HealthArticle[]> {
-    if (isMockMode()) return mockArticles();
     const { data } = await api.get<PaginatedArticles>("/articles/", {
-      params: {
-        category: query.category,
-        offset: query.offset ?? 0,
-        limit: query.limit ?? 50,
-      },
+      params: buildListParams(query),
+      paramsSerializer: { indexes: null },
+    });
+    return (data.items ?? []).map(adaptArticle);
+  },
+
+  async listSaved(query: Omit<ListArticlesQuery, "savedOnly"> = {}): Promise<HealthArticle[]> {
+    const { data } = await api.get<PaginatedArticles>("/articles/me/saved", {
+      params: { offset: query.offset ?? 0, limit: query.limit ?? 50 },
     });
     return (data.items ?? []).map(adaptArticle);
   },
 
   async getBySlug(slug: string): Promise<HealthArticle | null> {
-    if (isMockMode()) {
-      return mockArticles().find((a) => a.slug === slug || a.id === slug) ?? null;
-    }
     try {
       const { data } = await api.get<BackendArticle>(`/articles/slug/${encodeURIComponent(slug)}`);
       return adaptArticle(data);
     } catch {
       return null;
     }
+  },
+
+  async getById(id: string): Promise<HealthArticle | null> {
+    try {
+      const { data } = await api.get<BackendArticle>(`/articles/${encodeURIComponent(id)}`);
+      return adaptArticle(data);
+    } catch {
+      return null;
+    }
+  },
+
+  async getByIdOrSlug(idOrSlug: string): Promise<HealthArticle | null> {
+    const bySlug = await this.getBySlug(idOrSlug);
+    if (bySlug) return bySlug;
+    return this.getById(idOrSlug);
+  },
+
+  async like(id: string): Promise<HealthArticle> {
+    const { data } = await api.post<BackendArticle>(`/articles/${id}/like`);
+    return adaptArticle(data);
+  },
+
+  async unlike(id: string): Promise<HealthArticle> {
+    const { data } = await api.delete<BackendArticle>(`/articles/${id}/like`);
+    return adaptArticle(data);
+  },
+
+  async save(id: string): Promise<HealthArticle> {
+    const { data } = await api.post<BackendArticle>(`/articles/${id}/save`);
+    return adaptArticle(data);
+  },
+
+  async unsave(id: string): Promise<HealthArticle> {
+    const { data } = await api.delete<BackendArticle>(`/articles/${id}/save`);
+    return adaptArticle(data);
+  },
+
+  async share(id: string): Promise<HealthArticle> {
+    const { data } = await api.post<BackendArticle>(`/articles/${id}/share`);
+    return adaptArticle(data);
+  },
+
+  async trackView(id: string): Promise<HealthArticle> {
+    const { data } = await api.post<BackendArticle>(`/articles/${id}/view`);
+    return adaptArticle(data);
+  },
+
+  async listComments(id: string): Promise<ArticleComment[]> {
+    const { data } = await api.get<BackendComment[]>(`/articles/${id}/comments`);
+    return (data ?? []).map(adaptComment);
+  },
+
+  async addComment(id: string, content: string, parentId?: string): Promise<ArticleComment> {
+    const { data } = await api.post<BackendComment>(`/articles/${id}/comments`, {
+      content,
+      parent_id: parentId,
+    });
+    return adaptComment(data);
   },
 };

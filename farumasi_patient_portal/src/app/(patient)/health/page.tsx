@@ -1,57 +1,108 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguageStore } from "@/store/language-store";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
-import { X, Search, Lightbulb, ChevronRight, BookOpen, Clock, Sparkles } from "lucide-react";
-import type { HealthArticle } from "@/types";
-import { articlesService } from "@/lib/services/articles.service";
+import {
+  X,
+  Search,
+  Lightbulb,
+  ChevronRight,
+  BookOpen,
+  Clock,
+  Sparkles,
+  Heart,
+  MessageCircle,
+  Eye,
+  Share2,
+  Bookmark,
+  SlidersHorizontal,
+} from "lucide-react";
+import type { HealthArticle, ArticleType } from "@/types";
+import { articlesService, type ArticleSort } from "@/lib/services/articles.service";
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 const TABS = [
   "All",
-  "General Tips",
-  "Conditions",
-  "Medication",
-  "Women & Babies",
-  "Mental Health",
+  "General Health",
+  "Sexual Health",
+  "Mother & Babies",
+  "Women's Health",
+  "Men's Health",
   "Nutrition",
-  "Did You Know?",
+  "Child Wellness",
+  "Chronic Diseases",
+  "Mental Health",
+  "Others",
 ] as const;
 
 type Tab = (typeof TABS)[number];
 
-// Backend category → tab routing. Unmapped categories fall into "General Tips".
+// Maps backend category strings → which patient tabs they belong to.
+// Categories NOT listed here fall into the "Others" tab.
 const ARTICLE_CATEGORY_MAP: Record<string, Tab[]> = {
-  // General
-  "General Health": ["General Tips"],
-  "Wellness": ["General Tips"],
-  "First Aid": ["General Tips"],
-  // Conditions / Diseases
-  "Chronic Disease": ["Conditions"],
-  "Infectious Diseases": ["Conditions"],
-  "Cardiovascular": ["Conditions"],
-  "Respiratory": ["Conditions"],
-  "Digestive Health": ["Conditions"],
-  "Skin Health": ["Conditions"],
-  "Eye Health": ["Conditions"],
-  "Oral Health": ["Conditions"],
-  // Medication
-  "Medication Safety": ["Medication"],
-  "Remedies": ["Medication"],
-  "Antibiotics": ["Medication"],
-  "Elderly Care": ["Medication"],
-  // Women & Babies
-  "Women's Health": ["Women & Babies"],
-  "SRH": ["Women & Babies"],
-  "Pediatrics": ["Women & Babies"],
-  "Mother & Babies": ["Women & Babies"],
-  // Mental / Nutrition
-  "Mental Health": ["Mental Health"],
-  "Nutrition": ["Nutrition"],
+  "General Health":      ["General Health"],
+  "Wellness":            ["General Health"],
+  "First Aid":           ["General Health"],
+  "SRH":                 ["Sexual Health"],
+  "Sexual Health":       ["Sexual Health"],
+  "Mother & Babies":     ["Mother & Babies"],
+  "Pediatrics":          ["Mother & Babies", "Child Wellness"],
+  "Women's Health":      ["Women's Health"],
+  "Men's Health":        ["Men's Health"],
+  "Nutrition":           ["Nutrition"],
+  "Child Wellness":      ["Child Wellness"],
+  "Chronic Disease":     ["Chronic Diseases"],
+  "Cardiovascular":      ["Chronic Diseases"],
+  "Respiratory":         ["Chronic Diseases"],
+  "Digestive Health":    ["Chronic Diseases"],
+  "Infectious Diseases": ["Chronic Diseases"],
+  "Skin Health":         ["Chronic Diseases"],
+  "Eye Health":          ["Chronic Diseases"],
+  "Oral Health":         ["Chronic Diseases"],
+  "Mental Health":       ["Mental Health"],
 };
+
+const ARTICLE_TYPES: { value: "all" | ArticleType; label: string }[] = [
+  { value: "all", label: "All Types" },
+  { value: "article", label: "Article" },
+  { value: "tip", label: "Tip" },
+  { value: "guide", label: "Guide" },
+  { value: "news", label: "News" },
+  { value: "did_you_know", label: "Did You Know" },
+];
+
+const SORT_OPTIONS: { value: ArticleSort; label: string }[] = [
+  { value: "newest", label: "Newest" },
+  { value: "oldest", label: "Oldest" },
+  { value: "likes", label: "Most Liked" },
+  { value: "views", label: "Most Viewed" },
+  { value: "shares", label: "Most Shared" },
+  { value: "comments", label: "Most Commented" },
+];
+
+function timeAgo(d?: Date): string {
+  if (!d) return "";
+  const s = Math.max(1, Math.floor((Date.now() - d.getTime()) / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const days = Math.floor(h / 24);
+  if (days < 30) return `${days}d`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo`;
+  return `${Math.floor(months / 12)}y`;
+}
+
+function compactNumber(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`;
+  return `${(n / 1_000_000).toFixed(1)}M`;
+}
 
 export default function HealthPage() {
   const router = useRouter();
@@ -61,33 +112,55 @@ export default function HealthPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [ARTICLES, setArticles] = useState<HealthArticle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<"all" | ArticleType>("all");
+  const [sortBy, setSortBy] = useState<ArticleSort>("newest");
 
-  useEffect(() => {
+  const fetchArticles = useCallback(() => {
     setLoading(true);
-    articlesService
-      .listPublished({ limit: 100 })
+    const promise = savedOnly
+      ? articlesService.listSaved({ limit: 100 })
+      : articlesService.listPublished({
+          limit: 100,
+          sortBy,
+          articleType: typeFilter !== "all" ? typeFilter : undefined,
+        });
+    promise
       .then((items) => setArticles(items))
       .catch(() => setArticles([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [savedOnly, sortBy, typeFilter]);
+
+  useEffect(() => {
+    fetchArticles();
+  }, [fetchArticles]);
 
   const TAB_LABELS: Record<Tab, string> = {
-    "All": lang === "rw" ? "Byose" : lang === "fr" ? "Tous" : "All",
-    "General Tips": t.health_tab_general,
-    "Conditions": lang === "rw" ? "Indwara" : lang === "fr" ? "Maladies" : "Conditions",
-    "Medication": lang === "rw" ? "Imiti" : lang === "fr" ? "Médicaments" : "Medication",
-    "Women & Babies": lang === "rw" ? "Ababyeyi & Abana" : lang === "fr" ? "Femmes & Bébés" : "Women & Babies",
-    "Mental Health": t.health_tab_mental,
-    "Nutrition": t.health_tab_nutrition,
-    "Did You Know?": t.health_tab_diyk,
+    "All":              lang === "rw" ? "Byose"                   : lang === "fr" ? "Tous"                : "All",
+    "General Health":   lang === "rw" ? "Ubuzima Rusange"          : lang === "fr" ? "Santé Générale"      : "General Health",
+    "Sexual Health":    lang === "rw" ? "Ubuzima bw'Imibonano"     : lang === "fr" ? "Santé Sexuelle"      : "Sexual Health",
+    "Mother & Babies":  lang === "rw" ? "Ababyeyi & Abana"         : lang === "fr" ? "Mères & Bébés"       : "Mother & Babies",
+    "Women's Health":   lang === "rw" ? "Ubuzima bw'Abagore"       : lang === "fr" ? "Santé Féminine"      : "Women's Health",
+    "Men's Health":     lang === "rw" ? "Ubuzima bw'Abagabo"       : lang === "fr" ? "Santé Masculine"     : "Men's Health",
+    "Nutrition":        t.health_tab_nutrition,
+    "Child Wellness":   lang === "rw" ? "Ubuzima bw'Abana"         : lang === "fr" ? "Santé Enfant"        : "Child Wellness",
+    "Chronic Diseases": lang === "rw" ? "Indwara Zidakira (NCDs)"  : lang === "fr" ? "Maladies Chroniques" : "Chronic Diseases",
+    "Mental Health":    t.health_tab_mental,
+    "Others":           lang === "rw" ? "Ibindi"                   : lang === "fr" ? "Autres"              : "Others",
   };
 
   const articles = useMemo(() => {
     let list = ARTICLES;
-    if (activeTab !== "All") {
+    if (activeTab === "Others") {
+      // Articles whose categories are all outside the known map
       list = list.filter((a) => {
-        const tabs = ARTICLE_CATEGORY_MAP[a.category] ?? ["General Tips"];
-        return tabs.includes(activeTab);
+        const cats = a.categories && a.categories.length > 0 ? a.categories : [a.category ?? ""];
+        return !cats.some((c) => c in ARTICLE_CATEGORY_MAP);
+      });
+    } else if (activeTab !== "All") {
+      list = list.filter((a) => {
+        const cats = a.categories && a.categories.length > 0 ? a.categories : [a.category ?? ""];
+        return cats.some((c) => (ARTICLE_CATEGORY_MAP[c] ?? []).includes(activeTab));
       });
     }
     if (searchQuery.trim()) {
@@ -97,16 +170,17 @@ export default function HealthPage() {
           a.title.toLowerCase().includes(q) ||
           (a.subtitle ?? "").toLowerCase().includes(q) ||
           a.category.toLowerCase().includes(q) ||
+          (a.categories ?? []).some((c) => c.toLowerCase().includes(q)) ||
           (a.summary ?? "").toLowerCase().includes(q)
       );
     }
     return list;
   }, [ARTICLES, activeTab, searchQuery]);
 
-  // Featured = top N most recent in current filter; rest goes in the grid.
-  const FEATURED_COUNT = 6;
+  const FEATURED_COUNT = 4;
   const featured = articles.slice(0, Math.min(FEATURED_COUNT, articles.length));
-  const rest = articles.slice(featured.length);
+  // Grid always shows ALL articles (not just the rest after featured)
+  const gridArticles = articles;
 
   return (
     <div className="flex flex-col h-full bg-[#F9FAFB]">
@@ -127,7 +201,7 @@ export default function HealthPage() {
           </div>
           <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-farumasi-700 bg-farumasi-50 px-2 py-1 rounded-full font-semibold">
             <Sparkles className="w-3 h-3" />
-            {ARTICLES.length} articles
+            {articles.length} articles
           </span>
         </div>
 
@@ -150,6 +224,54 @@ export default function HealthPage() {
                 <X className="w-4 h-4" />
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Filter / sort row */}
+        <div className="flex flex-wrap items-center gap-2 px-5 pb-3">
+          <button
+            onClick={() => setSavedOnly((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[12px] font-semibold transition-colors",
+              savedOnly
+                ? "bg-amber-500 text-white border-amber-500"
+                : "bg-white text-slate-700 border-slate-200 hover:border-amber-300"
+            )}
+            aria-pressed={savedOnly}
+          >
+            <Bookmark className={cn("w-3.5 h-3.5", savedOnly && "fill-current")} />
+            {savedOnly ? "Saved only" : "Saved"}
+          </button>
+
+          <div className="relative">
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as "all" | ArticleType)}
+              className="appearance-none bg-white border border-slate-200 text-slate-700 text-[12px] font-semibold rounded-full pl-3 pr-7 py-1.5 hover:border-farumasi-300 focus:outline-none focus:border-farumasi-400"
+            >
+              {ARTICLE_TYPES.map((o) => (
+                <option key={o.value} value={o.value}>
+                  Type: {o.label}
+                </option>
+              ))}
+            </select>
+            <ChevronRight className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+          </div>
+
+          <div className="relative ml-auto">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as ArticleSort)}
+              className="appearance-none bg-white border border-slate-200 text-slate-700 text-[12px] font-semibold rounded-full pl-7 pr-7 py-1.5 hover:border-farumasi-300 focus:outline-none focus:border-farumasi-400"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  Sort: {o.label}
+                </option>
+              ))}
+            </select>
+            <ChevronRight className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
           </div>
         </div>
 
@@ -185,24 +307,18 @@ export default function HealthPage() {
         ) : articles.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <Search className="w-14 h-14 text-slate-200 mb-3" />
-            <p className="text-slate-600 font-semibold">{t.health_no_articles}</p>
-            <p className="text-slate-400 text-sm mt-1 max-w-xs">
-              Try another tab or clear the search to see more articles.
+            <p className="text-slate-600 font-semibold">
+              {savedOnly ? "No saved articles yet" : t.health_no_articles}
             </p>
-          </div>
-        ) : activeTab === "Did You Know?" ? (
-          <div className="max-w-[600px] mx-auto space-y-4">
-            {articles.map((article) => (
-              <DidYouKnowCard
-                key={article.id}
-                article={article}
-                onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)}
-              />
-            ))}
+            <p className="text-slate-400 text-sm mt-1 max-w-xs">
+              {savedOnly
+                ? "Tap the bookmark on any article to save it for later."
+                : "Try another tab or clear the search to see more articles."}
+            </p>
           </div>
         ) : (
           <div className="max-w-6xl mx-auto space-y-5">
-            {/* Featured auto-sliding rail */}
+            {/* Featured rail */}
             {featured.length > 0 && (
               <FeaturedRail
                 articles={featured}
@@ -217,33 +333,31 @@ export default function HealthPage() {
               />
             )}
 
-            {/* Section heading */}
-            {rest.length > 0 && (
-              <div className="flex items-end justify-between pt-1">
-                <h2 className="text-[15px] font-bold text-slate-900">
-                  {lang === "rw"
-                    ? "Ibindi byasomwa"
-                    : lang === "fr"
-                    ? "À lire aussi"
-                    : "More to read"}
-                </h2>
-                <span className="text-[11px] text-slate-400 font-medium">
-                  {rest.length} {rest.length === 1 ? "article" : "articles"}
-                </span>
-              </div>
-            )}
-
-            {/* Grid */}
-            {rest.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {rest.map((article) => (
-                  <ModernArticleCard
-                    key={article.id}
-                    article={article}
-                    onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)}
-                  />
-                ))}
-              </div>
+            {/* Grid — always show all articles */}
+            {gridArticles.length > 0 && (
+              <>
+                <div className="flex items-end justify-between pt-1">
+                  <h2 className="text-[15px] font-bold text-slate-900">
+                    {lang === "rw"
+                      ? "Ibindi byasomwa"
+                      : lang === "fr"
+                      ? "À lire aussi"
+                      : "More to read"}
+                  </h2>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {gridArticles.length} {gridArticles.length === 1 ? "article" : "articles"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {gridArticles.map((article) => (
+                    <ModernArticleCard
+                      key={article.id}
+                      article={article}
+                      onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -252,7 +366,7 @@ export default function HealthPage() {
   );
 }
 
-/* ── FeaturedRail — auto-sliding portrait carousel (right → left) ───────── */
+/* ── FeaturedRail ───────────────────────────────────────────────────────── */
 function FeaturedRail({
   articles,
   onSelect,
@@ -262,9 +376,7 @@ function FeaturedRail({
   onSelect: (a: HealthArticle) => void;
   label: string;
 }) {
-  // Duplicate the list so the marquee loop is seamless.
   const loop = [...articles, ...articles];
-  // Slower with more items; tuned for ~80px/sec.
   const durationSec = Math.max(18, articles.length * 5);
 
   return (
@@ -285,7 +397,6 @@ function FeaturedRail({
       </div>
 
       <div className="relative overflow-hidden group">
-        {/* edge fades */}
         <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#F9FAFB] to-transparent z-10" />
         <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#F9FAFB] to-transparent z-10" />
 
@@ -324,7 +435,6 @@ function FeaturedRail({
             transform: translateX(0);
           }
           to {
-            /* Half because the list is duplicated for seamless looping. */
             transform: translateX(-50%);
           }
         }
@@ -333,7 +443,6 @@ function FeaturedRail({
   );
 }
 
-/* ── FeaturedRailCard — small portrait card used inside the rail ────────── */
 function FeaturedRailCard({
   article,
   onSelect,
@@ -366,25 +475,38 @@ function FeaturedRailCard({
             "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.2) 55%, rgba(0,0,0,0) 90%)",
         }}
       />
-      <div className="absolute top-2 left-2 right-2">
-        <span className="inline-block bg-white/15 border border-white/25 backdrop-blur-sm text-white/95 text-[9px] font-bold uppercase tracking-[0.8px] px-1.5 py-0.5 rounded-full">
+      <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-1">
+        <span className="inline-block bg-white/15 border border-white/25 backdrop-blur-sm text-white/95 text-[9px] font-bold uppercase tracking-[0.8px] px-1.5 py-0.5 rounded-full truncate">
           {article.category}
         </span>
+        {article.isSaved && (
+          <Bookmark className="w-3 h-3 text-amber-300 fill-amber-300 shrink-0" />
+        )}
       </div>
       <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2.5 pt-6">
         <p className="text-white text-[12.5px] font-bold leading-snug line-clamp-3 mb-1">
           {article.title}
         </p>
-        <div className="flex items-center gap-1 text-white/70 text-[10px]">
-          <Clock className="w-2.5 h-2.5" />
-          <span>{article.readTimeMin} min</span>
+        <div className="flex items-center gap-2 text-white/80 text-[10px]">
+          <span className="inline-flex items-center gap-0.5">
+            <Heart className={cn("w-2.5 h-2.5", article.isLiked && "fill-red-400 text-red-400")} />
+            {compactNumber(article.likeCount ?? 0)}
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Eye className="w-2.5 h-2.5" />
+            {compactNumber(article.viewCount ?? 0)}
+          </span>
+          <span className="inline-flex items-center gap-0.5 ml-auto">
+            <Clock className="w-2.5 h-2.5" />
+            {timeAgo(article.publishedAt) || `${article.readTimeMin}m`}
+          </span>
         </div>
       </div>
     </button>
   );
 }
 
-/* ── ModernArticleCard — uniform 3:2 aspect ratio ───────────────────────── */
+/* ── ModernArticleCard ──────────────────────────────────────────────────── */
 function ModernArticleCard({
   article,
   onSelect,
@@ -393,6 +515,7 @@ function ModernArticleCard({
   onSelect: (a: HealthArticle) => void;
 }) {
   const hasVideo = Boolean(article.videoUrl);
+  const extraCats = (article.categories?.length ?? 0) > 1 ? (article.categories!.length - 1) : 0;
   return (
     <button
       onClick={() => onSelect(article)}
@@ -412,7 +535,6 @@ function ModernArticleCard({
         </div>
       )}
 
-      {/* Gradient overlay */}
       <div
         className="absolute inset-0"
         style={{
@@ -422,41 +544,76 @@ function ModernArticleCard({
       />
 
       {/* Top badges */}
-      <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-        {hasVideo ? (
-          <span className="flex items-center gap-1.5 bg-red-600 rounded-full px-2.5 py-1">
-            <svg className="w-3 h-3 text-white fill-white" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-            <span className="text-[10px] font-bold text-white uppercase tracking-wide">Video</span>
-          </span>
-        ) : (
-          <span className="inline-block bg-white/15 border border-white/25 backdrop-blur-sm rounded-full px-2.5 py-0.5 text-[10px] font-bold text-white/95 uppercase tracking-[0.8px]">
-            {article.category}
-          </span>
-        )}
-        <div className="flex items-center gap-1 bg-black/35 backdrop-blur-sm rounded-full px-2 py-0.5">
-          <Clock className="w-3 h-3 text-white/80" />
-          <span className="text-[11px] text-white/95 font-semibold">
-            {article.readTimeMin} min
-          </span>
+      <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {hasVideo ? (
+            <span className="flex items-center gap-1.5 bg-red-600 rounded-full px-2.5 py-1 shrink-0">
+              <svg className="w-3 h-3 text-white fill-white" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              <span className="text-[10px] font-bold text-white uppercase tracking-wide">Video</span>
+            </span>
+          ) : (
+            <span className="inline-block bg-white/15 border border-white/25 backdrop-blur-sm rounded-full px-2.5 py-0.5 text-[10px] font-bold text-white/95 uppercase tracking-[0.8px] truncate max-w-[120px]">
+              {article.category}
+            </span>
+          )}
+          {extraCats > 0 && (
+            <span className="inline-block bg-black/40 backdrop-blur-sm rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white/90 shrink-0">
+              +{extraCats}
+            </span>
+          )}
+          {article.articleType && article.articleType !== "article" && (
+            <span className="inline-block bg-farumasi-600/90 rounded-full px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-[0.6px] shrink-0">
+              {article.articleType === "did_you_know" ? "DYK" : article.articleType}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {article.isSaved && (
+            <Bookmark className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+          )}
+          <div className="flex items-center gap-1 bg-black/35 backdrop-blur-sm rounded-full px-2 py-0.5">
+            <Clock className="w-3 h-3 text-white/80" />
+            <span className="text-[11px] text-white/95 font-semibold">
+              {timeAgo(article.publishedAt) || `${article.readTimeMin}m`}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Bottom text */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-12">
-        <p className="text-white text-[15px] font-bold leading-snug line-clamp-2 mb-1.5">
+      {/* Bottom text + stats */}
+      <div className="absolute bottom-0 left-0 right-0 px-4 pb-3 pt-12">
+        <p className="text-white text-[15px] font-bold leading-snug line-clamp-2 mb-1">
           {article.title}
         </p>
-        <p className="text-white/70 text-[12px] leading-snug line-clamp-2">
+        <p className="text-white/70 text-[12px] leading-snug line-clamp-2 mb-2">
           {article.summary || article.subtitle}
         </p>
+        <div className="flex items-center gap-3 text-white/90 text-[11px] font-semibold">
+          <span className="inline-flex items-center gap-1">
+            <Heart className={cn("w-3.5 h-3.5", article.isLiked && "fill-red-400 text-red-400")} />
+            {compactNumber(article.likeCount ?? 0)}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <MessageCircle className="w-3.5 h-3.5" />
+            {compactNumber(article.commentCount ?? 0)}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Eye className="w-3.5 h-3.5" />
+            {compactNumber(article.viewCount ?? 0)}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Share2 className="w-3.5 h-3.5" />
+            {compactNumber(article.shareCount ?? 0)}
+          </span>
+        </div>
       </div>
     </button>
   );
 }
 
-/* ── _DidYouKnowCard — orange header + text+image body ──────────────────────── */
+/* ── DidYouKnowCard ─────────────────────────────────────────────────────── */
 function DidYouKnowCard({
   article,
   onSelect,
@@ -484,9 +641,27 @@ function DidYouKnowCard({
           <p className="text-[18px] font-bold text-slate-900 leading-snug mb-2">
             {article.title}
           </p>
-          <p className="text-[14px] text-slate-500 leading-relaxed line-clamp-3">
+          <p className="text-[14px] text-slate-500 leading-relaxed line-clamp-3 mb-2">
             {article.summary}
           </p>
+          <div className="flex items-center gap-3 text-slate-400 text-[11px] font-semibold">
+            <span className="inline-flex items-center gap-1">
+              <Heart className={cn("w-3 h-3", article.isLiked && "fill-red-500 text-red-500")} />
+              {compactNumber(article.likeCount ?? 0)}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <MessageCircle className="w-3 h-3" />
+              {compactNumber(article.commentCount ?? 0)}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Eye className="w-3 h-3" />
+              {compactNumber(article.viewCount ?? 0)}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {timeAgo(article.publishedAt) || `${article.readTimeMin}m`}
+            </span>
+          </div>
         </div>
         {article.imageUrl && (
           <div className="w-20 h-20 shrink-0 rounded-[12px] overflow-hidden">

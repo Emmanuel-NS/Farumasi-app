@@ -351,7 +351,7 @@ async def seed_product_requests(session: AsyncSession):
             'pharmacy_id': PHARMACY_KIGALI,
             'product_name': 'Vitamin D3 1000IU',
             'category': 'Supplement',
-            'product_type': 'supplement',
+            'product_type': 'food_supplements',
             'manufacturer': 'Nature Made',
             'brand': 'Nature Made D3',
             'description': 'Vitamin D3 supplement for bone health',

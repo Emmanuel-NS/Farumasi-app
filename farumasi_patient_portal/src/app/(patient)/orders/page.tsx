@@ -7,8 +7,9 @@ import { adaptOrder } from "@/lib/services/orders.service";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { GuestGate } from "@/components/shared/guest-gate";
+import { PinGate } from "@/components/shared/pin-gate";
 import { useTranslation } from "@/lib/translations";
-import { Package, ChevronRight, Clock, Store } from "lucide-react";
+import { Package, ChevronRight, Clock, Store, XCircle } from "lucide-react";
 import type { Order } from "@/types";
 
 const ACTIVE_STATUSES = new Set([
@@ -19,20 +20,38 @@ export default function OrdersPage() {
   const [tab, setTab] = useState<"active" | "past">("active");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const t = useTranslation();
 
-  useEffect(() => {
+  const reload = () =>
     ordersService.getMyOrders().then((res) => {
       setOrders(res.items.map(adaptOrder));
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch(() => {});
+
+  useEffect(() => {
+    reload().finally(() => setLoading(false));
   }, []);
+
+  const handleCancel = async (id: string) => {
+    if (!confirm("Cancel this order? This cannot be undone.")) return;
+    setCancellingId(id);
+    try {
+      await ordersService.cancelOrder(id);
+      await reload();
+    } catch {
+      alert("Could not cancel this order. It may no longer be pending.");
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const activeOrders = orders.filter((o) => ACTIVE_STATUSES.has(o.status));
   const pastOrders   = orders.filter((o) => !ACTIVE_STATUSES.has(o.status));
 
   return (
     <GuestGate feature="your orders">
-      <div className="flex flex-col h-full bg-white">
+      <PinGate feature="orders">
+        <div className="flex flex-col h-full bg-white">
         {/* Header */}
         <div className="flex items-center justify-center px-5 py-4 bg-white border-b border-slate-100 shrink-0">
           <h1 className="text-lg font-bold text-slate-900">{t.orders_title}</h1>
@@ -66,7 +85,14 @@ export default function OrdersPage() {
               <EmptyOrders message={t.orders_no_active} />
             ) : (
               <div className="space-y-4 max-w-3xl mx-auto">
-                {activeOrders.map((order) => <ActiveOrderCard key={order.id} order={order} />)}
+                {activeOrders.map((order) => (
+                  <ActiveOrderCard
+                    key={order.id}
+                    order={order}
+                    onCancel={handleCancel}
+                    cancelling={cancellingId === order.id}
+                  />
+                ))}
               </div>
             )
           ) : (
@@ -80,12 +106,24 @@ export default function OrdersPage() {
           )}
         </div>
       </div>
+      </PinGate>
     </GuestGate>
   );
 }
 
-function ActiveOrderCard({ order }: { order: Order }) {
+function ActiveOrderCard({
+  order,
+  onCancel,
+  cancelling,
+}: {
+  order: Order;
+  onCancel: (id: string) => void;
+  cancelling: boolean;
+}) {
   const t = useTranslation();
+  const canCancel =
+    ["pending_review", "pharmacy_accepted", "ready_for_pickup"].includes(order.status) &&
+    order.paymentStatus !== "paid";
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4 gap-3">
@@ -114,13 +152,25 @@ function ActiveOrderCard({ order }: { order: Order }) {
           <p className="text-xs text-slate-500">{t.cart_total}</p>
           <p className="text-lg font-extrabold text-farumasi-700">{order.total}</p>
         </div>
-        <Link
-          href={`/orders/${order.id}`}
-          className="flex items-center gap-2 bg-farumasi-600 hover:bg-farumasi-700 text-white px-5 py-2.5 rounded-2xl text-sm font-semibold transition-colors"
-        >
-          {t.orders_track}
-          <ChevronRight className="w-4 h-4" />
-        </Link>
+        <div className="flex items-center gap-2">
+          {canCancel && (
+            <button
+              onClick={() => onCancel(order.id)}
+              disabled={cancelling}
+              className="flex items-center gap-1.5 border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2.5 rounded-2xl text-xs font-bold transition-colors disabled:opacity-50"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              {cancelling ? "Cancelling…" : "Cancel"}
+            </button>
+          )}
+          <Link
+            href={`/orders/${order.id}`}
+            className="flex items-center gap-2 bg-farumasi-600 hover:bg-farumasi-700 text-white px-5 py-2.5 rounded-2xl text-sm font-semibold transition-colors"
+          >
+            {t.orders_track}
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
       </div>
     </div>
   );

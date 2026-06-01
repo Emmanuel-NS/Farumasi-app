@@ -13,6 +13,7 @@ export interface BackendPharmacy {
   is_open: boolean;
   accepts_delivery: boolean;
   created_at: string;
+  image_url?: string | null;
 }
 
 export interface BackendListing {

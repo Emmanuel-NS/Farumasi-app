@@ -42,7 +42,7 @@ class ChatMessageCreate(BaseModel):
     content: Optional[str] = ""
     attachment_url: Optional[str] = None
     attachment_name: Optional[str] = None
-    attachment_type: Optional[str] = None  # "image" | "file"
+    attachment_type: Optional[str] = None  # "image" | "file" | "product"
     attachment_size: Optional[int] = None
 
 

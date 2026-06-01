@@ -3,9 +3,12 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -66,6 +69,11 @@ def create_application() -> FastAPI:
 
     # ── Routers ───────────────────────────────────────────────────────────
     application.include_router(api_router, prefix="/api/v1")
+
+    # ── Static uploads (local storage backend) ────────────────────────────
+    upload_dir = getattr(settings, "LOCAL_UPLOAD_DIR", None) or settings.UPLOAD_DIR
+    os.makedirs(upload_dir, exist_ok=True)
+    application.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
 
     return application
 

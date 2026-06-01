@@ -20,6 +20,8 @@ export interface AuthUser {
 // ── Medicine / Products ───────────────────────
 export type StockStatus = "available" | "low_stock" | "unavailable";
 
+export type ProductType = "medicine" | "medical_device" | "food_supplements" | "cosmetics";
+
 export interface AgeRange {
   range: string;     // e.g. "Child (2–12)", "Adult (18+)"
   instructions: string;
@@ -63,6 +65,8 @@ export interface Medicine {
   sideEffects: string;
   manufacturer: string;
   keywords: string[];
+  /** Product type used for filtering: Medicine, Medical Device, Food Supplements, Cosmetics */
+  product_type?: ProductType | null;
   expiryDate?: string;
   ageDosages: AgeRange[];
   marketingPharmacies: MarketingPharmacy[];
@@ -125,6 +129,16 @@ export interface Order {
   selectedRecommendationId?: string;
   pharmacyId?: string;
   partnerCompanyId?: string;
+  itemList?: Array<{
+    id: string;
+    productId?: string | null;
+    productListingId?: string | null;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    imageUrl?: string | null;
+  }>;
 }
 
 // ── Delivery QR ───────────────────────────────
@@ -243,6 +257,15 @@ export interface PharmacistBooking {
 }
 
 // ── Chat ──────────────────────────────────────
+export interface ChatProductRef {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  price?: number;
+  currency?: string;
+  pharmacyName?: string;
+}
+
 export interface ChatMessage {
   id: string;
   senderId: string;
@@ -251,14 +274,17 @@ export interface ChatMessage {
   isMe: boolean;
   attachmentUrl?: string;
   attachmentName?: string;
-  attachmentType?: "image" | "file";
+  attachmentType?: "image" | "file" | "product";
   attachmentSize?: number;
+  product?: ChatProductRef;
 }
 
 // ── Health / Articles ─────────────────────────
 // Categories are free-form strings coming from the backend.
 // The list page maps them into a small set of UI tabs.
 export type ArticleCategory = string;
+
+export type ArticleType = "article" | "tip" | "guide" | "news" | "did_you_know";
 
 export interface HealthArticle {
   id: string;
@@ -271,8 +297,16 @@ export interface HealthArticle {
   videoUrl?: string;        // optional YouTube/video URL — shown as embedded player in detail view
   source: string;
   category: ArticleCategory;
+  categories?: string[];
+  articleType?: ArticleType;
   readTimeMin: number;
   publishedAt?: Date;
+  likeCount?: number;
+  commentCount?: number;
+  viewCount?: number;
+  shareCount?: number;
+  isLiked?: boolean;
+  isSaved?: boolean;
 }
 
 // ── Notifications ─────────────────────────────

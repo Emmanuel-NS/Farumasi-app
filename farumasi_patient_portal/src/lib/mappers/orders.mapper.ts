@@ -6,6 +6,7 @@ export interface BackendOrderItem {
   product_listing_id: string | null;
   product_id: string | null;
   product_name: string;
+  product_image_url?: string | null;
   quantity: number;
   unit_price: number;
   total_price: number;
@@ -95,5 +96,15 @@ export function adaptOrder(o: BackendOrder): Order {
     partnerCompanyId: o.partner_company_id ?? undefined,
     assignedDriverName: o.delivery?.rider?.user?.full_name ?? undefined,
     assignedDriverPhone: o.delivery?.rider?.user?.phone ?? undefined,
+    itemList: (o.items ?? []).map((it) => ({
+      id: it.id,
+      productId: it.product_id,
+      productListingId: it.product_listing_id,
+      name: it.product_name,
+      quantity: it.quantity,
+      unitPrice: it.unit_price,
+      totalPrice: it.total_price,
+      imageUrl: it.product_image_url ?? null,
+    })),
   };
 }

@@ -107,5 +107,9 @@ class OrderItem(Base, UUIDMixin, TimestampMixin):
     )
     product: Mapped[Optional["ProductCatalogueItem"]] = relationship("ProductCatalogueItem")
 
+    @property
+    def product_image_url(self) -> Optional[str]:
+        return self.product.image_url if self.product else None
+
     def __repr__(self) -> str:
         return f"<OrderItem {self.product_name} x{self.quantity}>"

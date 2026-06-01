@@ -10,6 +10,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { GuestGate } from "@/components/shared/guest-gate";
+import { PinGate } from "@/components/shared/pin-gate";
 import { prescriptionsService } from "@/lib/services/prescriptions.service";
 import type { DigitalPrescription, DigitalPrescriptionStatus } from "@/types";
 
@@ -51,6 +52,7 @@ export default function PrescriptionsPage() {
   const [tab, setTab] = useState<Tab>("my_prescriptions");
   const [prescriptions, setPrescriptions] = useState<DigitalPrescription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     prescriptionsService.getMyPrescriptions()
@@ -59,8 +61,29 @@ export default function PrescriptionsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const refreshPrescriptions = async () => {
+    try {
+      const list = await prescriptionsService.getMyPrescriptions();
+      setPrescriptions(list);
+    } catch {}
+  };
+
+  const handleCancelPrescription = async (id: string) => {
+    if (!confirm("Cancel this prescription? This action cannot be undone.")) return;
+    setCancellingId(id);
+    try {
+      await prescriptionsService.cancelPrescription(id);
+      await refreshPrescriptions();
+    } catch {
+      alert("Could not cancel this prescription.");
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   return (
     <GuestGate feature="prescriptions">
+      <PinGate feature="prescriptions">
       <div className="p-4 md:p-6 max-w-3xl mx-auto">
         {/* Header */}
         <div className="mb-5">
@@ -110,12 +133,15 @@ export default function PrescriptionsPage() {
             <PrescriptionHistory
               prescriptions={prescriptions}
               onUpload={() => setTab("upload")}
+              onCancel={handleCancelPrescription}
+              cancellingId={cancellingId}
             />
           )
         ) : (
           <UploadPrescription onSuccess={() => setTab("my_prescriptions")} />
         )}
       </div>
+      </PinGate>
     </GuestGate>
   );
 }
@@ -125,9 +151,13 @@ export default function PrescriptionsPage() {
 function PrescriptionHistory({
   prescriptions,
   onUpload,
+  onCancel,
+  cancellingId,
 }: {
   prescriptions: DigitalPrescription[];
   onUpload: () => void;
+  onCancel: (id: string) => void;
+  cancellingId: string | null;
 }) {
   if (prescriptions.length === 0) {
     return (
@@ -266,6 +296,19 @@ function PrescriptionHistory({
                   <span>View order status</span>
                   <ChevronRight className="w-4 h-4" />
                 </Link>
+              </div>
+            )}
+
+            {/* Cancel action (only while still actionable by patient) */}
+            {(rx.status === "active" || rx.status === "draft" || rx.status === "sent_to_patient" || rx.status === "patient_viewing") && (
+              <div className="px-4 pb-4">
+                <button
+                  onClick={() => onCancel(rx.id)}
+                  disabled={cancellingId === rx.id}
+                  className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 px-4 py-2.5 rounded-2xl transition-colors disabled:opacity-50"
+                >
+                  {cancellingId === rx.id ? "Cancelling…" : "Cancel Prescription"}
+                </button>
               </div>
             )}
           </div>

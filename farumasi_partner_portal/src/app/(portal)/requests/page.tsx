@@ -19,11 +19,10 @@ import {
 } from "@/lib/services/product-requests.service";
 
 const PRODUCT_TYPES = [
-  { value: "medicine", label: "Medicine" },
-  { value: "supplement", label: "Supplement" },
-  { value: "device", label: "Medical Device" },
-  { value: "consumable", label: "Consumable" },
-  { value: "other", label: "Other" },
+  { value: "medicine",         label: "Medicine" },
+  { value: "medical_device",   label: "Medical Device" },
+  { value: "food_supplements", label: "Food Supplements" },
+  { value: "cosmetics",        label: "Cosmetics" },
 ];
 
 const EMPTY_FORM: ProductRequestCreatePayload = {

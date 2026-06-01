@@ -17,15 +17,16 @@ import {
   Bell, Shield, Globe, ChevronDown, ChevronUp,
   Smartphone, Mail, MessageSquare, Phone,
   Lock, FileText, HelpCircle, Info, Check, Loader2,
-  Download, LogOut, Trash2, AlertTriangle, X, ShieldCheck, CheckCircle2,
+  Download, LogOut, Trash2, AlertTriangle, X, ShieldCheck, CheckCircle2, KeyRound,
 } from "lucide-react";
+import { usePinStore } from "@/store/pin-store";
 
 type Section = "notifications" | "security" | "data" | "preferences" | "about";
 
 const LANG_OPTIONS: { code: LangCode; native: string }[] = [
   { code: "en", native: "English"     },
   { code: "rw", native: "Kinyarwanda" },
-  { code: "fr", native: "Français"    },
+  { code: "fr", native: "FranÃ§ais"    },
   { code: "sw", native: "Swahili"     },
 ];
 
@@ -151,7 +152,7 @@ export default function SettingsPage() {
         >
           {prefsLoading ? (
             <div className="pt-6 pb-4 flex items-center justify-center text-slate-400 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading…
+              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loadingâ€¦
             </div>
           ) : (
             <div className="pt-4 space-y-5">
@@ -197,6 +198,7 @@ export default function SettingsPage() {
           subtitle={t.settings_security_sub}
         >
           <div className="pt-4 space-y-2">
+            <PinManager />
             {isGuest ? (
               <GuestRow message="Sign in to manage your password and active sessions." />
             ) : (
@@ -361,7 +363,7 @@ export default function SettingsPage() {
   );
 }
 
-// ── Subcomponents ──────────────────────────────────────────────────────────
+// â”€â”€ Subcomponents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function AccordionSection({
   open, onToggle, icon: Icon, title, subtitle, children, rightAccessory,
 }: {
@@ -465,13 +467,13 @@ function GuestRow({ message }: { message: string }) {
     <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
       <p className="text-xs text-slate-500 mb-2">{message}</p>
       <Link href="/auth/login" className="inline-block text-xs font-semibold text-farumasi-600 hover:text-farumasi-700">
-        Sign in →
+        Sign in â†’
       </Link>
     </div>
   );
 }
 
-// ── Modals ─────────────────────────────────────────────────────────────────
+// â”€â”€ Modals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -675,5 +677,183 @@ function Field({ label, type, value, onChange }: {
         className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-farumasi-500 focus:outline-none focus:ring-2 focus:ring-farumasi-100"
       />
     </label>
+  );
+}
+
+/* ── PinManager ──────────────────────────────────────────────────────────── */
+function PinManager() {
+  const pinHash = usePinStore((s) => s.pinHash);
+  const setPin = usePinStore((s) => s.setPin);
+  const changePin = usePinStore((s) => s.changePin);
+  const clearPin = usePinStore((s) => s.clearPin);
+
+  const [mode, setMode] = useState<null | "set" | "change" | "remove">(null);
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const reset = () => {
+    setMode(null);
+    setCurrentPin("");
+    setNewPin("");
+    setConfirmPin("");
+  };
+
+  const submitSet = async () => {
+    if (newPin.length < 4 || newPin.length > 8 || !/^\d+$/.test(newPin)) {
+      toast.error("PIN must be 4-8 digits.");
+      return;
+    }
+    if (newPin !== confirmPin) {
+      toast.error("PINs do not match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await setPin(newPin);
+      toast.success("PIN set. Orders & Prescriptions are now protected.");
+      reset();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitChange = async () => {
+    if (newPin.length < 4 || newPin.length > 8 || !/^\d+$/.test(newPin)) {
+      toast.error("New PIN must be 4-8 digits.");
+      return;
+    }
+    if (newPin !== confirmPin) {
+      toast.error("New PINs do not match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const ok = await changePin(currentPin, newPin);
+      if (!ok) {
+        toast.error("Current PIN is incorrect.");
+        return;
+      }
+      toast.success("PIN updated.");
+      reset();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitRemove = async () => {
+    setBusy(true);
+    try {
+      const ok = await clearPin(currentPin);
+      if (!ok) {
+        toast.error("PIN is incorrect.");
+        return;
+      }
+      toast.success("PIN removed.");
+      reset();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="rounded-2xl border border-slate-200 p-3 mb-2 bg-slate-50/50">
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
+            pinHash ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500",
+          )}>
+            <KeyRound className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-slate-900">Orders & Prescriptions PIN</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {pinHash
+                ? "Protected. You'll be asked for the PIN to open Orders or Prescriptions."
+                : "Not set. These pages are open by default."}
+            </p>
+          </div>
+          <span className={cn(
+            "text-[10px] font-bold px-2 py-0.5 rounded-full",
+            pinHash ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500",
+          )}>
+            {pinHash ? "ON" : "OFF"}
+          </span>
+        </div>
+        <div className="flex gap-2 mt-3">
+          {pinHash ? (
+            <>
+              <button
+                onClick={() => setMode("change")}
+                className="flex-1 h-9 rounded-xl bg-farumasi-600 hover:bg-farumasi-700 text-white text-xs font-bold"
+              >
+                Change PIN
+              </button>
+              <button
+                onClick={() => setMode("remove")}
+                className="flex-1 h-9 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold"
+              >
+                Remove PIN
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setMode("set")}
+              className="flex-1 h-9 rounded-xl bg-farumasi-600 hover:bg-farumasi-700 text-white text-xs font-bold"
+            >
+              Set PIN
+            </button>
+          )}
+        </div>
+      </div>
+
+      {mode === "set" && (
+        <ModalShell title="Set Orders/Prescriptions PIN" onClose={reset}>
+          <div className="space-y-3">
+            <Field label="New PIN (4-8 digits)" type="password" value={newPin} onChange={setNewPin} />
+            <Field label="Confirm PIN" type="password" value={confirmPin} onChange={setConfirmPin} />
+            <div className="flex gap-2 pt-1">
+              <button onClick={reset} className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-semibold">Cancel</button>
+              <button disabled={busy} onClick={submitSet} className="flex-1 h-10 rounded-xl bg-farumasi-600 hover:bg-farumasi-700 text-white text-sm font-bold disabled:opacity-60">
+                {busy ? "Saving…" : "Set PIN"}
+              </button>
+            </div>
+          </div>
+        </ModalShell>
+      )}
+
+      {mode === "change" && (
+        <ModalShell title="Change PIN" onClose={reset}>
+          <div className="space-y-3">
+            <Field label="Current PIN" type="password" value={currentPin} onChange={setCurrentPin} />
+            <Field label="New PIN (4-8 digits)" type="password" value={newPin} onChange={setNewPin} />
+            <Field label="Confirm new PIN" type="password" value={confirmPin} onChange={setConfirmPin} />
+            <div className="flex gap-2 pt-1">
+              <button onClick={reset} className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-semibold">Cancel</button>
+              <button disabled={busy} onClick={submitChange} className="flex-1 h-10 rounded-xl bg-farumasi-600 hover:bg-farumasi-700 text-white text-sm font-bold disabled:opacity-60">
+                {busy ? "Saving…" : "Update PIN"}
+              </button>
+            </div>
+          </div>
+        </ModalShell>
+      )}
+
+      {mode === "remove" && (
+        <ModalShell title="Remove PIN" onClose={reset}>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">Enter your current PIN to remove protection.</p>
+            <Field label="Current PIN" type="password" value={currentPin} onChange={setCurrentPin} />
+            <div className="flex gap-2 pt-1">
+              <button onClick={reset} className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-semibold">Cancel</button>
+              <button disabled={busy} onClick={submitRemove} className="flex-1 h-10 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-60">
+                {busy ? "Removing…" : "Remove PIN"}
+              </button>
+            </div>
+          </div>
+        </ModalShell>
+      )}
+    </>
   );
 }

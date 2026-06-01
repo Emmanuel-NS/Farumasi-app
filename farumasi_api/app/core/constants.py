@@ -41,12 +41,8 @@ class EntityStatus(str, Enum):
 class ProductType(str, Enum):
     MEDICINE = "medicine"
     MEDICAL_DEVICE = "medical_device"
-    DIAGNOSTIC = "diagnostic"
-    WELLNESS = "wellness"
-    EQUIPMENT = "equipment"
-    CONSUMABLE = "consumable"
-    SUPPLEMENT = "supplement"
-    OTHER = "other"
+    FOOD_SUPPLEMENTS = "food_supplements"
+    COSMETICS = "cosmetics"
 
 
 class ProductApprovalStatus(str, Enum):

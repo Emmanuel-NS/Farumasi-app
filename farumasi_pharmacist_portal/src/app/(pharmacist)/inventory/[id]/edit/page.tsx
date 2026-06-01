@@ -49,10 +49,10 @@ const DOSAGE_FORMS = [
 ];
 
 const PRODUCT_TYPES = [
-  { value: "medicine",      label: "Medicine"      },
-  { value: "supplement",    label: "Supplement"    },
-  { value: "device",        label: "Device"        },
-  { value: "personal_care", label: "Personal Care" },
+  { value: "medicine",         label: "Medicine"         },
+  { value: "medical_device",   label: "Medical Device"   },
+  { value: "food_supplements", label: "Food Supplements" },
+  { value: "cosmetics",        label: "Cosmetics"        },
 ];
 
 /* ─── Description helpers ───────────────────────────────── */

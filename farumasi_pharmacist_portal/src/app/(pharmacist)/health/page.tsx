@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Loader2, Plus, Eye, Edit2, Trash2, Search, BookOpen, X, Save, Archive, Send } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
+import {
+  Loader2, Plus, Eye, Edit2, Trash2, Search, BookOpen, X, Save, Archive, Send,
+  Heart, MessageCircle, Share2, Upload, Link as LinkIcon, Youtube,
+} from "lucide-react";
 import { toast } from "sonner";
+import api, { mediaUrl } from "@/lib/api";
 import {
   articlesService,
   type BackendArticle,
   type ArticleStatus,
+  type ArticleType,
   type CreateArticleInput,
 } from "@/lib/services/articles.service";
+
+const RichEditor = dynamic(() => import("@/components/RichEditor"), { ssr: false });
 
 type Tab = "all" | ArticleStatus;
 
@@ -119,6 +127,23 @@ export default function HealthPage() {
                 </div>
                 <h3 className="text-sm font-bold text-slate-900 line-clamp-2">{a.title}</h3>
                 {a.summary && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{a.summary}</p>}
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-farumasi-50 text-farumasi-700">
+                    {ARTICLE_TYPE_LABELS[a.article_type] ?? a.article_type ?? "article"}
+                  </span>
+                  {(a.categories ?? []).slice(0, 3).map((c) => (
+                    <span key={c} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">{c}</span>
+                  ))}
+                  {(a.categories ?? []).length > 3 && (
+                    <span className="text-[10px] text-slate-400">+{(a.categories?.length ?? 0) - 3}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-500">
+                  <span className="inline-flex items-center gap-1"><Eye className="w-3 h-3" />{a.view_count ?? 0}</span>
+                  <span className="inline-flex items-center gap-1"><Heart className="w-3 h-3" />{a.like_count ?? 0}</span>
+                  <span className="inline-flex items-center gap-1"><MessageCircle className="w-3 h-3" />{a.comment_count ?? 0}</span>
+                  <span className="inline-flex items-center gap-1"><Share2 className="w-3 h-3" />{a.share_count ?? 0}</span>
+                </div>
                 <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-100">
                   <button onClick={() => setPreview(a)} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50">
                     <Eye className="w-3.5 h-3.5" /> Preview
@@ -205,18 +230,55 @@ function PreviewDialog({ post, onClose }: { post: BackendArticle; onClose: () =>
 function EditorDialog({
   initial, onClose, onSaved,
 }: { initial: BackendArticle | null; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<CreateArticleInput>({
-    title:     initial?.title ?? "",
-    summary:   initial?.summary ?? "",
-    content:   initial?.content ?? "",
-    category:  initial?.category ?? "",
-    image_url: initial?.image_url ?? "",
+  const [form, setForm] = useState<CreateArticleInput & { video_url?: string }>({
+    title:        initial?.title ?? "",
+    summary:      initial?.summary ?? "",
+    content:      initial?.content ?? "",
+    category:     initial?.category ?? "",
+    categories:   initial?.categories ?? (initial?.category ? [initial.category] : []),
+    article_type: (initial?.article_type as ArticleType) ?? "article",
+    image_url:    initial?.image_url ?? "",
+    video_url:    initial?.video_url ?? "",
   });
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]             = useState(false);
+  const [coverMode, setCoverMode]       = useState<"upload" | "url">("url");
+  const [uploading, setUploading]       = useState(false);
+  const fileRef                         = useRef<HTMLInputElement>(null);
+
+  const toggleCategory = (c: string) => {
+    setForm((f) => {
+      const cur = new Set(f.categories ?? []);
+      if (cur.has(c)) cur.delete(c);
+      else cur.add(c);
+      const next = Array.from(cur);
+      return { ...f, categories: next, category: next[0] ?? "" };
+    });
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data } = await api.post<{ url: string }>("/uploads/image", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setForm((f) => ({ ...f, image_url: mediaUrl(data.url) }));
+      toast.success("Image uploaded");
+    } catch {
+      toast.error("Image upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const save = async () => {
     if (!form.title.trim()) { toast.error("Title is required"); return; }
     if (!form.content?.trim()) { toast.error("Content is required"); return; }
+    if (!form.categories || form.categories.length === 0) {
+      toast.error("Pick at least one category");
+      return;
+    }
     setSaving(true);
     try {
       if (initial) await articlesService.update(initial.id, form);
@@ -232,26 +294,134 @@ function EditorDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-lg font-bold text-slate-900">{initial ? "Edit Article" : "New Article"}</h2>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100"><X className="w-4 h-4" /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {/* Title */}
           <Field label="Title">
             <input className={INP} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. 5 ways to stay hydrated" />
           </Field>
-          <Field label="Category">
-            <input className={INP} value={form.category ?? ""} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Nutrition" />
+
+          {/* Post type */}
+          <Field label="Post type">
+            <select
+              className={INP}
+              value={form.article_type ?? "article"}
+              onChange={(e) => setForm({ ...form, article_type: e.target.value as ArticleType })}
+            >
+              {ARTICLE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
           </Field>
-          <Field label="Cover image URL">
-            <input className={INP} value={form.image_url ?? ""} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="https://…" />
+
+          {/* Categories */}
+          <Field label={`Categories${(form.categories?.length ?? 0) > 0 ? ` · ${form.categories!.length} selected` : ""}`}>
+            <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto p-2 border border-slate-200 rounded-xl">
+              {HEALTH_CATEGORIES.map((c) => {
+                const active = (form.categories ?? []).includes(c);
+                return (
+                  <button
+                    type="button"
+                    key={c}
+                    onClick={() => toggleCategory(c)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      active
+                        ? "bg-farumasi-600 text-white border-farumasi-600"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Pick one or more. The first is the primary category.</p>
           </Field>
+
+          {/* Cover image */}
+          <Field label="Cover image">
+            <div className="flex gap-1 mb-2">
+              <button
+                type="button"
+                onClick={() => setCoverMode("url")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${coverMode === "url" ? "bg-farumasi-600 text-white border-farumasi-600" : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300"}`}
+              >
+                <LinkIcon className="w-3.5 h-3.5" /> Paste URL
+              </button>
+              <button
+                type="button"
+                onClick={() => setCoverMode("upload")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${coverMode === "upload" ? "bg-farumasi-600 text-white border-farumasi-600" : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300"}`}
+              >
+                <Upload className="w-3.5 h-3.5" /> Upload file
+              </button>
+            </div>
+            {coverMode === "url" ? (
+              <input
+                className={INP}
+                value={form.image_url ?? ""}
+                onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+                placeholder="https://example.com/image.jpg"
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-slate-300 text-xs font-medium text-slate-600 hover:border-farumasi-400 hover:bg-farumasi-50 transition-colors disabled:opacity-50"
+                >
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {uploading ? "Uploading…" : "Choose image"}
+                </button>
+                {form.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.image_url} alt="preview" className="h-10 w-16 object-cover rounded-lg border border-slate-200" />
+                )}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleFileUpload(f);
+                  }}
+                />
+              </div>
+            )}
+          </Field>
+
+          {/* YouTube / video URL */}
+          <Field label="Video URL (optional — YouTube or direct link)">
+            <div className="relative">
+              <Youtube className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+              <input
+                className={`${INP} pl-9`}
+                value={form.video_url ?? ""}
+                onChange={(e) => setForm({ ...form, video_url: e.target.value })}
+                placeholder="https://youtube.com/watch?v=… (shown as hero instead of cover image)"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">If provided, the video will be displayed as the hero on the article page.</p>
+          </Field>
+
+          {/* Summary */}
           <Field label="Summary">
-            <textarea rows={2} className={INP} value={form.summary ?? ""} onChange={(e) => setForm({ ...form, summary: e.target.value })} placeholder="Short teaser shown in listings" />
+            <textarea rows={2} className={INP} value={form.summary ?? ""} onChange={(e) => setForm({ ...form, summary: e.target.value })} placeholder="Short teaser shown in article listings" />
           </Field>
-          <Field label="Content (HTML supported)">
-            <textarea rows={10} className={INP + " font-mono text-xs"} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="<p>Write your article here…</p>" />
+
+          {/* Rich text content */}
+          <Field label="Content">
+            <RichEditor
+              value={form.content ?? ""}
+              onChange={(html) => setForm((f) => ({ ...f, content: html }))}
+              placeholder="Write your article content here…"
+            />
           </Field>
         </div>
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100">
@@ -282,6 +452,29 @@ function ConfirmDialog({ title, onConfirm, onCancel }: { title: string; onConfir
     </div>
   );
 }
+
+const ARTICLE_TYPES: { value: ArticleType; label: string }[] = [
+  { value: "article",      label: "Article" },
+  { value: "tip",          label: "Tip" },
+  { value: "guide",        label: "Guide" },
+  { value: "news",         label: "News" },
+  { value: "did_you_know", label: "Did You Know?" },
+];
+
+const ARTICLE_TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  ARTICLE_TYPES.map((t) => [t.value, t.label]),
+);
+
+const HEALTH_CATEGORIES = [
+  "General Health", "Wellness", "First Aid",
+  "Chronic Disease", "Infectious Diseases", "Cardiovascular", "Respiratory",
+  "Digestive Health", "Skin Health", "Eye Health", "Oral Health",
+  "Medication Safety", "Remedies", "Antibiotics", "Elderly Care",
+  "Women's Health", "Pediatrics", "Mother & Babies",
+  "SRH", "Sexual Health",
+  "Mental Health", "Nutrition",
+  "Did You Know?",
+] as const;
 
 const INP = "w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-200";
 

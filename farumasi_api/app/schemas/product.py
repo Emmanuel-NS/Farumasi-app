@@ -37,6 +37,7 @@ class ProductUpdate(FarumasiBaseModel):
     name: Optional[str] = None
     generic_name: Optional[str] = None
     category: Optional[str] = None
+    product_type: Optional[ProductType] = None
     description: Optional[str] = None
     dosage_form: Optional[str] = None
     strength: Optional[str] = None

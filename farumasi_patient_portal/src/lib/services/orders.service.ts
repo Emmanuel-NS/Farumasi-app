@@ -78,4 +78,15 @@ export const ordersService = {
       delivery_address: deliveryAddress,
     });
   },
+
+  /**
+   * Patient self-cancellation (only allowed while order is still pending).
+   * Backend: PATCH /api/v1/orders/{id}/status with { order_status: "cancelled" }.
+   */
+  async cancelOrder(id: string): Promise<BackendOrder> {
+    const { data } = await api.patch<BackendOrder>(`/orders/${id}/status`, {
+      order_status: "cancelled",
+    });
+    return data;
+  },
 };

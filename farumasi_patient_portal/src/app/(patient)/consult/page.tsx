@@ -9,13 +9,15 @@ import {
   type ChangeEvent,
 } from "react";
 import { pharmacistsService } from "@/lib/services/pharmacists.service";
-import { api } from "@/lib/api";
+import { productsService } from "@/lib/services/products.service";
+import { api, mediaUrl } from "@/lib/api";
 import { toast } from "sonner";
 import { cn, getInitials } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { GuestGate } from "@/components/shared/guest-gate";
 import { useAuthStore } from "@/store/auth-store";
-import type { Pharmacist, ChatMessage } from "@/types";
+import type { Pharmacist, ChatMessage, Medicine } from "@/types";
+import Link from "next/link";
 import {
   Send,
   ChevronLeft,
@@ -36,6 +38,9 @@ import {
   Mail,
   Phone,
   Briefcase,
+  Package,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -58,7 +63,7 @@ interface ApiMessage {
   is_read?: boolean;
   attachment_url?: string | null;
   attachment_name?: string | null;
-  attachment_type?: "image" | "file" | null;
+  attachment_type?: "image" | "file" | "product" | null;
   attachment_size?: number | null;
 }
 interface ApiConsultation {
@@ -73,7 +78,7 @@ interface ApiConsultation {
 interface PendingAttachment {
   url: string;
   name: string;
-  type: "image" | "file";
+  type: "image" | "file" | "product";
   size: number;
 }
 
@@ -100,11 +105,14 @@ function adaptMessages(raw: ApiMessage[] | undefined, myId: string | undefined):
       content: m.content ?? "",
       timestamp: new Date(m.sent_at ?? m.created_at ?? Date.now()),
       isMe: m.sender_id === myId,
-      attachmentUrl: m.attachment_url ?? undefined,
+      attachmentUrl: m.attachment_type === "product"
+        ? (m.attachment_url ?? undefined)
+        : mediaUrl(m.attachment_url ?? undefined) || undefined,
       attachmentName: m.attachment_name ?? undefined,
       attachmentType: (m.attachment_type ?? undefined) as
         | "image"
         | "file"
+        | "product"
         | undefined,
       attachmentSize: m.attachment_size ?? undefined,
     }))
@@ -166,6 +174,7 @@ export default function ConsultPage() {
   const [uploading, setUploading] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -379,11 +388,14 @@ export default function ConsultPage() {
         content: data.content ?? "",
         timestamp: new Date(data.sent_at ?? data.created_at ?? Date.now()),
         isMe: true,
-        attachmentUrl: data.attachment_url ?? undefined,
+        attachmentUrl: data.attachment_type === "product"
+          ? (data.attachment_url ?? undefined)
+          : mediaUrl(data.attachment_url ?? undefined) || undefined,
         attachmentName: data.attachment_name ?? undefined,
         attachmentType: (data.attachment_type ?? undefined) as
           | "image"
           | "file"
+          | "product"
           | undefined,
         attachmentSize: data.attachment_size ?? undefined,
       };
@@ -460,7 +472,7 @@ export default function ConsultPage() {
       const url: string | undefined = data?.url;
       if (!url) throw new Error("Upload returned no URL");
       setPendingAttachment({
-        url,
+        url: mediaUrl(url),
         name: file.name,
         type: kind,
         size: file.size,
@@ -484,6 +496,17 @@ export default function ConsultPage() {
     e.target.value = "";
     setAttachMenuOpen(false);
     if (file) void uploadAttachment(file, "file");
+  };
+
+  const onPickProduct = (product: Medicine) => {
+    setProductPickerOpen(false);
+    setAttachMenuOpen(false);
+    setPendingAttachment({
+      url: `/store/${product.id}`,
+      name: product.name,
+      type: "product",
+      size: 0,
+    });
   };
 
   // ── Visible list (rail) — one row per existing thread + one row per
@@ -553,8 +576,15 @@ export default function ConsultPage() {
     if (last.attachmentType === "image" && !last.content) return "📷 Photo";
     if (last.attachmentType === "file" && !last.content)
       return `📎 ${last.attachmentName ?? "Attachment"}`;
+    if (last.attachmentType === "product" && !last.content)
+      return `🛒 ${last.attachmentName ?? "Product"}`;
     if (last.attachmentType && last.content) {
-      const icon = last.attachmentType === "image" ? "📷" : "📎";
+      const icon =
+        last.attachmentType === "image"
+          ? "📷"
+          : last.attachmentType === "product"
+            ? "🛒"
+            : "📎";
       return `${icon} ${last.content}`;
     }
     return last.content;
@@ -958,6 +988,38 @@ export default function ConsultPage() {
                             <Download className="w-4 h-4 shrink-0 opacity-70" />
                           </a>
                         )}
+                        {/* Product attachment */}
+                        {msg.attachmentType === "product" && msg.attachmentUrl && (
+                          <Link
+                            href={msg.attachmentUrl}
+                            className={cn(
+                              "flex items-center gap-2 rounded-lg px-3 py-2 mb-1 transition-colors",
+                              isPatient
+                                ? "bg-white/15 hover:bg-white/25"
+                                : "bg-slate-100 hover:bg-slate-200",
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+                                isPatient
+                                  ? "bg-white/20"
+                                  : "bg-farumasi-100 text-farumasi-700",
+                              )}
+                            >
+                              <Package className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] font-bold uppercase tracking-wide opacity-70">
+                                Product
+                              </p>
+                              <p className="text-xs font-bold truncate">
+                                {msg.attachmentName ?? "View product"}
+                              </p>
+                            </div>
+                            <ExternalLink className="w-4 h-4 shrink-0 opacity-70" />
+                          </Link>
+                        )}
 
                         {msg.content && (
                           <span className="whitespace-pre-wrap break-words">
@@ -1029,6 +1091,10 @@ export default function ConsultPage() {
                       alt={pendingAttachment.name}
                       className="w-12 h-12 rounded-lg object-cover shrink-0"
                     />
+                  ) : pendingAttachment.type === "product" ? (
+                    <div className="w-12 h-12 rounded-lg bg-farumasi-100 text-farumasi-700 flex items-center justify-center shrink-0">
+                      <Package className="w-5 h-5" />
+                    </div>
                   ) : (
                     <div className="w-12 h-12 rounded-lg bg-farumasi-100 text-farumasi-700 flex items-center justify-center shrink-0">
                       <FileText className="w-5 h-5" />
@@ -1039,7 +1105,9 @@ export default function ConsultPage() {
                       {pendingAttachment.name}
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      {humanSize(pendingAttachment.size)} · ready to send
+                      {pendingAttachment.type === "product"
+                        ? "Product · ready to send"
+                        : `${humanSize(pendingAttachment.size)} · ready to send`}
                     </p>
                   </div>
                   <button
@@ -1091,6 +1159,16 @@ export default function ConsultPage() {
                         >
                           <FileText className="w-4 h-4 text-farumasi-600" />
                           <span>Document</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setAttachMenuOpen(false);
+                            setProductPickerOpen(true);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 text-slate-800"
+                        >
+                          <Package className="w-4 h-4 text-farumasi-600" />
+                          <span>Product</span>
                         </button>
                       </div>
                     )}
@@ -1155,6 +1233,14 @@ export default function ConsultPage() {
           <ProfileSheet
             ph={selectedPh}
             onClose={() => setShowProfile(false)}
+          />
+        )}
+
+        {/* Product picker */}
+        {productPickerOpen && (
+          <ProductPicker
+            onClose={() => setProductPickerOpen(false)}
+            onPick={onPickProduct}
           />
         )}
       </div>
@@ -1309,6 +1395,130 @@ function InfoRow({
           {label}
         </p>
         <p className="text-sm font-semibold text-slate-800 truncate">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Product picker modal ──────────────────────────────────────────────────────
+function ProductPicker({
+  onClose,
+  onPick,
+}: {
+  onClose: () => void;
+  onPick: (p: Medicine) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Medicine[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const handle = setTimeout(() => {
+      setLoading(true);
+      productsService
+        .searchProducts(query)
+        .then((items) => {
+          if (!cancelled) setResults(items.slice(0, 30));
+        })
+        .catch(() => {
+          if (!cancelled) setResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [query]);
+
+  return (
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md max-h-[80vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4 text-farumasi-600" />
+            <h2 className="text-sm font-bold text-slate-900">Attach a product</h2>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-4 py-3 border-b border-slate-100">
+          <div className="flex items-center bg-slate-100 rounded-full px-3 h-10 gap-2">
+            <Search className="w-4 h-4 text-slate-400 shrink-0" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search products…"
+              className="flex-1 text-sm text-slate-900 placeholder:text-slate-400 outline-none bg-transparent"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                aria-label="Clear"
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12 text-slate-400 text-sm">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Searching…
+            </div>
+          ) : results.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">
+              No products found.
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {results.map((p) => (
+                <li key={p.id}>
+                  <button
+                    onClick={() => onPick(p)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50"
+                  >
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0">
+                      {p.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.imageUrl}
+                          alt={p.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                          <Package className="w-5 h-5" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">
+                        {p.name}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {p.category}
+                        {typeof p.price === "number" && p.price > 0
+                          ? ` · RWF ${p.price.toLocaleString()}`
+                          : ""}
+                      </p>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

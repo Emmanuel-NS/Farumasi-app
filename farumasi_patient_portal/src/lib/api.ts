@@ -2,6 +2,21 @@ import axios from "axios";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
+/** Origin of the API server (no /api/v1 suffix). Used for static asset URLs
+ *  like `/uploads/...` returned by the backend. */
+export const API_ORIGIN = API_BASE.replace(/\/api\/v\d+\/?$/, "");
+
+/** Resolve a (possibly relative) media URL returned by the backend (e.g.
+ *  `/uploads/chat/abc.jpg`) into an absolute URL that points at the API
+ *  server, not the Next.js dev server. Passes data: and http(s): URLs
+ *  through unchanged. */
+export function mediaUrl(url?: string | null): string {
+  if (!url) return "";
+  if (/^(https?:|data:|blob:)/i.test(url)) return url;
+  if (url.startsWith("/")) return `${API_ORIGIN}${url}`;
+  return `${API_ORIGIN}/${url}`;
+}
+
 export const api = axios.create({
   baseURL: API_BASE,
   headers: { "Content-Type": "application/json" },
@@ -35,6 +50,10 @@ api.interceptors.response.use(
   async (err) => {
     const original = err.config;
     if (err.response?.status === 401 && !original._retry) {
+      // If the request had no Authorization header the user is a guest —
+      // there is nothing to refresh and we must NOT redirect to login.
+      if (!original.headers?.Authorization) return Promise.reject(err);
+
       original._retry = true;
       try {
         const refresh = typeof window !== "undefined"

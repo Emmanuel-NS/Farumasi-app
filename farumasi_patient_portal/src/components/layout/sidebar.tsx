@@ -156,7 +156,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
         {!collapsed && (
           <div className="pt-3 pb-1 text-center">
             <a
-              href="#"
+              href="/terms"
               className="text-[12px] text-[#9BC8B5] underline underline-offset-2 decoration-[#9BC8B5] hover:text-white transition-colors"
             >
               Terms &amp; Conditions

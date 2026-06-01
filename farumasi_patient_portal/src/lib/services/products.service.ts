@@ -1,5 +1,5 @@
 import api from "@/lib/api";
-import type { Medicine, MarketingPharmacy } from "@/types";
+import type { Medicine, MarketingPharmacy, ProductType } from "@/types";
 
 /** Shape returned by GET /products */
 export interface BackendProduct {
@@ -84,6 +84,7 @@ export function adaptProduct(p: BackendProduct): Medicine {
     sideEffects: "Consult your pharmacist or doctor for side-effect information.",
     manufacturer: p.manufacturer ?? p.brand ?? "Unknown",
     keywords: [p.name.toLowerCase(), p.generic_name?.toLowerCase() ?? "", p.category?.toLowerCase() ?? ""].filter(Boolean),
+    product_type: (p.product_type as ProductType) ?? "medicine",
     ageDosages: [],
     marketingPharmacies: [] as MarketingPharmacy[],
     warnings: "Keep out of reach of children. Read the label carefully.",

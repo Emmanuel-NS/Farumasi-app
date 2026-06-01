@@ -5,11 +5,13 @@ import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ordersService } from "@/lib/services/orders.service";
 import { deliveryService } from "@/lib/services/delivery.service";
+import { mediaUrl } from "@/lib/api";
 import type { Order, DeliveryQR } from "@/types";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useTranslation } from "@/lib/translations";
-import { ArrowLeft, MapPin, Phone, MessageCircle, Package, Store, CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink, Building2 } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, MessageCircle, Package, Store, CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink, Building2, XCircle, ImageOff } from "lucide-react";
+import Link from "next/link";
 
 // Dynamically import the Leaflet map — must be client-only, no SSR
 const TrackingMap = dynamic(
@@ -37,6 +39,22 @@ export default function OrderTrackingPage() {
   const [eta, setEta] = useState(18);
   const [deliveryQR, setDeliveryQR] = useState<DeliveryQR | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancel = async () => {
+    if (!order) return;
+    if (!confirm("Cancel this order? This cannot be undone.")) return;
+    setCancelling(true);
+    try {
+      await ordersService.cancelOrder(order.id);
+      const fresh = await ordersService.getOrderById(order.id);
+      setOrder(fresh);
+    } catch {
+      alert("Could not cancel this order. It may no longer be pending.");
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -300,17 +318,57 @@ export default function OrderTrackingPage() {
           <Package className="w-4 h-4 text-farumasi-600" />
           {t.order_summary}
         </h2>
-        <div className="space-y-2">
-          {order.items.split(",").map((item, i) => (
-            <div key={i} className="flex justify-between text-sm">
-              <span className="text-slate-700">{item.trim()}</span>
-            </div>
-          ))}
-          <div className="border-t border-slate-100 pt-2 mt-2 flex justify-between">
+        <div className="space-y-3">
+          {(order.itemList && order.itemList.length > 0
+            ? order.itemList
+            : order.items.split(",").map((name, i) => ({ id: String(i), name: name.trim(), quantity: 1, unitPrice: 0, totalPrice: 0, imageUrl: null as string | null, productId: null as string | null, productListingId: null as string | null }))
+          ).map((item) => {
+            const href = item.productId || item.productListingId
+              ? `/store?product=${encodeURIComponent(item.productId ?? item.productListingId ?? "")}`
+              : null;
+            const Card = (
+              <div className="flex items-center gap-3 p-2 rounded-2xl hover:bg-slate-50 transition-colors">
+                <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
+                  {item.imageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={mediaUrl(item.imageUrl)} alt={item.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageOff className="w-5 h-5 text-slate-300" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-slate-900 truncate">{item.name}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Qty {item.quantity} · RWF {item.unitPrice.toLocaleString()}</p>
+                </div>
+                <div className="text-sm font-extrabold text-farumasi-700 shrink-0">
+                  RWF {item.totalPrice.toLocaleString()}
+                </div>
+              </div>
+            );
+            return href
+              ? <Link key={item.id} href={href} className="block">{Card}</Link>
+              : <div key={item.id}>{Card}</div>;
+          })}
+          <div className="border-t border-slate-100 pt-3 mt-2 flex justify-between">
             <span className="text-sm font-bold text-slate-900">{t.order_total}</span>
             <span className="text-base font-extrabold text-farumasi-700">{order.total}</span>
           </div>
         </div>
+        {(() => {
+          const cancellableStatuses = ["pending_review", "pharmacy_accepted", "ready_for_pickup"];
+          const canCancel = cancellableStatuses.includes(order.status) && order.paymentStatus !== "paid";
+          if (!canCancel) return null;
+          return (
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="mt-4 w-full flex items-center justify-center gap-2 h-11 rounded-2xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-sm transition-colors disabled:opacity-50"
+            >
+              <XCircle className="w-4 h-4" />
+              {cancelling ? "Cancelling…" : "Cancel Order"}
+            </button>
+          );
+        })()}
       </div>
 
       {/* Pharmacy info */}

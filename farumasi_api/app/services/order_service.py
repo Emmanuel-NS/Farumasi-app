@@ -633,10 +633,25 @@ class OrderService:
         if role == UserRole.PATIENT:
             patient = await self._get_patient_for_user(actor)
             owns = patient and patient.id == order.patient_id
-            if owns and new_status == OrderStatus.CANCELLED and order.order_status == OrderStatus.PENDING:
+            # Patients can self-cancel while the order has not yet shipped AND
+            # has not been paid. Once payment is captured or the order is out
+            # for delivery / delivered / completed, cancellation must go
+            # through pharmacy/partner staff.
+            patient_cancellable = {
+                OrderStatus.PENDING,
+                OrderStatus.ACCEPTED,
+                OrderStatus.PREPARING,
+                OrderStatus.READY_FOR_PICKUP,
+            }
+            if (
+                owns
+                and new_status == OrderStatus.CANCELLED
+                and order.order_status in patient_cancellable
+                and order.payment_status != PaymentStatus.PAID
+            ):
                 return
             raise AuthorizationError(
-                "Patients may only cancel their own pending orders"
+                "Patients may only cancel their own unpaid, not-yet-shipped orders"
             )
         if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
             # Farumasi internal pharmacist (no pharmacy) can manage any order's status
@@ -727,7 +742,7 @@ class OrderService:
     def _order_options(self):
         """Common eager-load options: items, patient, pharmacy name, delivery + rider."""
         return [
-            selectinload(Order.items),
+            selectinload(Order.items).selectinload(OrderItem.product),
             selectinload(Order.pharmacy),
             selectinload(Order.patient).selectinload(PatientProfile.user),
             selectinload(Order.delivery).selectinload(Delivery.rider).selectinload(

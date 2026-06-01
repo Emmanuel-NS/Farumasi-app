@@ -2,6 +2,18 @@ import axios from "axios";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
+export const API_ORIGIN = API_BASE.replace(/\/api\/v\d+\/?$/, "");
+
+/** Resolve a (possibly relative) media URL returned by the backend (e.g.
+ *  `/uploads/chat/abc.jpg`) into an absolute URL that points at the API
+ *  server, not the Next.js dev server. */
+export function mediaUrl(url?: string | null): string {
+  if (!url) return "";
+  if (/^(https?:|data:|blob:)/i.test(url)) return url;
+  if (url.startsWith("/")) return `${API_ORIGIN}${url}`;
+  return `${API_ORIGIN}/${url}`;
+}
+
 export const api = axios.create({
   baseURL: API_BASE,
   headers: { "Content-Type": "application/json" },

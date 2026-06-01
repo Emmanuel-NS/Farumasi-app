@@ -1,6 +1,7 @@
 import api from "@/lib/api";
 
 export type ArticleStatus = "draft" | "published" | "archived";
+export type ArticleType = "article" | "tip" | "guide" | "news" | "did_you_know";
 
 export interface BackendArticle {
   id: string;
@@ -10,10 +11,17 @@ export interface BackendArticle {
   summary: string | null;
   content: string | null;
   category: string | null;
+  categories: string[];
+  article_type: ArticleType;
   image_url: string | null;
   status: ArticleStatus;
   published_at: string | null;
   created_at: string;
+  view_count: number;
+  like_count: number;
+  share_count: number;
+  comment_count: number;
+  video_url: string | null;
 }
 
 export interface ArticleListResponse {
@@ -28,7 +36,10 @@ export interface CreateArticleInput {
   summary?: string;
   content: string;
   category?: string;
+  categories?: string[];
+  article_type?: ArticleType;
   image_url?: string;
+  video_url?: string;
   slug?: string;
 }
 

@@ -33,7 +33,7 @@ export interface CreateProductInput {
   name: string;
   generic_name?: string | null;
   category?: string | null;
-  product_type?: "medicine" | "device" | "supplement" | "personal_care";
+  product_type?: "medicine" | "medical_device" | "food_supplements" | "cosmetics";
   description?: string | null;
   dosage_form?: string | null;
   strength?: string | null;

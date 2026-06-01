@@ -47,13 +47,10 @@ export interface PrescriptionRequest {
 export type OrderStatus =
   | "pending"
   | "confirmed"
-  | "accepted"
-  | "rejected"
   | "preparing"
   | "ready_for_pickup"
   | "out_for_delivery"
   | "delivered"
-  | "completed"
   | "cancelled"
   | "failed";
 
@@ -90,7 +87,7 @@ export interface AgeDosage {
 }
 
 export interface InventoryItem {
-  id: string;
+  id: number;
   name: string;
   imageUrl: string;
   manufacturer: string;         // brand / maker (e.g. "HealthLive Pharma")

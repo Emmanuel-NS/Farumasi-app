@@ -19,7 +19,7 @@ from app.models.recommendation import PharmacyRecommendation
 from app.models.order import Order, OrderItem
 from app.models.delivery import Delivery
 from app.models.revenue import RevenueRecord, WithdrawalRequest
-from app.models.article import HealthArticle
+from app.models.article import HealthArticle, ArticleLike, ArticleSave, ArticleComment
 from app.models.notification import Notification
 from app.models.audit import AuditLog
 from app.models.consultation import Consultation, ChatMessage
@@ -52,6 +52,9 @@ __all__ = [
     "RevenueRecord",
     "WithdrawalRequest",
     "HealthArticle",
+    "ArticleLike",
+    "ArticleSave",
+    "ArticleComment",
     "Notification",
     "AuditLog",
 ]

@@ -100,5 +100,16 @@ export const prescriptionsService = {
     });
     return data;
   },
+
+  /**
+   * Patient self-cancellation (only allowed while prescription is still pending/active).
+   * Backend: PATCH /api/v1/prescriptions/{id} with { status: "cancelled" }.
+   */
+  async cancelPrescription(id: string): Promise<BackendPrescription> {
+    const { data } = await api.patch<BackendPrescription>(`/prescriptions/${id}`, {
+      status: "cancelled",
+    });
+    return data;
+  },
 };
 

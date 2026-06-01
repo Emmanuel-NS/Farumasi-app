@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,10 +189,30 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* T&C agreement checkbox */}
+            <label className="flex items-start gap-2.5 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-farumasi-600 shrink-0 cursor-pointer"
+              />
+              <span className="text-xs text-slate-500 leading-relaxed">
+                I have read and agree to the{" "}
+                <Link href="/terms" className="text-farumasi-600 font-semibold hover:underline" target="_blank">
+                  Terms of Service
+                </Link>
+                {" "}and{" "}
+                <Link href="/privacy" className="text-farumasi-600 font-semibold hover:underline" target="_blank">
+                  Privacy Policy
+                </Link>
+              </span>
+            </label>
+
             <button
               type="submit"
-              disabled={loading}
-              className="w-full h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 active:bg-farumasi-800 disabled:opacity-55 text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors mt-1 shadow-sm shadow-farumasi-600/30"
+              disabled={loading || !agreedToTerms}
+              className="w-full h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 active:bg-farumasi-800 disabled:opacity-55 disabled:cursor-not-allowed text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors mt-1 shadow-sm shadow-farumasi-600/30"
             >
               {loading ? (
                 <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -224,10 +245,9 @@ export default function LoginPage() {
           </p>
 
           <p className="text-center text-[11px] text-slate-300 mt-6">
-            By continuing you agree to our{" "}
-            <Link href="#" className="hover:text-slate-500 transition-colors">Terms</Link>
-            {" & "}
-            <Link href="#" className="hover:text-slate-500 transition-colors">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-slate-500 transition-colors">Terms of Service</Link>
+            {" · "}
+            <Link href="/privacy" className="hover:text-slate-500 transition-colors">Privacy Policy</Link>
           </p>
         </div>
       </div>
