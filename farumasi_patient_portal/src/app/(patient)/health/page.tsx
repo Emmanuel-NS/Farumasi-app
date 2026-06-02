@@ -414,31 +414,6 @@ function FeaturedRail({
         </div>
       </div>
 
-      <style jsx>{`
-        .featured-track {
-          animation-name: featuredMarquee;
-          animation-timing-function: linear;
-          animation-iteration-count: infinite;
-          width: max-content;
-        }
-        .group:hover .featured-track,
-        .featured-track:focus-within {
-          animation-play-state: paused;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .featured-track {
-            animation: none;
-          }
-        }
-        @keyframes featuredMarquee {
-          from {
-            transform: translateX(0);
-          }
-          to {
-            transform: translateX(-50%);
-          }
-        }
-      `}</style>
     </section>
   );
 }
