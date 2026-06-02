@@ -20,6 +20,11 @@ export interface BackendProduct {
   price_from?: number | null;
   price_to?: number | null;
   listing_count?: number | null;
+  packaging_class?: string | null;
+  allows_partial_selling?: boolean;
+  units_per_pack?: number | null;
+  min_partial_quantity?: number | null;
+  partial_unit_name?: string | null;
 }
 
 export interface PaginatedProducts {
@@ -41,6 +46,11 @@ export interface CreateProductInput {
   brand?: string | null;
   prescription_required?: boolean;
   image_url?: string | null;
+  /** Packaging & partial selling */
+  packaging_class?: string | null;
+  units_per_pack?: number | null;
+  min_partial_quantity?: number | null;
+  partial_unit_name?: string | null;
 }
 
 export type UpdateProductInput = Partial<CreateProductInput>;

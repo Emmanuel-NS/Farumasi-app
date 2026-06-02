@@ -31,6 +31,11 @@ class ProductCreate(FarumasiBaseModel):
     prescription_required: bool = False
     regulatory_status: Optional[str] = None
     image_url: Optional[str] = None
+    # Packaging & partial selling
+    packaging_class: Optional[str] = None
+    units_per_pack: Optional[int] = None
+    min_partial_quantity: Optional[int] = None
+    partial_unit_name: Optional[str] = None
 
 
 class ProductUpdate(FarumasiBaseModel):
@@ -47,6 +52,11 @@ class ProductUpdate(FarumasiBaseModel):
     prescription_required: Optional[bool] = None
     regulatory_status: Optional[str] = None
     image_url: Optional[str] = None
+    # Packaging & partial selling
+    packaging_class: Optional[str] = None
+    units_per_pack: Optional[int] = None
+    min_partial_quantity: Optional[int] = None
+    partial_unit_name: Optional[str] = None
 
 
 class ProductStatusUpdate(FarumasiBaseModel):
@@ -74,6 +84,14 @@ class ProductOut(FarumasiBaseModel):
     price_from: Optional[float] = None
     price_to: Optional[float] = None
     listing_count: Optional[int] = None
+    # Packaging & partial selling
+    packaging_class: Optional[str] = None
+    allows_partial_selling: bool = False
+    units_per_pack: Optional[int] = None
+    min_partial_quantity: Optional[int] = None
+    partial_unit_name: Optional[str] = None
+    # Lowest unit price (partial) across active listings
+    unit_price_from: Optional[float] = None
 
 
 # ─── Product Listing ──────────────────────────────────────────────────────
@@ -83,6 +101,7 @@ class ProductListingCreate(FarumasiBaseModel):
     pharmacy_id: Optional[str] = None
     partner_company_id: Optional[str] = None
     price: float
+    unit_price: Optional[float] = None
     stock_quantity: int = 0
     availability_status: ListingAvailability = ListingAvailability.AVAILABLE
     expiry_date: Optional[datetime] = None
@@ -117,6 +136,7 @@ class ProductListingCreate(FarumasiBaseModel):
 
 class ProductListingUpdate(FarumasiBaseModel):
     price: Optional[float] = None
+    unit_price: Optional[float] = None
     stock_quantity: Optional[int] = None
     availability_status: Optional[ListingAvailability] = None
     expiry_date: Optional[datetime] = None
@@ -152,6 +172,7 @@ class ProductListingOut(FarumasiBaseModel):
     pharmacy_id: Optional[str] = None
     partner_company_id: Optional[str] = None
     price: float
+    unit_price: Optional[float] = None
     stock_quantity: int
     availability_status: str
     expiry_date: Optional[datetime] = None

@@ -84,6 +84,10 @@ class ProductService:
             prescription_required=data.prescription_required,
             regulatory_status=data.regulatory_status,
             image_url=data.image_url,
+            packaging_class=data.packaging_class,
+            units_per_pack=data.units_per_pack,
+            min_partial_quantity=data.min_partial_quantity,
+            partial_unit_name=data.partial_unit_name,
             approval_status=approval,
             created_by_user_id=actor.id,
         )
@@ -145,6 +149,7 @@ class ProductService:
                 func.min(ProductListing.price).label("price_from"),
                 func.max(ProductListing.price).label("price_to"),
                 func.count(ProductListing.id).label("listing_count"),
+                func.min(ProductListing.unit_price).label("unit_price_from"),
             )
             .where(
                 and_(
@@ -200,6 +205,7 @@ class ProductService:
             item.price_from = row[1]  # type: ignore[attr-defined]
             item.price_to = row[2]  # type: ignore[attr-defined]
             item.listing_count = int(row[3]) if row[3] is not None else 0  # type: ignore[attr-defined]
+            item.unit_price_from = row[4]  # type: ignore[attr-defined]
             products.append(item)
         return products, total
 

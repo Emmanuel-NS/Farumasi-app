@@ -62,6 +62,25 @@ class ProductRequestStatus(str, Enum):
     REJECTED = "rejected"
 
 
+class PackagingClass(str, Enum):
+    """Physical packaging form — controls whether a product can be sold in partial units."""
+    TABLETS_CAPSULES = "tablets_capsules"    # allow partial
+    SACHETS = "sachets"                      # allow partial
+    AMPOULES_VIALS = "ampoules_vials"        # allow partial
+    LIQUID_BOTTLE = "liquid_bottle"          # no partial
+    OINTMENT_GEL_CREAM = "ointment_gel_cream"  # no partial
+    EYE_EAR_NOSE_DROPS = "eye_ear_nose_drops"  # no partial
+    INHALER_SPRAY = "inhaler_spray"          # no partial
+    OTHER = "other"                          # no partial
+
+
+PARTIAL_SELLING_CLASSES = {
+    PackagingClass.TABLETS_CAPSULES,
+    PackagingClass.SACHETS,
+    PackagingClass.AMPOULES_VIALS,
+}
+
+
 class ListingAvailability(str, Enum):
     AVAILABLE = "available"
     UNAVAILABLE = "unavailable"

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -14,6 +14,7 @@ from app.core.constants import (
     ProductRequestStatus,
     ListingAvailability,
     EntityStatus,
+    PARTIAL_SELLING_CLASSES,
 )
 
 if TYPE_CHECKING:
@@ -53,6 +54,17 @@ class ProductCatalogueItem(Base, UUIDMixin, TimestampMixin):
     )
     image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # ── Partial / packaging ───────────────────────────────────────────────
+    packaging_class: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    units_per_pack: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    min_partial_quantity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    partial_unit_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    @property
+    def allows_partial_selling(self) -> bool:
+        """Derived from packaging_class — no extra DB column needed."""
+        return self.packaging_class in PARTIAL_SELLING_CLASSES
+
     # ── Relationships ─────────────────────────────────────────────────────
     approved_by_pharmacist: Mapped[Optional["PharmacistProfile"]] = relationship(
         "PharmacistProfile",
@@ -88,6 +100,7 @@ class ProductListing(Base, UUIDMixin, TimestampMixin):
         ForeignKey("partner_companies.id", ondelete="CASCADE"), nullable=True, index=True
     )
     price: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    unit_price: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
     stock_quantity: Mapped[int] = mapped_column(default=0)
     availability_status: Mapped[str] = mapped_column(
         String(50), default=ListingAvailability.AVAILABLE

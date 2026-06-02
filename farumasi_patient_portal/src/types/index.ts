@@ -74,6 +74,12 @@ export interface Medicine {
   storage?: string;
   composition?: string;
   interactions?: string;
+  /** Partial selling / per-unit pricing */
+  allowsPartialSelling?: boolean;
+  minPartialQuantity?: number;
+  unitsPerPack?: number;
+  partialUnitName?: string;
+  unitPriceFrom?: number;
 }
 
 // ── Cart ──────────────────────────────────────

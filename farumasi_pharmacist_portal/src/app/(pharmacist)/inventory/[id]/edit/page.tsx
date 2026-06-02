@@ -48,6 +48,17 @@ const DOSAGE_FORMS = [
   "Cream", "Ointment", "Drops", "Sachet", "Patch", "Suppository", "Other",
 ];
 
+const PACKAGING_CLASSES = [
+  { value: "tablets_capsules",   label: "Tablets / Capsules",       partial: true,  defaultUnit: "tablet" },
+  { value: "sachets",            label: "Sachets",                  partial: true,  defaultUnit: "sachet" },
+  { value: "ampoules_vials",     label: "Ampoules / Vials",         partial: true,  defaultUnit: "ampoule" },
+  { value: "liquid_bottle",      label: "Liquid / Bottle",          partial: false, defaultUnit: "" },
+  { value: "ointment_gel_cream", label: "Ointment / Gel / Cream",   partial: false, defaultUnit: "" },
+  { value: "eye_ear_nose_drops", label: "Eye / Ear / Nose Drops",   partial: false, defaultUnit: "" },
+  { value: "inhaler_spray",      label: "Inhaler / Spray",          partial: false, defaultUnit: "" },
+  { value: "other",              label: "Other",                    partial: false, defaultUnit: "" },
+];
+
 const PRODUCT_TYPES = [
   { value: "medicine",         label: "Medicine"         },
   { value: "medical_device",   label: "Medical Device"   },
@@ -467,6 +478,22 @@ export default function EditProductPage({
   const [productType, setProductType] = useState<CreateProductInput["product_type"]>("medicine");
   const [rxRequired,  setRxRequired]  = useState(false);
 
+  /* Packaging / partial selling */
+  const [packagingClass,  setPackagingClass]  = useState("");
+  const [unitsPerPack,    setUnitsPerPack]    = useState("");
+  const [minPartialQty,   setMinPartialQty]   = useState("1");
+  const [partialUnitName, setPartialUnitName] = useState("");
+
+  const pkgInfo = PACKAGING_CLASSES.find((c) => c.value === packagingClass);
+  const allowsPartial = pkgInfo?.partial ?? false;
+
+  const handlePickPackaging = (val: string) => {
+    setPackagingClass(val);
+    const info = PACKAGING_CLASSES.find((c) => c.value === val);
+    // Only auto-fill unit name if the user hasn't typed one yet
+    if (info?.defaultUnit && !partialUnitName) setPartialUnitName(info.defaultUnit);
+  };
+
   const [shortDesc,     setShortDesc]     = useState("");
   const [dosageSummary, setDosageSummary] = useState("");
   const [overview,      setOverview]      = useState("");
@@ -493,6 +520,11 @@ export default function EditProductPage({
         setProductType(p.product_type as CreateProductInput["product_type"]);
         setRxRequired(p.prescription_required);
         setShortDesc(desc.short);
+        // Packaging
+        setPackagingClass(p.packaging_class ?? "");
+        setUnitsPerPack(p.units_per_pack != null ? String(p.units_per_pack) : "");
+        setMinPartialQty(p.min_partial_quantity != null ? String(p.min_partial_quantity) : "1");
+        setPartialUnitName(p.partial_unit_name ?? "");
         setDosageSummary(desc.dosage_summary);
         setOverview(desc.overview);
         setDosageDetails(desc.dosage_details);
@@ -531,6 +563,10 @@ export default function EditProductPage({
           dosage_details: dosageDetails,
           safety,
         }),
+        packaging_class:       packagingClass || null,
+        units_per_pack:        allowsPartial && unitsPerPack ? Number(unitsPerPack) : null,
+        min_partial_quantity:  allowsPartial && minPartialQty ? Number(minPartialQty) : null,
+        partial_unit_name:     allowsPartial ? (partialUnitName.trim() || null) : null,
       };
       await productsService.updateProduct(id, input);
       toast.success("Product updated");
@@ -760,6 +796,72 @@ export default function EditProductPage({
                     className={inputCls}
                   />
                 </div>
+              </div>
+
+              {/* Packaging & Partial Selling */}
+              <div className={cardCls}>
+                <div>
+                  <p className={sectionHeadCls}>Packaging &amp; Partial Selling</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Controls whether patients can buy individual units (tablets, sachets, ampoules) from a pack.
+                  </p>
+                </div>
+                <div>
+                  <label className={labelCls}>Packaging Class</label>
+                  <div className="relative">
+                    <select
+                      value={packagingClass}
+                      onChange={(e) => handlePickPackaging(e.target.value)}
+                      className={cn(inputCls, "pr-10 appearance-none cursor-pointer")}
+                    >
+                      <option value="">— Not set —</option>
+                      {PACKAGING_CLASSES.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}{c.partial ? " — partial allowed" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  </div>
+                </div>
+                {allowsPartial && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className={labelCls}>Units per pack</label>
+                      <input
+                        type="number" min={1} step={1}
+                        value={unitsPerPack}
+                        onChange={(e) => setUnitsPerPack(e.target.value)}
+                        placeholder="e.g. 10"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Min order qty</label>
+                      <input
+                        type="number" min={1} step={1}
+                        value={minPartialQty}
+                        onChange={(e) => setMinPartialQty(e.target.value)}
+                        placeholder="e.g. 5"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Unit name</label>
+                      <input
+                        value={partialUnitName}
+                        onChange={(e) => setPartialUnitName(e.target.value)}
+                        placeholder="e.g. tablet"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                )}
+                {packagingClass && !allowsPartial && (
+                  <p className="text-[11px] text-slate-400">
+                    This packaging class does not support partial unit selling.
+                  </p>
+                )}
               </div>
 
               {/* Patient Card Content */}

@@ -148,6 +148,14 @@ export default function MedicineDetailPage() {
               return min === max ? formatPrice(min) : `${formatPrice(min)} – ${formatPrice(max)}`;
             })()}
           </p>
+          {med.allowsPartialSelling && med.unitPriceFrom != null && (
+            <p className="text-sm text-farumasi-500 mb-2">
+              or {formatPrice(med.unitPriceFrom)} / {med.partialUnitName ?? "unit"}
+              {med.minPartialQuantity && med.minPartialQuantity > 1 && (
+                <span className="text-slate-400 text-xs ml-1">(min {med.minPartialQuantity})</span>
+              )}
+            </p>
+          )}
 
           {/* Quantity */}
           <div className="flex items-center gap-4 mb-6">

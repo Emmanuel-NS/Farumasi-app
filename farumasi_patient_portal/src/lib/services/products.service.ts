@@ -23,6 +23,12 @@ export interface BackendProduct {
   price_to: number | null;
   /** Number of active sellers stocking this product */
   listing_count: number | null;
+  /** Partial selling fields */
+  allows_partial_selling?: boolean;
+  min_partial_quantity?: number | null;
+  units_per_pack?: number | null;
+  partial_unit_name?: string | null;
+  unit_price_from?: number | null;
 }
 
 export interface PaginatedProducts {
@@ -90,6 +96,11 @@ export function adaptProduct(p: BackendProduct): Medicine {
     warnings: "Keep out of reach of children. Read the label carefully.",
     storage: "Store below 25°C in a dry place away from sunlight.",
     composition: p.generic_name ? `Active ingredient: ${p.generic_name}${p.strength ? ` ${p.strength}` : ""}` : undefined,
+    allowsPartialSelling: p.allows_partial_selling ?? false,
+    minPartialQuantity: p.min_partial_quantity ?? undefined,
+    unitsPerPack: p.units_per_pack ?? undefined,
+    partialUnitName: p.partial_unit_name ?? undefined,
+    unitPriceFrom: p.unit_price_from != null ? Math.round(p.unit_price_from) : undefined,
   };
 }
 

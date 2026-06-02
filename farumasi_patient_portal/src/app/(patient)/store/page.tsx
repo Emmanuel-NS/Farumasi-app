@@ -866,6 +866,12 @@ function StorePageInner() {
                       </span>
                     )}
                   </p>
+                  {/* Partial / per-unit price */}
+                  {med.allowsPartialSelling && med.unitPriceFrom != null && (
+                    <p className="text-[10px] text-farumasi-500 mt-0.5">
+                      or {formatPrice(med.unitPriceFrom)}/{med.partialUnitName ?? "unit"}
+                    </p>
+                  )}
                   {/* Rx badge */}
                   {med.requiresPrescription && (
                     <p className="text-[10px] text-amber-500 font-bold flex items-center gap-1 mt-1">

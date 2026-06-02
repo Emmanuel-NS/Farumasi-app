@@ -1,6 +1,6 @@
 """add pharmacist specialization bio years_of_experience
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: a0b1c2d3e4f5
 Revises: d0c5af55d9d1
 Create Date: 2026-05-22
 
@@ -8,7 +8,7 @@ Create Date: 2026-05-22
 from alembic import op
 import sqlalchemy as sa
 
-revision = 'a1b2c3d4e5f6'
+revision = 'a0b1c2d3e4f5'
 down_revision = 'd0c5af55d9d1'
 branch_labels = None
 depends_on = None

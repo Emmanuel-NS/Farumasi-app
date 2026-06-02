@@ -20,12 +20,30 @@ const DOSAGE_FORMS = [
   "Cream", "Ointment", "Drops", "Inhaler", "Suppository", "Powder", "Other",
 ];
 
+const PACKAGING_CLASSES = [
+  { value: "tablets_capsules",   label: "Tablets / Capsules",       partial: true,  defaultUnit: "tablet" },
+  { value: "sachets",            label: "Sachets",                  partial: true,  defaultUnit: "sachet" },
+  { value: "ampoules_vials",     label: "Ampoules / Vials",         partial: true,  defaultUnit: "ampoule" },
+  { value: "liquid_bottle",      label: "Liquid / Bottle",          partial: false, defaultUnit: "" },
+  { value: "ointment_gel_cream", label: "Ointment / Gel / Cream",   partial: false, defaultUnit: "" },
+  { value: "eye_ear_nose_drops", label: "Eye / Ear / Nose Drops",   partial: false, defaultUnit: "" },
+  { value: "inhaler_spray",      label: "Inhaler / Spray",          partial: false, defaultUnit: "" },
+  { value: "other",              label: "Other",                    partial: false, defaultUnit: "" },
+];
+
 const PRODUCT_TYPES = [
-  { value: "medicine",         label: "Medicine" },
-  { value: "medical_device",   label: "Medical Device" },
-  { value: "food_supplements", label: "Food Supplements" },
-  { value: "cosmetics",        label: "Cosmetics" },
+  { value: "medicine",        label: "Medicine" },
+  { value: "device",          label: "Medical Device" },
+  { value: "supplement",       label: "Supplement" },
+  { value: "personal_care",    label: "Cosmetic" },
 ] as const;
+
+const PRODUCT_TYPE_MAP = {
+  medicine: "medicine",
+  device: "medical_device",
+  supplement: "food_supplements",
+  personal_care: "cosmetics",
+} as const;
 
 const inp =
   "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-farumasi-200 transition-all placeholder:text-slate-400";
@@ -89,6 +107,21 @@ export default function NewProductPage() {
   const [imageUrl, setImageUrl] = useState("");
   const [requiresRx, setRequiresRx] = useState(false);
 
+  /* Packaging / partial selling */
+  const [packagingClass, setPackagingClass] = useState("");
+  const [unitsPerPack, setUnitsPerPack] = useState("");
+  const [minPartialQty, setMinPartialQty] = useState("1");
+  const [partialUnitName, setPartialUnitName] = useState("");
+
+  const pkgInfo = PACKAGING_CLASSES.find((c) => c.value === packagingClass);
+  const allowsPartial = pkgInfo?.partial ?? false;
+
+  const handlePickPackaging = (val: string) => {
+    setPackagingClass(val);
+    const info = PACKAGING_CLASSES.find((c) => c.value === val);
+    if (info?.defaultUnit) setPartialUnitName(info.defaultUnit);
+  };
+
   /* Listing */
   const [price, setPrice] = useState<string>("");
   const [stock, setStock] = useState<string>("");
@@ -115,13 +148,15 @@ export default function NewProductPage() {
         generic_name: genericName.trim() || null,
         manufacturer: manufacturer.trim() || null,
         category,
-        product_type: productType,
+        product_type: PRODUCT_TYPE_MAP[productType],
         dosage_form: dosageForm || null,
         strength: strength.trim() || null,
         description: description.trim() || null,
         image_url: imageUrl.trim() || null,
-        prescription_required: requiresRx,
-      });
+        prescription_required: requiresRx,        packaging_class: packagingClass || null,
+        units_per_pack: allowsPartial && unitsPerPack ? Number(unitsPerPack) : null,
+        min_partial_quantity: allowsPartial && minPartialQty ? Number(minPartialQty) : null,
+        partial_unit_name: allowsPartial ? (partialUnitName.trim() || null) : null,      });
 
       await pharmaciesService.createMyListing({
         product_id: product.id,
@@ -229,6 +264,55 @@ export default function NewProductPage() {
             placeholder="What it treats, how it works, who it's for."
             className={cn(inp, "resize-none")}
           />
+        </SectionCard>
+
+        {/* Packaging & Partial Selling */}
+        <SectionCard title="Packaging & Partial Selling" subtitle="Controls whether patients can buy individual units from a pack.">
+          <div className="space-y-3">
+            <Field label="Packaging class" hint="Determines if partial unit selling is allowed.">
+              <select value={packagingClass} onChange={(e) => handlePickPackaging(e.target.value)} className={inp}>
+                <option value="">— Not set —</option>
+                {PACKAGING_CLASSES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}{c.partial ? " (partial allowed)" : ""}</option>
+                ))}
+              </select>
+            </Field>
+            {allowsPartial && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <Field label="Units per pack" hint="e.g. 10 tablets per box">
+                  <input
+                    type="number" min={1} step={1}
+                    value={unitsPerPack}
+                    onChange={(e) => setUnitsPerPack(e.target.value)}
+                    placeholder="e.g. 10"
+                    className={inp}
+                  />
+                </Field>
+                <Field label="Min order quantity" hint="Minimum units per order">
+                  <input
+                    type="number" min={1} step={1}
+                    value={minPartialQty}
+                    onChange={(e) => setMinPartialQty(e.target.value)}
+                    placeholder="e.g. 5"
+                    className={inp}
+                  />
+                </Field>
+                <Field label="Unit name" hint="e.g. tablet, capsule, sachet">
+                  <input
+                    value={partialUnitName}
+                    onChange={(e) => setPartialUnitName(e.target.value)}
+                    placeholder="e.g. tablet"
+                    className={inp}
+                  />
+                </Field>
+              </div>
+            )}
+            {packagingClass && !allowsPartial && (
+              <p className="text-[11px] text-slate-400">
+                This packaging class does not support partial unit selling. Patients must buy a whole unit.
+              </p>
+            )}
+          </div>
         </SectionCard>
 
         {/* Prescription */}

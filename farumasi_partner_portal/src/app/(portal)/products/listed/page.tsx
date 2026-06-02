@@ -54,6 +54,9 @@ interface EditState {
   batch: string;
   fulfillment: string;
   availability: string;
+  unitPrice: string;
+  allowsPartial: boolean;
+  partialUnitName: string;
 }
 
 export default function ListedProductsPage() {
@@ -97,6 +100,9 @@ export default function ListedProductsPage() {
       batch: l.batch_number ?? "",
       fulfillment: String(l.fulfillment_time_minutes),
       availability: l.availability_status,
+      unitPrice: l.unit_price != null ? String(l.unit_price) : "",
+      allowsPartial: l.product?.allows_partial_selling ?? false,
+      partialUnitName: l.product?.partial_unit_name ?? "unit",
     });
   };
 
@@ -115,6 +121,7 @@ export default function ListedProductsPage() {
       batch_number: editState.batch || null,
       fulfillment_time_minutes: fulfillment,
       availability_status: editState.availability as UpdateListingInput["availability_status"],
+      unit_price: editState.allowsPartial && editState.unitPrice ? parseFloat(editState.unitPrice) : null,
     };
 
     setSaving(true);
@@ -464,6 +471,20 @@ export default function ListedProductsPage() {
                   />
                 </div>
               </div>
+              {editState.allowsPartial && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Unit Price (RWF / {editState.partialUnitName})
+                    <span className="ml-1 text-slate-400 font-normal">— partial selling</span>
+                  </Label>
+                  <Input
+                    type="number" min="0" step="1" className="h-8 text-xs"
+                    placeholder="Price per single unit"
+                    value={editState.unitPrice}
+                    onChange={e => setEditState(s => s ? { ...s, unitPrice: e.target.value } : s)}
+                  />
+                </div>
+              )}
             </div>
           )}
           <div className="flex justify-end gap-2 pt-2">

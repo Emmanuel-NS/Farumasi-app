@@ -19,6 +19,10 @@ export interface BackendProduct {
   created_at: string;
   price_from?: number | null;
   listing_count?: number | null;
+  allows_partial_selling?: boolean;
+  units_per_pack?: number | null;
+  partial_unit_name?: string | null;
+  packaging_class?: string | null;
 }
 
 export interface BackendListing {
@@ -65,6 +69,7 @@ export interface CreateListingInput {
   expiry_date?: string | null;
   batch_number?: string | null;
   fulfillment_time_minutes?: number;
+  unit_price?: number | null;
 }
 
 export interface UpdateListingInput {
@@ -74,6 +79,7 @@ export interface UpdateListingInput {
   expiry_date?: string | null;
   batch_number?: string | null;
   fulfillment_time_minutes?: number;
+  unit_price?: number | null;
 }
 
 export const listingsService = {
