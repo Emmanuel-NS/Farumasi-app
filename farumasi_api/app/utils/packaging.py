@@ -77,8 +77,16 @@ def resolve_order_line(
     product: Optional[ProductCatalogueItem],
     quantity: int,
     sell_mode: str = SellMode.PACK,
+    *,
+    skip_min_quantity: bool = False,
 ) -> Tuple[float, int, str]:
-    """Return (unit_price, stock_units_to_deduct, normalized_sell_mode)."""
+    """Return (unit_price, stock_units_to_deduct, normalized_sell_mode).
+
+    Pass ``skip_min_quantity=True`` for prescription orders where a pharmacist
+    has deliberately prescribed fewer units than the default minimum (e.g. a
+    single tablet course). The patient-facing minimum still applies to normal
+    direct orders.
+    """
     if quantity < 1:
         raise ValidationError("Quantity must be at least 1")
 
@@ -91,10 +99,11 @@ def resolve_order_line(
             raise BusinessRuleError(
                 f"Pharmacy has not set a per-{product.partial_unit_name or 'unit'} price for this item"
             )
-        min_q = effective_min_partial_quantity(product)
-        if quantity < min_q:
-            unit = product.partial_unit_name or "units"
-            raise BusinessRuleError(f"Minimum order is {min_q} {unit}")
+        if not skip_min_quantity:
+            min_q = effective_min_partial_quantity(product)
+            if quantity < min_q:
+                unit = product.partial_unit_name or "units"
+                raise BusinessRuleError(f"Minimum order is {min_q} {unit}")
         return float(listing.unit_price), quantity, SellMode.PARTIAL
 
     # Whole pack / container

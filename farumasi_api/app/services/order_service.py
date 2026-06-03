@@ -549,6 +549,10 @@ class OrderService:
                     lst.product,
                     raw.quantity,
                     str(raw.sell_mode.value if hasattr(raw.sell_mode, "value") else raw.sell_mode),
+                    # Pharmacist-prepared prescription carts may contain sub-minimum
+                    # partial quantities (e.g. a short course). Skip the minimum only
+                    # for prescription orders; normal direct orders still enforce it.
+                    skip_min_quantity=bool(data.prescription_id),
                 )
                 if lst.stock_quantity < stock_units:
                     raise BusinessRuleError(

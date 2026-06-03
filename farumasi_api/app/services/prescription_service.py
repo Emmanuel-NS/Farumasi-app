@@ -349,7 +349,7 @@ class PrescriptionService:
         role = actor.role
 
         # Pharmacists are reviewer-role users who can access all prescriptions.
-        # They may only update notes and status (to reviewed / under_review).
+        # They may update notes, status, and insurance coverage fields.
         if role in (UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN):
             if data.notes is not None:
                 rx.notes = data.notes
@@ -362,6 +362,13 @@ class PrescriptionService:
                         "Pharmacists may only set status to 'reviewed' or 'under_review'"
                     )
                 rx.status = data.status
+            # Insurance coverage: only set when pharmacist provides non-None values
+            if data.insurance_provider is not None:
+                rx.insurance_provider = data.insurance_provider or None
+            if data.insurance_discount_pct is not None:
+                if not (0 <= data.insurance_discount_pct <= 100):
+                    raise BusinessRuleError("Insurance discount must be between 0 and 100%")
+                rx.insurance_discount_pct = data.insurance_discount_pct
             await self.db.flush()
             return await self._get_or_404(rx.id)
 

@@ -518,7 +518,11 @@ export default function CartPage() {
   const hasPackLines    = packLines.length > 0;
   const deliveryFee  = fulfillment === "pickup" ? 0 : subtotal >= 10000 ? 0 : 1500;
   const insuranceSavings = selectedOption?.insuranceSaving ?? 0;
-  const total        = subtotal + deliveryFee - insuranceSavings;
+  // Prescription insurance discount (set by pharmacist, only applies to locked/rx carts)
+  const rxInsuranceDiscount = isLocked && rxData?.insurance_discount_pct && subtotal > 0
+    ? Math.round(subtotal * rxData.insurance_discount_pct / 100)
+    : 0;
+  const total        = subtotal + deliveryFee - insuranceSavings - rxInsuranceDiscount;
   // If patient defers the delivery fee, only medicines + insurance savings are due now
   const amountDueNow = total - (deferDeliveryFee && deliveryFee > 0 ? deliveryFee : 0);
   const stepIdx      = STEPS.findIndex((s) => s.key === step);
@@ -630,6 +634,17 @@ export default function CartPage() {
             <div className="bg-farumasi-50 border border-farumasi-100 rounded-2xl px-4 py-3">
               <p className="text-xs font-semibold text-farumasi-700 mb-0.5">Pharmacist Notes</p>
               <p className="text-xs text-slate-700">{rxData.notes}</p>
+            </div>
+          )}
+          {rxData?.insurance_provider && rxData.insurance_discount_pct && (
+            <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-2xl px-4 py-3">
+              <Shield className="w-4 h-4 text-green-600 shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-green-700">Insurance Applied</p>
+                <p className="text-xs text-slate-600">
+                  {rxData.insurance_provider} — {rxData.insurance_discount_pct}% discount applied to your total
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -1597,6 +1612,15 @@ export default function CartPage() {
                 <span className="font-bold">−{formatPrice(insuranceSavings)}</span>
               </div>
             )}
+            {rxInsuranceDiscount > 0 && rxData?.insurance_provider && (
+              <div className="flex justify-between text-green-600">
+                <span className="flex items-center gap-1">
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>{rxData.insurance_provider} ({rxData.insurance_discount_pct}% off)</span>
+                </span>
+                <span className="font-bold">−{formatPrice(rxInsuranceDiscount)}</span>
+              </div>
+            )}
             <div className="border-t border-slate-100 pt-2.5 flex justify-between">
               <span className="font-bold text-slate-900">{deferDeliveryFee && deliveryFee > 0 ? "Due now" : t.cart_total}</span>
               <span className="font-extrabold text-farumasi-700 text-lg">
@@ -1870,6 +1894,15 @@ export default function CartPage() {
               <Shield className="w-3.5 h-3.5" /> Insurance savings
             </span>
             <span className="font-bold text-green-700">−{formatPrice(insuranceSavings)}</span>
+          </div>
+        )}
+        {rxInsuranceDiscount > 0 && rxData?.insurance_provider && (
+          <div className="flex justify-between text-sm">
+            <span className="text-green-600 flex items-center gap-1">
+              <Shield className="w-3.5 h-3.5" />
+              {rxData.insurance_provider} ({rxData.insurance_discount_pct}% off)
+            </span>
+            <span className="font-bold text-green-700">−{formatPrice(rxInsuranceDiscount)}</span>
           </div>
         )}
         <div className="border-t border-slate-100 pt-3 flex justify-between">

@@ -23,6 +23,8 @@ export interface BackendPrescription {
   created_at: string;
   updated_at: string;
   items: PrescriptionItem[];
+  insurance_provider?: string | null;
+  insurance_discount_pct?: number | null;
   patient?: {
     id: string;
     user?: { id: string; full_name: string; email: string; phone?: string; profile_image_url?: string };
@@ -121,13 +123,18 @@ export const prescriptionsService = {
   },
 
   /**
-   * Save pharmacist notes on the prescription and set its status.
+   * Save pharmacist notes, status, and optional insurance info on the prescription.
    * Use status="reviewed" to mark the cart as ready for the patient.
    * Use status="under_review" to mark it as still being worked on.
    */
   async updatePrescription(
     id: string,
-    payload: { notes?: string; status?: string },
+    payload: {
+      notes?: string;
+      status?: string;
+      insurance_provider?: string | null;
+      insurance_discount_pct?: number | null;
+    },
   ): Promise<BackendPrescription> {
     const { data } = await api.patch<BackendPrescription>(`/prescriptions/${id}`, payload);
     return data;

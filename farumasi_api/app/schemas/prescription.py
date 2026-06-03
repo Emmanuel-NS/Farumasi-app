@@ -54,6 +54,8 @@ class PrescriptionUpdate(FarumasiBaseModel):
     notes: Optional[str] = None
     diagnosis_notes: Optional[str] = None
     status: Optional[PrescriptionStatus] = None
+    insurance_provider: Optional[str] = None
+    insurance_discount_pct: Optional[float] = None
 
 
 class PatientUserOut(FarumasiBaseModel):
@@ -80,6 +82,8 @@ class PrescriptionOut(FarumasiBaseModel):
     diagnosis_notes: Optional[str] = None
     uploaded_file_url: Optional[str] = None
     qr_code: Optional[str] = None
+    insurance_provider: Optional[str] = None
+    insurance_discount_pct: Optional[float] = None
     items: List[PrescriptionItemOut] = []
     patient: Optional[PatientSummaryOut] = None
     created_at: datetime

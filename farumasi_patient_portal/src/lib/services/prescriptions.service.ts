@@ -43,6 +43,9 @@ export interface BackendPrescription {
   diagnosis_notes: string | null;
   uploaded_file_url: string | null;
   qr_code: string | null;
+  /** Insurance coverage added by pharmacist during prescription review */
+  insurance_provider: string | null;
+  insurance_discount_pct: number | null;
   items: BackendPrescriptionItem[];
   created_at: string;
 }

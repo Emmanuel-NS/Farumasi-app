@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -38,6 +38,10 @@ class DigitalPrescription(Base, UUIDMixin, TimestampMixin):
     diagnosis_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     uploaded_file_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     qr_code: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # Insurance coverage added by pharmacist during prescription review
+    insurance_provider: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    insurance_discount_pct: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────
     patient: Mapped["PatientProfile"] = relationship(
