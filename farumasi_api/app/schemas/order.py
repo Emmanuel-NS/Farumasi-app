@@ -6,7 +6,7 @@ from typing import List, Optional
 from pydantic import field_validator, model_validator
 
 from app.schemas.common import FarumasiBaseModel
-from app.core.constants import OrderStatus, PaymentStatus, DeliveryMethod
+from app.core.constants import OrderStatus, PaymentStatus, DeliveryMethod, SellMode
 
 class OrderItemCreate(FarumasiBaseModel):
     """Input item for order creation.
@@ -23,6 +23,7 @@ class OrderItemCreate(FarumasiBaseModel):
     product_id: Optional[str] = None
     product_name: Optional[str] = None
     quantity: int = 1
+    sell_mode: SellMode = SellMode.PACK
     unit_price: Optional[float] = None
 
     @field_validator("quantity")
@@ -104,6 +105,7 @@ class OrderItemOut(FarumasiBaseModel):
     product_name: str
     product_image_url: Optional[str] = None
     quantity: int
+    sell_mode: str = "pack"
     unit_price: float
     total_price: float
     created_at: datetime

@@ -81,6 +81,12 @@ PARTIAL_SELLING_CLASSES = {
 }
 
 
+class SellMode(str, Enum):
+    """How the patient purchased a line item."""
+    PACK = "pack"          # whole box / bottle / tube (fixed pack)
+    PARTIAL = "partial"    # individual tablets, sachets, ampoules, etc.
+
+
 class ListingAvailability(str, Enum):
     AVAILABLE = "available"
     UNAVAILABLE = "unavailable"

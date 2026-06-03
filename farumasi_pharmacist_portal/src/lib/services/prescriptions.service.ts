@@ -2,12 +2,16 @@ import api from "@/lib/api";
 
 export interface PrescriptionItem {
   id: string;
-  medication_name: string;
+  /** Backend field name from the API */
+  medicine_name: string;
   dosage?: string;
   frequency?: string;
+  duration?: string;
   duration_days?: number;
   quantity?: number;
   unit_price?: number;
+  instructions?: string;
+  product_id?: string | null;
 }
 
 export interface BackendPrescription {
@@ -59,6 +63,21 @@ export interface PrescriptionReview {
   created_at: string;
 }
 
+export type SellMode = "pack" | "partial";
+
+export interface CartItem {
+  medicine_name: string;
+  product_id?: string | null;
+  dosage?: string;
+  frequency?: string;
+  duration?: string;
+  quantity: number;
+  /** Instructions for the patient, may include encoded sell_mode */
+  instructions?: string;
+  /** NOT a backend field — stored locally while building the cart */
+  sell_mode?: SellMode;
+}
+
 export const prescriptionsService = {
   async getAll(params?: {
     offset?: number;
@@ -71,6 +90,46 @@ export const prescriptionsService = {
 
   async getOne(id: string): Promise<BackendPrescription> {
     const { data } = await api.get<BackendPrescription>(`/prescriptions/${id}`);
+    return data;
+  },
+
+  /** Add a single item (medicine) to the prescription cart. */
+  async addItem(prescriptionId: string, item: CartItem): Promise<PrescriptionItem> {
+    const { data } = await api.post<PrescriptionItem>(
+      `/prescriptions/${prescriptionId}/items`,
+      item,
+    );
+    return data;
+  },
+
+  /** Update an existing prescription item. */
+  async updateItem(
+    prescriptionId: string,
+    itemId: string,
+    updates: Partial<CartItem>,
+  ): Promise<PrescriptionItem> {
+    const { data } = await api.patch<PrescriptionItem>(
+      `/prescriptions/${prescriptionId}/items/${itemId}`,
+      updates,
+    );
+    return data;
+  },
+
+  /** Remove a prescription item. */
+  async deleteItem(prescriptionId: string, itemId: string): Promise<void> {
+    await api.delete(`/prescriptions/${prescriptionId}/items/${itemId}`);
+  },
+
+  /**
+   * Save pharmacist notes on the prescription and set its status.
+   * Use status="reviewed" to mark the cart as ready for the patient.
+   * Use status="under_review" to mark it as still being worked on.
+   */
+  async updatePrescription(
+    id: string,
+    payload: { notes?: string; status?: string },
+  ): Promise<BackendPrescription> {
+    const { data } = await api.patch<BackendPrescription>(`/prescriptions/${id}`, payload);
     return data;
   },
 

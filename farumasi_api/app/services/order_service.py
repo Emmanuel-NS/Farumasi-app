@@ -48,6 +48,7 @@ from app.schemas.order import (
 )
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
+from app.utils.packaging import resolve_order_line
 
 
 _OWNER_MANAGE_STATUSES = {
@@ -142,6 +143,7 @@ class OrderService:
                     product_id=it.get("product_id"),
                     product_name=it["product_name"],
                     quantity=it["quantity"],
+                    sell_mode=it.get("sell_mode", "pack"),
                     unit_price=it["unit_price"],
                     total_price=round(it["unit_price"] * it["quantity"], 2),
                 )
@@ -189,6 +191,16 @@ class OrderService:
             entity_id=order.id,
             new_value={"order_code": order.order_code, "total": float(order.total_amount)},
         )
+
+        # Mark linked prescription as fulfilled
+        if data.prescription_id:
+            rx_res = await self.db.execute(
+                select(DigitalPrescription).where(DigitalPrescription.id == data.prescription_id)
+            )
+            rx = rx_res.scalar_one_or_none()
+            if rx:
+                rx.status = PrescriptionStatus.FULFILLED
+                await self.db.flush()
 
         return await self._reload(order.id)
 
@@ -532,7 +544,13 @@ class OrderService:
                         raise BusinessRuleError(
                             f"Listing {lst.id} has expired stock"
                         )
-                if lst.stock_quantity < raw.quantity:
+                unit_price, stock_units, sell_mode = resolve_order_line(
+                    lst,
+                    lst.product,
+                    raw.quantity,
+                    str(raw.sell_mode.value if hasattr(raw.sell_mode, "value") else raw.sell_mode),
+                )
+                if lst.stock_quantity < stock_units:
                     raise BusinessRuleError(
                         f"Insufficient stock for listing {lst.id}"
                     )
@@ -572,7 +590,9 @@ class OrderService:
                         "product_id": lst.product_id,
                         "product_name": lst.product.name if lst.product else "Item",
                         "quantity": raw.quantity,
-                        "unit_price": float(lst.price),
+                        "sell_mode": sell_mode,
+                        "unit_price": unit_price,
+                        "stock_units": stock_units,
                     }
                 )
             else:
@@ -633,25 +653,35 @@ class OrderService:
         if role == UserRole.PATIENT:
             patient = await self._get_patient_for_user(actor)
             owns = patient and patient.id == order.patient_id
-            # Patients can self-cancel while the order has not yet shipped AND
-            # has not been paid. Once payment is captured or the order is out
-            # for delivery / delivered / completed, cancellation must go
-            # through pharmacy/partner staff.
-            patient_cancellable = {
+            # Patients can self-cancel as long as the order has not yet been
+            # handed to a rider or collected.
+            #   PENDING / ACCEPTED / PREPARING  → always cancellable (pharmacy
+            #     hasn't done significant work yet; refund will be issued for
+            #     paid orders via finance workflow).
+            #   READY_FOR_PICKUP → only if not yet paid (i.e. pharmacy queued
+            #     it but payment wasn't taken — uncommon but valid).
+            #   OUT_FOR_DELIVERY / DELIVERED / COMPLETED → cannot cancel.
+            always_cancellable = {
                 OrderStatus.PENDING,
                 OrderStatus.ACCEPTED,
                 OrderStatus.PREPARING,
-                OrderStatus.READY_FOR_PICKUP,
             }
             if (
                 owns
                 and new_status == OrderStatus.CANCELLED
-                and order.order_status in patient_cancellable
+                and order.order_status in always_cancellable
+            ):
+                return
+            # READY_FOR_PICKUP is still cancellable when not yet paid
+            if (
+                owns
+                and new_status == OrderStatus.CANCELLED
+                and order.order_status == OrderStatus.READY_FOR_PICKUP
                 and order.payment_status != PaymentStatus.PAID
             ):
                 return
             raise AuthorizationError(
-                "Patients may only cancel their own unpaid, not-yet-shipped orders"
+                "Orders that are already out for delivery or delivered cannot be cancelled by patients"
             )
         if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
             # Farumasi internal pharmacist (no pharmacy) can manage any order's status
@@ -708,13 +738,9 @@ class OrderService:
         return await user_owns_pharmacy(self.db, actor, pharmacy_id)
 
     async def _owns_partner(self, actor: User, partner_id: str) -> bool:
-        res = await self.db.execute(
-            select(PartnerCompany.id).where(
-                PartnerCompany.id == partner_id,
-                PartnerCompany.owner_user_id == actor.id,
-            )
-        )
-        return res.scalar_one_or_none() is not None
+        from app.services.partner_access import user_owns_partner
+
+        return await user_owns_partner(self.db, actor, partner_id)
 
     async def _owner_user_id(
         self, pharmacy_id: Optional[str], partner_id: Optional[str]
@@ -813,25 +839,36 @@ class OrderService:
         """
         for it in items:
             listing_id = it.get("product_listing_id")
-            qty = int(it.get("quantity") or 0)
-            if not listing_id or qty <= 0:
+            stock_units = int(it.get("stock_units") or it.get("quantity") or 0)
+            if not listing_id or stock_units <= 0:
                 continue
             await self.db.execute(
                 sa_update(ProductListing)
                 .where(ProductListing.id == listing_id)
-                .values(stock_quantity=ProductListing.stock_quantity + sign * qty)
+                .values(stock_quantity=ProductListing.stock_quantity + sign * stock_units)
             )
         await self.db.flush()
 
     async def _release_stock_for_order(self, order: Order) -> None:
         """Restore reserved stock for every item on a cancelled order."""
         res = await self.db.execute(
-            select(OrderItem).where(OrderItem.order_id == order.id)
+            select(OrderItem)
+            .where(OrderItem.order_id == order.id)
+            .options(
+                selectinload(OrderItem.product_listing).selectinload(ProductListing.product)
+            )
         )
-        items = [
-            {"product_listing_id": oi.product_listing_id, "quantity": oi.quantity}
-            for oi in res.scalars().all()
-        ]
+        items: List[dict] = []
+        for oi in res.scalars().all():
+            if not oi.product_listing_id or not oi.product_listing:
+                continue
+            lst = oi.product_listing
+            _, stock_units, _ = resolve_order_line(
+                lst, lst.product, oi.quantity, oi.sell_mode or "pack"
+            )
+            items.append(
+                {"product_listing_id": oi.product_listing_id, "stock_units": stock_units}
+            )
         await self._adjust_stock_for_items(items, sign=+1)
 
     async def _assert_prescription_for_items(

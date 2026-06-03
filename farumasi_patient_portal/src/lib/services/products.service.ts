@@ -23,6 +23,7 @@ export interface BackendProduct {
   price_to: number | null;
   /** Number of active sellers stocking this product */
   listing_count: number | null;
+  packaging_class?: string | null;
   /** Partial selling fields */
   allows_partial_selling?: boolean;
   min_partial_quantity?: number | null;
@@ -96,6 +97,7 @@ export function adaptProduct(p: BackendProduct): Medicine {
     warnings: "Keep out of reach of children. Read the label carefully.",
     storage: "Store below 25°C in a dry place away from sunlight.",
     composition: p.generic_name ? `Active ingredient: ${p.generic_name}${p.strength ? ` ${p.strength}` : ""}` : undefined,
+    packagingClass: p.packaging_class ?? undefined,
     allowsPartialSelling: p.allows_partial_selling ?? false,
     minPartialQuantity: p.min_partial_quantity ?? undefined,
     unitsPerPack: p.units_per_pack ?? undefined,

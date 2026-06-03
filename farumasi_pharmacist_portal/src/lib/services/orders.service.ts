@@ -8,6 +8,7 @@ export interface BackendOrderItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  sell_mode?: "pack" | "partial";
   product?: { id: string; name: string; image_url?: string | null } | null;
 }
 

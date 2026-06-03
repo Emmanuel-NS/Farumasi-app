@@ -60,6 +60,7 @@ export interface CreateListingInput {
   expiry_date?: string | null;
   batch_number?: string | null;
   fulfillment_time_minutes?: number;
+  unit_price?: number | null;
 }
 
 export const pharmaciesService = {

@@ -107,15 +107,14 @@ async def update_partner(
     return partner
 
 # ---- Phase 3: /me/listings ----
-from app.schemas.product import ProductListingCreate, ProductListingOut
+from app.schemas.product import ProductListingCreate, ProductListingOut, ProductListingUpdate
 from app.services.product_service import ProductService
 
 
 async def _get_my_partner(db: AsyncSession, current_user: User) -> PartnerCompany:
-    result = await db.execute(
-        select(PartnerCompany).where(PartnerCompany.owner_user_id == current_user.id)
-    )
-    company = result.scalars().first()
+    from app.services.partner_access import resolve_user_partner
+
+    company = await resolve_user_partner(db, current_user)
     if not company:
         raise NotFoundError("PartnerCompany")
     return company
@@ -147,6 +146,33 @@ async def create_my_partner_listing(
     company = await _get_my_partner(db, current_user)
     payload = data.model_copy(update={"partner_company_id": company.id, "pharmacy_id": None})
     return await ProductService(db).create_listing(payload, current_user)
+
+
+@router.patch("/me/listings/{listing_id}", response_model=ProductListingOut)
+async def update_my_partner_listing(
+    listing_id: str,
+    data: ProductListingUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
+):
+    company = await _get_my_partner(db, current_user)
+    listing = await ProductService(db).get_listing(listing_id)
+    if listing.partner_company_id != company.id:
+        raise AuthorizationError("This listing does not belong to your partner company")
+    return await ProductService(db).update_listing(listing_id, data, current_user)
+
+
+@router.delete("/me/listings/{listing_id}", status_code=204)
+async def delete_my_partner_listing(
+    listing_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
+):
+    company = await _get_my_partner(db, current_user)
+    listing = await ProductService(db).get_listing(listing_id)
+    if listing.partner_company_id != company.id:
+        raise AuthorizationError("This listing does not belong to your partner company")
+    await ProductService(db).delete_listing(listing_id, current_user)
 
 
 # ---- Phase 6: /me/orders ----

@@ -40,6 +40,7 @@ from app.schemas.product import (
 )
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
+from app.utils.packaging import validate_listing_prices, validate_product_packaging_fields
 
 
 # ─── role helpers ─────────────────────────────────────────────────────────
@@ -64,6 +65,12 @@ class ProductService:
 
     async def create_product(self, data: ProductCreate, actor: User) -> ProductCatalogueItem:
         _ensure_role(actor, _PRODUCT_MANAGERS, "create products")
+        validate_product_packaging_fields(
+            packaging_class=data.packaging_class,
+            units_per_pack=data.units_per_pack,
+            min_partial_quantity=data.min_partial_quantity,
+            partial_unit_name=data.partial_unit_name,
+        )
         # Super admin auto-approves, pharmacist puts it under review
         approval = (
             ProductApprovalStatus.APPROVED
@@ -101,7 +108,15 @@ class ProductService:
     ) -> ProductCatalogueItem:
         _ensure_role(actor, _PRODUCT_MANAGERS, "update products")
         product = await self._get_product_or_404(product_id)
-        for field, value in data.model_dump(exclude_unset=True).items():
+        patch = data.model_dump(exclude_unset=True)
+        merged = {
+            "packaging_class": patch.get("packaging_class", product.packaging_class),
+            "units_per_pack": patch.get("units_per_pack", product.units_per_pack),
+            "min_partial_quantity": patch.get("min_partial_quantity", product.min_partial_quantity),
+            "partial_unit_name": patch.get("partial_unit_name", product.partial_unit_name),
+        }
+        validate_product_packaging_fields(**merged)
+        for field, value in patch.items():
             setattr(product, field, value)
         await self.db.commit()
         await self.db.refresh(product)
@@ -129,7 +144,34 @@ class ProductService:
         return product
 
     async def get_product(self, product_id: str) -> ProductCatalogueItem:
-        return await self._get_product_or_404(product_id)
+        """Return a single product with listing stats attached (same fields as list view)."""
+        item = await self._get_product_or_404(product_id)
+        # Attach listing stats via a separate aggregation query (avoids UUID subquery join issues)
+        _active_statuses = [ListingAvailability.AVAILABLE, ListingAvailability.LOW_STOCK]
+        from sqlalchemy import text
+        raw = (
+            await self.db.execute(
+                text(
+                    "SELECT MIN(price), MAX(price), COUNT(id), MIN(unit_price) "
+                    "FROM product_listings "
+                    "WHERE product_id = :pid "
+                    "  AND availability_status IN ('available','low_stock') "
+                    "  AND status = 'active'"
+                ),
+                {"pid": product_id},
+            )
+        ).one_or_none()
+        if raw and raw[2]:
+            item.price_from = float(raw[0]) if raw[0] is not None else None  # type: ignore[attr-defined]
+            item.price_to = float(raw[1]) if raw[1] is not None else None    # type: ignore[attr-defined]
+            item.listing_count = int(raw[2])                                  # type: ignore[attr-defined]
+            item.unit_price_from = float(raw[3]) if raw[3] is not None else None  # type: ignore[attr-defined]
+        else:
+            item.price_from = None     # type: ignore[attr-defined]
+            item.price_to = None       # type: ignore[attr-defined]
+            item.listing_count = 0     # type: ignore[attr-defined]
+            item.unit_price_from = None  # type: ignore[attr-defined]
+        return item
 
     async def list_products(
         self,
@@ -167,6 +209,7 @@ class ProductService:
                 listing_stats.c.price_from,
                 listing_stats.c.price_to,
                 listing_stats.c.listing_count,
+                listing_stats.c.unit_price_from,
             )
             .outerjoin(listing_stats, ProductCatalogueItem.id == listing_stats.c.product_id)
         )
@@ -314,6 +357,7 @@ class ProductService:
         product = await self._get_product_or_404(data.product_id)
         if product.approval_status != ProductApprovalStatus.APPROVED:
             raise BusinessRuleError("Cannot list an unapproved product")
+        validate_listing_prices(product, data.price, data.unit_price)
         # 3b. prevent duplicate listing by same entity
         dup_q = select(ProductListing).where(ProductListing.product_id == data.product_id)
         if data.pharmacy_id:
@@ -335,6 +379,7 @@ class ProductService:
             pharmacy_id=data.pharmacy_id,
             partner_company_id=data.partner_company_id,
             price=data.price,
+            unit_price=data.unit_price,
             stock_quantity=data.stock_quantity,
             availability_status=availability,
             expiry_date=data.expiry_date,
@@ -348,16 +393,21 @@ class ProductService:
         )
         self.db.add(listing)
         await self.db.commit()
-        await self.db.refresh(listing)
-        return listing
+        return await self._get_listing_or_404(listing.id)
 
     async def update_listing(
         self, listing_id: str, data: ProductListingUpdate, actor: User
     ) -> ProductListing:
         listing = await self._get_listing_or_404(listing_id)
         await self._assert_listing_owner(actor, listing)
+        product = await self._get_product_or_404(listing.product_id)
 
-        for field, value in data.model_dump(exclude_unset=True).items():
+        patch = data.model_dump(exclude_unset=True)
+        new_price = patch.get("price", listing.price)
+        new_unit_price = patch.get("unit_price", listing.unit_price)
+        validate_listing_prices(product, float(new_price), float(new_unit_price) if new_unit_price is not None else None)
+
+        for field, value in patch.items():
             setattr(listing, field, value)
 
         await self._validate_insurance_ids(listing.accepted_insurance_ids)
@@ -367,8 +417,7 @@ class ProductService:
             listing.stock_quantity,
         )
         await self.db.commit()
-        await self.db.refresh(listing)
-        return listing
+        return await self._get_listing_or_404(listing.id)
 
     async def set_listing_availability(
         self, listing_id: str, new_status: ListingAvailability, actor: User
@@ -388,8 +437,7 @@ class ProductService:
             new_status, listing.expiry_date, listing.stock_quantity
         )
         await self.db.commit()
-        await self.db.refresh(listing)
-        return listing
+        return await self._get_listing_or_404(listing.id)
 
     async def delete_listing(self, listing_id: str, actor: User) -> None:
         listing = await self._get_listing_or_404(listing_id)
@@ -629,7 +677,9 @@ class ProductService:
 
     async def _get_listing_or_404(self, listing_id: str) -> ProductListing:
         result = await self.db.execute(
-            select(ProductListing).where(ProductListing.id == listing_id)
+            select(ProductListing)
+            .options(selectinload(ProductListing.product))
+            .where(ProductListing.id == listing_id)
         )
         listing = result.scalar_one_or_none()
         if not listing:
@@ -665,10 +715,15 @@ class ProductService:
         return res.scalar_one_or_none()
 
     async def _find_owned_partner(self, user_id: str) -> Optional[PartnerCompany]:
-        result = await self.db.execute(
-            select(PartnerCompany).where(PartnerCompany.owner_user_id == user_id)
-        )
-        return result.scalars().first()
+        from app.models.user import User as UserModel
+
+        result = await self.db.execute(select(UserModel).where(UserModel.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            return None
+        from app.services.partner_access import resolve_user_partner
+
+        return await resolve_user_partner(self.db, user)
 
     async def _pharmacist_id_for_user(self, user_id: str) -> Optional[str]:
         result = await self.db.execute(
@@ -690,31 +745,37 @@ class ProductService:
         elif partner_company_id:
             if actor.role != UserRole.PARTNER_COMPANY_ADMIN:
                 raise AuthorizationError(
-                    "Only partner_company_admin can list under a partner company"
+                    "Only partner portal users can list under a partner company"
                 )
-            company = await self._find_owned_partner(actor.id)
-            if not company or company.id != partner_company_id:
-                raise AuthorizationError("You do not own this partner company")
+            from app.services.partner_access import user_owns_partner
+
+            if not await user_owns_partner(self.db, actor, partner_company_id):
+                raise AuthorizationError("You do not have access to this partner company")
 
     async def _assert_listing_owner(self, actor: User, listing: ProductListing) -> None:
+        """Ensure actor may modify this listing (partner vs pharmacy, not both)."""
         if actor.role == UserRole.SUPER_ADMIN:
+            return
+        # Partner-owned listings take precedence (some rows may still have pharmacy_id set).
+        if listing.partner_company_id:
+            if actor.role != UserRole.PARTNER_COMPANY_ADMIN:
+                raise AuthorizationError(
+                    "Only partner portal users can modify partner company listings"
+                )
+            from app.services.partner_access import user_owns_partner
+
+            if not await user_owns_partner(self.db, actor, listing.partner_company_id):
+                raise AuthorizationError("You do not have access to this partner listing")
             return
         if listing.pharmacy_id:
             if actor.role not in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
                 raise AuthorizationError("Only pharmacy staff can modify pharmacy listings")
-            pharmacy = await self._find_owned_pharmacy(actor.id)
-            if not pharmacy or pharmacy.id != listing.pharmacy_id:
-                raise AuthorizationError("You do not own this listing's pharmacy")
-        elif listing.partner_company_id:
-            if actor.role != UserRole.PARTNER_COMPANY_ADMIN:
-                raise AuthorizationError(
-                    "Only partner_company_admin can modify partner listings"
-                )
-            company = await self._find_owned_partner(actor.id)
-            if not company or company.id != listing.partner_company_id:
-                raise AuthorizationError("You do not own this listing's partner company")
-        else:
-            raise BusinessRuleError("Listing has no owner reference")
+            from app.services.pharmacy_access import user_owns_pharmacy
+
+            if not await user_owns_pharmacy(self.db, actor, listing.pharmacy_id):
+                raise AuthorizationError("You do not have access to this pharmacy listing")
+            return
+        raise BusinessRuleError("Listing has no owner reference")
 
     async def _validate_insurance_ids(self, ids: Optional[Sequence[str]]) -> None:
         if not ids:

@@ -163,6 +163,21 @@ class PrescriptionService:
                     "Only draft or active prescriptions can be edited"
                 )
             return
+        # Pharmacists and pharmacy admins may manage prescription items so they can
+        # build a cart on behalf of the patient from an uploaded prescription.
+        # Allowed while the prescription is still pending review or under review.
+        if role in (UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN):
+            editable_statuses = {
+                PrescriptionStatus.ACTIVE,
+                PrescriptionStatus.DRAFT,
+                PrescriptionStatus.REVIEWED,  # allow re-editing a previously sent cart
+            }
+            # Also handle raw string values from DB
+            if rx.status in editable_statuses or rx.status in {"under_review", "reviewed", "active", "draft"}:
+                return
+            raise BusinessRuleError(
+                "Cart can only be built while the prescription is active, under review, or reviewed"
+            )
         raise AuthorizationError("Not allowed to edit this prescription")
 
     # ── Creation ─────────────────────────────────────────────────────────
@@ -331,6 +346,25 @@ class PrescriptionService:
         self, prescription_id: str, data: PrescriptionUpdate, actor: User
     ) -> DigitalPrescription:
         rx = await self._get_or_404(prescription_id)
+        role = actor.role
+
+        # Pharmacists are reviewer-role users who can access all prescriptions.
+        # They may only update notes and status (to reviewed / under_review).
+        if role in (UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN):
+            if data.notes is not None:
+                rx.notes = data.notes
+            if data.status is not None:
+                # Pharmacists may only advance to "reviewed" (cart ready for patient)
+                # or back to "under_review" (needs more work).
+                allowed_pharmacist_statuses = {"reviewed", "under_review"}
+                if data.status not in allowed_pharmacist_statuses:
+                    raise BusinessRuleError(
+                        "Pharmacists may only set status to 'reviewed' or 'under_review'"
+                    )
+                rx.status = data.status
+            await self.db.flush()
+            return await self._get_or_404(rx.id)
+
         await self._assert_can_edit(rx, actor)
         if data.notes is not None:
             rx.notes = data.notes
@@ -414,7 +448,11 @@ class PrescriptionService:
         item = result.scalar_one_or_none()
         if not item:
             raise NotFoundError("PrescriptionItem", item_id)
-        if len(rx.items) <= 1:
+        # Pharmacists may delete all items (they rebuild the full cart).
+        # Patients cannot remove the last item — they should cancel the prescription.
+        if len(rx.items) <= 1 and actor.role not in (
+            UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN
+        ):
             raise BusinessRuleError(
                 "Cannot remove last item; cancel the prescription instead"
             )

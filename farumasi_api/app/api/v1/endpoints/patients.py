@@ -119,8 +119,8 @@ from app.services.recommendation_service import RecommendationService  # noqa: E
 )
 async def get_my_prescription_recommendations(
     prescription_id: str,
-    lat: float = Query(..., ge=-90.0, le=90.0),
-    lon: float = Query(..., ge=-180.0, le=180.0),
+    lat: float = Query(default=-1.9441, ge=-90.0, le=90.0),
+    lon: float = Query(default=30.0619, ge=-180.0, le=180.0),
     preferred_delivery: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

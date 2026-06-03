@@ -75,6 +75,7 @@ export interface Medicine {
   composition?: string;
   interactions?: string;
   /** Partial selling / per-unit pricing */
+  packagingClass?: string;
   allowsPartialSelling?: boolean;
   minPartialQuantity?: number;
   unitsPerPack?: number;
@@ -141,10 +142,15 @@ export interface Order {
     productListingId?: string | null;
     name: string;
     quantity: number;
+    sellMode?: "pack" | "partial";
     unitPrice: number;
     totalPrice: number;
     imageUrl?: string | null;
   }>;
+  notes?: string;
+  patientAccessCode?: string;
+  deliveryAddress?: string;
+  subtotal?: number;
 }
 
 // ── Delivery QR ───────────────────────────────
@@ -217,14 +223,20 @@ export interface DigitalPrescriptionItem {
   frequency: string;
   duration: string;
   quantity: number;
+  /** Linked catalogue product id (set when pharmacist built the cart) */
+  productId?: string | null;
+  instructions?: string;
 }
 
 export interface DigitalPrescription {
   id: string;
   patientId: string;
+  /** "uploaded" for patient-uploaded files; "digital" for doctor-issued */
+  prescriptionType?: "uploaded" | "digital" | string;
   doctorName: string;
   hospitalName?: string;
   diagnosis?: string;
+  notes?: string;
   items: DigitalPrescriptionItem[];
   status: DigitalPrescriptionStatus;
   issuedAt: string;
@@ -232,6 +244,8 @@ export interface DigitalPrescription {
   qrCode?: string;
   selectedPharmacyId?: string;
   orderId?: string;
+  /** URL of the uploaded prescription image or PDF */
+  uploadedFileUrl?: string;
 }
 
 // ── Pharmacists ───────────────────────────────

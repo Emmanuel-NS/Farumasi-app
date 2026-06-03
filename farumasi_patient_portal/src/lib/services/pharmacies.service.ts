@@ -22,6 +22,7 @@ export interface BackendListing {
   pharmacy_id: string | null;
   partner_company_id: string | null;
   price: number;
+  unit_price?: number | null;
   stock_quantity: number;
   availability_status: string;
   fulfillment_time_minutes: number;

@@ -1,14 +1,22 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
 import type { CartEntry } from "@/store/cart-store";
+import { cartLineKey } from "@/lib/packaging-classes";
+import { cartLineUnitPrice, minQuantityForLine } from "@/lib/cart-pricing";
 import { useTranslation } from "@/lib/translations";
 import { toast } from "sonner";
 import { pharmaciesService, BackendPharmacy, BackendListing } from "@/lib/services/pharmacies.service";
 import { ordersService } from "@/lib/services/orders.service";
+import {
+  prescriptionsService,
+  type BackendPrescription,
+} from "@/lib/services/prescriptions.service";
+import { productsService } from "@/lib/services/products.service";
 import type { Pharmacy, Medicine } from "@/types";
 import {
   ShoppingCart,
@@ -61,6 +69,13 @@ interface PharmacyOption {
   estimatedDeliveryMin: number;
 }
 
+function decodeSellMode(instructions: string | null | undefined): "pack" | "partial" {
+  return instructions?.startsWith("[sm:partial]") ? "partial" : "pack";
+}
+function decodeInstructions(instructions: string | null | undefined): string {
+  return (instructions ?? "").replace(/^\[sm:(pack|partial)\]\s*/, "");
+}
+
 // Adapt backend pharmacy to Pharmacy type for scoring
 function adaptBackendPharmacy(p: BackendPharmacy): Pharmacy {
   return {
@@ -84,7 +99,14 @@ const PATIENT_INSURANCE = "RSSB";
  * Map<sellerId, Map<productId, { price, status, fulfillmentMin, expiryDate }>>
  * Built from real backend listing data.
  */
-type ListingEntry = { listingId: string; price: number; status: string; fulfillmentMin: number; expiryDate: string | null };
+type ListingEntry = {
+  listingId: string;
+  price: number;
+  unitPrice: number | null;
+  status: string;
+  fulfillmentMin: number;
+  expiryDate: string | null;
+};
 type ListingsMap = Map<string, Map<string, ListingEntry>>;
 
 /**
@@ -123,7 +145,7 @@ function driveMinutes(distKm: number): number {
 }
 
 function scorePharmacies(
-  cartMeds: Medicine[],
+  cartLines: CartEntry[],
   pharmacies: Pharmacy[],
   listingsMap: ListingsMap,
   hasPrescription = false,
@@ -131,20 +153,32 @@ function scorePharmacies(
   patientDistrict = "",
   patientLocation: [number, number] | null = null,
 ): PharmacyOption[] {
-  if (pharmacies.length === 0 || cartMeds.length === 0) return [];
+  if (pharmacies.length === 0 || cartLines.length === 0) return [];
 
   // ── Pass 1: compute raw stats per pharmacy ──────────────────────────────
   const raw = pharmacies
     .map((pharmacy) => {
       const byProduct = listingsMap.get(pharmacy.id) ?? new Map<string, ListingEntry>();
-      const availability: MedicineAvailability[] = cartMeds.map((med) => {
+      const availability: MedicineAvailability[] = cartLines.map(({ medicine: med, sellMode, qty }) => {
         const entry = byProduct.get(med.id);
         if (!entry) return { medicineName: med.name, available: false, stockStatus: "unavailable", unitPrice: 0 };
+
+        // Partial sell mode requires the listing to have a unitPrice set.
+        // If not, this pharmacy cannot fulfill the partial order for this line.
+        if (sellMode === "partial" && (entry.unitPrice == null || entry.unitPrice <= 0)) {
+          return { medicineName: med.name, available: false, stockStatus: "no_partial_price", unitPrice: 0 };
+        }
+
+        // Use the correct price for the chosen sell mode — never mix partial unit price with pack price.
+        const linePrice = sellMode === "partial"
+          ? entry.unitPrice! * qty
+          : entry.price * qty;
+
         return {
           medicineName: med.name,
           available: entry.status === "available" || entry.status === "low_stock",
           stockStatus: entry.status,
-          unitPrice: entry.price,
+          unitPrice: linePrice,
         };
       });
 
@@ -177,7 +211,7 @@ function scorePharmacies(
         ? (distanceKm > 0 ? travelMin : avgFulfillment)
         : (distanceKm > 0 ? avgFulfillment + travelMin : avgFulfillment);
 
-      return { pharmacy, availability, availableCount, totalCount: cartMeds.length,
+      return { pharmacy, availability, availableCount, totalCount: cartLines.length,
                priceEstimate, insuranceMatch, insuranceSaving, avgFulfillment, minExpiryDays, distanceKm, estimatedMin };
     })
     .filter((r) => r.availableCount > 0); // drop pharmacies with zero matching stock
@@ -280,6 +314,9 @@ const ORDER_NUM = `ORD-${Math.floor(10000 + Math.random() * 89999)}`;
 export default function CartPage() {
   const { items: cartItems, setQty, remove, clear } = useCartStore();
   const t = useTranslation();
+  const searchParams = useSearchParams();
+  const rxId = searchParams.get("rx"); // present when coming from a prescription
+  const isLocked = !!rxId;             // prescription cart — items are read-only
 
   const STEPS: { key: Step; label: string; icon: React.ReactNode }[] = [
     { key: "cart",      label: "Cart",     icon: <ShoppingCart className="w-3.5 h-3.5" /> },
@@ -310,6 +347,11 @@ export default function CartPage() {
   const [listingsLoading, setListingsLoading] = useState(false);
   const [aiPhase, setAiPhase]               = useState(0);   // 0=idle, 1-4=phases, 5=done
   const [pharmaReady, setPharmaReady]       = useState(false);
+  // ── Prescription-locked mode state ──────────────────────────
+  const [rxData, setRxData]       = useState<BackendPrescription | null>(null);
+  const [rxLoading, setRxLoading] = useState(false);
+  /** Catalogue product data for each prescription item that has a linked product_id */
+  const [rxProductsMap, setRxProductsMap] = useState<Map<string, Medicine>>(new Map());
 
   useEffect(() => {
     pharmaciesService.listPharmacies().then((items) => {
@@ -317,14 +359,73 @@ export default function CartPage() {
     }).catch(() => {});
   }, []);
 
+  // Load prescription data when in locked mode
+  useEffect(() => {
+    if (!rxId) return;
+    setRxLoading(true);
+    prescriptionsService.getMyPrescriptionsRaw()
+      .then((items) => {
+        const found = items.find((r) => r.id === rxId) ?? null;
+        setRxData(found);
+      })
+      .catch(() => {})
+      .finally(() => setRxLoading(false));
+  }, [rxId]);
+
+  // Fetch real product catalogue data for prescription items that have a product_id
+  useEffect(() => {
+    if (!rxData) return;
+    const ids = [...new Set(rxData.items.map((it) => it.product_id).filter(Boolean))] as string[];
+    if (ids.length === 0) return;
+    Promise.all(ids.map((id) => productsService.getProductById(id).catch(() => null)))
+      .then((results) => {
+        const m = new Map<string, Medicine>();
+        ids.forEach((id, i) => { if (results[i]) m.set(id, results[i]!); });
+        setRxProductsMap(m);
+      });
+  }, [rxData]);
+
+  // Prescription items converted to CartEntry[] so the same listing/scoring logic applies
+  const lockedCartItems = useMemo((): CartEntry[] => {
+    if (!isLocked || !rxData) return [];
+    return rxData.items.map((item) => {
+      const product = item.product_id ? rxProductsMap.get(item.product_id) : undefined;
+      const sellMode = decodeSellMode(item.instructions);
+      // Build a Medicine stub from catalogue data (if available) or just the name
+      const medicine: Medicine = product ?? {
+        id: item.product_id ?? `rx-${item.id}`,
+        name: item.medicine_name,
+        description: item.medicine_name,
+        price: 0,
+        imageUrl: "",
+        category: "Prescription",
+        additionalCategories: [],
+        additionalSubCategories: [],
+        requiresPrescription: true,
+        rating: 0,
+        isPopular: false,
+        dosage: item.dosage ?? "",
+        sideEffects: "",
+        manufacturer: "",
+        keywords: [],
+        ageDosages: [],
+        marketingPharmacies: [],
+      };
+      return { medicine, qty: item.quantity ?? 1, sellMode };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLocked, rxData, rxProductsMap]);
+
   // Fetch real stock listings when the patient enters the pharmacy-selection step
-  const cartKey = Object.keys(cartItems).sort().join(",");
+  const effectiveItems = isLocked ? lockedCartItems : (Object.values(cartItems) as CartEntry[]);
+  const cartKey = effectiveItems.map((e) => e.medicine.id).sort().join(",");
   useEffect(() => {
     if (step !== "pharmacy" && step !== "cart") return;
-    const productIds = Object.values(cartItems).map((e) => (e as CartEntry).medicine.id);
+    const productIds = effectiveItems.map((e) => e.medicine.id).filter(Boolean);
     if (productIds.length === 0) return;
     setListingsLoading(true);
-    Promise.all(productIds.map((pid) => pharmaciesService.listingsForProduct(pid)))
+    // Per-item catch so a 404 on a stub/unlinked item doesn't abort the whole fetch
+    Promise.all(productIds.map((pid) => pharmaciesService.listingsForProduct(pid).catch(() => [] as BackendListing[])))
       .then((results: BackendListing[][]) => {
         const map: ListingsMap = new Map();
         results.forEach((listings, idx) => {
@@ -336,6 +437,7 @@ export default function CartPage() {
             map.get(sellerId)!.set(productId, {
               listingId: listing.id,
               price: listing.price,
+              unitPrice: listing.unit_price ?? null,
               status: listing.availability_status,
               fulfillmentMin: listing.fulfillment_time_minutes,
               expiryDate: listing.expiry_date ?? null,
@@ -361,9 +463,12 @@ export default function CartPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // AI analysis phase animation — plays for ~2.6s when entering pharmacy step
+  // AI analysis phase animation — plays for ~2.6s when entering pharmacy step.
+  // In locked mode we skip the phase visuals (jump to phase 5) but still wait
+  // for listingsLoading to finish before revealing results (via pharmaReady effect).
   useEffect(() => {
     if (step !== "pharmacy") { setAiPhase(0); setPharmaReady(false); return; }
+    if (isLocked) { setAiPhase(5); return; }  // skip animation, but pharmaReady still waits for listings
     let cancelled = false;
     setAiPhase(1);
     setPharmaReady(false);
@@ -376,17 +481,41 @@ export default function CartPage() {
     })();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, isLocked]);
 
   // Reveal results only when BOTH animation finished AND data loaded
   useEffect(() => {
     if (aiPhase >= 5 && !listingsLoading) setPharmaReady(true);
   }, [aiPhase, listingsLoading]);
 
-  const enriched     = Object.values(cartItems) as CartEntry[];
-  const subtotal        = enriched.reduce((s: number, e: CartEntry) => s + e.medicine.price * e.qty, 0);
-  const subtotalMax      = enriched.reduce((s: number, e: CartEntry) => s + (e.medicine.maxPrice ?? e.medicine.price) * e.qty, 0);
-  const hasCatalogRange  = subtotalMax > subtotal;
+  // Use prescription items (locked) or normal cart items
+  const enriched = effectiveItems;
+
+  // Pack lines and partial lines must never share a price range — their unit bases
+  // are completely different (whole box vs individual tablet/sachet/vial).
+  const packLines    = enriched.filter((e) => e.sellMode !== "partial");
+  const partialLines = enriched.filter((e) => e.sellMode === "partial");
+
+  // Subtotal: correct price for each line's sell mode.
+  // For partial lines: use unitPriceFrom (per-unit). If the catalogue has no unit price
+  // yet, we show 0 for that line so it's never confused with the pack price.
+  const subtotalPack = packLines.reduce(
+    (s, e) => s + (e.medicine.price) * e.qty, 0,
+  );
+  const subtotalPackMax = packLines.reduce(
+    (s, e) => s + (e.medicine.maxPrice ?? e.medicine.price) * e.qty, 0,
+  );
+  const subtotalPartial = partialLines.reduce(
+    (s, e) => s + (e.medicine.unitPriceFrom ?? 0) * e.qty, 0,
+  );
+  // Combined catalogue-level subtotal (used for delivery fee threshold and display)
+  const subtotal = subtotalPack + subtotalPartial;
+  // Max only uses pack-item price variation; partial items never inflate the pack range
+  const subtotalMax = subtotalPackMax + subtotalPartial;
+  // Only show a range when pack items actually have differing catalog min/max prices
+  const hasCatalogRange = packLines.length > 0 && subtotalPackMax > subtotalPack;
+  const hasPartialLines = partialLines.length > 0;
+  const hasPackLines    = packLines.length > 0;
   const deliveryFee  = fulfillment === "pickup" ? 0 : subtotal >= 10000 ? 0 : 1500;
   const insuranceSavings = selectedOption?.insuranceSaving ?? 0;
   const total        = subtotal + deliveryFee - insuranceSavings;
@@ -395,9 +524,9 @@ export default function CartPage() {
   const stepIdx      = STEPS.findIndex((s) => s.key === step);
 
   const pharmacyOptions = useMemo(
-    () => scorePharmacies(enriched.map((e: CartEntry) => e.medicine), pharmacyList, listingsMap, false, fulfillment === "pickup", patientDistrict, patientLocation),
+    () => scorePharmacies(enriched, pharmacyList, listingsMap, false, fulfillment === "pickup", patientDistrict, patientLocation),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enriched.map((e: CartEntry) => e.medicine.id).join(","), pharmacyList, listingsMap, fulfillment, patientDistrict, patientLocation]
+    [enriched.map((e: CartEntry) => `${e.medicine.id}:${e.sellMode}:${e.qty}`).join(","), pharmacyList, listingsMap, fulfillment, patientDistrict, patientLocation]
   );
 
   // Price range across matched pharmacies (for cart summary)
@@ -447,7 +576,7 @@ export default function CartPage() {
   );
 
   // ── Empty cart ────────────────────────────────────────────────
-  if (enriched.length === 0 && step === "cart") {
+  if (enriched.length === 0 && step === "cart" && !isLocked) {
     return (
       <div className="p-6 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
         <ShoppingCart className="w-20 h-20 text-slate-200 mb-4" />
@@ -469,8 +598,8 @@ export default function CartPage() {
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link
-          href="/store"
-          aria-label="Back to store"
+          href={isLocked ? "/prescriptions" : "/store"}
+          aria-label={isLocked ? "Back to prescriptions" : "Back to store"}
           className="p-2 rounded-xl text-slate-400 hover:text-farumasi-700 hover:bg-farumasi-50 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -478,106 +607,237 @@ export default function CartPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{t.cart_title}</h1>
           <p className="text-slate-500 text-sm">
-            {enriched.length} item{enriched.length !== 1 ? "s" : ""}
+            {isLocked
+              ? `${rxData?.items.length ?? "—"} item${(rxData?.items.length ?? 0) !== 1 ? "s" : ""} · Pharmacist prepared`
+              : `${enriched.length} item${enriched.length !== 1 ? "s" : ""}`}
           </p>
         </div>
       </div>
 
       <StepBar />
 
+      {/* Lock banner + pharmacist notes (prescription mode only) */}
+      {isLocked && !rxLoading && (
+        <div className="space-y-3 mb-3">
+          <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+            <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+            <p className="text-sm font-semibold text-amber-800">
+              Cart prepared by our pharmacist — items cannot be modified.
+              You can cancel before it reaches the pharmacy.
+            </p>
+          </div>
+          {rxData?.notes && (
+            <div className="bg-farumasi-50 border border-farumasi-100 rounded-2xl px-4 py-3">
+              <p className="text-xs font-semibold text-farumasi-700 mb-0.5">Pharmacist Notes</p>
+              <p className="text-xs text-slate-700">{rxData.notes}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Loading spinner while prescription data is being fetched */}
+      {isLocked && rxLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-6 h-6 border-2 border-farumasi-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
       <div className="space-y-3 mb-6">
-        {enriched.map(({ medicine, qty }) => (
-          <div
-            key={medicine.id}
-            className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex gap-4 items-start"
-          >
-            <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
-              {medicine.imageUrl ? (
-                <img
-                  src={medicine.imageUrl}
-                  alt={medicine.name}
-                  className="w-full h-full object-cover"
-                />
+        {enriched.map(({ medicine, qty, sellMode }, idx) => {
+          const lineKey = cartLineKey(medicine.id, sellMode);
+          const minQty  = minQuantityForLine(medicine, sellMode);
+          const unitLabel = sellMode === "partial"
+            ? (medicine.partialUnitName ?? "unit")
+            : (medicine.unitsPerPack && medicine.unitsPerPack > 1 ? "pack" : "item");
+          const linePrice = cartLineUnitPrice(medicine, sellMode);
+          // Pharmacist per-item instructions (prescription mode)
+          const rxItem = isLocked ? (rxData?.items[idx] ?? null) : null;
+          const pharmacistNotes = rxItem ? decodeInstructions(rxItem.instructions) : null;
+          // For locked items linked to a real product, make name a clickable link
+          const hasProductLink = isLocked && !medicine.id.startsWith("rx-");
+          // Price range for pack items
+          const packMax = sellMode === "pack" && medicine.maxPrice && medicine.maxPrice > medicine.price
+            ? medicine.maxPrice : null;
+          return (
+            <div key={lineKey} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex gap-4 items-start">
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
+                {medicine.imageUrl ? (
+                  <img src={medicine.imageUrl} alt={medicine.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-3xl">💊</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                {hasProductLink ? (
+                  <Link href={`/store/${medicine.id}`}
+                    className="text-sm font-bold text-farumasi-700 hover:underline flex items-center gap-1 group">
+                    <span className="truncate">{medicine.name}</span>
+                    <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-70 transition-opacity shrink-0" />
+                  </Link>
+                ) : (
+                  <p className="text-sm font-bold text-slate-900 truncate">{medicine.name}</p>
+                )}
+                <p className="text-xs text-farumasi-600 font-medium mt-0.5">{medicine.category}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5 capitalize">
+                  {sellMode === "partial" ? `Partial · per ${unitLabel}` : "Whole pack"}
+                </p>
+                {sellMode === "partial" && linePrice === 0 ? (
+                  <p className="text-xs text-slate-400 italic mt-1.5">Price set at pharmacy</p>
+                ) : packMax ? (
+                  <p className="text-sm font-extrabold text-farumasi-700 mt-1.5">
+                    {formatPrice(linePrice)} – {formatPrice(packMax)}
+                    <span className="text-xs font-medium text-slate-500"> / {unitLabel}</span>
+                  </p>
+                ) : (
+                  <p className="text-sm font-extrabold text-farumasi-700 mt-1.5">
+                    {formatPrice(linePrice)}
+                    <span className="text-xs font-medium text-slate-500"> / {unitLabel}</span>
+                  </p>
+                )}
+                {pharmacistNotes && (
+                  <p className="text-xs text-farumasi-600 italic mt-0.5">{pharmacistNotes}</p>
+                )}
+              </div>
+              {isLocked ? (
+                /* Locked mode — show sell-mode badge + qty, no controls */
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <span className={cn(
+                    "text-[9px] font-bold px-1.5 py-0.5 rounded-full",
+                    sellMode === "partial" ? "bg-purple-100 text-purple-700" : "bg-farumasi-100 text-farumasi-700"
+                  )}>
+                    {sellMode === "partial" ? "Partial" : "Whole pack"}
+                  </span>
+                  <p className="text-xs font-bold text-slate-700 mt-1">×{qty}</p>
+                </div>
               ) : (
-                <span className="text-3xl">💊</span>
+                /* Normal mode — remove + qty controls */
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <button onClick={() => remove(lineKey)} aria-label={`Remove ${medicine.name} from cart`}
+                    className="p-1.5 text-slate-300 hover:text-red-400 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <div className="flex items-center gap-2 bg-slate-100 rounded-2xl px-2 py-1">
+                    <button onClick={() => setQty(lineKey, qty - 1)} disabled={qty <= minQty}
+                      className="w-7 h-7 rounded-xl bg-white font-bold text-slate-600 hover:bg-farumasi-50 flex items-center justify-center shadow-sm disabled:opacity-40">
+                      −
+                    </button>
+                    <span className="text-sm font-bold text-slate-900 w-5 text-center">{qty}</span>
+                    <button onClick={() => setQty(lineKey, qty + 1)}
+                      className="w-7 h-7 rounded-xl bg-farumasi-600 text-white font-bold hover:bg-farumasi-700 flex items-center justify-center">
+                      +
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-900 truncate">{medicine.name}</p>
-              <p className="text-xs text-farumasi-600 font-medium mt-0.5">{medicine.category}</p>
-              <p className="text-sm font-extrabold text-farumasi-700 mt-1.5">
-                {formatPrice(medicine.price)}{medicine.maxPrice && medicine.maxPrice > medicine.price ? ` – ${formatPrice(medicine.maxPrice)}` : ""}
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-2 shrink-0">
-              <button
-                onClick={() => remove(medicine.id)}
-                aria-label={`Remove ${medicine.name} from cart`}
-                className="p-1.5 text-slate-300 hover:text-red-400 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-              <div className="flex items-center gap-2 bg-slate-100 rounded-2xl px-2 py-1">
-                <button
-                  onClick={() => setQty(medicine.id, qty - 1)}
-                  className="w-7 h-7 rounded-xl bg-white font-bold text-slate-600 hover:bg-farumasi-50 flex items-center justify-center shadow-sm"
-                >
-                  −
-                </button>
-                <span className="text-sm font-bold text-slate-900 w-5 text-center">{qty}</span>
-                <button
-                  onClick={() => setQty(medicine.id, qty + 1)}
-                  className="w-7 h-7 rounded-xl bg-farumasi-600 text-white font-bold hover:bg-farumasi-700 flex items-center justify-center"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
+      )}
+
+      {/* ── Cart summary (unified — works for both normal and prescription mode) ── */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
         <h2 className="text-sm font-bold text-slate-700 mb-4">{t.cart_summary}</h2>
         <div className="space-y-2.5 text-sm">
-          <div className="flex justify-between text-slate-600">
+          {/* One row per medicine with name, qty, mode, and price */}
+          {enriched.map(({ medicine, qty, sellMode }) => {
+            const itemLinePrice = cartLineUnitPrice(medicine, sellMode);
+            const itemTotalMin  = itemLinePrice * qty;
+            // Price range: show if catalogue has a max price > min (pack items only)
+            const itemMaxPrice  = sellMode === "pack" && medicine.maxPrice && medicine.maxPrice > medicine.price
+              ? medicine.maxPrice
+              : null;
+            const itemTotalMax  = itemMaxPrice ? itemMaxPrice * qty : null;
+            const unitLabel = sellMode === "partial"
+              ? (medicine.partialUnitName ?? "unit")
+              : "pack";
+            return (
+              <div key={cartLineKey(medicine.id, sellMode)} className="flex justify-between text-slate-600 gap-2">
+                <span className="truncate max-w-[60%]">
+                  {medicine.name}
+                  <span className="text-slate-400 text-xs ml-1">
+                    ×{qty} {unitLabel}{sellMode === "partial" ? "" : ""}
+                  </span>
+                </span>
+                {itemLinePrice === 0 ? (
+                  <span className="text-slate-400 text-xs italic shrink-0">At pharmacy</span>
+                ) : itemTotalMax ? (
+                  <span className="font-medium shrink-0">{formatPrice(itemTotalMin)} – {formatPrice(itemTotalMax)}</span>
+                ) : (
+                  <span className="font-medium shrink-0">{formatPrice(itemTotalMin)}</span>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Subtotal — correctly sums pack + partial from catalogue */}
+          <div className="flex justify-between text-slate-600 border-t border-dashed border-slate-100 pt-2">
             <span>{t.cart_subtotal}</span>
-            {listingsLoading ? (
-              <span className="text-slate-400 text-xs italic">Loading prices…</span>
-            ) : hasPriceRange ? (
-              <span className="font-semibold text-farumasi-700">
-                {formatPrice(priceRangeMin)} – {formatPrice(priceRangeMax)}
-              </span>
-            ) : allPharmacyPrices.length > 0 ? (
-              <span>{formatPrice(priceRangeMin)}</span>
-            ) : hasCatalogRange ? (
-              <span>{formatPrice(subtotal)} – {formatPrice(subtotalMax)}</span>
-            ) : (
-              <span>{formatPrice(subtotal)}</span>
-            )}
+            {(() => {
+              const partialUnpriced = hasPartialLines && subtotalPartial === 0;
+              if (partialUnpriced && !hasPackLines) {
+                return <span className="text-slate-400 text-xs italic">Confirmed at pharmacy</span>;
+              }
+              if (partialUnpriced && hasPackLines) {
+                return (
+                  <span className="font-medium text-slate-700">
+                    {formatPrice(subtotalPack)}
+                    <span className="text-slate-400 text-xs ml-1">+ partial</span>
+                  </span>
+                );
+              }
+              // Both priced — show the real sum
+              return (
+                <span className="font-semibold text-slate-800">
+                  {hasCatalogRange
+                    ? `${formatPrice(subtotalPack + subtotalPartial)} – ${formatPrice(subtotalPackMax + subtotalPartial)}`
+                    : formatPrice(subtotalPack + subtotalPartial)}
+                </span>
+              );
+            })()}
           </div>
+
+          {/* Delivery fee */}
           <div className="flex justify-between text-slate-600">
             <span>{t.cart_delivery_fee}</span>
-            <span className="text-slate-400 text-xs italic">Confirmed at pharmacy selection</span>
+            <span className="text-slate-400 text-xs italic">Confirmed at pharmacy</span>
           </div>
-          {hasPriceRange && (
+
+          {/* Hint when catalogue has a price range (min ≠ max across pharmacies) */}
+          {hasCatalogRange && (
             <p className="text-xs text-slate-400 italic">
-              Price varies by pharmacy · confirmed when you select
+              Prices confirmed when you select a pharmacy
             </p>
           )}
+
+          {/* Total */}
           <div className="border-t border-slate-100 pt-2.5 flex justify-between">
             <span className="font-bold text-slate-900 text-base">{t.cart_total}</span>
-            {hasPriceRange ? (
-              <span className="font-extrabold text-farumasi-700 text-lg">
-                {formatPrice(priceRangeMin)} – {formatPrice(priceRangeMax)}
-              </span>
-            ) : allPharmacyPrices.length > 0 ? (
-              <span className="font-extrabold text-farumasi-700 text-lg">{formatPrice(priceRangeMin)}</span>
-            ) : hasCatalogRange ? (
-              <span className="font-extrabold text-farumasi-700 text-lg">{formatPrice(subtotal)} – {formatPrice(subtotalMax)}</span>
-            ) : (
-              <span className="font-extrabold text-farumasi-700 text-lg">{formatPrice(subtotal)}</span>
-            )}
+            {(() => {
+              const partialUnpriced = hasPartialLines && subtotalPartial === 0;
+              if (partialUnpriced && !hasPackLines) {
+                return <span className="text-base font-semibold text-slate-500 italic">See at pharmacy</span>;
+              }
+              if (partialUnpriced && hasPackLines) {
+                return (
+                  <span className="font-extrabold text-farumasi-700 text-lg">
+                    {hasCatalogRange
+                      ? `${formatPrice(subtotalPack)} – ${formatPrice(subtotalPackMax)}`
+                      : formatPrice(subtotalPack)}
+                    <span className="text-sm font-normal text-slate-400 ml-1">+ partial</span>
+                  </span>
+                );
+              }
+              const totalMin = subtotalPack + subtotalPartial;
+              const totalMax = subtotalPackMax + subtotalPartial;
+              return (
+                <span className="font-extrabold text-farumasi-700 text-lg">
+                  {hasCatalogRange
+                    ? `${formatPrice(totalMin)} – ${formatPrice(totalMax)}`
+                    : formatPrice(totalMin)}
+                </span>
+              );
+            })()}
           </div>
         </div>
 
@@ -597,6 +857,7 @@ export default function CartPage() {
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
+
     </div>
   );
 
@@ -667,84 +928,93 @@ export default function CartPage() {
       {/* Pharmacy option cards — AI analysis / empty / results */}
       {!pharmaReady ? (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
-          {/* AI header */}
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-2xl bg-farumasi-600 flex items-center justify-center shrink-0">
-              <Brain className="w-5 h-5 text-white" />
+          {/* Simple loading spinner for prescription mode; full AI animation for normal mode */}
+          {isLocked ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-3">
+              <div className="w-8 h-8 border-2 border-farumasi-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-slate-500">Finding best pharmacies for your prescription…</p>
             </div>
-            <div>
-              <p className="text-sm font-bold text-slate-900">Farumasi AI</p>
-              <p className="text-xs text-slate-400">Finding your best match…</p>
-            </div>
-            <div className="ml-auto flex items-center gap-0.5">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="w-1.5 h-1.5 rounded-full bg-farumasi-500 animate-bounce"
-                  style={{ animationDelay: `${i * 150}ms` }}
-                />
-              ))}
-            </div>
-          </div>
-          {/* Phase steps */}
-          <div className="space-y-3">
-            {([
-              {
-                label: `Scanning ${pharmacyList.length || "—"} partner pharmacies`,
-                sub: "Checking network availability",
-              },
-              {
-                label: "Verifying stock for your items",
-                sub: enriched.length > 0
-                  ? enriched.slice(0, 2).map((e: CartEntry) => e.medicine.name).join(", ") +
-                    (enriched.length > 2 ? ` +${enriched.length - 2} more` : "")
-                  : "Your cart items",
-              },
-              {
-                label: "Calculating proximity & delivery times",
-                sub: patientLocation ? "GPS location detected" : "District-based estimate",
-              },
-              {
-                label: "Ranking by compatibility score",
-                sub: "Availability · price · speed · proximity",
-              },
-            ] as { label: string; sub: string }[]).map((phase, idx) => {
-              const phaseNum = idx + 1;
-              const done   = aiPhase > phaseNum;
-              const active = aiPhase === phaseNum;
-              if (aiPhase < phaseNum) return null;
-              return (
-                <div key={idx} className="flex items-start gap-3">
-                  <div
-                    className={cn(
-                      "w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors duration-300",
-                      done ? "bg-green-500" : "bg-farumasi-100"
-                    )}
-                  >
-                    {done
-                      ? <Check className="w-3 h-3 text-white" />
-                      : active && <div className="w-2 h-2 rounded-full bg-farumasi-500 animate-pulse" />}
-                  </div>
-                  <div>
-                    <p className={cn("text-xs font-semibold leading-tight transition-colors", done ? "text-slate-400" : "text-slate-800")}>
-                      {phase.label}
-                      {active && <span className="text-farumasi-500 animate-pulse">…</span>}
-                    </p>
-                    {(done || active) && (
-                      <p className="text-[10px] text-slate-400 mt-0.5">{phase.sub}</p>
-                    )}
-                  </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-2xl bg-farumasi-600 flex items-center justify-center shrink-0">
+                  <Brain className="w-5 h-5 text-white" />
                 </div>
-              );
-            })}
-          </div>
-          {/* Progress bar */}
-          <div className="mt-5 h-1 rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-farumasi-400 to-farumasi-600 transition-all duration-500 ease-out"
-              style={{ width: `${Math.min(100, (Math.max(0, aiPhase - 1) / 4) * 100)}%` }}
-            />
-          </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Farumasi AI</p>
+                  <p className="text-xs text-slate-400">Finding your best match…</p>
+                </div>
+                <div className="ml-auto flex items-center gap-0.5">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-farumasi-500 animate-bounce"
+                      style={{ animationDelay: `${i * 150}ms` }}
+                    />
+                  ))}
+                </div>
+              </div>
+              {/* Phase steps */}
+              <div className="space-y-3">
+                {([
+                  {
+                    label: `Scanning ${pharmacyList.length || "—"} partner pharmacies`,
+                    sub: "Checking network availability",
+                  },
+                  {
+                    label: "Verifying stock for your items",
+                    sub: enriched.length > 0
+                      ? enriched.slice(0, 2).map((e: CartEntry) => e.medicine.name).join(", ") +
+                        (enriched.length > 2 ? ` +${enriched.length - 2} more` : "")
+                      : "Your cart items",
+                  },
+                  {
+                    label: "Calculating proximity & delivery times",
+                    sub: patientLocation ? "GPS location detected" : "District-based estimate",
+                  },
+                  {
+                    label: "Ranking by compatibility score",
+                    sub: "Availability · price · speed · proximity",
+                  },
+                ] as { label: string; sub: string }[]).map((phase, idx) => {
+                  const phaseNum = idx + 1;
+                  const done   = aiPhase > phaseNum;
+                  const active = aiPhase === phaseNum;
+                  if (aiPhase < phaseNum) return null;
+                  return (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors duration-300",
+                          done ? "bg-green-500" : "bg-farumasi-100"
+                        )}
+                      >
+                        {done
+                          ? <Check className="w-3 h-3 text-white" />
+                          : active && <div className="w-2 h-2 rounded-full bg-farumasi-500 animate-pulse" />}
+                      </div>
+                      <div>
+                        <p className={cn("text-xs font-semibold leading-tight transition-colors", done ? "text-slate-400" : "text-slate-800")}>
+                          {phase.label}
+                          {active && <span className="text-farumasi-500 animate-pulse">…</span>}
+                        </p>
+                        {(done || active) && (
+                          <p className="text-[10px] text-slate-400 mt-0.5">{phase.sub}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Progress bar */}
+              <div className="mt-5 h-1 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-farumasi-400 to-farumasi-600 transition-all duration-500 ease-out"
+                  style={{ width: `${Math.min(100, (Math.max(0, aiPhase - 1) / 4) * 100)}%` }}
+                />
+              </div>
+            </>
+          )}
         </div>
       ) : pharmacyOptions.length === 0 ? (
         <div className="text-center py-10 bg-white rounded-3xl border border-slate-100 shadow-sm px-6 mb-6">
@@ -766,7 +1036,7 @@ export default function CartPage() {
             onClick={() => setStep("cart")}
             className="text-sm font-semibold text-farumasi-600 hover:underline"
           >
-            ← Edit Cart
+            ← {isLocked ? "Back to cart" : "Edit Cart"}
           </button>
         </div>
       ) : (
@@ -989,7 +1259,7 @@ export default function CartPage() {
             : "bg-slate-200 cursor-not-allowed text-slate-400"
         )}
       >
-        Continue with Pharmacy {selectedOption?.codename ?? "…"}
+        {selectedOption ? `Continue with Pharmacy ${selectedOption.codename}` : "Continue with Pharmacy …"}
         <ChevronRight className="w-4 h-4" />
       </button>
     </div>
@@ -1346,21 +1616,38 @@ export default function CartPage() {
             if (!canPlace || isPlacingOrder) return;
             setIsPlacingOrder(true);
             try {
-              const orderItems = enriched.map((e: CartEntry) => {
-                const listingEntry = selectedOption?.pharmacy.id
-                  ? listingsMap.get(selectedOption.pharmacy.id)?.get(e.medicine.id)
-                  : undefined;
-                return {
-                  ...(listingEntry?.listingId ? { product_listing_id: listingEntry.listingId } : {}),
-                  product_name: e.medicine.name,
-                  quantity: e.qty,
-                  unit_price: listingEntry?.price ?? e.medicine.price,
-                };
-              });
               const deliveryAddr = fulfillment === "delivery"
                 ? `${street}, ${district}`
                 : undefined;
+
+              // Build order items from enriched (works for both normal and prescription carts)
+              const orderItems = enriched.map((e: CartEntry) => {
+                // Look up listing in the map — may be keyed by pharmacy_id or partner_company_id
+                const sellerId = selectedOption?.pharmacy.id;
+                const listingEntry = sellerId
+                  ? listingsMap.get(sellerId)?.get(e.medicine.id)
+                  : undefined;
+
+                if (listingEntry?.listingId) {
+                  // Preferred path — let the server re-derive price from the listing
+                  return {
+                    product_listing_id: listingEntry.listingId,
+                    quantity: e.qty,
+                    sell_mode: e.sellMode,
+                  };
+                }
+
+                // Fallback (legacy) path — no matched listing; send client price
+                const unitPrice = cartLineUnitPrice(e.medicine, e.sellMode, listingEntry ?? undefined);
+                return {
+                  product_name: e.medicine.name,
+                  quantity: e.qty,
+                  sell_mode: e.sellMode,
+                  unit_price: unitPrice,
+                };
+              });
               const result = await ordersService.createOrder({
+                prescription_id: rxId ?? undefined,  // links order to prescription when locked
                 pharmacy_id: selectedOption?.pharmacy.id,
                 delivery_method: fulfillment,
                 delivery_address: deliveryAddr,
@@ -1375,7 +1662,7 @@ export default function CartPage() {
                 patient_access_code: accessCode.trim() || undefined,
               });
               setConfirmedOrderCode(result.order_code ?? result.id ?? ORDER_NUM);
-              clear();
+              if (!isLocked) clear();  // don't clear cart items that don't exist in the store
               setStep("confirmed");
             } catch (err) {
               const detail =

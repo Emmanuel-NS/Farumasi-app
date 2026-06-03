@@ -63,7 +63,10 @@ class ProductCatalogueItem(Base, UUIDMixin, TimestampMixin):
     @property
     def allows_partial_selling(self) -> bool:
         """Derived from packaging_class — no extra DB column needed."""
-        return self.packaging_class in PARTIAL_SELLING_CLASSES
+        if not self.packaging_class:
+            return False
+        allowed = {c.value if hasattr(c, "value") else c for c in PARTIAL_SELLING_CLASSES}
+        return self.packaging_class in allowed
 
     # ── Relationships ─────────────────────────────────────────────────────
     approved_by_pharmacist: Mapped[Optional["PharmacistProfile"]] = relationship(

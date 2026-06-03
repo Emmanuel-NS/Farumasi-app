@@ -7,53 +7,59 @@ import { ordersService } from "@/lib/services/orders.service";
 import { deliveryService } from "@/lib/services/delivery.service";
 import { mediaUrl } from "@/lib/api";
 import type { Order, DeliveryQR } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useTranslation } from "@/lib/translations";
-import { ArrowLeft, MapPin, Phone, MessageCircle, Package, Store, CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink, Building2, XCircle, ImageOff } from "lucide-react";
+import {
+  ArrowLeft, MapPin, Phone, MessageCircle, Package, Store,
+  CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink,
+  Building2, XCircle, ImageOff, Pill, Lock, FileText,
+  RotateCcw, ChevronRight, AlertTriangle, Banknote, Receipt,
+} from "lucide-react";
 import Link from "next/link";
 
-// Dynamically import the Leaflet map — must be client-only, no SSR
 const TrackingMap = dynamic(
   () => import("@/components/shared/tracking-map"),
   { ssr: false, loading: () => <div className="h-[280px] bg-farumasi-50 animate-pulse rounded-b-3xl" /> }
 );
 
-// Kigali waypoints now live in tracking-map.tsx — kept for reference
+// Human-readable status labels for both delivery and pickup flows
+const DELIVERY_STEPS = [
+  { key: "pending_review",    label: "Order Placed",         hint: "Waiting for pharmacy to confirm" },
+  { key: "pharmacy_accepted", label: "Pharmacy Confirmed",   hint: "Pharmacy is preparing your order" },
+  { key: "ready_for_pickup",  label: "Ready for Collection", hint: "Your items are packed and waiting" },
+  { key: "out_for_delivery",  label: "On the Way",           hint: "Rider is heading to your address" },
+  { key: "delivered",         label: "Delivered",            hint: "Order complete" },
+];
 
-export default function OrderTrackingPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const t = useTranslation();
+const PICKUP_STEPS = [
+  { key: "pending_review",    label: "Order Placed",         hint: "Waiting for pharmacy confirmation" },
+  { key: "pharmacy_accepted", label: "Confirmed",            hint: "Pharmacy is preparing your order" },
+  { key: "ready_for_pickup",  label: "Ready for Pickup",     hint: "Head to the pharmacy counter" },
+  { key: "delivered",         label: "Collected",            hint: "Thank you for your order" },
+];
 
-  const STATUS_STEPS = [
-    { key: "pending_review",    label: t.order_step_placed },
-    { key: "pharmacy_accepted", label: t.order_step_confirmed },
-    { key: "ready_for_pickup",  label: t.order_step_ready },
-    { key: "out_for_delivery",  label: t.order_step_delivering },
-    { key: "delivered",         label: t.order_step_delivered },
-  ];
+const STATUS_WEIGHTS: Record<string, number> = {
+  pending_review: 0, pharmacy_accepted: 1, ready_for_pickup: 2, out_for_delivery: 3, delivered: 4,
+};
 
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [eta, setEta] = useState(18);
+export default function OrderDetailPage() {
+  const { id }   = useParams<{ id: string }>();
+  const router   = useRouter();
+  const t        = useTranslation();
+
+  const [order, setOrder]           = useState<Order | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [eta, setEta]               = useState(18);
   const [deliveryQR, setDeliveryQR] = useState<DeliveryQR | null>(null);
-  const [qrLoading, setQrLoading] = useState(false);
+  const [qrLoading, setQrLoading]   = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  const handleCancel = async () => {
-    if (!order) return;
-    if (!confirm("Cancel this order? This cannot be undone.")) return;
-    setCancelling(true);
-    try {
-      await ordersService.cancelOrder(order.id);
-      const fresh = await ordersService.getOrderById(order.id);
-      setOrder(fresh);
-    } catch {
-      alert("Could not cancel this order. It may no longer be pending.");
-    } finally {
-      setCancelling(false);
-    }
+  const loadOrder = async () => {
+    if (!id) return;
+    const fresh = await ordersService.getOrderById(id);
+    setOrder(fresh);
   };
 
   useEffect(() => {
@@ -65,7 +71,6 @@ export default function OrderTrackingPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Phase 11.3: fetch delivery QR for delivery-method orders.
   useEffect(() => {
     if (!id || !order) return;
     if (order.deliveryMethod !== "delivery") return;
@@ -75,15 +80,27 @@ export default function OrderTrackingPage() {
       .then(setDeliveryQR)
       .catch(() => setDeliveryQR(null))
       .finally(() => setQrLoading(false));
-  }, [id, order]);
+  }, [id, order?.status]);
 
   useEffect(() => {
     if (order?.status !== "out_for_delivery") return;
-    const etaTimer = setInterval(() => {
-      setEta((prev) => Math.max(prev - 1, 1));
-    }, 60000);
-    return () => clearInterval(etaTimer);
+    const t = setInterval(() => setEta((p) => Math.max(p - 1, 1)), 60_000);
+    return () => clearInterval(t);
   }, [order?.status]);
+
+  const handleCancel = async () => {
+    if (!order) return;
+    setCancelling(true);
+    try {
+      await ordersService.cancelOrder(order.id);
+      await loadOrder();
+    } catch {
+      alert("Could not cancel. The order may already be in progress.");
+    } finally {
+      setCancelling(false);
+      setShowCancel(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -96,65 +113,92 @@ export default function OrderTrackingPage() {
   if (!order) {
     return (
       <div className="p-6 text-center py-24">
-        <p className="text-slate-500">{t.order_not_found}</p>
-        <button onClick={() => router.push("/orders")} className="text-farumasi-600 font-medium hover:underline mt-2 block mx-auto">
+        <Package className="w-16 h-16 text-slate-200 mx-auto mb-3" />
+        <p className="text-slate-500 font-medium">{t.order_not_found}</p>
+        <button onClick={() => router.push("/orders")} className="text-farumasi-600 font-medium hover:underline mt-2 block mx-auto text-sm">
           {t.order_back_orders}
         </button>
       </div>
     );
   }
 
-  const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === order.status);
-  const isCancelled = order.status === "cancelled";
+  const isPickup     = order.deliveryMethod === "pickup";
+  const isCancelled  = order.status === "cancelled";
+  const isDelivered  = order.status === "delivered";
+  const isActive     = !isCancelled && !isDelivered;
+  // Backend now allows patient cancellation for pending/accepted/preparing (even if paid).
+  // ready_for_pickup is cancellable only when not yet paid.
+  const canCancel =
+    ["pending_review", "pharmacy_accepted"].includes(order.status) ||
+    (order.status === "ready_for_pickup" && order.paymentStatus !== "paid");
+  const timelineSteps = isPickup ? PICKUP_STEPS : DELIVERY_STEPS;
+  const activeWeight  = STATUS_WEIGHTS[order.status] ?? -1;
 
-  const isPickup = order.deliveryMethod === "pickup";
-  const PICKUP_STEPS = [
-    { key: "pending_review",    label: "Order Placed" },
-    { key: "pharmacy_accepted", label: "Accepted by Pharmacy" },
-    { key: "ready_for_pickup",  label: "Ready for Pickup" },
-    { key: "delivered",         label: "Collected" },
-  ];
-  const timelineSteps    = isPickup ? PICKUP_STEPS : STATUS_STEPS;
-  const pickupStepIndex  = timelineSteps.findIndex((s) => s.key === order.status);
+  // Payment breakdown
+  const subtotal    = order.subtotal ?? (order.pharmacyPrice ?? 0);
+  const deliveryFee = order.deliveryFee ?? 0;
+  const total       = subtotal + deliveryFee;
+
+  const itemList = order.itemList ?? [];
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
       {/* Back */}
       <button
         onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm text-slate-500 hover:text-farumasi-700 mb-6 transition-colors"
+        className="flex items-center gap-2 text-sm text-slate-500 hover:text-farumasi-700 mb-5 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         {t.order_back}
       </button>
 
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6 gap-3">
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-900">Order #{order.orderCode ?? order.id}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{order.pharmacy} · {order.date}</p>
-          {order.paymentStatus && (
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 mt-2 text-[11px] font-semibold px-2 py-0.5 rounded-full border",
-                order.paymentStatus === "paid"
-                  ? "bg-green-50 text-green-700 border-green-100"
-                  : order.paymentStatus === "failed"
-                  ? "bg-red-50 text-red-700 border-red-100"
-                  : "bg-amber-50 text-amber-700 border-amber-100",
+      {/* ── Header card ─────────────────────────────────────────────── */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="text-xs font-bold text-farumasi-700 bg-farumasi-50 px-2.5 py-1 rounded-full">
+                {order.orderCode ?? order.id.slice(0, 8).toUpperCase()}
+              </span>
+              {order.deliveryMethod && (
+                <span className={cn(
+                  "text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1",
+                  isPickup ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700",
+                )}>
+                  {isPickup
+                    ? <><Building2 className="w-3 h-3" /> Pickup</>
+                    : <><Truck className="w-3 h-3" /> Delivery</>}
+                </span>
               )}
-            >
-              Payment: {order.paymentStatus}
-            </span>
-          )}
+            </div>
+            <p className="text-lg font-extrabold text-slate-900">{order.pharmacy}</p>
+            <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {order.date}
+            </p>
+          </div>
+          <StatusBadge status={order.status} />
         </div>
-        <StatusBadge status={order.status} />
+
+        {/* Payment status pill */}
+        {order.paymentStatus && (
+          <span className={cn(
+            "inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border",
+            order.paymentStatus === "paid"
+              ? "bg-green-50 text-green-700 border-green-100"
+              : order.paymentStatus === "failed"
+              ? "bg-red-50 text-red-700 border-red-100"
+              : "bg-amber-50 text-amber-700 border-amber-100",
+          )}>
+            <Banknote className="w-3 h-3" />
+            Payment: {order.paymentStatus}
+          </span>
+        )}
       </div>
 
-      {/* Map — real Leaflet OSM map when out_for_delivery */}
+      {/* ── Live tracking map ────────────────────────────────────────── */}
       {order.status === "out_for_delivery" && (
-        <div className="rounded-3xl overflow-hidden border border-farumasi-100 mb-6 shadow-sm">
-          {/* Live indicator bar */}
+        <div className="rounded-3xl overflow-hidden border border-farumasi-100 mb-4 shadow-sm">
           <div className="bg-farumasi-600 px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
@@ -165,34 +209,30 @@ export default function OrderTrackingPage() {
               {eta} {t.order_eta_min}
             </div>
           </div>
-          {/* Real OSM map */}
           <TrackingMap pharmacyName={order.pharmacy} eta={eta} />
         </div>
       )}
 
-      {/* Delivery driver (only when out for delivery) */}
+      {/* ── Rider card ───────────────────────────────────────────────── */}
       {order.status === "out_for_delivery" && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 mb-5 flex items-center gap-4">
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 mb-4 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-farumasi-100 flex items-center justify-center font-bold text-farumasi-700 text-base shrink-0">
             {order.assignedDriverName
               ? order.assignedDriverName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
               : "DR"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-900">{order.assignedDriverName ?? t.order_driver}</p>
-            <p className="text-xs text-slate-500">{t.order_driver}</p>
+            <p className="text-sm font-bold text-slate-900">{order.assignedDriverName ?? "Your Rider"}</p>
+            <p className="text-xs text-slate-400">Delivery rider</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {order.assignedDriverPhone && (
-              <a
-                href={`tel:${order.assignedDriverPhone}`}
-                className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center hover:bg-farumasi-100 transition-colors"
-              >
+            {order.assignedDriverPhone ? (
+              <a href={`tel:${order.assignedDriverPhone}`}
+                className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center hover:bg-farumasi-100 transition-colors">
                 <Phone className="w-4 h-4 text-farumasi-600" />
               </a>
-            )}
-            {!order.assignedDriverPhone && (
-              <button className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center hover:bg-farumasi-100 transition-colors">
+            ) : (
+              <button className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center opacity-40 cursor-not-allowed">
                 <Phone className="w-4 h-4 text-farumasi-600" />
               </button>
             )}
@@ -203,36 +243,52 @@ export default function OrderTrackingPage() {
         </div>
       )}
 
-      {/* Status timeline */}
+      {/* ── Status timeline ──────────────────────────────────────────── */}
       {!isCancelled ? (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
-          <h2 className="text-sm font-bold text-slate-700 mb-4">{isPickup ? "Pickup Progress" : t.order_progress}</h2>
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
+          <h2 className="text-sm font-bold text-slate-700 mb-4">
+            {isPickup ? "Pickup Progress" : t.order_progress}
+          </h2>
           <div className="space-y-0">
             {timelineSteps.map((step, i) => {
-              const activeIdx = isPickup ? pickupStepIndex : currentStepIndex;
-              const done   = i <= activeIdx;
-              const active = i === activeIdx;
-              const last = i === STATUS_STEPS.length - 1;
+              const weight = STATUS_WEIGHTS[step.key] ?? i;
+              const done   = weight <= activeWeight;
+              const active = step.key === order.status;
+              const last   = i === timelineSteps.length - 1;
               return (
                 <div key={step.key} className="flex gap-3">
-                  {/* Line + dot */}
                   <div className="flex flex-col items-center">
                     <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0 border-2 transition-all",
-                      done ? "bg-farumasi-600 border-farumasi-600" : "bg-white border-slate-200"
+                      "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 transition-all",
+                      done
+                        ? "bg-farumasi-600 border-farumasi-600"
+                        : active
+                        ? "bg-white border-farumasi-400 ring-4 ring-farumasi-100"
+                        : "bg-white border-slate-200",
                     )}>
-                      {done ? <CheckCircle className="w-4 h-4 text-white" /> : <span className="text-slate-300 text-xs">{i + 1}</span>}
+                      {done
+                        ? <CheckCircle className="w-4 h-4 text-white" />
+                        : <span className="text-slate-300 text-xs font-bold">{i + 1}</span>}
                     </div>
                     {!last && (
-                      <div className={cn("w-0.5 flex-1 min-h-[24px] mt-1", done && i < currentStepIndex ? "bg-farumasi-500" : "bg-slate-100")} />
+                      <div className={cn(
+                        "w-0.5 flex-1 min-h-[24px] mt-1",
+                        done ? "bg-farumasi-400" : "bg-slate-100",
+                      )} />
                     )}
                   </div>
-                  {/* Label */}
                   <div className={cn("pb-5 pt-1 min-w-0 flex-1", last && "pb-0")}>
-                    <p className={cn("text-sm font-semibold", active ? "text-farumasi-700" : done ? "text-slate-700" : "text-slate-400")}>
+                    <p className={cn(
+                      "text-sm font-semibold",
+                      active ? "text-farumasi-700" : done ? "text-slate-700" : "text-slate-300",
+                    )}>
                       {step.label}
                     </p>
-                    {active && <p className="text-xs text-farumasi-600 mt-0.5 font-medium">{t.order_current}</p>}
+                    {(active || done) && (
+                      <p className={cn("text-xs mt-0.5", active ? "text-farumasi-500 font-medium" : "text-slate-400")}>
+                        {step.hint}
+                      </p>
+                    )}
                   </div>
                 </div>
               );
@@ -240,47 +296,79 @@ export default function OrderTrackingPage() {
           </div>
         </div>
       ) : (
-        <div className="bg-red-50 border border-red-100 rounded-3xl p-5 mb-5 text-center">
-          <p className="text-red-600 font-bold text-base">{order.status === "cancelled" ? t.order_cancelled : t.order_failed}</p>
-          <p className="text-sm text-red-500 mt-1">{t.order_not_completed}</p>
+        <div className="bg-red-50 border border-red-100 rounded-3xl p-5 mb-4 flex items-center gap-3">
+          <XCircle className="w-6 h-6 text-red-400 shrink-0" />
+          <div>
+            <p className="text-red-700 font-bold text-sm">Order Cancelled</p>
+            <p className="text-xs text-red-500 mt-0.5">This order was not completed.</p>
+          </div>
         </div>
       )}
 
-      {/* Pickup: location & directions only */}
-      {isPickup && order.status !== "cancelled" && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
-          <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-farumasi-600" />
-            Location &amp; Directions
-          </h2>
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center shrink-0">
-                <Building2 className="w-5 h-5 text-farumasi-600" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-900">{order.pharmacy}</p>
-                <p className="text-xs text-slate-500 mt-0.5">Tap below to open in Maps</p>
-              </div>
-            </div>
-            <a
-              href={`https://www.google.com/maps/search/${encodeURIComponent(order.pharmacy + " pharmacy Rwanda")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors"
-            >
-              <Navigation className="w-4 h-4" />
-              Get Directions
-              <ExternalLink className="w-3.5 h-3.5 opacity-70" />
-            </a>
+      {/* ── Access code reminder (pickup / delivery) ─────────────────── */}
+      {isActive && order.patientAccessCode && (
+        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 mb-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+            <Lock className="w-5 h-5 text-amber-700" />
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Your Access Code</p>
+            <p className="text-xl font-extrabold text-amber-900 tracking-widest font-mono mt-0.5">
+              {order.patientAccessCode}
+            </p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              {isPickup ? "Show this code at the pharmacy counter." : "Share with rider on arrival."}
+            </p>
+          </div>
+        </div>
       )}
 
-      {/* Delivery QR (delivery orders only) */}
-      {!isPickup && order.status !== "cancelled" && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
+      {/* ── Pickup directions ─────────────────────────────────────────── */}
+      {isPickup && !isCancelled && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
+          <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-farumasi-600" />
+            Pharmacy Location
+          </h2>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5 text-farumasi-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">{order.pharmacy}</p>
+              <p className="text-xs text-slate-400">Present your access code at the counter</p>
+            </div>
+          </div>
+          <a
+            href={`https://www.google.com/maps/search/${encodeURIComponent(order.pharmacy + " pharmacy Rwanda")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors"
+          >
+            <Navigation className="w-4 h-4" />
+            Get Directions
+            <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+          </a>
+        </div>
+      )}
+
+      {/* ── Delivery address ──────────────────────────────────────────── */}
+      {!isPickup && order.deliveryAddress && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
+          <h2 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-farumasi-600" />
+            Delivery Address
+          </h2>
+          <p className="text-sm text-slate-700">{order.deliveryAddress}</p>
+        </div>
+      )}
+
+      {/* ── Delivery QR ───────────────────────────────────────────────── */}
+      {!isPickup && !isCancelled && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
           <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
             <QrCode className="w-4 h-4 text-farumasi-600" />
-            Delivery QR
+            Delivery Verification
           </h2>
           {qrLoading ? (
             <div className="flex items-center justify-center py-8">
@@ -289,98 +377,204 @@ export default function OrderTrackingPage() {
           ) : deliveryQR && (deliveryQR.qrCode || deliveryQR.qrToken) ? (
             <div className="flex flex-col items-center text-center">
               {deliveryQR.qrCode ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={deliveryQR.qrCode}
-                  alt="Delivery QR code"
-                  className="w-48 h-48 object-contain rounded-2xl border border-slate-100 bg-white p-2"
-                />
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={deliveryQR.qrCode} alt="Delivery QR code" className="w-44 h-44 object-contain rounded-2xl border border-slate-100 bg-white p-2" />
               ) : (
-                <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-mono text-xs text-slate-700 break-all">
-                  {deliveryQR.qrToken}
-                </div>
+                <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-mono text-xs text-slate-700 break-all">{deliveryQR.qrToken}</div>
               )}
-              <p className="text-xs text-slate-500 mt-3 max-w-xs">
-                Show this QR code to the rider to confirm delivery to the right person.
-              </p>
+              <p className="text-xs text-slate-500 mt-3 max-w-xs">Show this to the rider to confirm you are the correct recipient.</p>
             </div>
           ) : (
-            <p className="text-sm text-slate-500 text-center py-6">
-              Delivery QR will appear once your delivery is assigned.
-            </p>
+            <p className="text-sm text-slate-400 text-center py-4">QR code will appear once a rider is assigned.</p>
           )}
         </div>
       )}
 
-      {/* Order summary */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
+      {/* ── Order items ───────────────────────────────────────────────── */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
         <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
           <Package className="w-4 h-4 text-farumasi-600" />
           {t.order_summary}
+          <span className="ml-auto text-xs text-slate-400 font-normal">{itemList.length} item{itemList.length !== 1 ? "s" : ""}</span>
         </h2>
-        <div className="space-y-3">
-          {(order.itemList && order.itemList.length > 0
-            ? order.itemList
-            : order.items.split(",").map((name, i) => ({ id: String(i), name: name.trim(), quantity: 1, unitPrice: 0, totalPrice: 0, imageUrl: null as string | null, productId: null as string | null, productListingId: null as string | null }))
+
+        <div className="space-y-1">
+          {(itemList.length > 0
+            ? itemList
+            : order.items.split(",").map((name, i) => ({
+                id: String(i), name: name.trim(), quantity: 1,
+                sellMode: "pack" as const, unitPrice: 0, totalPrice: 0,
+                imageUrl: null, productId: null, productListingId: null,
+              }))
           ).map((item) => {
-            const href = item.productId || item.productListingId
-              ? `/store?product=${encodeURIComponent(item.productId ?? item.productListingId ?? "")}`
-              : null;
+            const productHref = item.productId ? `/store/${item.productId}` : null;
+            const isPartial   = item.sellMode === "partial";
+
             const Card = (
-              <div className="flex items-center gap-3 p-2 rounded-2xl hover:bg-slate-50 transition-colors">
+              <div className={cn(
+                "flex items-center gap-3 p-2.5 rounded-2xl transition-colors",
+                productHref ? "hover:bg-slate-50 cursor-pointer" : "",
+              )}>
+                {/* Image or placeholder */}
                 <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
                   {item.imageUrl ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={mediaUrl(item.imageUrl)} alt={item.name} className="w-full h-full object-cover" />
                   ) : (
-                    <ImageOff className="w-5 h-5 text-slate-300" />
+                    <Pill className="w-6 h-6 text-slate-300" />
                   )}
                 </div>
+
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 truncate">{item.name}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Qty {item.quantity} · RWF {item.unitPrice.toLocaleString()}</p>
+                  <p className="text-sm font-bold text-slate-900 leading-snug">{item.name}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {isPartial ? (
+                      <span className="text-[10px] font-bold bg-farumasi-50 text-farumasi-700 border border-farumasi-100 px-1.5 py-0.5 rounded-full">
+                        Partial · {item.quantity} unit{item.quantity !== 1 ? "s" : ""}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">
+                        {item.quantity} pack{item.quantity !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {item.unitPrice > 0 && (
+                      <span className="text-[10px] text-slate-400">
+                        @ {formatPrice(item.unitPrice)}{isPartial ? "/unit" : ""}
+                      </span>
+                    )}
+                  </div>
+                  {productHref && (
+                    <span className="text-[10px] text-farumasi-600 font-semibold mt-0.5 flex items-center gap-0.5">
+                      View product <ChevronRight className="w-2.5 h-2.5" />
+                    </span>
+                  )}
                 </div>
-                <div className="text-sm font-extrabold text-farumasi-700 shrink-0">
-                  RWF {item.totalPrice.toLocaleString()}
+
+                <div className="text-sm font-extrabold text-farumasi-700 shrink-0 text-right">
+                  {item.totalPrice > 0 ? formatPrice(item.totalPrice) : "—"}
                 </div>
               </div>
             );
-            return href
-              ? <Link key={item.id} href={href} className="block">{Card}</Link>
+
+            return productHref
+              ? <Link key={item.id} href={productHref}>{Card}</Link>
               : <div key={item.id}>{Card}</div>;
           })}
-          <div className="border-t border-slate-100 pt-3 mt-2 flex justify-between">
-            <span className="text-sm font-bold text-slate-900">{t.order_total}</span>
-            <span className="text-base font-extrabold text-farumasi-700">{order.total}</span>
+        </div>
+
+        {/* Price breakdown */}
+        <div className="border-t border-slate-100 mt-3 pt-3 space-y-1.5">
+          {subtotal > 0 && (
+            <div className="flex justify-between text-sm text-slate-500">
+              <span>Medicines subtotal</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm text-slate-500">
+            <span>Delivery fee</span>
+            <span className={deliveryFee === 0 ? "text-farumasi-600 font-medium" : ""}>
+              {deliveryFee === 0 ? (isPickup ? "Free (Pickup)" : "Free") : formatPrice(deliveryFee)}
+            </span>
+          </div>
+          <div className="flex justify-between text-base font-extrabold text-farumasi-700 border-t border-slate-100 pt-2 mt-2">
+            <span className="text-slate-900">{t.order_total}</span>
+            <span>{order.total}</span>
           </div>
         </div>
-        {(() => {
-          const cancellableStatuses = ["pending_review", "pharmacy_accepted", "ready_for_pickup"];
-          const canCancel = cancellableStatuses.includes(order.status) && order.paymentStatus !== "paid";
-          if (!canCancel) return null;
-          return (
-            <button
-              onClick={handleCancel}
-              disabled={cancelling}
-              className="mt-4 w-full flex items-center justify-center gap-2 h-11 rounded-2xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-sm transition-colors disabled:opacity-50"
-            >
-              <XCircle className="w-4 h-4" />
-              {cancelling ? "Cancelling…" : "Cancel Order"}
-            </button>
-          );
-        })()}
       </div>
 
-      {/* Pharmacy info */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+      {/* ── Notes ─────────────────────────────────────────────────────── */}
+      {order.notes && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
+          <h2 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-farumasi-600" />
+            Order Notes
+          </h2>
+          <p className="text-sm text-slate-600 leading-relaxed">{order.notes}</p>
+        </div>
+      )}
+
+      {/* ── Pharmacy / seller info ────────────────────────────────────── */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 mb-4 flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center shrink-0">
           <Store className="w-5 h-5 text-farumasi-600" />
         </div>
-        <div>
-          <p className="text-sm font-bold text-slate-900">{order.pharmacy}</p>
-          <p className="text-xs text-slate-500">{t.order_location}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-slate-900 truncate">{order.pharmacy}</p>
+          <p className="text-xs text-slate-400">{t.order_location}</p>
         </div>
+        <a
+          href={`https://www.google.com/maps/search/${encodeURIComponent(order.pharmacy + " pharmacy Rwanda")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-9 h-9 rounded-xl bg-farumasi-50 hover:bg-farumasi-100 border border-farumasi-100 flex items-center justify-center transition-colors"
+          title="View on map"
+        >
+          <MapPin className="w-4 h-4 text-farumasi-600" />
+        </a>
       </div>
+
+      {/* ── Actions ──────────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        {/* Reorder (past / delivered orders) */}
+        {isDelivered && itemList.length > 0 && (
+          <Link
+            href="/store"
+            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border-2 border-farumasi-600 text-farumasi-700 font-bold text-sm hover:bg-farumasi-50 transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reorder — Browse Same Products
+          </Link>
+        )}
+
+        {/* Cancel (active orders only) */}
+        {canCancel && (
+          <button
+            onClick={() => setShowCancel(true)}
+            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-sm transition-colors"
+          >
+            <XCircle className="w-4 h-4" />
+            Cancel Order
+          </button>
+        )}
+      </div>
+
+      {/* ── Inline cancel confirmation ───────────────────────────────── */}
+      {showCancel && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !cancelling && setShowCancel(false)} />
+          <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl z-10 p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-900">Cancel this order?</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {order.orderCode ?? order.id.slice(0, 8).toUpperCase()} · {order.pharmacy}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCancel(false)}
+                disabled={cancelling}
+                className="flex-1 h-11 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Keep Order
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="flex-1 h-11 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                <XCircle className="w-4 h-4" />
+                {cancelling ? "Cancelling…" : "Yes, Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

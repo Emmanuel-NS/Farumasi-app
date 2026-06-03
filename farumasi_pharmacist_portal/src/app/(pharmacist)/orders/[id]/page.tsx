@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatPrice, formatDateTime } from "@/lib/utils";
+import Link from "next/link";
 import {
   ArrowLeft,
   Phone,
@@ -426,25 +427,49 @@ export default function OrderDetailPage() {
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
         <h2 className="text-sm font-bold text-slate-700 mb-3">Order Items</h2>
         <div className="space-y-2">
-          {order.items.map((item) => (
-            <div
-              key={item.id}
-              className="flex justify-between py-2 border-b border-slate-50 last:border-0"
-            >
-              <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  {item.product_name}
-                </p>
-                <p className="text-xs text-slate-500">
-                  Qty: {item.quantity} × {formatPrice(item.unit_price)} RWF
+          {order.items.map((item) => {
+            const productHref = item.product?.id ? `/inventory/${item.product.id}` : null;
+            const isPartial   = item.sell_mode === "partial";
+            return (
+              <div key={item.id} className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0">
+                {/* Product image / icon */}
+                <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
+                  {item.product?.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.product.image_url} alt={item.product_name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Package className="w-5 h-5 text-slate-300" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {productHref ? (
+                    <Link href={productHref}
+                      className="text-sm font-semibold text-farumasi-700 hover:text-farumasi-800 hover:underline flex items-center gap-1">
+                      {item.product_name}
+                      <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                    </Link>
+                  ) : (
+                    <p className="text-sm font-semibold text-slate-900">{item.product_name}</p>
+                  )}
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {isPartial ? (
+                      <span className="text-[10px] font-bold bg-farumasi-100 text-farumasi-700 px-1.5 py-0.5 rounded-full">
+                        {item.quantity} units (partial)
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-500">
+                        Qty {item.quantity} × {formatPrice(item.unit_price)} RWF
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <p className="text-sm font-bold text-slate-900 shrink-0">
+                  {formatPrice(item.total_price)} RWF
                 </p>
               </div>
-              <p className="text-sm font-bold text-slate-900">
-                {formatPrice(item.total_price)} RWF
-              </p>
-            </div>
-          ))}
-          <div className="flex justify-between pt-2">
+            );
+          })}
+          <div className="flex justify-between pt-2 border-t border-slate-100">
             <span className="font-bold text-slate-900 text-sm">Total</span>
             <span className="font-extrabold text-farumasi-700 text-base">
               {formatPrice(order.total_amount)} RWF

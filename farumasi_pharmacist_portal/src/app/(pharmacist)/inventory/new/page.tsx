@@ -124,6 +124,7 @@ export default function NewProductPage() {
 
   /* Listing */
   const [price, setPrice] = useState<string>("");
+  const [unitPrice, setUnitPrice] = useState<string>("");
   const [stock, setStock] = useState<string>("");
   const [expiryDate, setExpiryDate] = useState<string>("");
   const [batchNumber, setBatchNumber] = useState("");
@@ -140,6 +141,13 @@ export default function NewProductPage() {
     const stockNum = Number(stock);
     if (!Number.isFinite(priceNum) || priceNum < 0) { toast.error("Enter a valid price"); return; }
     if (!Number.isInteger(stockNum) || stockNum < 0) { toast.error("Enter a valid stock quantity"); return; }
+    const unitPriceNum = unitPrice.trim() ? Number(unitPrice) : null;
+    if (allowsPartial) {
+      if (unitPriceNum == null || !Number.isFinite(unitPriceNum) || unitPriceNum <= 0) {
+        toast.error(`Enter a valid per-${partialUnitName || "unit"} price`);
+        return;
+      }
+    }
 
     setSubmitting(true);
     try {
@@ -161,6 +169,7 @@ export default function NewProductPage() {
       await pharmaciesService.createMyListing({
         product_id: product.id,
         price: priceNum,
+        unit_price: allowsPartial ? unitPriceNum : null,
         stock_quantity: stockNum,
         availability_status: stockNum > 0 ? "available" : "out_of_stock",
         expiry_date: expiryDate ? new Date(expiryDate).toISOString() : null,
@@ -331,9 +340,13 @@ export default function NewProductPage() {
         </SectionCard>
 
         {/* Pricing & Stock */}
-        <SectionCard title="Pricing & Stock" subtitle="Your selling price and stock — applies only to your pharmacy.">
+        <SectionCard title="Pricing & Stock" subtitle="Set whole-pack and per-unit prices where partial selling applies.">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Price (RWF)" required>
+            <Field
+              label={allowsPartial ? "Pack / box price (RWF)" : "Price (RWF)"}
+              hint={allowsPartial ? "Price for one full box or container" : undefined}
+              required
+            >
               <input
                 type="number"
                 min={0}
@@ -345,7 +358,25 @@ export default function NewProductPage() {
                 required
               />
             </Field>
-            <Field label="Stock quantity" required>
+            {allowsPartial && (
+              <Field
+                label={`Per-${partialUnitName || "unit"} price (RWF)`}
+                hint="What you charge for one tablet, sachet, ampoule, etc."
+                required
+              >
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={unitPrice}
+                  onChange={(e) => setUnitPrice(e.target.value)}
+                  placeholder="e.g. 150"
+                  className={inp}
+                  required
+                />
+              </Field>
+            )}
+            <Field label="Stock quantity" required hint="Units in stock (tablets, sachets, or whole packs).">
               <input
                 type="number"
                 min={0}

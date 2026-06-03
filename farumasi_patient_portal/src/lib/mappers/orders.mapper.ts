@@ -8,6 +8,7 @@ export interface BackendOrderItem {
   product_name: string;
   product_image_url?: string | null;
   quantity: number;
+  sell_mode?: string | null;
   unit_price: number;
   total_price: number;
   created_at?: string;
@@ -34,6 +35,8 @@ export interface BackendOrder {
   total_amount: number;
   net_partner_amount: number;
   payment_reference?: string | null;
+  patient_access_code?: string | null;
+  notes?: string | null;
   items: BackendOrderItem[];
   // Nested objects populated by backend since Phase 11
   pharmacy?: { id: string; name: string } | null;
@@ -96,12 +99,17 @@ export function adaptOrder(o: BackendOrder): Order {
     partnerCompanyId: o.partner_company_id ?? undefined,
     assignedDriverName: o.delivery?.rider?.user?.full_name ?? undefined,
     assignedDriverPhone: o.delivery?.rider?.user?.phone ?? undefined,
+    notes: o.notes ?? undefined,
+    patientAccessCode: o.patient_access_code ?? undefined,
+    deliveryAddress: o.delivery_address ?? undefined,
+    subtotal: o.subtotal,
     itemList: (o.items ?? []).map((it) => ({
       id: it.id,
       productId: it.product_id,
       productListingId: it.product_listing_id,
       name: it.product_name,
       quantity: it.quantity,
+      sellMode: (it.sell_mode ?? "pack") as "pack" | "partial",
       unitPrice: it.unit_price,
       totalPrice: it.total_price,
       imageUrl: it.product_image_url ?? null,

@@ -30,7 +30,15 @@ import {
   CheckCircle,
   LayoutGrid,
   Pill,
+  Plus,
+  Minus,
 } from "lucide-react";
+import {
+  cartLineKey,
+  lineUnitLabel,
+  type SellMode,
+} from "@/lib/packaging-classes";
+import { minQuantityForLine } from "@/lib/cart-pricing";
 import { HEALTHCARE_CATEGORY_ICONS, IconGeneral } from "@/components/icons/CategoryIcons";
 import type { CategoryIconComponent } from "@/components/icons/CategoryIcons";
 
@@ -214,6 +222,9 @@ function StorePageInner() {
   const [selectedProductType, setSelectedProductType] = useState<string>("All");
   const { items: cartItems, add: cartAdd, remove: cartRemove } = useCartStore();
   const [quickView, setQuickView] = useState<Medicine | null>(null);
+  const [quickAdd, setQuickAdd]   = useState<Medicine | null>(null);
+  const [quickAddMode, setQuickAddMode] = useState<SellMode>("pack");
+  const [quickAddQty, setQuickAddQty]   = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [hideCategories, setHideCategories] = useState(false);
   const [canScrollLeft, setCanScrollLeft]   = useState(false);
@@ -778,14 +789,17 @@ function StorePageInner() {
           style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}
         >
           {filtered.map((med) => {
-            const isInCart = (cartItems[med.id]?.qty ?? 0) > 0;
+            // Cart keys are "productId:pack" or "productId:partial"
+            const isInCart = (cartItems[cartLineKey(med.id, "pack")]?.qty ?? 0) > 0
+              || (cartItems[cartLineKey(med.id, "partial")]?.qty ?? 0) > 0;
             // Pharmacy-specific price — from the real listings map for selected pharmacy
             const pharmacyEntry = selectedPharmacyId
               ? pharmacyListings.get(med.id)
               : null;
             const displayPrice = pharmacyEntry?.price ?? med.price;
 
-            // Image click: add to cart immediately, or show Rx denial
+            // Image click: for partial-selling products open the mode picker modal;
+            // for plain products add to cart immediately (or remove if already in).
             const handleImageClick = () => {
               if (med.requiresPrescription) {
                 toast.error(
@@ -794,8 +808,16 @@ function StorePageInner() {
                 );
                 return;
               }
+              if (med.allowsPartialSelling) {
+                const initMode: SellMode = "pack";
+                setQuickAdd(med);
+                setQuickAddMode(initMode);
+                setQuickAddQty(minQuantityForLine(med, initMode));
+                return;
+              }
               if (isInCart) {
-                cartRemove(med.id);
+                cartRemove(cartLineKey(med.id, "pack"));
+                cartRemove(cartLineKey(med.id, "partial"));
                 toast(tf(t.toast_removed, { name: med.name }), { icon: undefined });
               } else {
                 cartAdd(med);
@@ -908,6 +930,13 @@ function StorePageInner() {
                           );
                           return;
                         }
+                        if (med.allowsPartialSelling) {
+                          const initMode: SellMode = "pack";
+                          setQuickAdd(med);
+                          setQuickAddMode(initMode);
+                          setQuickAddQty(minQuantityForLine(med, initMode));
+                          return;
+                        }
                         cartAdd(med);
                         toast.success(tf(t.toast_added, { name: med.name }));
                       }}
@@ -979,7 +1008,177 @@ function StorePageInner() {
               </div>
             )}
 
-            {/* placeholder to close overlay — no footer needed; About > on card goes to full page */}
+            {/* Pricing — pack price + partial unit price when applicable */}
+            <div className="border-t border-slate-100 pt-3 space-y-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pricing</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-600">Whole pack / container</span>
+                <span className="text-sm font-extrabold text-farumasi-700">
+                  {formatPrice(quickView.price)}
+                  {quickView.maxPrice && quickView.maxPrice !== quickView.price
+                    ? ` – ${formatPrice(quickView.maxPrice)}`
+                    : ""}
+                </span>
+              </div>
+              {quickView.allowsPartialSelling && quickView.unitPriceFrom != null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-600">
+                    Per {quickView.partialUnitName ?? "unit"}
+                  </span>
+                  <span className="text-sm font-extrabold text-farumasi-500">
+                    {formatPrice(quickView.unitPriceFrom)}
+                    <span className="text-[10px] text-slate-400 font-normal ml-0.5">/ {quickView.partialUnitName ?? "unit"}</span>
+                  </span>
+                </div>
+              )}
+              {quickView.allowsPartialSelling && quickView.minPartialQuantity != null && quickView.minPartialQuantity > 1 && (
+                <p className="text-[10px] text-slate-400 italic">
+                  Min. {quickView.minPartialQuantity} {quickView.partialUnitName ?? "units"} for partial order
+                </p>
+              )}
+            </div>
+
+            {/* CTA — add to cart or go to detail page */}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => {
+                  setQuickView(null);
+                  if (quickView.allowsPartialSelling) {
+                    const initMode: SellMode = "pack";
+                    setQuickAdd(quickView);
+                    setQuickAddMode(initMode);
+                    setQuickAddQty(minQuantityForLine(quickView, initMode));
+                  } else if (!quickView.requiresPrescription) {
+                    cartAdd(quickView);
+                    toast.success(tf(t.toast_added, { name: quickView.name }));
+                  }
+                }}
+                className={cn(
+                  "flex-1 h-9 rounded-2xl text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors",
+                  quickView.requiresPrescription
+                    ? "bg-amber-500 cursor-not-allowed opacity-60"
+                    : "bg-farumasi-600 hover:bg-farumasi-700"
+                )}
+                disabled={quickView.requiresPrescription}
+                title={quickView.requiresPrescription ? "Prescription required" : undefined}
+              >
+                <ShoppingCart className="w-3.5 h-3.5" />
+                {quickView.requiresPrescription ? "Rx Required" : "Add to Cart"}
+              </button>
+              <Link
+                href={`/store/${quickView.id}`}
+                className="flex-1 h-9 rounded-2xl border border-farumasi-200 text-farumasi-700 text-xs font-bold flex items-center justify-center hover:bg-farumasi-50 transition-colors"
+                onClick={() => setQuickView(null)}
+              >
+                Full Details →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick-Add Modal (sell mode + qty picker) ──────────── */}
+      {quickAdd && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setQuickAdd(null)}
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl z-10 p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close */}
+            <button
+              onClick={() => setQuickAdd(null)}
+              className="absolute top-3 right-3 w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+
+            <div>
+              <p className="text-xs text-farumasi-600 font-semibold uppercase tracking-wide pr-8">{quickAdd.name}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">{quickAdd.category}</p>
+            </div>
+
+            {/* Sell mode toggle */}
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">How would you like to buy?</p>
+              <div className="grid grid-cols-2 gap-2">
+                {(["pack", "partial"] as SellMode[]).map((mode) => {
+                  const label = mode === "pack"
+                    ? "Whole pack / box"
+                    : `By ${quickAdd.partialUnitName ?? "unit"}`;
+                  const priceNote = mode === "pack"
+                    ? formatPrice(quickAdd.price)
+                    : (quickAdd.unitPriceFrom != null ? `${formatPrice(quickAdd.unitPriceFrom)} / ${quickAdd.partialUnitName ?? "unit"}` : "Price varies");
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => {
+                        setQuickAddMode(mode);
+                        setQuickAddQty(minQuantityForLine(quickAdd, mode));
+                      }}
+                      className={cn(
+                        "flex flex-col items-start gap-0.5 p-3 rounded-2xl border-2 text-left transition-all",
+                        quickAddMode === mode
+                          ? "border-farumasi-500 bg-farumasi-50"
+                          : "border-slate-100 hover:border-farumasi-200"
+                      )}
+                    >
+                      <span className="text-xs font-bold text-slate-800">{label}</span>
+                      <span className="text-[11px] text-farumasi-600 font-semibold">{priceNote}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quantity picker */}
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                {quickAddMode === "partial"
+                  ? `How many ${quickAdd.partialUnitName ?? "units"}?`
+                  : "How many packs?"}
+              </p>
+              {quickAddMode === "partial" && quickAdd.minPartialQuantity != null && quickAdd.minPartialQuantity > 1 && (
+                <p className="text-[10px] text-slate-400 mb-1.5 italic">
+                  Minimum {quickAdd.minPartialQuantity} {quickAdd.partialUnitName ?? "units"}
+                </p>
+              )}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setQuickAddQty((q) => Math.max(minQuantityForLine(quickAdd, quickAddMode), q - 1))}
+                  className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 hover:bg-slate-200 font-bold"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-lg font-extrabold text-slate-900 w-10 text-center tabular-nums">{quickAddQty}</span>
+                <button
+                  onClick={() => setQuickAddQty((q) => q + 1)}
+                  className="w-9 h-9 rounded-xl bg-farumasi-600 text-white flex items-center justify-center hover:bg-farumasi-700 font-bold"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <span className="text-xs text-slate-500 ml-1">
+                  {lineUnitLabel(quickAddMode, quickAdd.partialUnitName, quickAdd.unitsPerPack)}
+                </span>
+              </div>
+            </div>
+
+            {/* Confirm button */}
+            <button
+              onClick={() => {
+                cartAdd(quickAdd, quickAddQty, quickAddMode);
+                const unit = lineUnitLabel(quickAddMode, quickAdd.partialUnitName, quickAdd.unitsPerPack);
+                toast.success(`${quickAdd.name} ×${quickAddQty} ${unit} added to cart`);
+                setQuickAdd(null);
+              }}
+              className="w-full h-11 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Add {quickAddQty} {lineUnitLabel(quickAddMode, quickAdd.partialUnitName, quickAdd.unitsPerPack)} to Cart
+            </button>
           </div>
         </div>
       )}

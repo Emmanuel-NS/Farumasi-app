@@ -38,6 +38,7 @@ def upgrade() -> None:
     _add_if_missing("product_catalogue_items", "min_partial_quantity", "INTEGER")
     _add_if_missing("product_catalogue_items", "partial_unit_name", "VARCHAR(100)")
     _add_if_missing("product_listings", "unit_price", "NUMERIC(12,2)")
+    _add_if_missing("order_items", "sell_mode", "VARCHAR(20) NOT NULL DEFAULT 'pack'")
 
 
 def downgrade() -> None:

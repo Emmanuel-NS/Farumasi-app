@@ -11,6 +11,13 @@ import { useCartStore } from "@/store/cart-store";
 import { toast } from "sonner";
 import type { Medicine } from "@/types";
 import {
+  cartLineKey,
+  lineUnitLabel,
+  packagingLabel,
+  type SellMode,
+} from "@/lib/packaging-classes";
+import { minQuantityForLine } from "@/lib/cart-pricing";
+import {
   ArrowLeft, Star, AlertCircle, ShoppingCart, Upload,
   MapPin, CheckCircle, XCircle, Clock, ChevronRight,
 } from "lucide-react";
@@ -35,6 +42,7 @@ export default function MedicineDetailPage() {
   const router = useRouter();
   const lang = useLanguageStore((s) => s.lang);
   const [activeInfoTab, setActiveInfoTab] = useState<"overview" | "dosage" | "safety">("overview");
+  const [sellMode, setSellMode] = useState<SellMode>("pack");
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const { add: cartAdd, items: cartItems } = useCartStore();
@@ -63,6 +71,19 @@ export default function MedicineDetailPage() {
       });
     });
   }, [id]);
+
+  useEffect(() => {
+    if (!med) return;
+    const minQ = minQuantityForLine(med, sellMode);
+    setQty((q) => Math.max(minQ, q));
+  }, [sellMode, med?.id, med?.minPartialQuantity]);
+
+  const lineKey = med ? cartLineKey(med.id, sellMode) : "";
+  const minQty = med ? minQuantityForLine(med, sellMode) : 1;
+  const packPrices = listings.map((l) => l.price).filter((p) => p > 0);
+  const partialPrices = listings
+    .map((l) => l.unit_price)
+    .filter((p): p is number => p != null && p > 0);
 
   if (loading) {
     return (
@@ -140,28 +161,75 @@ export default function MedicineDetailPage() {
             </div>
           )}
 
+          {med.packagingClass && (
+            <p className="text-xs text-slate-500 mb-2">
+              Packaging: <span className="font-medium text-slate-700">{packagingLabel(med.packagingClass)}</span>
+            </p>
+          )}
+
+          {med.allowsPartialSelling ? (
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setSellMode("pack")}
+                className={cn(
+                  "flex-1 py-2 px-3 rounded-xl text-xs font-bold border-2 transition-all",
+                  sellMode === "pack"
+                    ? "border-farumasi-500 bg-farumasi-50 text-farumasi-800"
+                    : "border-slate-100 text-slate-500 hover:border-farumasi-200",
+                )}
+              >
+                Whole pack
+              </button>
+              <button
+                type="button"
+                onClick={() => setSellMode("partial")}
+                className={cn(
+                  "flex-1 py-2 px-3 rounded-xl text-xs font-bold border-2 transition-all",
+                  sellMode === "partial"
+                    ? "border-farumasi-500 bg-farumasi-50 text-farumasi-800"
+                    : "border-slate-100 text-slate-500 hover:border-farumasi-200",
+                )}
+              >
+                By {med.partialUnitName ?? "unit"}
+              </button>
+            </div>
+          ) : null}
+
           <p className="text-3xl font-extrabold text-farumasi-700 mb-1">
             {(() => {
-              const prices = listings.map((l) => l.price).filter((p) => p > 0);
-              if (prices.length === 0) return formatPrice(med.price);
+              if (sellMode === "partial") {
+                const prices = partialPrices.length > 0 ? partialPrices : (med.unitPriceFrom ? [med.unitPriceFrom] : []);
+                if (prices.length === 0) return "Per-unit price varies";
+                const min = Math.min(...prices), max = Math.max(...prices);
+                const unit = med.partialUnitName ?? "unit";
+                return min === max
+                  ? `${formatPrice(min)} / ${unit}`
+                  : `${formatPrice(min)} – ${formatPrice(max)} / ${unit}`;
+              }
+              const prices = packPrices.length > 0 ? packPrices : [med.price];
               const min = Math.min(...prices), max = Math.max(...prices);
               return min === max ? formatPrice(min) : `${formatPrice(min)} – ${formatPrice(max)}`;
             })()}
+            <span className="text-sm font-medium text-slate-500 ml-1">
+              per {lineUnitLabel(sellMode, med.partialUnitName, med.unitsPerPack)}
+            </span>
           </p>
-          {med.allowsPartialSelling && med.unitPriceFrom != null && (
-            <p className="text-sm text-farumasi-500 mb-2">
-              or {formatPrice(med.unitPriceFrom)} / {med.partialUnitName ?? "unit"}
-              {med.minPartialQuantity && med.minPartialQuantity > 1 && (
-                <span className="text-slate-400 text-xs ml-1">(min {med.minPartialQuantity})</span>
-              )}
+          {sellMode === "partial" && minQty > 1 && (
+            <p className="text-xs text-slate-500 mb-2">
+              Minimum order: {minQty} {med.partialUnitName ?? "units"}
             </p>
           )}
 
           {/* Quantity */}
           <div className="flex items-center gap-4 mb-6">
-            <span className="text-sm font-medium text-slate-600">Quantity</span>
+            <span className="text-sm font-medium text-slate-600">
+              {sellMode === "partial"
+                ? `How many ${med.partialUnitName ?? "units"}?`
+                : "How many packs?"}
+            </span>
             <div className="flex items-center gap-3 bg-slate-100 rounded-2xl px-2 py-1">
-              <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="w-8 h-8 rounded-xl bg-white flex items-center justify-center font-bold text-slate-600 hover:bg-farumasi-50 shadow-sm">−</button>
+              <button onClick={() => setQty((q) => Math.max(minQty, q - 1))} className="w-8 h-8 rounded-xl bg-white flex items-center justify-center font-bold text-slate-600 hover:bg-farumasi-50 shadow-sm">−</button>
               <span className="text-sm font-bold w-6 text-center">{qty}</span>
               <button onClick={() => setQty((q) => q + 1)} className="w-8 h-8 rounded-xl bg-farumasi-600 text-white flex items-center justify-center font-bold hover:bg-farumasi-700">+</button>
             </div>
@@ -171,9 +239,10 @@ export default function MedicineDetailPage() {
           <div className="flex flex-col gap-3">
             <button
               onClick={() => {
-                cartAdd(med, qty);
+                cartAdd(med, qty, sellMode);
                 setAdded(true);
-                toast.success(`${med.name} ×${qty} added to cart`);
+                const unit = lineUnitLabel(sellMode, med.partialUnitName, med.unitsPerPack);
+                toast.success(`${med.name} ×${qty} ${unit} added to cart`);
                 setTimeout(() => setAdded(false), 2000);
               }}
               className={cn(
@@ -182,9 +251,9 @@ export default function MedicineDetailPage() {
               )}
             >
               {added ? (
-                <><CheckCircle className="w-5 h-5" /> Added to Cart {(cartItems[id]?.qty ?? 0) > 0 ? `(×${cartItems[id]?.qty})` : ""}</>
+                <><CheckCircle className="w-5 h-5" /> Added to Cart {(cartItems[lineKey]?.qty ?? 0) > 0 ? `(×${cartItems[lineKey]?.qty})` : ""}</>
               ) : (
-                <><ShoppingCart className="w-5 h-5" /> Add to Cart {(cartItems[id]?.qty ?? 0) > 0 ? `(×${cartItems[id]?.qty} in cart)` : ""}</>
+                <><ShoppingCart className="w-5 h-5" /> Add to Cart {(cartItems[lineKey]?.qty ?? 0) > 0 ? `(×${cartItems[lineKey]?.qty} in cart)` : ""}</>
               )}
             </button>
             {med.requiresPrescription && (

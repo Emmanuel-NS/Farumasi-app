@@ -97,6 +97,7 @@ class OrderItem(Base, UUIDMixin, TimestampMixin):
     )
     product_name: Mapped[str] = mapped_column(String(255), nullable=False)
     quantity: Mapped[int] = mapped_column(default=1)
+    sell_mode: Mapped[str] = mapped_column(String(20), default="pack", nullable=False)
     unit_price: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     total_price: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
 

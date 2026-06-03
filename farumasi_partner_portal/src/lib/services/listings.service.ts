@@ -21,6 +21,7 @@ export interface BackendProduct {
   listing_count?: number | null;
   allows_partial_selling?: boolean;
   units_per_pack?: number | null;
+  min_partial_quantity?: number | null;
   partial_unit_name?: string | null;
   packaging_class?: string | null;
 }
@@ -42,6 +43,7 @@ export interface BackendListing {
   location_longitude?: number | null;
   status: string;
   created_at: string;
+  unit_price?: number | null;
   product?: BackendProduct;
 }
 
@@ -111,16 +113,18 @@ export const listingsService = {
   },
 
   async updateListing(id: string, input: UpdateListingInput): Promise<BackendListing> {
-    const { data } = await api.patch<BackendListing>(`/listings/${id}`, input);
+    const { data } = await api.patch<BackendListing>(`/partners/me/listings/${id}`, input);
     return data;
   },
 
   async setAvailability(id: string, availability_status: ListingAvailability): Promise<BackendListing> {
-    const { data } = await api.patch<BackendListing>(`/listings/${id}/availability`, { availability_status });
+    const { data } = await api.patch<BackendListing>(`/partners/me/listings/${id}`, {
+      availability_status,
+    });
     return data;
   },
 
   async deleteListing(id: string): Promise<void> {
-    await api.delete(`/listings/${id}`);
+    await api.delete(`/partners/me/listings/${id}`);
   },
 };

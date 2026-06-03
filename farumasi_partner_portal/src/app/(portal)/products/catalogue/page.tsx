@@ -42,6 +42,7 @@ function getCategoryMeta(cat: string): { Icon: React.ElementType; badgeCls: stri
 interface ListFormState {
   product: BackendProduct;
   price: string;
+  unitPrice: string;
   stock: string;
   fulfillment: string;
 }
@@ -97,7 +98,7 @@ export default function CataloguePage() {
   }, [products, search, activeCategory]);
 
   const openDialog = (p: BackendProduct) => {
-    setDialog({ product: p, price: "", stock: "0", fulfillment: "60" });
+    setDialog({ product: p, price: "", unitPrice: "", stock: "0", fulfillment: "60" });
   };
 
   const handleSubmit = async () => {
@@ -108,11 +109,19 @@ export default function CataloguePage() {
     if (Number.isNaN(price) || price <= 0) { toast.error("Enter a valid price"); return; }
     if (Number.isNaN(stock) || stock < 0) { toast.error("Enter a valid stock quantity"); return; }
     if (Number.isNaN(fulfillment) || fulfillment < 0) { toast.error("Enter valid fulfillment time"); return; }
+    const allowsPartial = dialog.product.allows_partial_selling ?? false;
+    const unitPriceRaw = dialog.unitPrice.trim();
+    const unitPrice = unitPriceRaw ? parseFloat(unitPriceRaw) : null;
+    if (allowsPartial && (unitPrice == null || Number.isNaN(unitPrice) || unitPrice <= 0)) {
+      toast.error(`Enter a valid per-${dialog.product.partial_unit_name ?? "unit"} price`);
+      return;
+    }
     setSubmitting(true);
     try {
       await listingsService.createListing({
         product_id: dialog.product.id,
         price,
+        unit_price: allowsPartial ? unitPrice : null,
         stock_quantity: stock,
         fulfillment_time_minutes: fulfillment,
       });
@@ -272,7 +281,10 @@ export default function CataloguePage() {
           {dialog && (
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">Price (RWF) <span className="text-red-500">*</span></Label>
+                <Label className="text-xs">
+                  {dialog.product.allows_partial_selling ? "Pack / box price (RWF)" : "Price (RWF)"}{" "}
+                  <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   type="number"
                   min="0"
@@ -283,6 +295,28 @@ export default function CataloguePage() {
                   onChange={e => setDialog(d => d ? { ...d, price: e.target.value } : d)}
                 />
               </div>
+              {dialog.product.allows_partial_selling && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    Per-{dialog.product.partial_unit_name ?? "unit"} price (RWF) <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="e.g. 200"
+                    className="h-8 text-xs"
+                    value={dialog.unitPrice}
+                    onChange={e => setDialog(d => d ? { ...d, unitPrice: e.target.value } : d)}
+                  />
+                  {dialog.product.min_partial_quantity && dialog.product.min_partial_quantity > 1 && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Patients must order at least {dialog.product.min_partial_quantity}{" "}
+                      {dialog.product.partial_unit_name ?? "units"}.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label className="text-xs">Initial Stock Quantity <span className="text-red-500">*</span></Label>
                 <Input

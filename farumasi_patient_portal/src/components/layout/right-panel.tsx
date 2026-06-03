@@ -8,6 +8,8 @@ import { cn, formatPrice } from "@/lib/utils";
 import { useTranslation, tf, useTimeAgo } from "@/lib/translations";
 import { useLanguageStore } from "@/store/language-store";
 import { useCartStore } from "@/store/cart-store";
+import { cartLineKey } from "@/lib/packaging-classes";
+import { cartLineUnitPrice } from "@/lib/cart-pricing";
 import { useAuthStore } from "@/store/auth-store";
 import type { AppNotification } from "@/types";
 
@@ -143,8 +145,17 @@ function CartPanel({ onClose }: { onClose: () => void }) {
   const { items: cartItems, setQty, remove } = useCartStore();
   const isGuest = useAuthStore((s) => s.isGuest);
   const enriched = Object.values(cartItems);
-  const total    = enriched.reduce((s, e) => s + e.medicine.price * e.qty, 0);
-  const totalMax  = enriched.reduce((s, e) => s + (e.medicine.maxPrice ?? e.medicine.price) * e.qty, 0);
+  // Pack and partial prices must never be mixed into a single range.
+  // Partial lines: sum = per-unit price × qty (unitPriceFrom); never use pack price as fallback.
+  // Pack lines: min uses medicine.price, max uses medicine.maxPrice.
+  const totalPack    = enriched.filter(e => e.sellMode !== "partial")
+    .reduce((s, e) => s + e.medicine.price * e.qty, 0);
+  const totalPackMax = enriched.filter(e => e.sellMode !== "partial")
+    .reduce((s, e) => s + (e.medicine.maxPrice ?? e.medicine.price) * e.qty, 0);
+  const totalPartial = enriched.filter(e => e.sellMode === "partial")
+    .reduce((s, e) => s + (e.medicine.unitPriceFrom ?? 0) * e.qty, 0);
+  const total    = totalPack + totalPartial;
+  const totalMax = totalPackMax + totalPartial;
 
   const goToCheckout = () => {
     onClose();
@@ -175,8 +186,11 @@ function CartPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto divide-y divide-slate-50 px-3 py-2">
-        {enriched.map(({ medicine, qty }) => (
-          <div key={medicine.id} className="flex items-center gap-3 py-3">
+        {enriched.map(({ medicine, qty, sellMode }) => {
+          const lineKey = cartLineKey(medicine.id, sellMode);
+          const linePrice = cartLineUnitPrice(medicine, sellMode);
+          return (
+          <div key={lineKey} className="flex items-center gap-3 py-3">
             <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
               {medicine.imageUrl
                 ? <img src={medicine.imageUrl} alt={medicine.name} className="w-full h-full object-cover" />
@@ -186,34 +200,53 @@ function CartPanel({ onClose }: { onClose: () => void }) {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-900 truncate">{medicine.name}</p>
               <p className="text-xs text-farumasi-600 font-semibold mt-0.5">
-                {formatPrice(medicine.price)}{medicine.maxPrice && medicine.maxPrice > medicine.price ? ` – ${formatPrice(medicine.maxPrice)}` : ""}
+                {formatPrice(linePrice)}
+                {sellMode === "partial" ? ` / ${medicine.partialUnitName ?? "unit"}` : ""}
               </p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button
-                onClick={() => setQty(medicine.id, qty - 1)}
+                onClick={() => setQty(lineKey, qty - 1)}
                 className="w-6 h-6 rounded-lg bg-slate-100 font-bold text-slate-600 text-sm flex items-center justify-center hover:bg-farumasi-50"
               >−</button>
               <span className="text-sm font-bold text-slate-900 w-4 text-center">{qty}</span>
               <button
-                onClick={() => setQty(medicine.id, qty + 1)}
+                onClick={() => setQty(lineKey, qty + 1)}
                 className="w-6 h-6 rounded-lg bg-farumasi-600 text-white font-bold text-sm flex items-center justify-center hover:bg-farumasi-700"
               >+</button>
-              <button onClick={() => remove(medicine.id)} className="ml-1 text-slate-300 hover:text-red-400 transition-colors">
+              <button onClick={() => remove(lineKey)} className="ml-1 text-slate-300 hover:text-red-400 transition-colors">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
-        ))}
+        );})}
       </div>
       {/* Footer */}
       <div className="border-t border-slate-100 p-4">
-        <div className="flex justify-between text-sm mb-3">
-          <span className="text-slate-500">{t.panel_total}</span>
-          <span className="font-extrabold text-farumasi-700">
-            {formatPrice(total)}{totalMax > total ? ` – ${formatPrice(totalMax)}` : ""}
-          </span>
-        </div>
+        {/* Show separate lines only when both types are present */}
+        {totalPack > 0 && totalPartial > 0 ? (
+          <div className="space-y-1 mb-3">
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Whole packs</span>
+              <span>{formatPrice(totalPack)}{totalPackMax > totalPack ? ` – ${formatPrice(totalPackMax)}` : ""}</span>
+            </div>
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Partial units</span>
+              <span>{totalPartial > 0 ? formatPrice(totalPartial) : "Price at pharmacy"}</span>
+            </div>
+            <div className="flex justify-between text-sm font-extrabold text-farumasi-700 pt-1 border-t border-slate-100">
+              <span>{t.panel_total}</span>
+              <span>{formatPrice(total)}{totalMax > total ? ` – ${formatPrice(totalMax)}` : ""}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-between text-sm mb-3">
+            <span className="text-slate-500">{t.panel_total}</span>
+            <span className="font-extrabold text-farumasi-700">
+              {formatPrice(total)}{totalMax > total ? ` – ${formatPrice(totalMax)}` : ""}
+            </span>
+          </div>
+        )}
         {/* Checkout → closes sidebar immediately, full page handles the complex flow */}
         <button
           onClick={goToCheckout}

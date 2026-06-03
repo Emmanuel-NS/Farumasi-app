@@ -23,7 +23,13 @@ export interface CreateOrderPayload {
   delivery_longitude?: number;
   notes?: string;
   patient_access_code?: string;
-  items?: { product_listing_id?: string; product_name?: string; quantity: number; unit_price?: number }[];
+  items?: {
+    product_listing_id?: string;
+    product_name?: string;
+    quantity: number;
+    sell_mode?: "pack" | "partial";
+    unit_price?: number;
+  }[];
 }
 
 export interface CreateOrderFromRecommendationInput {
