@@ -20,6 +20,7 @@ export function mediaUrl(url?: string | null): string {
 export const api = axios.create({
   baseURL: API_BASE,
   headers: { "Content-Type": "application/json" },
+  timeout: 20_000,
 });
 
 /** Attach stored access token to every request. */

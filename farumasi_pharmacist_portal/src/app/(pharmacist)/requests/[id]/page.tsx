@@ -227,6 +227,97 @@ function CartItemRow({
   );
 }
 
+// ── Insurance coverage (prescription orders only) ────────────────────────────
+
+function InsuranceCoverageCard({
+  applies,
+  onAppliesChange,
+  provider,
+  onProviderChange,
+  discount,
+  onDiscountChange,
+}: {
+  applies: boolean;
+  onAppliesChange: (v: boolean) => void;
+  provider: string;
+  onProviderChange: (v: string) => void;
+  discount: number | "";
+  onDiscountChange: (v: number | "") => void;
+}) {
+  return (
+    <div className="rounded-3xl border border-green-200 bg-green-50/40 overflow-hidden mb-5">
+      <div className="flex items-center gap-2.5 px-5 py-4 border-b border-green-100">
+        <div className="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center">
+          <Shield className="w-4 h-4 text-green-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-slate-900">Insurance Coverage</p>
+          <p className="text-xs text-slate-500">
+            If the patient has insurance, add the provider and discount before sending the cart.
+          </p>
+        </div>
+      </div>
+      <div className="p-5 space-y-3">
+        <button
+          type="button"
+          onClick={() => onAppliesChange(!applies)}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
+        >
+          <span className="text-sm font-semibold text-slate-800">Patient has insurance coverage</span>
+          <div className={cn(
+            "w-10 h-5 rounded-full transition-colors relative shrink-0",
+            applies ? "bg-green-500" : "bg-slate-200",
+          )}>
+            <div className={cn(
+              "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all",
+              applies ? "left-5" : "left-0.5",
+            )} />
+          </div>
+        </button>
+
+        {applies && (
+          <div className="space-y-2.5 pt-1">
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
+                Insurance provider name
+              </label>
+              <input
+                type="text"
+                value={provider}
+                onChange={(e) => onProviderChange(e.target.value)}
+                placeholder="e.g. RSSB, MMI, Radiant, Britam"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-300 bg-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
+                Discount percentage
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={discount}
+                  onChange={(e) => onDiscountChange(e.target.value === "" ? "" : Number(e.target.value))}
+                  placeholder="e.g. 15"
+                  className="w-28 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-300 bg-white"
+                />
+                <span className="text-sm text-slate-500 font-semibold">% off medicine total</span>
+                {Number(discount) > 0 && (
+                  <span className="text-xs text-green-700 font-bold bg-green-100 px-2 py-0.5 rounded-full">
+                    −{discount}% for patient
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function RequestDetailPage() {
@@ -284,6 +375,9 @@ export default function RequestDetailPage() {
         // in the prescription details panel but never pre-added to the build cart.
         setCartItems([]);
         setCartNotes("");
+        setInsuranceApplies(false);
+        setInsuranceProvider("");
+        setInsuranceDiscount(0);
         setCartMode("build");
       }
     } catch { setNotFound(true); }
@@ -291,6 +385,15 @@ export default function RequestDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  const enterBuildMode = () => {
+    setCartMode("build");
+    if (rx?.insurance_provider) {
+      setInsuranceApplies(true);
+      setInsuranceProvider(rx.insurance_provider);
+      setInsuranceDiscount(rx.insurance_discount_pct ?? 0);
+    }
+  };
 
   const submitReview = async (reviewStatus: PrescriptionReviewStatus, label: string) => {
     if (!rx) return;
@@ -348,6 +451,14 @@ export default function RequestDetailPage() {
       toast.error("All items must have a medicine name");
       return;
     }
+    if (insuranceApplies && !insuranceProvider.trim()) {
+      toast.error("Enter the insurance provider name, or turn off insurance coverage");
+      return;
+    }
+    if (insuranceApplies && (insuranceDiscount === "" || Number(insuranceDiscount) < 0 || Number(insuranceDiscount) > 100)) {
+      toast.error("Enter a valid insurance discount between 0 and 100%");
+      return;
+    }
     setSending(true);
     try {
       // 1. Fetch the LATEST prescription so we have current item IDs (not stale state).
@@ -378,8 +489,8 @@ export default function RequestDetailPage() {
         insurance_provider: insuranceApplies && insuranceProvider.trim()
           ? insuranceProvider.trim()
           : null,
-        insurance_discount_pct: insuranceApplies && Number(insuranceDiscount) > 0
-          ? Number(insuranceDiscount)
+        insurance_discount_pct: insuranceApplies
+          ? Number(insuranceDiscount || 0)
           : null,
       });
 
@@ -501,6 +612,27 @@ export default function RequestDetailPage() {
         </div>
       )}
 
+      {/* ── Insurance coverage (visible while building / editing cart) ── */}
+      {canBuildCart && cartMode === "build" && (
+        <InsuranceCoverageCard
+          applies={insuranceApplies}
+          onAppliesChange={setInsuranceApplies}
+          provider={insuranceProvider}
+          onProviderChange={setInsuranceProvider}
+          discount={insuranceDiscount}
+          onDiscountChange={setInsuranceDiscount}
+        />
+      )}
+
+      {canBuildCart && cartMode === "view" && !rx.insurance_provider && (
+        <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 mb-5">
+          <Shield className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+          <p className="text-xs text-slate-500">
+            No insurance coverage on this cart. Click <strong>Edit &amp; Resend</strong> below to add insurance if the patient is covered.
+          </p>
+        </div>
+      )}
+
       {/* ══════════════════════════════════════════════════════════════════
           CART BUILDER
       ══════════════════════════════════════════════════════════════════ */}
@@ -532,7 +664,7 @@ export default function RequestDetailPage() {
             </span>
           )}
           {canBuildCart && cartMode === "view" && (
-            <button onClick={() => setCartMode("build")}
+            <button onClick={enterBuildMode}
               className="flex items-center gap-1.5 text-xs font-semibold text-farumasi-600 hover:text-farumasi-700 transition-colors">
               <Edit2 className="w-3.5 h-3.5" />
               {isReviewed ? "Edit & Resend" : "Build Cart"}
@@ -636,66 +768,6 @@ export default function RequestDetailPage() {
                 placeholder="E.g. Take with food. Complete the full course. Follow up in 1 week…"
                 rows={2}
                 className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-farumasi-300" />
-            </div>
-
-            {/* Insurance coverage */}
-            <div className="rounded-2xl border border-slate-200 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setInsuranceApplies((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-2.5">
-                  <div className={cn("w-7 h-7 rounded-xl flex items-center justify-center",
-                    insuranceApplies ? "bg-green-100" : "bg-slate-100")}>
-                    <Shield className={cn("w-3.5 h-3.5", insuranceApplies ? "text-green-600" : "text-slate-400")} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-bold text-slate-900">Insurance Coverage</p>
-                    <p className="text-xs text-slate-400">Does this patient have insurance?</p>
-                  </div>
-                </div>
-                <div className={cn(
-                  "w-10 h-5 rounded-full transition-colors relative shrink-0",
-                  insuranceApplies ? "bg-green-500" : "bg-slate-200"
-                )}>
-                  <div className={cn(
-                    "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all",
-                    insuranceApplies ? "left-5" : "left-0.5"
-                  )} />
-                </div>
-              </button>
-              {insuranceApplies && (
-                <div className="px-4 pb-4 pt-1 bg-green-50/50 space-y-2.5">
-                  <p className="text-[11px] text-slate-500">
-                    Enter the patient&apos;s insurance provider and their applicable discount percentage.
-                    This will be shown and applied in the patient&apos;s cart.
-                  </p>
-                  <input
-                    type="text"
-                    value={insuranceProvider}
-                    onChange={(e) => setInsuranceProvider(e.target.value)}
-                    placeholder="Insurance provider (e.g. RSSB, MMI, Radiant)"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-300 bg-white"
-                  />
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={insuranceDiscount}
-                      onChange={(e) => setInsuranceDiscount(e.target.value === "" ? "" : Number(e.target.value))}
-                      placeholder="0"
-                      className="w-24 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-300 bg-white"
-                    />
-                    <span className="text-sm text-slate-500 font-semibold">% discount</span>
-                    {Number(insuranceDiscount) > 0 && (
-                      <span className="text-xs text-green-700 font-bold bg-green-100 px-2 py-0.5 rounded-full">
-                        -{insuranceDiscount}% off total
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Send button */}

@@ -74,12 +74,16 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     }
     const token = localStorage.getItem("farumasi_access_token");
     if (!token) { set({ isGuest: true, isHydrating: false }); return; }
+
+    // Unblock UI immediately; validate session in background.
+    set({ isGuest: false, isHydrating: false, accessToken: token });
+
     try {
       const user = await authService.getMe();
-      set({ isGuest: false, isHydrating: false, user, accessToken: token });
+      set({ user, accessToken: token });
     } catch {
       clearTokens();
-      set({ isGuest: true, isHydrating: false, user: null, accessToken: null });
+      set({ isGuest: true, user: null, accessToken: null });
     }
   },
 

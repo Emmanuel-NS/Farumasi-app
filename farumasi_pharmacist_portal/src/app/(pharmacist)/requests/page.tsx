@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -58,7 +58,7 @@ export default function RequestsPage() {
     } catch {
       toast.error("Failed to load prescriptions");
     } finally { setLoading(false); }
-  }, [filter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -18,10 +18,13 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   const [activePanel, setActivePanel] = useState<string | null>(null);
   const t = useTranslation();
   const hydrateAuth = useAuthStore((s) => s.hydrateAuth);
+  const hydratedOnce = useRef(false);
 
   // Hydrate language + auth preference from localStorage once on client mount
   useEffect(() => {
     hydrateLanguage();
+    if (hydratedOnce.current) return;
+    hydratedOnce.current = true;
     hydrateAuth();
   }, [hydrateAuth]);
 

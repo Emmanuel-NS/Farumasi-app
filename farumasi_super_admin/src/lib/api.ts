@@ -3,7 +3,7 @@ import axios from "axios";
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 const TOKEN_KEY = "farumasi_admin_token";
 
-const api = axios.create({ baseURL: BASE_URL });
+const api = axios.create({ baseURL: BASE_URL, timeout: 20_000 });
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {

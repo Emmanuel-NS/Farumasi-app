@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -26,8 +26,11 @@ export default function PharmacistLayout({ children }: { children: React.ReactNo
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading, hydrate, user, logout } = useAuthStore();
+  const hydratedOnce = useRef(false);
 
   useEffect(() => {
+    if (hydratedOnce.current) return;
+    hydratedOnce.current = true;
     hydrate();
   }, [hydrate]);
 

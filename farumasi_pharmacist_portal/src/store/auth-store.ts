@@ -41,16 +41,36 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   hydrate: async () => {
     const token = localStorage.getItem("farumasi_pharm_token");
-    if (!token) { set({ isLoading: false }); return; }
+    if (!token) {
+      set({ isLoading: false, isAuthenticated: false });
+      return;
+    }
+
+    // Unblock navigation immediately using cached profile; refresh in background.
+    let cachedUser: CurrentUser | null = null;
+    try {
+      const raw = localStorage.getItem("farumasi_pharm_user");
+      if (raw) cachedUser = JSON.parse(raw) as CurrentUser;
+    } catch { /* ignore corrupt cache */ }
+
+    set({
+      user: cachedUser,
+      token,
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
     try {
       const user = await authService.getMe();
       localStorage.setItem("farumasi_pharm_user", JSON.stringify(user));
-      set({ user, token, isAuthenticated: true, isLoading: false });
+      set({ user, token, isAuthenticated: true });
     } catch {
-      localStorage.removeItem("farumasi_pharm_token");
-      localStorage.removeItem("farumasi_pharm_refresh");
-      localStorage.removeItem("farumasi_pharm_user");
-      set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+      if (!cachedUser) {
+        localStorage.removeItem("farumasi_pharm_token");
+        localStorage.removeItem("farumasi_pharm_refresh");
+        localStorage.removeItem("farumasi_pharm_user");
+        set({ user: null, token: null, isAuthenticated: false });
+      }
     }
   },
 }));
