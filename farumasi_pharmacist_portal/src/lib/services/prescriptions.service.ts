@@ -95,6 +95,14 @@ export const prescriptionsService = {
     return data;
   },
 
+  async listReviewsForPrescription(prescriptionId: string): Promise<PrescriptionReview[]> {
+    const { data } = await api.get<{ items: PrescriptionReview[] }>(
+      "/pharmacists/prescription-reviews",
+      { params: { prescription_id: prescriptionId, limit: 20 } },
+    );
+    return data.items ?? [];
+  },
+
   /** Add a single item (medicine) to the prescription cart. */
   async addItem(prescriptionId: string, item: CartItem): Promise<PrescriptionItem> {
     const { data } = await api.post<PrescriptionItem>(

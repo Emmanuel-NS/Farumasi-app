@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
   Loader2, Plus, Eye, Edit2, Trash2, Search, BookOpen, X, Save, Archive, Send,
-  Heart, MessageCircle, Share2, Upload, Link as LinkIcon, Youtube,
+  Heart, MessageCircle, Share2, Upload, Link as LinkIcon, Youtube, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import api, { mediaUrl } from "@/lib/api";
@@ -71,7 +71,9 @@ export default function HealthPage() {
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-farumasi-600" /> Health Content
           </h1>
-          <p className="text-slate-500 text-sm mt-0.5">Author and publish articles for patients</p>
+          <p className="text-slate-500 text-sm mt-0.5">
+            Author and publish articles. Use <strong className="text-amber-700">Sponsored</strong> on a published post to pin it on the patient Health home carousel.
+          </p>
         </div>
         <button
           onClick={() => setEditor("new")}
@@ -121,8 +123,15 @@ export default function HealthPage() {
                 <img src={a.image_url} alt={a.title} className="w-full h-32 object-cover" />
               )}
               <div className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <StatusChip s={a.status} />
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <StatusChip s={a.status} />
+                    {a.is_sponsored && (
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                        <Sparkles className="w-3 h-3" /> Sponsored
+                      </span>
+                    )}
+                  </div>
                   {a.category && <span className="text-[11px] text-slate-400">{a.category}</span>}
                 </div>
                 <h3 className="text-sm font-bold text-slate-900 line-clamp-2">{a.title}</h3>
@@ -144,6 +153,43 @@ export default function HealthPage() {
                   <span className="inline-flex items-center gap-1"><MessageCircle className="w-3 h-3" />{a.comment_count ?? 0}</span>
                   <span className="inline-flex items-center gap-1"><Share2 className="w-3 h-3" />{a.share_count ?? 0}</span>
                 </div>
+                <label className="flex items-center gap-2 mt-3 p-2.5 rounded-xl border border-amber-100 bg-amber-50/50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!a.is_sponsored}
+                    onChange={async (e) => {
+                      const next = e.target.checked;
+                      try {
+                        const updated = await articlesService.setSponsored(a.id, next);
+                        const saved = updated.is_sponsored ?? next;
+                        setItems((prev) =>
+                          prev.map((row) =>
+                            row.id === a.id ? { ...row, is_sponsored: saved } : row,
+                          ),
+                        );
+                        toast.success(
+                          saved
+                            ? a.status === "published"
+                              ? "Sponsored — visible on patient Store & Health home"
+                              : "Sponsored saved — publish the article for patients to see it"
+                            : "Removed from sponsored carousel",
+                        );
+                      } catch {
+                        toast.error("Could not save sponsored status. Restart the API if this keeps failing.");
+                      }
+                    }}
+                    className="rounded border-amber-300 text-farumasi-600 focus:ring-farumasi-500"
+                  />
+                  <span className="text-xs font-semibold text-amber-900 flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5" /> Sponsored (Store &amp; Health home)
+                  </span>
+                  {a.status !== "published" && (
+                    <span className="text-[10px] text-amber-700 block mt-0.5">
+                      Publish this article for patients to see it in the carousel.
+                    </span>
+                  )}
+                </label>
+
                 <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-100">
                   <button onClick={() => setPreview(a)} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50">
                     <Eye className="w-3.5 h-3.5" /> Preview
@@ -239,6 +285,7 @@ function EditorDialog({
     article_type: (initial?.article_type as ArticleType) ?? "article",
     image_url:    initial?.image_url ?? "",
     video_url:    initial?.video_url ?? "",
+    is_sponsored: initial?.is_sponsored ?? false,
   });
   const [saving, setSaving]             = useState(false);
   const [coverMode, setCoverMode]       = useState<"upload" | "url">("url");
@@ -304,6 +351,23 @@ function EditorDialog({
           <Field label="Title">
             <input className={INP} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. 5 ways to stay hydrated" />
           </Field>
+
+          <label className="flex items-start gap-3 p-3 rounded-xl border-2 border-amber-200 bg-amber-50 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!form.is_sponsored}
+              onChange={(e) => setForm({ ...form, is_sponsored: e.target.checked })}
+              className="mt-1 rounded border-amber-300 text-farumasi-600 focus:ring-farumasi-500"
+            />
+            <span>
+              <span className="text-sm font-bold text-slate-900 flex items-center gap-1">
+                <Sparkles className="w-4 h-4 text-amber-600" /> Sponsored content
+              </span>
+              <span className="text-xs text-slate-600 block mt-0.5">
+                When published, appears in the rotating banner at the top of the patient Health page.
+              </span>
+            </span>
+          </label>
 
           {/* Post type */}
           <Field label="Post type">

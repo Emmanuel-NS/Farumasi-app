@@ -20,6 +20,7 @@ export interface BackendArticle {
   comment_count?: number;
   is_liked?: boolean;
   is_saved?: boolean;
+  is_sponsored?: boolean;
 }
 
 export interface PaginatedArticles {
@@ -67,5 +68,6 @@ export function adaptArticle(a: BackendArticle): HealthArticle {
     shareCount: a.share_count ?? 0,
     isLiked: a.is_liked ?? false,
     isSaved: a.is_saved ?? false,
+    isSponsored: Boolean(a.is_sponsored),
   };
 }

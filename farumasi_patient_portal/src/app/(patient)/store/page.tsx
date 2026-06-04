@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useLanguageStore } from "@/store/language-store";
 import { cn, formatPrice } from "@/lib/utils";
 import { useSearchStore } from "@/store/search-store";
+import { useStoreFilterStore } from "@/store/store-filter-store";
 import { useCartStore } from "@/store/cart-store";
 import type { Medicine, Recommendation } from "@/types";
 import { toast } from "sonner";
@@ -18,7 +19,6 @@ import { pharmaciesService, BackendPharmacy } from "@/lib/services/pharmacies.se
 import { getPatientCoords } from "@/lib/location";
 import type { DigitalPrescription } from "@/types";
 import {
-  SlidersHorizontal,
   ShoppingCart,
   AlertCircle,
   X,
@@ -41,6 +41,7 @@ import {
 import { minQuantityForLine } from "@/lib/cart-pricing";
 import { HEALTHCARE_CATEGORY_ICONS, IconGeneral } from "@/components/icons/CategoryIcons";
 import type { CategoryIconComponent } from "@/components/icons/CategoryIcons";
+import { SponsoredCarousel } from "@/components/health/sponsored-carousel";
 
 // ── Category → custom icon resolution ───────────────────────────────────────
 const _ICON_BY_NAME: Record<string, CategoryIconComponent> = Object.fromEntries(
@@ -93,11 +94,23 @@ function getCategoryIcon(cat: string): CategoryIconComponent {
   return _ICON_BY_NAME[getDefaultIconKey(cat)] ?? IconGeneral;
 }
 
+/** Sponsored strip lives outside search-params Suspense so it always mounts and fetches. */
+function StoreSponsoredStrip() {
+  return (
+    <div className="px-4 md:px-6 max-w-[1280px] mx-auto pt-3 pb-1">
+      <SponsoredCarousel className="mb-3" />
+    </div>
+  );
+}
+
 export default function StorePage() {
   return (
-    <Suspense>
-      <StorePageInner />
-    </Suspense>
+    <>
+      <StoreSponsoredStrip />
+      <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading store…</div>}>
+        <StorePageInner />
+      </Suspense>
+    </>
   );
 }
 
@@ -210,22 +223,28 @@ function StorePageInner() {
     return map[cat] ?? cat;
   };
 
-  // ── Multi-select categories — mirrors Flutter Set<String> _selectedCategories ──
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const [sort, setSort]       = useState<"default" | "price_asc" | "price_desc">("default");
+  const sort = useStoreFilterStore((s) => s.sort);
+  const setSort = useStoreFilterStore((s) => s.setSort);
+  const selectedProductType = useStoreFilterStore((s) => s.selectedProductType);
+  const setSelectedProductType = useStoreFilterStore((s) => s.setSelectedProductType);
+  const selectedCategoriesArr = useStoreFilterStore((s) => s.selectedCategories);
+  const selectedCategories = useMemo(
+    () => new Set(selectedCategoriesArr),
+    [selectedCategoriesArr],
+  );
+  const showFilters = useStoreFilterStore((s) => s.showFilters);
+  const toggleCategoryStore = useStoreFilterStore((s) => s.toggleCategory);
   const PRODUCT_TYPES = [
     { value: "medicine",         label: "Medicine" },
     { value: "medical_device",   label: "Medical Device" },
     { value: "food_supplements", label: "Food Supplements" },
     { value: "cosmetics",        label: "Cosmetics" },
   ] as const;
-  const [selectedProductType, setSelectedProductType] = useState<string>("All");
   const { items: cartItems, add: cartAdd, remove: cartRemove } = useCartStore();
   const [quickView, setQuickView] = useState<Medicine | null>(null);
   const [quickAdd, setQuickAdd]   = useState<Medicine | null>(null);
   const [quickAddMode, setQuickAddMode] = useState<SellMode>("pack");
   const [quickAddQty, setQuickAddQty]   = useState(1);
-  const [showFilters, setShowFilters] = useState(false);
   const [hideCategories, setHideCategories] = useState(false);
   const [canScrollLeft, setCanScrollLeft]   = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -274,15 +293,8 @@ function StorePageInner() {
     }).catch(() => {});
   }, [selectedPharmacyId]);
 
-  // Toggle category — clicking "All" clears all; clicking active deselects; clicking inactive adds
   function toggleCategory(cat: string) {
-    if (cat === "All") { setSelectedCategories(new Set()); return; }
-    const norm = cat.toLowerCase();
-    setSelectedCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(norm)) next.delete(norm); else next.add(norm);
-      return next;
-    });
+    toggleCategoryStore(cat);
   }
 
   // Update arrow visibility on scroll
@@ -350,7 +362,7 @@ function StorePageInner() {
   // Cart count drives topbar badge (via useCartStore in topbar)
 
   return (
-    <div className="p-4 md:p-6 max-w-[1280px] mx-auto">
+    <div className="px-4 md:px-6 pb-4 md:pb-6 max-w-[1280px] mx-auto">
       {/* ── Prescription Recommendation Banner ───────────────── */}
       {activePrescription && (
         <div className="mb-5 bg-farumasi-50 border border-farumasi-200 rounded-3xl p-4">
@@ -453,57 +465,9 @@ function StorePageInner() {
         </div>
       )}
 
-      {/* ── Page header ──────────────────────────────────── */}
-      <div className="flex items-start justify-between mb-5 gap-4">
-        {/* page header only — no cart button; use topbar cart icon */}
-        <div>
-          <h1 className="text-[26px] font-extrabold text-[#0F172A] tracking-tight leading-tight">
-            FARUMASI Store
-          </h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            {t.store_subtitle}
-          </p>
-        </div>
-      </div>
-
-      {/* ── Filter bar (no inline search — topbar handles search) ── */}
-      <div className="flex items-center gap-3 mb-5 bg-white rounded-2xl border border-[#E4E8EC] shadow-sm px-4 py-3">
-        <div className="flex-1 flex items-center gap-2 min-w-0">
-          {selectedCategories.size > 0 ? (
-            <span className="text-sm text-slate-600">
-              {tf(t.store_cats_selected, { n: selectedCategories.size })}
-            </span>
-          ) : query.trim() ? (
-            <span className="text-sm text-slate-500">{t.store_showing_for} <span className="font-semibold text-slate-700">&quot;{query}&quot;</span></span>
-          ) : (
-            <span className="text-sm text-slate-400">{t.store_select_cat}</span>
-          )}
-        </div>
-        {(selectedCategories.size > 0 || query.trim()) && (
-          <button
-            onClick={() => { setSelectedCategories(new Set()); useSearchStore.getState().clear(); }}
-            className="flex items-center gap-1 text-xs text-slate-500 hover:text-red-500 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 shrink-0"
-          >
-            <X className="w-3.5 h-3.5" /> {t.store_clear_all}
-          </button>
-        )}
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium transition-all shrink-0",
-            showFilters
-              ? "bg-farumasi-600 text-white border-farumasi-600"
-              : "border-slate-200 text-slate-600 hover:border-farumasi-400 bg-[#F3F6FA]"
-          )}
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-          <span>Filters{(sort !== "default" || selectedProductType !== "All") ? ` (${(sort !== "default" ? 1 : 0) + (selectedProductType !== "All" ? 1 : 0)})` : ""}</span>
-        </button>
-      </div>
-
-      {/* ── Filter panel (when open) ─────────────────────── */}
+      {/* ── Filter panel (toggle from topbar search / filter icon) ── */}
       {showFilters && (
-        <div className="mb-5 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-4">
+        <div className="mb-3 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-4">
           {/* Sort row */}
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_sort_by}</span>
@@ -551,22 +515,15 @@ function StorePageInner() {
       )}
 
       {/* ── Categories section ───────────────────────────── */}
-      <div className="mb-5 bg-[#F6F8FB]">
-        {/* Header row */}
-        <div className={cn("flex items-center mb-2", hideCategories ? "justify-end" : "justify-between")}>
-          {!hideCategories && (
-            <h2 className="text-[19px] font-bold text-[#0F172A]">{t.store_categories}</h2>
-          )}
+      <div className="mb-4 bg-[#F6F8FB] rounded-2xl">
+        <div className="flex items-center justify-end mb-1 pt-1">
           <button
+            type="button"
             onClick={() => setHideCategories((h) => !h)}
-            className={cn(
-              "flex items-center gap-1 rounded-full transition-all text-[#64748B]",
-              hideCategories
-                ? "bg-white shadow-sm px-3 py-1.5 text-[13px] font-semibold hover:shadow"
-                : "p-1.5 hover:bg-slate-100"
-            )}
+            className="p-1.5 rounded-full text-[#64748B] hover:bg-slate-100 transition-colors"
+            aria-label={hideCategories ? t.store_cats_toggle : "Hide categories"}
+            title={hideCategories ? t.store_cats_toggle : "Hide categories"}
           >
-            {hideCategories && <span className="text-[13px] font-semibold">{t.store_cats_toggle}</span>}
             {hideCategories ? (
               <ChevronDown className="w-5 h-5" />
             ) : (

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { HealthArticle, ArticleType } from "@/types";
 import { articlesService, type ArticleSort } from "@/lib/services/articles.service";
+import { SponsoredCarousel } from "@/components/health/sponsored-carousel";
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 const TABS = [
@@ -299,6 +300,7 @@ export default function HealthPage() {
 
       {/* ── Article list ──────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto scrollbar-hide px-4 sm:px-5 py-5">
+        {!savedOnly && <SponsoredCarousel />}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24">
             <div className="w-10 h-10 border-2 border-farumasi-600 border-t-transparent rounded-full animate-spin mb-3" />

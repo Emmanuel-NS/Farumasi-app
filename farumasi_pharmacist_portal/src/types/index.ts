@@ -125,41 +125,6 @@ export interface InventoryItem {
   ageDosages: AgeDosage[];
 }
 
-// ─── Fleet ─────────────────────────────────────────────
-export type DriverStatus = "available" | "on_delivery" | "off_duty";
-
-export interface Driver {
-  id: string;
-  name: string;
-  phone: string;
-  vehicleType: "motorcycle" | "bicycle" | "car";
-  vehiclePlate: string;
-  status: DriverStatus;
-  currentOrderId?: string;
-  totalDeliveries: number;
-  rating: number;
-}
-
-// ─── Audit Logs ────────────────────────────────────────
-export type AuditAction =
-  | "inventory_update"
-  | "order_status_change"
-  | "request_accepted"
-  | "request_rejected"
-  | "login"
-  | "invoice_sent"
-  | "driver_assigned";
-
-export interface AuditLog {
-  id: number;
-  action: AuditAction;
-  description: string;
-  performedBy: string;
-  timestamp: string;
-  entityId?: string;
-  metadata?: Record<string, unknown>;
-}
-
 // ─── Chat ──────────────────────────────────────────────
 export type ChatType = "consultation" | "general";
 
@@ -190,7 +155,6 @@ export interface DashboardStats {
   pendingRequests: number;
   revenue30d: number;
   lowStockItems: number;
-  activeDrivers: number;
 }
 
 // ─── Notifications ─────────────────────────────────────

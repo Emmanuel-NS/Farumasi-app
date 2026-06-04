@@ -14,6 +14,8 @@ import {
   Menu, Bell, ShoppingCart, HelpCircle,
   Search, LogOut, LogIn, User, Settings, X,
 } from "lucide-react";
+import { StoreFilterButton } from "@/components/store/store-filter-button";
+import { useStoreFilterStore, storeActiveFilterCount } from "@/store/store-filter-store";
 
 import { notificationsService } from "@/lib/services/notifications.service";
 import { startVisibleInterval } from "@/lib/polling";
@@ -29,6 +31,7 @@ const notifCategoryColor: Record<string, string> = {
 
 interface TopbarProps {
   collapsed: boolean;
+  mobileNavOpen?: boolean;
   onToggle: () => void;
   onNotifClick?: () => void;
   onCartClick?: () => void;
@@ -36,10 +39,21 @@ interface TopbarProps {
   activePanel?: string | null;
 }
 
-export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpClick, activePanel }: TopbarProps) {
+export function Topbar({
+  collapsed,
+  mobileNavOpen = false,
+  onToggle,
+  onNotifClick,
+  onCartClick,
+  onHelpClick,
+  activePanel,
+}: TopbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { query, setQuery, clear } = useSearchStore();
+  const clearStoreFilters = useStoreFilterStore((s) => s.clearAll);
+  const isStorePage = pathname === "/store";
+  const storeFilterCount = storeActiveFilterCount(query);
   const cartItemCount = Object.values(useCartStore((s) => s.items)).reduce((acc, e) => acc + e.qty, 0);
   const [showProfile, setShowProfile] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -88,12 +102,20 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
   }, []);
 
   return (
-    <header className="h-[72px] bg-farumasi-600 flex items-center gap-3 px-4 shrink-0 sticky top-0 z-20">
+    <header
+      className={cn(
+        "h-[72px] bg-farumasi-600 flex items-center gap-3 px-4 shrink-0 sticky top-0",
+        mobileNavOpen ? "z-50" : "z-20",
+      )}
+    >
       {/* Hamburger */}
       <button
+        type="button"
         onClick={onToggle}
         className="p-2 rounded-lg text-white hover:bg-white/10 transition-colors shrink-0"
-        title={collapsed ? "Expand menu" : "Collapse menu"}
+        title={mobileNavOpen ? "Close menu" : collapsed ? "Expand menu" : "Collapse menu"}
+        aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+        aria-expanded={mobileNavOpen}
       >
         <Menu className="w-6 h-6" />
       </button>
@@ -116,20 +138,42 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
       {/* Spacer */}
       <div className="flex-1 hidden sm:block" />
 
-      {/* Search — white rounded rectangle, max 500px, matches Flutter — drives store search via Zustand */}
-      <div className="flex-[3] max-w-[500px] hidden sm:block">
-        <div className="flex items-center bg-white rounded-[14px] h-12 px-4 gap-2 shadow-[0_2px_4px_rgba(0,0,0,0.12)] hover:shadow-md transition-shadow">
+      {/* Search bar — filter inside whenever the bar is visible (sm+) */}
+      <div className="flex-[3] max-w-[500px] lg:max-w-[620px] hidden sm:block">
+        <div className="flex items-center bg-white rounded-[14px] h-12 px-3 lg:px-4 gap-2 shadow-[0_2px_4px_rgba(0,0,0,0.12)] hover:shadow-md transition-shadow">
           <Search className="w-5 h-5 text-slate-400 shrink-0" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search medicines, symptoms, categories..."
-            className="flex-1 text-sm text-[#0F172A] placeholder:text-slate-400 outline-none bg-transparent"
+            className="flex-1 min-w-0 text-sm text-[#0F172A] placeholder:text-slate-400 outline-none bg-transparent"
           />
           {query && (
-            <button onClick={clear} className="text-slate-400 hover:text-slate-600 shrink-0">
+            <button
+              type="button"
+              onClick={clear}
+              className="text-slate-400 hover:text-slate-600 shrink-0"
+              aria-label="Clear search"
+            >
               <X className="w-4 h-4" />
             </button>
+          )}
+          {isStorePage && (
+            <>
+              <div className="w-px h-7 bg-slate-200 shrink-0" aria-hidden />
+              <StoreFilterButton embedded />
+              {storeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => clearStoreFilters()}
+                  className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0 transition-colors"
+                  aria-label="Clear all filters"
+                  title="Clear all filters"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -137,14 +181,17 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
       <div className="flex-1 hidden sm:block" />
 
       <div className="flex items-center gap-0.5 ml-auto sm:ml-0">
-        {/* Mobile search — shown below sm */}
+        {/* Narrow topbar: search icon then filter (full bar hidden below sm) */}
         <button
+          type="button"
           className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors sm:hidden"
           onClick={() => setQuery(query ? "" : " ")}
           title="Search"
+          aria-label="Search"
         >
           <Search className="w-5 h-5" />
         </button>
+        {isStorePage && <StoreFilterButton iconOnly className="sm:hidden" />}
 
         {/* Help */}
         <button
@@ -253,15 +300,20 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
       {/* Mobile search overlay — shown when query is active on narrow screens */}
       {query && (
         <div className="absolute top-full left-0 right-0 bg-farumasi-600 px-4 py-3 flex items-center gap-2 z-30 border-t border-white/10 sm:hidden">
-          <Search className="w-4 h-4 text-white/60" />
+          <Search className="w-4 h-4 text-white/60 shrink-0" />
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search medicines…"
-            className="flex-1 bg-transparent text-white placeholder:text-white/50 outline-none text-sm"
+            className="flex-1 min-w-0 bg-transparent text-white placeholder:text-white/50 outline-none text-sm"
           />
-          <button onClick={clear} className="text-white/60 hover:text-white">
+          <button
+            type="button"
+            onClick={clear}
+            className="text-white/60 hover:text-white shrink-0"
+            aria-label="Clear search"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>

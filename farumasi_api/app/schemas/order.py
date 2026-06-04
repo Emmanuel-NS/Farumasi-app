@@ -118,6 +118,11 @@ class OrderPharmacyBrief(FarumasiBaseModel):
     name: str
 
 
+class OrderPartnerBrief(FarumasiBaseModel):
+    id: str
+    name: str
+
+
 class OrderUserBrief(FarumasiBaseModel):
     id: str
     full_name: Optional[str] = None
@@ -162,6 +167,7 @@ class OrderOut(FarumasiBaseModel):
     # Nested relationship data — populated when relationships are loaded
     patient: Optional[OrderPatientBrief] = None
     pharmacy: Optional[OrderPharmacyBrief] = None
+    partner_company: Optional[OrderPartnerBrief] = None
     delivery: Optional[OrderDeliveryBrief] = None
     # Access codes — patient_access_code only visible to the patient who placed
     # the order and to Farumasi pharmacists. rider_access_code only visible to
@@ -205,3 +211,16 @@ class SetRiderAccessCodeRequest(FarumasiBaseModel):
 class VerifyAccessCodeRequest(FarumasiBaseModel):
     """Verify the patient's access code at pickup or delivery completion."""
     access_code: str
+
+
+class OrderActivityEntry(FarumasiBaseModel):
+    id: str
+    action: str
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    old_value: Optional[dict] = None
+    new_value: Optional[dict] = None
+    created_at: datetime
+    actor_user_id: Optional[str] = None
+    actor_name: Optional[str] = None
+    actor_role: Optional[str] = None

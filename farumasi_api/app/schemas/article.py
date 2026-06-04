@@ -20,6 +20,7 @@ class ArticleCreate(FarumasiBaseModel):
     image_url: Optional[str] = None
     video_url: Optional[str] = None
     slug: Optional[str] = None
+    is_sponsored: Optional[bool] = False
 
 
 class ArticleUpdate(FarumasiBaseModel):
@@ -31,6 +32,11 @@ class ArticleUpdate(FarumasiBaseModel):
     article_type: Optional[str] = None
     image_url: Optional[str] = None
     video_url: Optional[str] = None
+    is_sponsored: Optional[bool] = None
+
+
+class ArticleSponsoredUpdate(FarumasiBaseModel):
+    is_sponsored: bool
 
 
 class ArticleStatusUpdate(FarumasiBaseModel):
@@ -56,6 +62,7 @@ class ArticleOut(FarumasiBaseModel):
     like_count: int = 0
     share_count: int = 0
     comment_count: int = 0
+    is_sponsored: bool = False
 
 
 class ArticlePublicOut(FarumasiBaseModel):
@@ -78,6 +85,7 @@ class ArticlePublicOut(FarumasiBaseModel):
     comment_count: int = 0
     is_liked: bool = False
     is_saved: bool = False
+    is_sponsored: bool = False
 
 
 # ── Comments ──────────────────────────────────────────────────────────

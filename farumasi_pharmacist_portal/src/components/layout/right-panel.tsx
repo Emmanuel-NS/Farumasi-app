@@ -111,8 +111,7 @@ function HelpPanel() {
         {[
           { icon: "📋", label: "Handle prescription requests", href: "/requests" },
           { icon: "📦", label: "Manage inventory", href: "/inventory" },
-          { icon: "🚚", label: "Fleet & driver management", href: "/fleet" },
-          { icon: "📊", label: "View audit logs", href: "/audit" },
+          { icon: "🛒", label: "Monitor orders (read-only)", href: "/orders" },
         ].map((t) => (
           <Link key={t.label} href={t.href} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-farumasi-50 hover:border-farumasi-200 transition-colors group">
             <span className="text-lg">{t.icon}</span>

@@ -108,6 +108,7 @@ def serialize_article(
         "like_count": article.like_count or 0,
         "share_count": article.share_count or 0,
         "comment_count": article.comment_count or 0,
+        "is_sponsored": bool(getattr(article, "is_sponsored", False)),
         "is_liked": is_liked,
         "is_saved": is_saved,
     }
@@ -209,6 +210,7 @@ class ArticleService:
             article_type=self._normalize_type(data.article_type),
             image_url=data.image_url,
             video_url=data.video_url,
+            is_sponsored=bool(data.is_sponsored or False),
             status=ArticleStatus.DRAFT,
         )
         self.db.add(article)
@@ -252,6 +254,22 @@ class ArticleService:
                     article.slug = new_slug
 
         await self.db.flush()
+        return article
+
+    async def set_sponsored(
+        self, article_id: str, is_sponsored: bool, actor: User
+    ) -> HealthArticle:
+        article = await self._get_or_404(article_id)
+        await self._ensure_can_manage(article, actor)
+        article.is_sponsored = bool(is_sponsored)
+        await self.db.flush()
+        await AuditService(self.db).log(
+            actor_user_id=actor.id,
+            action="article.sponsored_changed",
+            entity_type="HealthArticle",
+            entity_id=article.id,
+            new_value={"is_sponsored": article.is_sponsored},
+        )
         return article
 
     async def publish_article(self, article_id: str, actor: User) -> HealthArticle:
@@ -336,10 +354,13 @@ class ArticleService:
         categories: Optional[List[str]] = None,
         article_type: Optional[str] = None,
         sort_by: Optional[str] = None,
+        sponsored_only: bool = False,
         offset: int = 0,
         limit: int = 20,
     ) -> Tuple[List[HealthArticle], int]:
         q = select(HealthArticle).where(HealthArticle.status == ArticleStatus.PUBLISHED)
+        if sponsored_only:
+            q = q.where(HealthArticle.is_sponsored.is_(True))
         q = self._apply_category_filter(q, category, categories)
         if article_type:
             q = q.where(HealthArticle.article_type == self._normalize_type(article_type))
@@ -347,6 +368,22 @@ class ArticleService:
         q = self._apply_sort(q, sort_by).offset(offset).limit(limit)
         items = list((await self.db.execute(q)).scalars().all())
         return items, total
+
+    async def list_sponsored_published(
+        self,
+        *,
+        limit: int = 10,
+    ) -> List[HealthArticle]:
+        q = (
+            select(HealthArticle)
+            .where(
+                HealthArticle.status == ArticleStatus.PUBLISHED,
+                HealthArticle.is_sponsored.is_(True),
+            )
+            .order_by(HealthArticle.published_at.desc(), HealthArticle.created_at.desc())
+            .limit(min(limit, 20))
+        )
+        return list((await self.db.execute(q)).scalars().all())
 
     async def list_admin(
         self,

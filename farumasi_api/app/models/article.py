@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -40,6 +40,7 @@ class HealthArticle(Base, UUIDMixin, TimestampMixin):
     like_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     share_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     comment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    is_sponsored: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     author_pharmacist: Mapped[Optional["PharmacistProfile"]] = relationship(
         "PharmacistProfile", back_populates="articles"

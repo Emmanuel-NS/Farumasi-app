@@ -327,6 +327,7 @@ export interface HealthArticle {
   shareCount?: number;
   isLiked?: boolean;
   isSaved?: boolean;
+  isSponsored?: boolean;
 }
 
 // ── Notifications ─────────────────────────────

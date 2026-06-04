@@ -36,6 +36,9 @@ export interface BackendOrder {
     user?: { id: string; full_name: string; email: string; phone?: string };
   };
   pharmacy?: { id: string; name: string };
+  partner_company?: { id: string; name: string };
+  partner_company_id?: string | null;
+  prescription_id?: string | null;
   delivery?: {
     id: string;
     status: string;
@@ -57,6 +60,23 @@ export interface PaginatedOrders {
 function norm(o: BackendOrder): BackendOrder {
   const status = o.order_status ?? o.status ?? "";
   return { ...o, status, order_status: status };
+}
+
+export interface OrderActivityEntry {
+  id: string;
+  action: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  old_value?: Record<string, unknown> | null;
+  new_value?: Record<string, unknown> | null;
+  created_at: string;
+  actor_user_id?: string | null;
+  actor_name?: string | null;
+  actor_role?: string | null;
+}
+
+export function isPrescriptionOrder(o: BackendOrder): boolean {
+  return Boolean(o.prescription_id);
 }
 
 export const ordersService = {
@@ -98,5 +118,18 @@ export const ordersService = {
       access_code: accessCode,
     });
     return norm(data);
+  },
+
+  async getOrderActivity(orderId: string): Promise<OrderActivityEntry[]> {
+    try {
+      const { data } = await api.get<OrderActivityEntry[]>(
+        `/orders/${orderId}/activity`,
+      );
+      return Array.isArray(data) ? data : [];
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) return [];
+      throw err;
+    }
   },
 };

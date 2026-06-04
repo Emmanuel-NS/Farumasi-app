@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "FARUMASI — Pharmacist Portal",
-  description: "Manage prescriptions, orders, inventory and fleet for FARUMASI pharmacies",
+  description: "Manage prescriptions, orders, inventory and health content for FARUMASI pharmacies",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -16,8 +16,6 @@ const routeLabels: Record<string, string> = {
   requests: "Prescription Requests",
   orders: "Orders",
   inventory: "Inventory",
-  fleet: "Fleet",
-  audit: "Audit Logs",
   settings: "Settings",
   notifications: "Notifications",
   chat: "Patient Chat",

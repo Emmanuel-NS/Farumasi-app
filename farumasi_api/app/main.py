@@ -28,6 +28,18 @@ async def lifespan(app: FastAPI):
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         logger.info("Database connection OK")
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE health_articles "
+                        "ADD COLUMN IF NOT EXISTS is_sponsored "
+                        "BOOLEAN NOT NULL DEFAULT false"
+                    )
+                )
+            logger.info("health_articles.is_sponsored column OK")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Could not ensure is_sponsored column: %s", exc)
     except Exception as exc:  # noqa: BLE001
         logger.critical("Database startup ping FAILED: %s", exc)
         raise RuntimeError(

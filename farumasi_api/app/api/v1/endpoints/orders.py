@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.delivery import DeliveryOut
 from app.schemas.order import (
+    OrderActivityEntry,
     OrderCreate,
     OrderOut,
     OrderStatusUpdate,
@@ -77,6 +78,17 @@ async def pharmacy_orders(
         actor, offset=offset, limit=limit, status=status
     )
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+
+
+@router.get("/{order_id}/activity", response_model=list[OrderActivityEntry])
+async def get_order_activity(
+    order_id: str,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    """Status-change and related audit events for one order."""
+    rows = await OrderService(db).list_order_activity(order_id, actor)
+    return [OrderActivityEntry(**r) for r in rows]
 
 
 @router.get("/{order_id}", response_model=OrderOut)

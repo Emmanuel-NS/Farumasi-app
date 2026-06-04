@@ -1,26 +1,29 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { RightPanel } from "@/components/layout/right-panel";
 import { PatientRoleGuard } from "@/components/shared/patient-role-guard";
-import { Store, HeartPulse, MessageCircle, ShoppingBag, FileText } from "lucide-react";
 import { hydrateLanguage } from "@/store/language-store";
 import { useAuthStore } from "@/store/auth-store";
-import { useTranslation } from "@/lib/translations";
+
+const MOBILE_NAV_MQ = "(max-width: 639px)";
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<string | null>(null);
-  const t = useTranslation();
+  const [portalReady, setPortalReady] = useState(false);
   const hydrateAuth = useAuthStore((s) => s.hydrateAuth);
   const hydratedOnce = useRef(false);
 
-  // Hydrate language + auth preference from localStorage once on client mount
+  useEffect(() => setPortalReady(true), []);
+
   useEffect(() => {
     hydrateLanguage();
     if (hydratedOnce.current) return;
@@ -28,109 +31,109 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     hydrateAuth();
   }, [hydrateAuth]);
 
+  // Close mobile drawer after navigation
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileNavOpen]);
+
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
+
+  const handleMenuToggle = useCallback(() => {
+    if (typeof window !== "undefined" && window.matchMedia(MOBILE_NAV_MQ).matches) {
+      setMobileNavOpen((open) => !open);
+    } else {
+      setCollapsed((c) => !c);
+    }
+  }, []);
+
   const togglePanel = (panel: string) => {
     setActivePanel((prev) => (prev === panel ? null : panel));
+    closeMobileNav();
   };
+
+  const mobileNavPortal =
+    portalReady && mobileNavOpen
+      ? createPortal(
+          <div
+            className="fixed top-[72px] left-0 right-0 bottom-0 z-[100] sm:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Main navigation"
+          >
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/45"
+              aria-label="Close menu"
+              onClick={closeMobileNav}
+            />
+            <aside className="absolute inset-y-0 left-0 z-10 w-[min(280px,88vw)] shadow-2xl">
+              <Sidebar collapsed={false} onNavigate={closeMobileNav} />
+            </aside>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <PatientRoleGuard>
-    <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600">
-      <Topbar
-        collapsed={collapsed}
-        onToggle={() => setCollapsed((c) => !c)}
-        onNotifClick={() => togglePanel("notifications")}
-        onCartClick={() => togglePanel("cart")}
-        onHelpClick={() => togglePanel("help")}
-        activePanel={activePanel}
-      />
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Left sidebar — desktop only (sm = 640px, closest to Flutter's 600px) */}
-        <div className="hidden sm:flex">
-          <Sidebar collapsed={collapsed} />
-          {/* Resize handle (visual, matches Flutter drag handle) */}
-          <div className="w-3.5 bg-farumasi-600 flex items-center justify-center cursor-col-resize shrink-0">
-            <div className="h-9 w-1 rounded-full bg-white/30 flex flex-col justify-evenly items-center gap-1">
-              <span className="block w-0.5 h-0.5 rounded-full bg-white" />
-              <span className="block w-0.5 h-0.5 rounded-full bg-white" />
-              <span className="block w-0.5 h-0.5 rounded-full bg-white" />
+      <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600">
+        <Topbar
+          collapsed={collapsed}
+          mobileNavOpen={mobileNavOpen}
+          onToggle={handleMenuToggle}
+          onNotifClick={() => togglePanel("notifications")}
+          onCartClick={() => togglePanel("cart")}
+          onHelpClick={() => togglePanel("help")}
+          activePanel={activePanel}
+        />
+
+        {mobileNavPortal}
+
+        <div
+          className={cn(
+            "flex flex-1 min-h-0 overflow-hidden",
+            mobileNavOpen && "max-sm:pointer-events-none max-sm:touch-none",
+          )}
+        >
+          {/* Desktop sidebar */}
+          <div className="hidden sm:flex">
+            <Sidebar collapsed={collapsed} />
+            <div className="w-3.5 bg-farumasi-600 flex items-center justify-center cursor-col-resize shrink-0">
+              <div className="h-9 w-1 rounded-full bg-white/30 flex flex-col justify-evenly items-center gap-1">
+                <span className="block w-0.5 h-0.5 rounded-full bg-white" />
+                <span className="block w-0.5 h-0.5 rounded-full bg-white" />
+                <span className="block w-0.5 h-0.5 rounded-full bg-white" />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Main content + optional right panel */}
-        <div className={cn(
-          "flex flex-1 min-w-0 overflow-hidden",
-          activePanel ? "gap-3" : ""
-        )}>
-          <main
-            className={cn(
-              "flex-1 overflow-y-auto scrollbar-hide bg-[#F6F8FB]",
-              "rounded-tl-[32px]",
-              activePanel ? "rounded-tr-[24px]" : ""
+          <div className={cn("flex flex-1 min-w-0 overflow-hidden", activePanel ? "gap-3" : "")}>
+            <main
+              className={cn(
+                "flex-1 overflow-y-auto scrollbar-hide bg-[#F6F8FB]",
+                "rounded-tl-[32px]",
+                activePanel ? "rounded-tr-[24px]" : "",
+                mobileNavOpen && "max-sm:overflow-hidden",
+              )}
+            >
+              {children}
+            </main>
+
+            {activePanel && (
+              <RightPanel activePanel={activePanel} onClose={() => setActivePanel(null)} />
             )}
-          >
-            {children}
-          </main>
-
-          {/* Right panel — floats with left gap, both top corners rounded (mirrors Flutter) */}
-          {activePanel && (
-            <RightPanel activePanel={activePanel} onClose={() => setActivePanel(null)} />
-          )}
+          </div>
         </div>
       </div>
-
-      {/* Mobile bottom nav — hidden above sm (640px ≈ Flutter's 600px isWideScreen) */}
-      <nav className="sm:hidden flex items-center justify-around bg-farumasi-600 shrink-0 px-2 h-[60px]">
-        <MobileNavItem href="/store"         label={t.nav_home}      Icon={Store} />
-        <MobileNavItem href="/health"        label={t.nav_health}    Icon={HeartPulse} />
-        <MobileNavItem href="/prescriptions" label={t.nav_upload_rx} Icon={FileText} primary />
-        <MobileNavItem href="/consult"       label={t.nav_consult}   Icon={MessageCircle} />
-        <MobileNavItem href="/orders"        label={t.nav_orders}    Icon={ShoppingBag} />
-      </nav>
-    </div>
     </PatientRoleGuard>
   );
 }
-
-function MobileNavItem({
-  href,
-  label,
-  Icon,
-  primary,
-}: {
-  href: string;
-  label: string;
-  Icon: React.ElementType;
-  primary?: boolean;
-}) {
-  const pathname = usePathname();
-  const isActive = href === "/store"
-    ? pathname === "/store" || pathname.startsWith("/store/")
-    : pathname === href || pathname.startsWith(href + "/");
-
-  if (primary) {
-    return (
-      <Link
-        href={href}
-        className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-white shadow-md -mt-4 border-[3px] border-farumasi-600"
-      >
-        <Icon className="w-6 h-6 text-farumasi-600" />
-        <span className="text-[9px] font-bold text-farumasi-700 mt-0.5 leading-none">{label}</span>
-      </Link>
-    );
-  }
-
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex flex-col items-center gap-0.5 px-2 py-1 transition-colors",
-        isActive ? "text-white" : "text-white/70 hover:text-white"
-      )}
-    >
-      <Icon className={cn("w-7 h-7", isActive && "drop-shadow-sm")} />
-      <span className={cn("text-[11px]", isActive ? "font-bold" : "font-normal")}>{label}</span>
-    </Link>
-  );
-}
-

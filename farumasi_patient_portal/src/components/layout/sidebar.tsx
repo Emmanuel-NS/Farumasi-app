@@ -29,9 +29,11 @@ interface NavItem {
 
 interface SidebarProps {
   collapsed: boolean;
+  /** Called after choosing a nav destination (e.g. close mobile drawer) */
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ collapsed }: SidebarProps) {
+export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslation();
@@ -57,6 +59,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
   };
 
   const handleLogout = () => {
+    onNavigate?.();
     logout();
     router.push("/store");
   };
@@ -77,6 +80,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
             item={item}
             active={isActive(item.href)}
             collapsed={collapsed}
+            onNavigate={onNavigate}
           />
         ))}
 
@@ -89,6 +93,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
             item={item}
             active={isActive(item.href)}
             collapsed={collapsed}
+            onNavigate={onNavigate}
           />
         ))}
       </nav>
@@ -99,6 +104,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
           /* Guest — show Sign In */
           <Link
             href="/auth/login"
+            onClick={() => onNavigate?.()}
             className={cn(
               "flex items-center gap-3 rounded-xl transition-colors duration-180",
               collapsed ? "justify-center px-0 py-2.5" : "px-2.5 py-[9px]",
@@ -134,6 +140,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
             {/* User info */}
             <Link
               href="/profile"
+              onClick={() => onNavigate?.()}
               className={cn(
                 "flex items-center gap-2.5 rounded-xl hover:bg-white/10 transition-colors",
                 collapsed ? "justify-center px-0 py-2.5" : "px-2 py-2"
@@ -172,10 +179,12 @@ function SidebarItem({
   item,
   active,
   collapsed,
+  onNavigate,
 }: {
   item: NavItem;
   active: boolean;
   collapsed: boolean;
+  onNavigate?: () => void;
 }) {
   const Icon = item.icon;
 
@@ -209,6 +218,7 @@ function SidebarItem({
     <Link
       href={item.href}
       prefetch
+      onClick={() => onNavigate?.()}
       className={cn(
         "flex items-center rounded-xl transition-all duration-180",
         collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",

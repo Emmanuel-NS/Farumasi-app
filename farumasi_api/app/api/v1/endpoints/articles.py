@@ -17,6 +17,7 @@ from app.schemas.article import (
     ArticleCreate,
     ArticleOut,
     ArticlePublicOut,
+    ArticleSponsoredUpdate,
     ArticleUpdate,
 )
 from app.schemas.common import PaginatedResponse
@@ -45,6 +46,10 @@ async def list_published_articles(
         description="newest|oldest|likes|views|shares|comments (default newest)",
     ),
     saved_only: bool = Query(False),
+    sponsored_only: bool = Query(
+        False,
+        description="When true, return only published sponsored articles (patient carousel).",
+    ),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -61,6 +66,7 @@ async def list_published_articles(
             categories=categories,
             article_type=article_type,
             sort_by=sort_by,
+            sponsored_only=sponsored_only,
             offset=offset,
             limit=limit,
         )
@@ -78,6 +84,46 @@ async def list_published_articles(
         offset=offset,
         limit=limit,
     )
+
+
+async def _sponsored_public_list(
+    *,
+    limit: int,
+    db: AsyncSession,
+    actor: Optional[User],
+) -> list[ArticlePublicOut]:
+    """Shared handler for sponsored carousel endpoints."""
+    service = ArticleService(db)
+    items = await service.list_sponsored_published(limit=limit)
+    liked: set[str] = set()
+    saved: set[str] = set()
+    if actor and items:
+        ids = [a.id for a in items]
+        liked = await service.liked_ids(actor.id, ids)
+        saved = await service.saved_ids(actor.id, ids)
+    return [
+        _public(a, is_liked=a.id in liked, is_saved=a.id in saved) for a in items
+    ]
+
+
+@router.get("/feed/sponsored", response_model=list[ArticlePublicOut])
+async def list_sponsored_feed(
+    limit: int = Query(10, ge=1, le=20),
+    db: AsyncSession = Depends(get_db),
+    actor: Optional[User] = Depends(get_optional_current_user),
+):
+    """Published sponsored posts — safe path (not captured by /{article_id})."""
+    return await _sponsored_public_list(limit=limit, db=db, actor=actor)
+
+
+@router.get("/sponsored", response_model=list[ArticlePublicOut])
+async def list_sponsored_articles(
+    limit: int = Query(10, ge=1, le=20),
+    db: AsyncSession = Depends(get_db),
+    actor: Optional[User] = Depends(get_optional_current_user),
+):
+    """Alias for sponsored feed (legacy clients)."""
+    return await _sponsored_public_list(limit=limit, db=db, actor=actor)
 
 
 @router.get("/me/saved", response_model=PaginatedResponse[ArticlePublicOut])
@@ -172,6 +218,24 @@ async def update_article(
     ),
 ):
     article = await ArticleService(db).update_article(article_id, data, actor)
+    await db.commit()
+    await db.refresh(article)
+    return _admin(article)
+
+
+@router.patch("/{article_id}/sponsored", response_model=ArticleOut)
+async def set_article_sponsored(
+    article_id: str,
+    data: ArticleSponsoredUpdate,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(
+        require_roles(UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN)
+    ),
+):
+    """Toggle sponsored flag (persisted on health_articles.is_sponsored)."""
+    article = await ArticleService(db).set_sponsored(
+        article_id, data.is_sponsored, actor
+    )
     await db.commit()
     await db.refresh(article)
     return _admin(article)

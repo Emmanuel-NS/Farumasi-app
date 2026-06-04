@@ -635,12 +635,16 @@ class OrderService:
             if patient and patient.id == order.patient_id:
                 return
             raise AuthorizationError("Not allowed to view this order")
-        if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
-            # Farumasi internal pharmacist (no pharmacy) has platform-wide read access
+        if role == UserRole.PHARMACIST:
+            # Internal Farumasi pharmacists monitor all orders read-only (RX + partner).
+            return
+        if role == UserRole.PHARMACY_ADMIN:
             pharmacy = await self._get_owned_pharmacy(actor)
-            if not pharmacy and role == UserRole.PHARMACIST:
+            if order.pharmacy_id and pharmacy and await self._owns_pharmacy(actor, order.pharmacy_id):
                 return
-            if order.pharmacy_id and await self._owns_pharmacy(actor, order.pharmacy_id):
+            if order.partner_company_id and await self._owns_partner(
+                actor, order.partner_company_id
+            ):
                 return
             raise AuthorizationError("Not allowed to view this order")
         if role == UserRole.PARTNER_COMPANY_ADMIN:
@@ -691,12 +695,12 @@ class OrderService:
                 "Orders that are already out for delivery or delivered cannot be cancelled by patients"
             )
         if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
-            # Farumasi internal pharmacist (no pharmacy) can manage any order's status
             pharmacy = await self._get_owned_pharmacy(actor)
             if not pharmacy and role == UserRole.PHARMACIST:
-                if new_status in _OWNER_MANAGE_STATUSES:
-                    return
-                raise AuthorizationError("Not allowed to change this order's status")
+                raise AuthorizationError(
+                    "Farumasi pharmacists have read-only access to orders. "
+                    "Partner pharmacies manage store order fulfilment."
+                )
             if order.pharmacy_id and await self._owns_pharmacy(actor, order.pharmacy_id):
                 if new_status in _OWNER_MANAGE_STATUSES:
                     return
@@ -777,11 +781,52 @@ class OrderService:
         return [
             selectinload(Order.items).selectinload(OrderItem.product),
             selectinload(Order.pharmacy),
+            selectinload(Order.partner_company),
             selectinload(Order.patient).selectinload(PatientProfile.user),
             selectinload(Order.delivery).selectinload(Delivery.rider).selectinload(
                 RiderProfile.user
             ),
         ]
+
+    async def list_order_activity(
+        self, order_id: str, actor: User
+    ) -> list:
+        """Audit trail for a single order (all actors who touched it)."""
+        from app.models.audit import AuditLog
+        from app.models.user import User as UserModel
+
+        order = await self._reload(order_id)
+        if not order:
+            raise NotFoundError("Order", order_id)
+        await self._assert_can_view(order, actor)
+
+        stmt = (
+            select(AuditLog, UserModel)
+            .outerjoin(UserModel, UserModel.id == AuditLog.actor_user_id)
+            .where(
+                AuditLog.entity_type == "Order",
+                AuditLog.entity_id == order_id,
+            )
+            .order_by(AuditLog.created_at.asc())
+        )
+        rows = (await self.db.execute(stmt)).all()
+        out = []
+        for log, user in rows:
+            out.append(
+                {
+                    "id": log.id,
+                    "action": log.action,
+                    "entity_type": log.entity_type,
+                    "entity_id": log.entity_id,
+                    "old_value": log.old_value,
+                    "new_value": log.new_value,
+                    "created_at": log.created_at,
+                    "actor_user_id": log.actor_user_id,
+                    "actor_name": user.full_name if user else None,
+                    "actor_role": user.role if user else None,
+                }
+            )
+        return out
 
     async def _reload(self, order_id: str) -> Optional[Order]:
         res = await self.db.execute(

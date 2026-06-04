@@ -63,6 +63,42 @@ function buildListParams(query: ListArticlesQuery): Record<string, unknown> {
 }
 
 export const articlesService = {
+  /** Published sponsored articles for home / health carousel. */
+  async listSponsored(limit = 10): Promise<HealthArticle[]> {
+    const adapt = (items: BackendArticle[]) => (items ?? []).map(adaptArticle);
+
+    // Prefer /feed/sponsored — avoids old APIs treating "/sponsored" as an article id.
+    try {
+      const { data } = await api.get<BackendArticle[]>("/articles/feed/sponsored", {
+        params: { limit },
+      });
+      if (Array.isArray(data) && data.length > 0) return adapt(data);
+    } catch {
+      /* try fallbacks */
+    }
+
+    try {
+      const { data } = await api.get<PaginatedArticles>("/articles/", {
+        params: { sponsored_only: true, limit },
+      });
+      const items = (data.items ?? []).filter((a) => a.is_sponsored === true);
+      if (items.length) return adapt(items);
+    } catch {
+      /* try legacy path */
+    }
+
+    try {
+      const { data } = await api.get<BackendArticle[]>("/articles/sponsored", {
+        params: { limit },
+      });
+      if (Array.isArray(data)) return adapt(data);
+    } catch {
+      /* none available */
+    }
+
+    return [];
+  },
+
   async listPublished(query: ListArticlesQuery = {}): Promise<HealthArticle[]> {
     const { data } = await api.get<PaginatedArticles>("/articles/", {
       params: buildListParams(query),

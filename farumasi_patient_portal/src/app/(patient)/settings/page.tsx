@@ -771,8 +771,8 @@ function PinManager() {
             <p className="text-sm font-bold text-slate-900">Orders & Prescriptions PIN</p>
             <p className="text-[11px] text-slate-500 mt-0.5">
               {pinHash
-                ? "Protected. You'll be asked for the PIN to open Orders or Prescriptions."
-                : "Not set. These pages are open by default."}
+                ? "Protected for your account only. Other patients on this device use their own passcode."
+                : "Optional per account. Not shared with other patients on this device."}
             </p>
           </div>
           <span className={cn(

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { authService } from "@/lib/services/auth.service";
 import { isMockMode } from "@/lib/env";
 import type { AuthUser } from "@/types";
+import { usePinStore } from "@/store/pin-store";
 
 interface AuthStore {
   isGuest: boolean;
@@ -49,6 +50,7 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     const tokens = await authService.login(email, password);
     saveTokens(tokens.access_token, tokens.refresh_token);
     const user = await authService.getMe();
+    usePinStore.getState().setActiveUser(user.id);
     set({ isGuest: false, user, accessToken: tokens.access_token });
   },
 
@@ -56,11 +58,13 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     const tokens = await authService.register(params);
     saveTokens(tokens.access_token, tokens.refresh_token);
     const user = await authService.getMe();
+    usePinStore.getState().setActiveUser(user.id);
     set({ isGuest: false, user, accessToken: tokens.access_token });
   },
 
   logout: () => {
     if (typeof window !== "undefined") clearTokens();
+    usePinStore.getState().setActiveUser(null);
     set({ isGuest: true, user: null, accessToken: null });
   },
 
@@ -69,7 +73,9 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     if (isMockMode()) {
       const token = localStorage.getItem("farumasi_access_token");
       if (!token) { set({ isGuest: true, isHydrating: false }); return; }
-      set({ isGuest: false, isHydrating: false, accessToken: token, user: { id: "mock-1", name: "Demo Patient", email: "patient@farumasi.com", phone: "+250788000000", role: "patient" } });
+      const mockUser = { id: "mock-1", name: "Demo Patient", email: "patient@farumasi.com", phone: "+250788000000", role: "patient" as const };
+      usePinStore.getState().setActiveUser(mockUser.id);
+      set({ isGuest: false, isHydrating: false, accessToken: token, user: mockUser });
       return;
     }
     const token = localStorage.getItem("farumasi_access_token");
@@ -80,9 +86,11 @@ export const useAuthStore = create<AuthStore>()((set) => ({
 
     try {
       const user = await authService.getMe();
+      usePinStore.getState().setActiveUser(user.id);
       set({ user, accessToken: token });
     } catch {
       clearTokens();
+      usePinStore.getState().setActiveUser(null);
       set({ isGuest: true, user: null, accessToken: null });
     }
   },

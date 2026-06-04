@@ -30,7 +30,7 @@ api.interceptors.request.use((config) => {
   }
   // Ensure list-style paths end with '/' for FastAPI
   if (config.url) {
-    const isActionPath = /\/(login|register|refresh|logout|me|read|approve|reject|status|review|upload|all)$/.test(config.url);
+    const isActionPath = /\/(login|register|refresh|logout|me|read|approve|reject|status|review|upload|all|publish|archive|sponsored)$/.test(config.url);
     const hasSubPath = /\/[^/]+\/[^/]+$/.test(config.url);
     if (!config.url.endsWith("/") && !isActionPath && !hasSubPath) {
       config.url = config.url + "/";

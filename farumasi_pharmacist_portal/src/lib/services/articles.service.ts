@@ -22,6 +22,7 @@ export interface BackendArticle {
   share_count: number;
   comment_count: number;
   video_url: string | null;
+  is_sponsored?: boolean;
 }
 
 export interface ArticleListResponse {
@@ -41,6 +42,7 @@ export interface CreateArticleInput {
   image_url?: string;
   video_url?: string;
   slug?: string;
+  is_sponsored?: boolean;
 }
 
 export type UpdateArticleInput = Partial<CreateArticleInput>;
@@ -60,6 +62,13 @@ export const articlesService = {
   },
   async update(id: string, input: UpdateArticleInput) {
     const { data } = await api.patch<BackendArticle>(`/articles/${id}`, input);
+    return data;
+  },
+  async setSponsored(id: string, is_sponsored: boolean) {
+    const { data } = await api.patch<BackendArticle>(
+      `/articles/${id}/sponsored`,
+      { is_sponsored },
+    );
     return data;
   },
   async publish(id: string) {

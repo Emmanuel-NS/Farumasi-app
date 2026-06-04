@@ -9,67 +9,60 @@ import {
   ArrowLeft,
   Phone,
   MapPin,
-  Truck,
-  ChevronRight,
-  CreditCard,
   Loader2,
-  X,
-  UserPlus,
-  Key,
   Package,
-  ShieldCheck,
+  Building2,
+  FileText,
+  Eye,
+  UserCheck,
 } from "lucide-react";
-import { toast } from "sonner";
 import type { BackendOrder } from "@/lib/services/orders.service";
-import { ordersService } from "@/lib/services/orders.service";
-import { ridersService, type RiderProfile } from "@/lib/services/riders.service";
-
-// ─── Status progression for DELIVERY orders only ─────────────────────────
-// Pharmacist takes over after partner pharmacy marks ready_for_pickup.
-const DELIVERY_STATUS: Partial<Record<string, string>> = {
-  ready_for_pickup: "out_for_delivery",
-  out_for_delivery: "delivered",
-  delivered:        "completed",
-};
-const DELIVERY_LABEL: Partial<Record<string, string>> = {
-  ready_for_pickup: "Dispatch for Delivery",
-  out_for_delivery: "Mark Delivered",
-  delivered:        "Complete Order",
-};
-
-// Pickup orders have no pharmacist-driven steps — the partner pharmacy verifies
-// the patient's access code at the counter and the order completes there.
-
-const FINAL_STATUSES = new Set(["delivered", "cancelled", "rejected", "completed"]);
+import {
+  ordersService,
+  isPrescriptionOrder,
+  type OrderActivityEntry,
+} from "@/lib/services/orders.service";
+import { prescriptionsService, type PrescriptionReview } from "@/lib/services/prescriptions.service";
+import { OrderActivityTimeline } from "@/components/orders/order-activity-timeline";
+import type { OrderStatus } from "@/types";
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
-  const [order, setOrder]       = useState<BackendOrder | null>(null);
-  const [loading, setLoading]   = useState(true);
+  const [order, setOrder] = useState<BackendOrder | null>(null);
+  const [activity, setActivity] = useState<OrderActivityEntry[]>([]);
+  const [reviews, setReviews] = useState<PrescriptionReview[]>([]);
+  const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  // Advance/reject
-  const [advancing, setAdvancing] = useState(false);
-
-  // Rider assignment
-  const [riders, setRiders]               = useState<RiderProfile[]>([]);
-  const [loadingRiders, setLoadingRiders] = useState(false);
-  const [showRiderPanel, setShowRiderPanel] = useState(false);
-  const [selectedRiderId, setSelectedRiderId] = useState("");
-  const [assigning, setAssigning] = useState(false);
-
-  // Rider access code
-  const [showRiderCodePanel, setShowRiderCodePanel] = useState(false);
-  const [riderCodeInput, setRiderCodeInput] = useState("");
-  const [settingRiderCode, setSettingRiderCode] = useState(false);
-
   const load = useCallback(async () => {
+    if (!id) return;
     setLoading(true);
+    setNotFound(false);
     try {
       const data = await ordersService.getOrderById(id);
       setOrder(data);
+
+      try {
+        const logs = await ordersService.getOrderActivity(id);
+        setActivity(logs);
+      } catch {
+        setActivity([]);
+      }
+
+      if (data.prescription_id) {
+        try {
+          const rxReviews = await prescriptionsService.listReviewsForPrescription(
+            data.prescription_id,
+          );
+          setReviews(rxReviews);
+        } catch {
+          setReviews([]);
+        }
+      } else {
+        setReviews([]);
+      }
     } catch {
       setNotFound(true);
     } finally {
@@ -79,105 +72,10 @@ export default function OrderDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Derived state ───────────────────────────────────────────────────────
-  const status       = order?.order_status ?? "";
-  const isDelivery   = order?.delivery_method === "delivery" || !!order?.delivery_address;
-  const isFinal      = FINAL_STATUSES.has(status);
-  const hasDelivery  = !!order?.delivery?.id;
-  const hasRider     = !!order?.delivery?.rider?.user?.full_name;
-  const hasRiderCode = !!order?.rider_access_code;
-
-  // Pharmacist can advance only delivery orders (pickup is owned by partner portal)
-  const canAdvanceDelivery =
-    isDelivery && !isFinal && !!DELIVERY_STATUS[status];
-
-  // Show rider panel for delivery orders that don't have a rider yet
-  const canAssignRider =
-    isDelivery &&
-    hasDelivery &&
-    !hasRider &&
-    ["pending", "accepted", "preparing", "ready_for_pickup"].includes(status);
-
-  // Show rider code panel when delivery is ready_for_pickup and rider is assigned
-  const canSetRiderCode =
-    isDelivery && hasRider && !hasRiderCode && status === "ready_for_pickup";
-
-  // ── Load riders when rider panel is opened ──────────────────────────────
-  const openRiderPanel = async () => {
-    setShowRiderPanel(true);
-    if (riders.length > 0) return;
-    setLoadingRiders(true);
-    try {
-      const list = await ridersService.listRiders(true);
-      setRiders(list);
-    } catch {
-      toast.error("Could not load riders list");
-    } finally {
-      setLoadingRiders(false);
-    }
-  };
-
-  // ── Advance status ──────────────────────────────────────────────────────
-  const advanceStatus = async () => {
-    if (!order) return;
-    const next = DELIVERY_STATUS[order.order_status];
-    if (!next) return;
-    // Guard: ensure rider + code are set before dispatching
-    if (status === "ready_for_pickup" && (!hasRider || !hasRiderCode)) {
-      toast.error("Assign a rider and set a rider code before dispatching");
-      return;
-    }
-    setAdvancing(true);
-    try {
-      const updated = await ordersService.updateStatus(order.id, next);
-      setOrder(updated);
-      toast.success(`Order moved to ${next.replace(/_/g, " ")}`);
-    } catch {
-      toast.error("Could not update status");
-    } finally {
-      setAdvancing(false);
-    }
-  };
-
-  // ── Assign rider ────────────────────────────────────────────────────────
-  const assignRider = async () => {
-    if (!order?.delivery?.id || !selectedRiderId) return;
-    setAssigning(true);
-    try {
-      await ordersService.assignDelivery(order.delivery.id, selectedRiderId);
-      toast.success("Rider assigned");
-      setShowRiderPanel(false);
-      setSelectedRiderId("");
-      await load();
-    } catch {
-      toast.error("Could not assign rider");
-    } finally {
-      setAssigning(false);
-    }
-  };
-
-  // ── Set rider access code ───────────────────────────────────────────────
-  const setRiderCode = async () => {
-    if (!order || !riderCodeInput.trim()) return;
-    setSettingRiderCode(true);
-    try {
-      const updated = await ordersService.setRiderCode(order.id, riderCodeInput.trim());
-      setOrder(updated);
-      toast.success("Rider access code saved");
-      setShowRiderCodePanel(false);
-      setRiderCodeInput("");
-    } catch {
-      toast.error("Could not set rider code");
-    } finally {
-      setSettingRiderCode(false);
-    }
-  };
-
-  // ── Loading / not-found states ──────────────────────────────────────────
   if (loading) {
     return (
       <div className="p-6 flex justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-farumasi-600" />
+        <Loader2 className="w-8 h-8 text-farumasi-600 animate-spin" />
       </div>
     );
   }
@@ -185,335 +83,137 @@ export default function OrderDetailPage() {
   if (notFound || !order) {
     return (
       <div className="p-6 text-center py-24">
-        <p className="text-slate-500">Order not found.</p>
-        <button
-          onClick={() => router.back()}
-          className="text-farumasi-600 font-medium hover:underline mt-2 inline-block"
-        >
-          Go Back
+        <p className="text-slate-600 font-semibold">Order not found</p>
+        <button onClick={() => router.push("/orders")} className="text-farumasi-600 text-sm mt-2">
+          Back to orders
         </button>
       </div>
     );
   }
 
-  const riderName = order.delivery?.rider?.user?.full_name;
+  const isRx = isPrescriptionOrder(order);
+  const fulfiller = order.partner_company?.name ?? order.pharmacy?.name ?? "—";
+  const latestReview = reviews.length
+    ? [...reviews].sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+    : null;
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-3xl mx-auto space-y-6">
       <button
         onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm text-slate-500 hover:text-farumasi-700 mb-6 transition-colors"
+        className="flex items-center gap-2 text-sm text-slate-500 hover:text-farumasi-600"
       >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Orders
+        <ArrowLeft className="w-4 h-4" /> Back to orders
       </button>
 
-      {/* Header */}
-      <div className="flex items-start justify-between mb-5 gap-3">
-        <div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
-            Order{" "}
-            {order.order_code
-              ? `#${order.order_code}`
-              : `#${order.id.slice(-8).toUpperCase()}`}
-          </p>
-          <h1 className="text-xl font-extrabold text-slate-900">
-            {order.patient?.user?.full_name ?? "Unknown Patient"}
-          </h1>
-          <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5">
-            <Phone className="w-3.5 h-3.5" />
-            {order.patient?.user?.phone ?? "—"}
-          </p>
-          <p className="text-xs text-slate-400 mt-1">
-            Placed {formatDateTime(order.created_at)}
-          </p>
-        </div>
-        <StatusBadge status={status} />
+      <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900 flex gap-2">
+        <Eye className="w-5 h-5 shrink-0" />
+        <span>
+          This view is <strong>read-only</strong>. Partner pharmacies manage accept/decline and fulfilment.
+          Prescription review and cart building happen under <Link href="/requests" className="underline font-semibold">Requests</Link>.
+        </span>
       </div>
 
-      {/* Delivery address */}
-      {order.delivery_address && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-4 flex items-center gap-3">
-          <MapPin className="w-5 h-5 text-farumasi-600 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-xs text-slate-500">Delivery Address</p>
-            <p className="text-sm font-semibold text-slate-900 truncate">
-              {order.delivery_address}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Pickup badge */}
-      {!isDelivery && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-4 flex items-center gap-3">
-          <Package className="w-5 h-5 text-farumasi-600 shrink-0" />
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <p className="text-xs text-slate-500">Fulfilment</p>
-            <p className="text-sm font-semibold text-slate-900">
-              Pickup — managed by partner pharmacy
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Payment */}
-      {order.payment_method && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-4 flex items-center gap-3">
-          <CreditCard className="w-5 h-5 text-farumasi-600 shrink-0" />
-          <div>
-            <p className="text-xs text-slate-500">Payment</p>
-            <p className="text-sm font-semibold text-slate-900 capitalize">
-              {order.payment_method.replace(/_/g, " ")} · {order.payment_status}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Assigned rider */}
-      {riderName && (
-        <div className="bg-farumasi-50 rounded-2xl border border-farumasi-100 p-4 mb-4 flex items-center gap-3">
-          <Truck className="w-5 h-5 text-farumasi-600 shrink-0" />
-          <div>
-            <p className="text-xs text-farumasi-700">Rider Assigned</p>
-            <p className="text-sm font-bold text-farumasi-900">{riderName}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Rider access code badge */}
-      {order.rider_access_code && (
-        <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4 mb-4 flex items-center gap-3">
-          <Key className="w-5 h-5 text-amber-600 shrink-0" />
-          <div>
-            <p className="text-xs text-amber-700">Rider Access Code</p>
-            <p className="text-sm font-bold text-amber-900 tracking-widest">
-              {order.rider_access_code}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Patient access code (visible to pharmacist for reference) */}
-      {order.patient_access_code && (
-        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 mb-4 flex items-center gap-3">
-          <ShieldCheck className="w-5 h-5 text-slate-500 shrink-0" />
-          <div>
-            <p className="text-xs text-slate-500">Patient Access Code</p>
-            <p className="text-sm font-bold text-slate-700 tracking-widest">
-              {order.patient_access_code}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Rider assignment panel */}
-      {canAssignRider && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4">
-          {showRiderPanel ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
-                <UserPlus className="w-4 h-4 text-farumasi-600" />
-                Assign a Rider
-              </p>
-              {loadingRiders ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="w-5 h-5 animate-spin text-farumasi-600" />
-                </div>
-              ) : riders.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-2">
-                  No online riders available right now.
-                </p>
-              ) : (
-                <select
-                  value={selectedRiderId}
-                  onChange={(e) => setSelectedRiderId(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-300 bg-white"
-                >
-                  <option value="">Select a rider…</option>
-                  {riders.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.user?.full_name ?? r.user_id} ·{" "}
-                      {r.vehicle_type ?? r.rider_type}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <div className="flex gap-2">
-                <button
-                  onClick={assignRider}
-                  disabled={assigning || !selectedRiderId}
-                  className="flex-1 h-10 rounded-xl bg-farumasi-600 hover:bg-farumasi-700 disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  {assigning ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "Confirm Rider"
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowRiderPanel(false)}
-                  className="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors"
-                >
-                  <X className="w-4 h-4 text-slate-500" />
-                </button>
-              </div>
+            <div className="flex flex-wrap gap-2 mb-2">
+              <span
+                className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                  isRx ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"
+                }`}
+              >
+                {isRx ? "Prescription order" : "Partner order"}
+              </span>
+              <span className="text-xs text-slate-400 font-mono">
+                {order.order_code ?? order.id.slice(0, 8)}
+              </span>
             </div>
-          ) : (
-            <button
-              onClick={openRiderPanel}
-              className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-farumasi-600 hover:text-farumasi-700 transition-colors py-1"
-            >
-              <UserPlus className="w-4 h-4" />
-              Assign Rider
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Rider access code panel */}
-      {canSetRiderCode && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4">
-          {showRiderCodePanel ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
-                <Key className="w-4 h-4 text-amber-600" />
-                Set Rider Code
+            <h1 className="text-xl font-bold text-slate-900">
+              {order.patient?.user?.full_name ?? "Patient"}
+            </h1>
+            {order.patient?.user?.phone && (
+              <p className="text-sm text-slate-500 flex items-center gap-1 mt-1">
+                <Phone className="w-4 h-4" /> {order.patient.user.phone}
               </p>
-              <p className="text-xs text-slate-500">
-                The rider will show this code at the pharmacy counter to collect
-                the medicines.
-              </p>
-              <input
-                type="text"
-                value={riderCodeInput}
-                onChange={(e) => setRiderCodeInput(e.target.value.toUpperCase())}
-                placeholder="e.g. RIDER-7492"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-amber-300"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={setRiderCode}
-                  disabled={settingRiderCode || !riderCodeInput.trim()}
-                  className="flex-1 h-10 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  {settingRiderCode ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "Save Code"
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowRiderCodePanel(false)}
-                  className="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors"
-                >
-                  <X className="w-4 h-4 text-slate-500" />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowRiderCodePanel(true)}
-              className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-amber-600 hover:text-amber-700 transition-colors py-1"
-            >
-              <Key className="w-4 h-4" />
-              Set Rider Access Code
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Order items */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
-        <h2 className="text-sm font-bold text-slate-700 mb-3">Order Items</h2>
-        <div className="space-y-2">
-          {order.items.map((item) => {
-            const productHref = item.product?.id ? `/inventory/${item.product.id}` : null;
-            const isPartial   = item.sell_mode === "partial";
-            return (
-              <div key={item.id} className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0">
-                {/* Product image / icon */}
-                <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
-                  {item.product?.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.product.image_url} alt={item.product_name} className="w-full h-full object-cover" />
-                  ) : (
-                    <Package className="w-5 h-5 text-slate-300" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  {productHref ? (
-                    <Link href={productHref}
-                      className="text-sm font-semibold text-farumasi-700 hover:text-farumasi-800 hover:underline flex items-center gap-1">
-                      {item.product_name}
-                      <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-                    </Link>
-                  ) : (
-                    <p className="text-sm font-semibold text-slate-900">{item.product_name}</p>
-                  )}
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    {isPartial ? (
-                      <span className="text-[10px] font-bold bg-farumasi-100 text-farumasi-700 px-1.5 py-0.5 rounded-full">
-                        {item.quantity} units (partial)
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-500">
-                        Qty {item.quantity} × {formatPrice(item.unit_price)} RWF
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <p className="text-sm font-bold text-slate-900 shrink-0">
-                  {formatPrice(item.total_price)} RWF
-                </p>
-              </div>
-            );
-          })}
-          <div className="flex justify-between pt-2 border-t border-slate-100">
-            <span className="font-bold text-slate-900 text-sm">Total</span>
-            <span className="font-extrabold text-farumasi-700 text-base">
-              {formatPrice(order.total_amount)} RWF
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {order.notes && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-5">
-          <p className="text-xs text-slate-500 mb-1">Notes</p>
-          <p className="text-sm text-slate-900">{order.notes}</p>
-        </div>
-      )}
-
-      {/* Action buttons — delivery orders only */}
-      {canAdvanceDelivery && (
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={advanceStatus}
-            disabled={advancing}
-            className="w-full h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 disabled:opacity-60 text-white font-bold transition-colors flex items-center justify-center gap-2"
-          >
-            {advancing ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                {DELIVERY_LABEL[status]}
-                <ChevronRight className="w-5 h-5" />
-              </>
             )}
-          </button>
+          </div>
+          <StatusBadge status={order.order_status as OrderStatus} />
         </div>
-      )}
 
-      {/* Pickup info — no action needed from pharmacist */}
-      {!isDelivery && !isFinal && (
-        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 text-center">
-          <p className="text-sm text-slate-500">
-            Pickup orders are completed at the pharmacy counter when the patient
-            presents their access code.
+        <div className="grid sm:grid-cols-2 gap-3 mb-4 text-sm">
+          <div className="rounded-xl bg-slate-50 p-3 flex gap-2">
+            <Building2 className="w-5 h-5 text-farumasi-600 shrink-0" />
+            <div>
+              <p className="text-xs text-slate-500 uppercase font-bold">Fulfilling partner</p>
+              <p className="font-semibold text-slate-800">{fulfiller}</p>
+            </div>
+          </div>
+          {isRx && order.prescription_id && (
+            <div className="rounded-xl bg-violet-50 p-3 flex gap-2">
+              <FileText className="w-5 h-5 text-violet-600 shrink-0" />
+              <div>
+                <p className="text-xs text-violet-600 uppercase font-bold">Prescription</p>
+                <Link
+                  href={`/requests/${order.prescription_id}`}
+                  className="font-semibold text-violet-800 hover:underline text-sm"
+                >
+                  Open prescription review
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {isRx && latestReview && (
+          <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-4 mb-4">
+            <p className="text-xs font-bold text-violet-700 uppercase flex items-center gap-1 mb-1">
+              <UserCheck className="w-4 h-4" /> Pharmacist review
+            </p>
+            <p className="text-sm text-slate-800 capitalize">
+              Status: <span className="font-semibold">{latestReview.review_status.replace(/_/g, " ")}</span>
+              {" · "}
+              {formatDateTime(latestReview.created_at)}
+            </p>
+            {latestReview.review_notes && (
+              <p className="text-xs text-slate-600 mt-1">{latestReview.review_notes}</p>
+            )}
+          </div>
+        )}
+
+        {order.delivery_address && (
+          <p className="text-sm text-slate-600 flex items-start gap-2 mb-4">
+            <MapPin className="w-4 h-4 shrink-0 text-farumasi-600" />
+            {order.delivery_address}
+          </p>
+        )}
+
+        <div className="border-t border-slate-100 pt-4">
+          <h2 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+            <Package className="w-4 h-4" /> Items
+          </h2>
+          <ul className="space-y-2">
+            {order.items.map((item) => (
+              <li key={item.id} className="flex justify-between text-sm">
+                <span className="text-slate-700">
+                  {item.product_name} ×{item.quantity}
+                </span>
+                <span className="font-medium">{formatPrice(item.total_price)} RWF</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-right text-base font-extrabold text-farumasi-700 mt-3">
+            Total {formatPrice(order.total_amount)} RWF
           </p>
         </div>
-      )}
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4">
+          Order activity log
+        </h2>
+        <OrderActivityTimeline entries={activity} />
+      </div>
     </div>
   );
 }
