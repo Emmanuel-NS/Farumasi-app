@@ -5,6 +5,7 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatPrice, formatDate, cn } from "@/lib/utils";
 import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
+import { startVisibleInterval } from "@/lib/polling";
 import { toast } from "sonner";
 import {
   ShoppingBag, ChevronRight, MapPin,
@@ -66,11 +67,11 @@ export default function OrdersPage() {
         toast.error("Failed to load orders");
       }
     } finally { setLoading(false); }
-  }, [filter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => startVisibleInterval(() => { void load(); }, 60_000), [load]);
   // filter change no longer re-fetches (in-memory split)
-  useEffect(() => { const t = setInterval(load, 30_000); return () => clearInterval(t); }, [load]);
 
   const advanceStatus = async (orderId: string, nextStatus: string) => {
     setActing(orderId);

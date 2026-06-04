@@ -88,14 +88,16 @@ export const pharmaciesService = {
   async listAll(params?: { offset?: number; limit?: number }): Promise<{ items: BackendPharmacy[] }> {
     // API caps limit at 100 — paginate to collect all pages
     const pageSize = 100;
+    const maxPages = 20;
     let offset = 0;
     const all: BackendPharmacy[] = [];
-    while (true) {
+    for (let page = 0; page < maxPages; page += 1) {
       const { data } = await api.get<{ items: BackendPharmacy[]; total: number }>("/pharmacies/", {
         params: { offset, limit: pageSize, ...params },
       });
       all.push(...data.items);
-      if (all.length >= data.total || data.items.length < pageSize) break;
+      const total = data.total ?? all.length;
+      if (all.length >= total || data.items.length < pageSize) break;
       offset += pageSize;
     }
     return { items: all };

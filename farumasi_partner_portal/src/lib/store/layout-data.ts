@@ -4,6 +4,7 @@
  * layout; sidebar and topbar are pure consumers with no fetch logic of their own.
  */
 import { create } from "zustand";
+import { startVisibleInterval } from "@/lib/polling";
 import { notificationsService, type BackendNotification } from "@/lib/services/notifications.service";
 import { revenueService } from "@/lib/services/revenue.service";
 import { productRequestsService } from "@/lib/services/product-requests.service";
@@ -51,10 +52,9 @@ export const useLayoutDataStore = create<LayoutDataState>()((set) => ({
     }));
   },
 
-  startPolling: (intervalMs = 60_000) => {
-    // Fetch immediately on start
-    useLayoutDataStore.getState().fetch();
-    const id = setInterval(() => useLayoutDataStore.getState().fetch(), intervalMs);
-    return () => clearInterval(id);
+  startPolling: (intervalMs = 120_000) => {
+    return startVisibleInterval(() => {
+      void useLayoutDataStore.getState().fetch();
+    }, intervalMs);
   },
 }));

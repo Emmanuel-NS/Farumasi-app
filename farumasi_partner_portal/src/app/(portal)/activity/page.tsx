@@ -12,26 +12,39 @@ interface AuditLog {
   action: string;
   entity_type?: string | null;
   entity_id?: string | null;
-  details?: string | null;
+  old_value?: unknown;
+  new_value?: unknown;
   ip_address?: string | null;
-  user?: { id: string; full_name: string; role: string } | null;
+  actor_user_id?: string | null;
   created_at: string;
 }
 
-const roleColors: Record<string, string> = {
-  partner_company_admin: "bg-farumasi-100 text-farumasi-700",
-  pharmacy_admin: "bg-blue-100 text-blue-700",
-  pharmacist: "bg-purple-100 text-purple-700",
-  super_admin: "bg-amber-100 text-amber-700",
-};
+interface PaginatedAuditLogs {
+  items: AuditLog[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+function formatDetails(log: AuditLog): string | null {
+  if (log.new_value && typeof log.new_value === "object") {
+    const nv = log.new_value as Record<string, unknown>;
+    const parts = Object.entries(nv).map(([k, v]) => `${k}: ${String(v)}`);
+    if (parts.length) return parts.join(", ");
+  }
+  if (log.entity_type && log.entity_id) {
+    return `${log.entity_type} ${log.entity_id.slice(0, 8)}…`;
+  }
+  return null;
+}
 
 export default function ActivityPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<AuditLog[]>("/audit/", { params: { limit: 50 } })
-      .then(r => setLogs(r.data))
+    api.get<PaginatedAuditLogs>("/audit/", { params: { limit: 50 } })
+      .then(r => setLogs(r.data.items ?? []))
       .catch(() => setLogs([]))
       .finally(() => setLoading(false));
   }, []);
@@ -40,7 +53,7 @@ export default function ActivityPage() {
     <div className="space-y-6 max-w-3xl">
       <PageHeader
         title="Activity Logs"
-        description="Audit trail of all actions performed in your portal"
+        description="Audit trail of actions you performed in your portal"
         icon={Activity}
       />
 
@@ -51,21 +64,19 @@ export default function ActivityPage() {
       ) : logs.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No activity logs found.
+            No activity logs found yet. Actions like listing updates and order status changes will appear here.
           </CardContent>
         </Card>
       ) : (
         <Card>
           <CardContent className="p-0 divide-y">
             {logs.map((log, i) => {
-              const actor = log.user?.full_name ?? "System";
-              const role = log.user?.role ?? "system";
-              const initials = actor.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+              const details = formatDetails(log);
               return (
                 <div key={log.id} className="flex items-start gap-4 px-5 py-4 hover:bg-slate-50 transition-colors">
                   <div className="relative">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
-                      {initials}
+                    <div className="w-9 h-9 rounded-full bg-farumasi-100 flex items-center justify-center text-xs font-bold text-farumasi-700 shrink-0">
+                      {log.action.slice(0, 2).toUpperCase()}
                     </div>
                     {i < logs.length - 1 && (
                       <span className="absolute left-[17px] top-9 bottom-0 w-px bg-border -mb-4" />
@@ -73,13 +84,12 @@ export default function ActivityPage() {
                   </div>
                   <div className="flex-1 min-w-0 pb-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">{log.action.replace(/_/g, " ")}</span>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${roleColors[role] ?? "bg-slate-100 text-slate-600"}`}>
-                        {actor}
+                      <span className="text-sm font-semibold text-foreground capitalize">
+                        {log.action.replace(/\./g, " · ").replace(/_/g, " ")}
                       </span>
                     </div>
-                    {log.details && (
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{log.details}</p>
+                    {details && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{details}</p>
                     )}
                     {log.entity_type && (
                       <p className="text-[11px] text-muted-foreground/70 mt-0.5">

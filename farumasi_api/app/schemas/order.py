@@ -6,7 +6,7 @@ from typing import List, Optional
 from pydantic import field_validator, model_validator
 
 from app.schemas.common import FarumasiBaseModel
-from app.core.constants import OrderStatus, PaymentStatus, DeliveryMethod, SellMode
+from app.core.constants import OrderStatus, PaymentStatus, DeliveryMethod, SellMode, normalize_order_status
 
 class OrderItemCreate(FarumasiBaseModel):
     """Input item for order creation.
@@ -172,10 +172,24 @@ class OrderOut(FarumasiBaseModel):
     created_at: datetime
     updated_at: datetime
 
+    @field_validator("order_status", mode="before")
+    @classmethod
+    def normalize_order_status_out(cls, v: object) -> object:
+        if isinstance(v, str):
+            return normalize_order_status(v)
+        return v
+
 
 class OrderStatusUpdate(FarumasiBaseModel):
     order_status: OrderStatus
     notes: Optional[str] = None
+
+    @field_validator("order_status", mode="before")
+    @classmethod
+    def normalize_order_status_in(cls, v: object) -> object:
+        if isinstance(v, str):
+            return normalize_order_status(v)
+        return v
 
 
 class PaymentStatusUpdate(FarumasiBaseModel):

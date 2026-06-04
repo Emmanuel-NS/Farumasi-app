@@ -11,9 +11,9 @@ import { formatDate } from "@/lib/utils";
 interface PartnerCompany {
   id: string;
   name: string;
-  registration_number?: string | null;
-  contact_email?: string | null;
-  contact_phone?: string | null;
+  business_registration_number?: string | null;
+  email?: string | null;
+  phone?: string | null;
   address?: string | null;
   district?: string | null;
   verification_status?: string | null;
@@ -90,9 +90,9 @@ export default function CompliancePage() {
         <CardContent className="divide-y">
           {[
             { label: "Company Name",        value: company?.name },
-            { label: "Registration Number", value: company?.registration_number ?? "—" },
-            { label: "Contact Email",        value: company?.contact_email ?? "—" },
-            { label: "Contact Phone",        value: company?.contact_phone ?? "—" },
+            { label: "Registration Number", value: company?.business_registration_number ?? "—" },
+            { label: "Contact Email",        value: company?.email ?? "—" },
+            { label: "Contact Phone",        value: company?.phone ?? "—" },
             { label: "Address",             value: company?.address ?? "—" },
             { label: "District",            value: company?.district ?? "—" },
             { label: "Account Status",      value: company?.status ?? "—" },

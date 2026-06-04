@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authService } from "@/lib/services/auth.service";
+import { partnerService } from "@/lib/services/partner.service";
 import { useAuthStore } from "@/lib/store/auth";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
@@ -17,7 +18,13 @@ const STEPS = ["Business Info", "Contact & Location", "Documents", "Account"];
 
 export default function RegisterPage() {
   const [step, setStep] = useState(0);
+  const [businessName, setBusinessName] = useState("");
+  const [businessType, setBusinessType] = useState("Distributor");
+  const [registrationNumber, setRegistrationNumber] = useState("");
+  const [district, setDistrict] = useState("Kigali");
+  const [address, setAddress] = useState("");
   const [businessPhone, setBusinessPhone] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,6 +35,10 @@ export default function RegisterPage() {
 
   const handleSubmit = async () => {
     if (submitting) return;
+    if (!businessName.trim()) {
+      toast.error("Please enter your business name.");
+      return;
+    }
     if (!fullName.trim() || !email.trim() || !password) {
       toast.error("Please fill in name, email, and password.");
       return;
@@ -47,11 +58,21 @@ export default function RegisterPage() {
         password,
         full_name: fullName.trim(),
         phone: businessPhone.trim() || undefined,
-        role: "pharmacy_admin",
+        role: "partner_company_admin",
       });
       if (typeof window !== "undefined") {
         localStorage.setItem("farumasi_partner_token", tokens.access_token);
+        localStorage.setItem("farumasi_partner_refresh", tokens.refresh_token);
       }
+      await partnerService.updateMine({
+        name: businessName.trim(),
+        company_type: businessType.toLowerCase(),
+        email: (businessEmail || email).trim(),
+        phone: businessPhone.trim() || undefined,
+        address: address.trim() || undefined,
+        district: district.trim() || undefined,
+        business_registration_number: registrationNumber.trim() || undefined,
+      });
       const me = await authService.getMe();
       setSession(tokens, me);
       toast.success("Application submitted. Welcome to FARUMASI.");
@@ -64,6 +85,10 @@ export default function RegisterPage() {
   };
 
   const next = () => {
+    if (step === 0 && !businessName.trim()) {
+      toast.error("Please enter your business name.");
+      return;
+    }
     if (step < STEPS.length - 1) {
       setStep((s) => s + 1);
     } else {
@@ -78,7 +103,6 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
       <div className="w-full max-w-lg">
-        {/* Logo */}
         <div className="flex items-center gap-3 mb-8 justify-center">
           <div className="w-8 h-8 rounded-lg bg-farumasi-100 flex items-center justify-center overflow-hidden">
             <Image src="/logo.png" alt="FARUMASI" width={28} height={28} className="object-contain" />
@@ -86,7 +110,6 @@ export default function RegisterPage() {
           <span className="font-bold text-foreground">FARUMASI Partner Portal</span>
         </div>
 
-        {/* Progress */}
         <div className="flex items-center gap-0 mb-8">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center flex-1 last:flex-none">
@@ -100,7 +123,6 @@ export default function RegisterPage() {
           ))}
         </div>
 
-        {/* Card */}
         <div className="bg-white border border-border rounded-2xl p-8 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-farumasi-100 flex items-center justify-center">
@@ -114,41 +136,68 @@ export default function RegisterPage() {
 
           {step === 0 && (
             <div className="space-y-4">
-              <div className="space-y-1.5"><Label>Business Name <span className="text-red-500">*</span></Label><Input placeholder="e.g. Inyange Pharmacy Ltd" /></div>
-              <div className="space-y-1.5"><Label>Business Type <span className="text-red-500">*</span></Label>
+              <div className="space-y-1.5">
+                <Label>Business Name <span className="text-red-500">*</span></Label>
+                <Input placeholder="e.g. Inyange Pharmacy Ltd" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Business Type <span className="text-red-500">*</span></Label>
                 <div className="grid grid-cols-2 gap-2">
                   {["Pharmacy", "Distributor", "Manufacturer", "Clinic"].map(t => (
-                    <button key={t} className="text-xs border border-border rounded-lg py-2 px-3 hover:border-farumasi-500 hover:bg-farumasi-50 transition-colors text-left font-medium first:border-farumasi-500 first:bg-farumasi-50">{t}</button>
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setBusinessType(t)}
+                      className={`text-xs border rounded-lg py-2 px-3 hover:border-farumasi-500 hover:bg-farumasi-50 transition-colors text-left font-medium ${businessType === t ? "border-farumasi-500 bg-farumasi-50" : "border-border"}`}
+                    >
+                      {t}
+                    </button>
                   ))}
                 </div>
               </div>
-              <div className="space-y-1.5"><Label>Business Registration Number <span className="text-red-500">*</span></Label><Input placeholder="RCA/xxx/2024" /></div>
-              <div className="space-y-1.5"><Label>Tax ID (TIN)</Label><Input placeholder="100XXXXXXX" /></div>
+              <div className="space-y-1.5">
+                <Label>Business Registration Number</Label>
+                <Input placeholder="RCA/xxx/2024" value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} />
+              </div>
             </div>
           )}
 
           {step === 1 && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5"><Label>City / District <span className="text-red-500">*</span></Label><Input defaultValue="Kigali" /></div>
-                <div className="space-y-1.5"><Label>Sector</Label><Input placeholder="e.g. Nyarugenge" /></div>
+                <div className="space-y-1.5">
+                  <Label>City / District <span className="text-red-500">*</span></Label>
+                  <Input value={district} onChange={(e) => setDistrict(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Sector</Label>
+                  <Input placeholder="e.g. Nyarugenge" />
+                </div>
               </div>
-              <div className="space-y-1.5"><Label>Street Address <span className="text-red-500">*</span></Label><Input placeholder="e.g. KN 4 Ave" /></div>
-              <div className="space-y-1.5"><Label>Business Phone <span className="text-red-500">*</span></Label><Input placeholder="+250 788 000 000" value={businessPhone} onChange={(e) => setBusinessPhone(e.target.value)} /></div>
-              <div className="space-y-1.5"><Label>Business Email <span className="text-red-500">*</span></Label><Input type="email" placeholder="admin@pharmacy.rw" /></div>
+              <div className="space-y-1.5">
+                <Label>Street Address</Label>
+                <Input placeholder="e.g. KN 4 Ave" value={address} onChange={(e) => setAddress(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Business Phone</Label>
+                <Input placeholder="+250 788 000 000" value={businessPhone} onChange={(e) => setBusinessPhone(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Business Email</Label>
+                <Input type="email" placeholder="admin@company.rw" value={businessEmail} onChange={(e) => setBusinessEmail(e.target.value)} />
+              </div>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Upload your compliance documents. All are required for verification.</p>
-              {["Business Registration Certificate", "Pharmacy Operating License", "RFDA Dispensing License", "Tax Clearance Certificate"].map(doc => (
-                <div key={doc} className="flex items-center justify-between border border-dashed border-border rounded-lg px-4 py-3">
+              <p className="text-xs text-muted-foreground">Upload your compliance documents after registration via the Compliance page.</p>
+              {["Business Registration Certificate", "Operating License", "RFDA Approval", "Tax Clearance Certificate"].map(doc => (
+                <div key={doc} className="flex items-center justify-between border border-dashed border-border rounded-lg px-4 py-3 opacity-60">
                   <div>
                     <p className="text-xs font-medium">{doc}</p>
-                    <p className="text-[11px] text-muted-foreground">PDF, max 5MB</p>
+                    <p className="text-[11px] text-muted-foreground">Available after account setup</p>
                   </div>
-                  <Button variant="outline" size="sm" className="text-xs h-7">Upload</Button>
                 </div>
               ))}
             </div>
@@ -157,7 +206,7 @@ export default function RegisterPage() {
           {step === 3 && (
             <div className="space-y-4">
               <div className="space-y-1.5"><Label>Full Name <span className="text-red-500">*</span></Label><Input placeholder="Account administrator name" value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
-              <div className="space-y-1.5"><Label>Email Address <span className="text-red-500">*</span></Label><Input type="email" placeholder="admin@pharmacy.rw" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+              <div className="space-y-1.5"><Label>Email Address <span className="text-red-500">*</span></Label><Input type="email" placeholder="admin@company.rw" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
               <div className="space-y-1.5"><Label>Password <span className="text-red-500">*</span></Label><Input type="password" placeholder="Min. 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
               <div className="space-y-1.5"><Label>Confirm Password <span className="text-red-500">*</span></Label><Input type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></div>
               <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer mt-2">

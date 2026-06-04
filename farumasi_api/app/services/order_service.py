@@ -19,6 +19,7 @@ from app.core.constants import (
     ProductApprovalStatus,
     RevenueStatus,
     UserRole,
+    normalize_order_status,
 )
 from app.core.exceptions import (
     AuthorizationError,
@@ -296,7 +297,9 @@ class OrderService:
 
         await self._assert_can_change_status(order, actor, data.order_status)
 
-        old_status = order.order_status
+        old_status = normalize_order_status(order.order_status)
+        if order.order_status != old_status:
+            order.order_status = old_status
         order.order_status = data.order_status
 
         # Release reserved stock when the order is cancelled / rejected / failed

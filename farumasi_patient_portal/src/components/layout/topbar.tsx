@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { notificationsService } from "@/lib/services/notifications.service";
+import { startVisibleInterval } from "@/lib/polling";
 
 const notifCategoryColor: Record<string, string> = {
   order: "text-farumasi-600",
@@ -44,11 +45,9 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onCartClick, onHelpC
   const profileRef = useRef<HTMLDivElement>(null);
   const [unread, setUnread] = useState(0);
   useEffect(() => {
-    notificationsService.getUnreadCount().then(setUnread).catch(() => {});
-    const id = setInterval(() => {
+    return startVisibleInterval(() => {
       notificationsService.getUnreadCount().then(setUnread).catch(() => {});
-    }, 30_000);
-    return () => clearInterval(id);
+    }, 60_000);
   }, []);
   const t = useTranslation();
   const isGuest = useAuthStore((s) => s.isGuest);

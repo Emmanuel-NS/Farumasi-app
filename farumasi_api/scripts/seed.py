@@ -609,6 +609,9 @@ async def seed():
             print(f"  [+] Partner: {partner_company.name}")
         else:
             partner_company = existing_partner
+            if partner_admin_user and partner_company.owner_user_id != partner_admin_user.id:
+                partner_company.owner_user_id = partner_admin_user.id
+                print(f"  [fix] Partner owner linked to partner_admin@farumasi.com")
             print(f"  [skip] Partner company already exists")
 
         # ─── Products + Listings ──────────────────────────────────────────
@@ -989,8 +992,22 @@ Work with your doctor to create a written asthma action plan that tells you what
             else:
                 print(f"  [skip] Article already exists: {article_data['slug']}")
 
+        # Normalize legacy order statuses from MVP seed data
+        from app.models.order import Order
+        from app.core.constants import LEGACY_ORDER_STATUS_MAP
+        legacy_fixed = 0
+        for legacy, canonical in LEGACY_ORDER_STATUS_MAP.items():
+            rows = (
+                await db.execute(select(Order).where(Order.order_status == legacy))
+            ).scalars().all()
+            for order in rows:
+                order.order_status = canonical
+                legacy_fixed += 1
+        if legacy_fixed:
+            print(f"  [fix] Normalized {legacy_fixed} legacy order status(es)")
+
         await db.commit()
-        print("\n✓ Seed complete. Demo credentials:")
+        print("\nSeed complete. Demo credentials:")
         for ud in DEMO_USERS:
             print(f"   {ud['email']}  /  {ud['password']}")
 

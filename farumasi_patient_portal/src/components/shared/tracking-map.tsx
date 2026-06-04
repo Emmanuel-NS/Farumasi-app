@@ -97,20 +97,38 @@ export default function TrackingMap({ pharmacyName, eta }: Props) {
 
   // Animate driver along waypoints with smooth interpolation
   useEffect(() => {
-    tickRef.current = setInterval(() => {
+    const tick = () => {
       setT((prev) => {
-        const next = prev + 0.02; // ~50 ticks per segment = 5s per segment
+        const next = prev + 0.02;
         if (next >= 1) {
           setStepIndex((s) => {
             if (s < WAYPOINTS.length - 2) return s + 1;
-            return s; // stay at destination
+            return s;
           });
           return 0;
         }
         return next;
       });
-    }, 100);
-    return () => { if (tickRef.current) clearInterval(tickRef.current); };
+    };
+    const start = () => {
+      if (tickRef.current) return;
+      tickRef.current = setInterval(tick, 250);
+    };
+    const stop = () => {
+      if (!tickRef.current) return;
+      clearInterval(tickRef.current);
+      tickRef.current = null;
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") start();
+      else stop();
+    };
+    if (typeof document !== "undefined" && document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      stop();
+    };
   }, []);
 
   // Compute interpolated position

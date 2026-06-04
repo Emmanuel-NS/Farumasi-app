@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AuthenticationError, ConflictError
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
-from app.core.constants import UserStatus
+from app.core.constants import UserStatus, UserRole, EntityStatus
 from app.models.user import User
 from app.models.patient import PatientProfile
 from app.models.doctor import DoctorProfile
@@ -15,7 +15,6 @@ from app.models.rider import RiderProfile
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
 from app.services.audit_service import AuditService
-from app.core.constants import UserRole
 
 
 class AuthService:
@@ -117,4 +116,16 @@ class AuthService:
             self.db.add(PharmacistProfile(user_id=user.id))
         elif user.role == UserRole.RIDER:
             self.db.add(RiderProfile(user_id=user.id))
+        elif user.role == UserRole.PARTNER_COMPANY_ADMIN:
+            from app.models.partner import PartnerCompany
+
+            self.db.add(
+                PartnerCompany(
+                    owner_user_id=user.id,
+                    name=f"{user.full_name}'s Company",
+                    email=user.email,
+                    phone=user.phone,
+                    status=EntityStatus.PENDING,
+                )
+            )
         await self.db.flush()

@@ -131,6 +131,20 @@ class OrderStatus(str, Enum):
     FAILED = "failed"
 
 
+# Legacy statuses stored in older seed/MVP data — map to current enum values.
+LEGACY_ORDER_STATUS_MAP: dict[str, str] = {
+    "processing": OrderStatus.PREPARING.value,
+    "confirmed": OrderStatus.ACCEPTED.value,
+    "pharmacy_accepted": OrderStatus.ACCEPTED.value,
+    "in_transit": OrderStatus.OUT_FOR_DELIVERY.value,
+}
+
+
+def normalize_order_status(status: str) -> str:
+    """Return a canonical order status string."""
+    return LEGACY_ORDER_STATUS_MAP.get(status, status)
+
+
 class PaymentStatus(str, Enum):
     UNPAID = "unpaid"
     PENDING = "pending"

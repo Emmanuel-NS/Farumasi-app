@@ -40,11 +40,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     setReady(true);
   }, [hydrated, token, user, router, logout]);
 
-  // Single poller for all layout-level live data (60s interval keeps API quiet)
+  // Single poller — 2 min, pauses when tab is hidden (saves CPU/RAM)
   useEffect(() => {
     if (!ready) return;
-    const stop = startPolling(60_000);
-    return stop;
+    return startPolling(120_000);
   }, [ready, startPolling]);
 
   if (!ready) {

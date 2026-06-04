@@ -107,8 +107,27 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!selected) return;
-    const interval = setInterval(() => fetchMessages(selected), 5000);
-    return () => clearInterval(interval);
+    let id: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (id) return;
+      void fetchMessages(selected);
+      id = setInterval(() => void fetchMessages(selected), 10_000);
+    };
+    const stop = () => {
+      if (!id) return;
+      clearInterval(id);
+      id = null;
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") start();
+      else stop();
+    };
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      stop();
+    };
   }, [selected, fetchMessages]);
 
   const handleSelect = async (id: string) => {

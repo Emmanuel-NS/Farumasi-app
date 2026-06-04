@@ -52,10 +52,23 @@ export interface PaginatedOrders {
   limit: number;
 }
 
+/** Map legacy MVP order statuses to current canonical values. */
+const LEGACY_ORDER_STATUS: Record<string, string> = {
+  processing: "preparing",
+  confirmed: "accepted",
+  pharmacy_accepted: "accepted",
+  in_transit: "out_for_delivery",
+};
+
+function normalizeOrderStatus(status: string): string {
+  return LEGACY_ORDER_STATUS[status] ?? status;
+}
+
 /** Backend sends `order_status`; normalise to also populate `status` for UI.
  *  Also normalises `is_delivery` from `delivery_method` if missing. */
 function norm(o: BackendOrder): BackendOrder {
-  const status = o.order_status ?? o.status ?? "";
+  const raw = o.order_status ?? o.status ?? "";
+  const status = normalizeOrderStatus(raw);
   const is_delivery = o.is_delivery !== undefined ? o.is_delivery : o.delivery_method === "delivery";
   return { ...o, status, order_status: status, is_delivery };
 }

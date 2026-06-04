@@ -240,11 +240,12 @@ export default function ConsultPage() {
   const isAnon = selectedParsed?.anon ?? false;
   const messages = selectedConsult?.messages ?? [];
 
-  // ── Poll current chat for inbound messages ────────────────────────────────
+  // ── Poll current chat (10s, pauses when tab hidden) ───────────────────────
   useEffect(() => {
     const consultId = selectedConsult?.id;
     if (!consultId) return;
-    const interval = setInterval(async () => {
+
+    const poll = async () => {
       try {
         const { data } = await api.get(`/consultations/${consultId}`);
         const fresh = adaptConsultation(data, myId);
@@ -264,10 +265,31 @@ export default function ConsultPage() {
           return next;
         });
       } catch {
-        // silently retry next tick
+        // retry on next tick
       }
-    }, 5000);
-    return () => clearInterval(interval);
+    };
+
+    let id: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (id) return;
+      void poll();
+      id = setInterval(() => void poll(), 10_000);
+    };
+    const stop = () => {
+      if (!id) return;
+      clearInterval(id);
+      id = null;
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") start();
+      else stop();
+    };
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      stop();
+    };
   }, [selectedConsult?.id, myId]);
 
   // Mark-as-read when opening a chat

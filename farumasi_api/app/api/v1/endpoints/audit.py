@@ -26,13 +26,18 @@ async def list_audit_logs(
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(
-        require_roles(UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN, UserRole.PHARMACIST)
+        require_roles(
+            UserRole.PHARMACY_ADMIN,
+            UserRole.PARTNER_COMPANY_ADMIN,
+            UserRole.SUPER_ADMIN,
+            UserRole.PHARMACIST,
+        )
     ),
 ):
     """List audit logs.
 
     - SUPER_ADMIN sees all logs.
-    - PHARMACY_ADMIN / PHARMACIST only see logs of actions they performed.
+    - PHARMACY_ADMIN / PARTNER_COMPANY_ADMIN / PHARMACIST only see logs they performed.
     """
     stmt = select(AuditLog)
     count_stmt = select(func.count(AuditLog.id))

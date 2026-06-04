@@ -23,6 +23,7 @@ const PROGRESS_FORWARD: Record<string, { next: OrderStatus; label: string }> = {
   pending:           { next: "accepted",         label: "Accept Order" },
   accepted:          { next: "preparing",         label: "Start Preparing" },
   preparing:         { next: "ready_for_pickup",  label: "Mark Ready for Pickup" },
+  processing:        { next: "ready_for_pickup",  label: "Mark Ready for Pickup" },
   // Pickup orders stop at ready_for_pickup — partner pharmacy has no delivery role.
   // Delivery orders also stop here; Farumasi pharmacist handles the delivery leg.
 };

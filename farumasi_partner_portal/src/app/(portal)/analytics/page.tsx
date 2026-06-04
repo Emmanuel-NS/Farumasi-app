@@ -84,7 +84,7 @@ export default function AnalyticsPage() {
   }, [filteredOrders]);
 
   const completedOrders = filteredOrders.filter(o => ["delivered","completed"].includes(o.order_status)).length;
-  const pendingOrders = filteredOrders.filter(o => ["pending","processing"].includes(o.order_status)).length;
+  const pendingOrders = filteredOrders.filter(o => ["pending", "preparing"].includes(o.order_status)).length;
   const cancelledOrders = filteredOrders.filter(o => o.order_status === "cancelled").length;
   const rangeRevenue = filteredTxs.reduce((s, t) => s + t.net_amount, 0);
   const avgOrderValue = completedOrders > 0 ? Math.round(rangeRevenue / completedOrders) : 0;

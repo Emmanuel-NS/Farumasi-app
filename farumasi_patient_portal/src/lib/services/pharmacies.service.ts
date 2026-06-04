@@ -79,7 +79,8 @@ export const pharmaciesService = {
     const ids = new Set<string>();
     let offset = 0;
     const pageSize = 100;
-    while (true) {
+    const maxPages = 20;
+    for (let page = 0; page < maxPages; page += 1) {
       const { data } = await api.get<{ items: BackendListing[]; total: number }>("/listings/", {
         params: { limit: pageSize, offset },
       });
@@ -92,7 +93,8 @@ export const pharmaciesService = {
           ids.add(l.pharmacy_id);
         }
       }
-      if (data.items.length < pageSize || offset + pageSize >= data.total) break;
+      const total = data.total ?? data.items.length;
+      if (data.items.length < pageSize || offset + pageSize >= total) break;
       offset += pageSize;
     }
     return ids;

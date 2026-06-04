@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { Settings, Building2, Lock, Bell, CreditCard, Loader2, Save } from "lucide-react";
@@ -10,7 +10,11 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
-import { pharmacyService, type BackendPharmacy, type PharmacyUpdatePayload } from "@/lib/services/pharmacy.service";
+import {
+  partnerService,
+  type BackendPartnerCompany,
+  type PartnerCompanyUpdatePayload,
+} from "@/lib/services/partner.service";
 import { useAuthStore } from "@/lib/store/auth";
 
 const sections = [
@@ -20,53 +24,32 @@ const sections = [
   { id: "banking", label: "Banking", icon: CreditCard },
 ];
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-        checked ? "bg-farumasi-600" : "bg-slate-300"
-      )}
-    >
-      <span
-        className={cn(
-          "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-          checked ? "translate-x-6" : "translate-x-1"
-        )}
-      />
-    </button>
-  );
-}
-
 export default function SettingsPage() {
   const { user } = useAuthStore();
   const [active, setActive] = useState("general");
-  const [pharmacy, setPharmacy] = useState<BackendPharmacy | null>(null);
+  const [company, setCompany] = useState<BackendPartnerCompany | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<PharmacyUpdatePayload>({});
+  const [form, setForm] = useState<PartnerCompanyUpdatePayload>({});
 
   useEffect(() => {
     let cancelled = false;
-    pharmacyService.getMine()
+    partnerService.getMine()
       .then(p => {
         if (cancelled) return;
-        setPharmacy(p);
+        setCompany(p);
         setForm({
           name: p.name,
           address: p.address ?? "",
           phone: p.phone ?? "",
           email: p.email ?? "",
-          is_open: p.is_open,
-          accepts_delivery: p.accepts_delivery,
+          district: p.district ?? "",
+          company_type: p.company_type ?? "",
+          business_registration_number: p.business_registration_number ?? "",
         });
       })
       .catch((err: unknown) => {
-        if (!cancelled) toast.error(getApiError(err, "Failed to load pharmacy"));
+        if (!cancelled) toast.error(getApiError(err, "Failed to load company profile"));
       })
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
@@ -75,8 +58,8 @@ export default function SettingsPage() {
   const save = async () => {
     setSaving(true);
     try {
-      const updated = await pharmacyService.updateMine(form);
-      setPharmacy(updated);
+      const updated = await partnerService.updateMine(form);
+      setCompany(updated);
       toast.success("Settings saved");
     } catch (err: unknown) {
       toast.error(getApiError(err, "Failed to save"));
@@ -135,40 +118,36 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label>District</Label>
-                    <Input value={pharmacy?.district ?? ""} disabled />
+                    <Input value={form.district ?? ""} onChange={e => setForm({ ...form, district: e.target.value })} />
                   </div>
                   <div className="col-span-2 space-y-1.5">
                     <Label>Address</Label>
                     <Input value={form.address ?? ""} onChange={e => setForm({ ...form, address: e.target.value })} />
                   </div>
-                  <div className="col-span-2 space-y-1.5">
-                    <Label>License Number</Label>
-                    <Input value={pharmacy?.license_number ?? "—"} disabled />
+                  <div className="space-y-1.5">
+                    <Label>Business Type</Label>
+                    <Input
+                      value={form.company_type ?? ""}
+                      onChange={e => setForm({ ...form, company_type: e.target.value })}
+                      placeholder="e.g. distributor, manufacturer"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Registration Number</Label>
+                    <Input
+                      value={form.business_registration_number ?? ""}
+                      onChange={e => setForm({ ...form, business_registration_number: e.target.value })}
+                    />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="text-sm font-medium">Pharmacy Open</p>
-                      <p className="text-[11px] text-muted-foreground">Accept new orders</p>
-                    </div>
-                    <Toggle
-                      checked={!!form.is_open}
-                      onChange={v => setForm({ ...form, is_open: v })}
-                    />
+                {company && (
+                  <div className="rounded-lg border bg-slate-50 p-3 text-xs text-muted-foreground">
+                    Verification: <span className="font-medium capitalize">{company.verification_status}</span>
+                    {" · "}
+                    Account: <span className="font-medium capitalize">{company.status}</span>
                   </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="text-sm font-medium">Accept Delivery</p>
-                      <p className="text-[11px] text-muted-foreground">Offer delivery service</p>
-                    </div>
-                    <Toggle
-                      checked={!!form.accepts_delivery}
-                      onChange={v => setForm({ ...form, accepts_delivery: v })}
-                    />
-                  </div>
-                </div>
+                )}
 
                 <div className="flex justify-end pt-2">
                   <Button onClick={save} disabled={saving} className="gap-1.5">
