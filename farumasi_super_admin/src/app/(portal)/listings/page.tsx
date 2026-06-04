@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { formatDate, formatRWF } from "@/lib/utils";
@@ -11,6 +11,8 @@ interface BackendListing {
   product?: { name?: string } | null;
   pharmacy_id?: string | null;
   partner_company_id?: string | null;
+  pharmacy?: { id: string; name: string } | null;
+  partner_company?: { id: string; name: string } | null;
   price: number;
   stock_quantity: number;
   availability_status: string;
@@ -83,8 +85,8 @@ export default function ListingsPage() {
                 <Td>
                   <p className="text-[12px] font-semibold text-slate-900">{l.product?.name ?? "—"}</p>
                 </Td>
-                <Td className="text-[11px] font-mono text-slate-400 max-w-28 truncate">
-                  {(l.pharmacy_id ?? l.partner_company_id ?? "—").slice(0, 12)}…
+                <Td className="text-[12px] text-slate-700 max-w-36 truncate">
+                  {l.pharmacy?.name ?? l.partner_company?.name ?? "—"}
                 </Td>
                 <Td className="text-[12px] font-semibold text-farumasi-700">{formatRWF(l.price)}</Td>
                 <Td className="text-[12px] font-semibold text-slate-700">{l.stock_quantity}</Td>

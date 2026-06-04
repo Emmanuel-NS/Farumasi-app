@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -154,13 +154,20 @@ export function Topbar({ onToggle }: TopbarProps) {
                   </div>
                 ))}
               </div>
-              <Link
-                href="/notifications"
-                className="flex items-center justify-center py-3 text-xs font-medium text-farumasi-600 hover:bg-slate-50 transition-colors"
-                onClick={() => setShowNotifications(false)}
-              >
-                View all notifications →
-              </Link>
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  className="w-full py-3 text-xs font-medium text-farumasi-600 hover:bg-slate-50 transition-colors"
+                  onClick={async () => {
+                    const { notificationsService } = await import("@/lib/services/notifications.service");
+                    await notificationsService.markAllRead();
+                    void useLayoutDataStore.getState().fetch();
+                    setShowNotifications(false);
+                  }}
+                >
+                  Mark all as read
+                </button>
+              )}
             </div>
           )}
         </div>

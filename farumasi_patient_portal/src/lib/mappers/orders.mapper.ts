@@ -40,6 +40,7 @@ export interface BackendOrder {
   items: BackendOrderItem[];
   // Nested objects populated by backend since Phase 11
   pharmacy?: { id: string; name: string } | null;
+  partner_company?: { id: string; name: string } | null;
   delivery?: {
     id: string;
     status: string;
@@ -86,7 +87,10 @@ export function adaptOrder(o: BackendOrder): Order {
     date: new Date(o.created_at).toLocaleDateString("en-GB", {
       day: "numeric", month: "short", year: "numeric",
     }),
-    pharmacy: o.pharmacy?.name ?? (o.pharmacy_id ? `Pharmacy #${o.pharmacy_id.slice(0, 6)}` : "FARUMASI Partner"),
+    pharmacy:
+      o.pharmacy?.name
+      ?? o.partner_company?.name
+      ?? (o.pharmacy_id ? `Pharmacy #${o.pharmacy_id.slice(0, 6)}` : o.partner_company_id ? "Partner" : "FARUMASI"),
     pharmacyPrice: o.subtotal,
     deliveryFee: o.delivery_fee,
     prescriptionImageUrl: undefined,

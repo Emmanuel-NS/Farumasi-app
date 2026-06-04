@@ -4,6 +4,7 @@ from typing import Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.constants import OrderStatus, RevenueStatus, UserRole, WithdrawalStatus
 from app.core.exceptions import BusinessRuleError, NotFoundError
@@ -112,7 +113,7 @@ class RevenueService:
         pharmacy_id: Optional[str] = None,
         partner_company_id: Optional[str] = None,
     ) -> list[RevenueRecord]:
-        q = select(RevenueRecord)
+        q = select(RevenueRecord).options(selectinload(RevenueRecord.order))
         if pharmacy_id:
             q = q.where(RevenueRecord.pharmacy_id == pharmacy_id)
         if partner_company_id:

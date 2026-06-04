@@ -16,7 +16,7 @@ from app.schemas.product import (
     ProductListingOut,
     ProductListingUpdate,
 )
-from app.services.product_service import ProductService
+from app.services.product_service import ProductService, listing_to_out
 
 router = APIRouter()
 
@@ -39,7 +39,12 @@ async def list_listings(
         product_id=product_id,
         availability_status=availability_status,
     )
-    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+    return PaginatedResponse(
+        items=[listing_to_out(i) for i in items],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.post("/", response_model=ProductListingOut, status_code=201)
@@ -53,7 +58,8 @@ async def create_listing(
 
 @router.get("/{listing_id}", response_model=ProductListingOut)
 async def get_listing(listing_id: str, db: AsyncSession = Depends(get_db)):
-    return await ProductService(db).get_listing(listing_id)
+    listing = await ProductService(db).get_listing(listing_id)
+    return listing_to_out(listing)
 
 
 @router.patch("/{listing_id}", response_model=ProductListingOut)

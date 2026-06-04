@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   DollarSign, ShoppingCart, Package, AlertTriangle,
-  ArrowRight, LayoutDashboard, Loader2
+  ArrowRight, LayoutDashboard, Loader2, Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { KpiCard } from "@/components/shared/kpi-card";
@@ -28,6 +28,16 @@ import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
 
 const LOW_THRESHOLD = 10;
+
+const IN_PROGRESS_STATUSES = new Set([
+  "pending",
+  "accepted",
+  "preparing",
+  "processing",
+  "ready_for_pickup",
+  "confirmed",
+  "pharmacy_accepted",
+]);
 
 function uiStatus(l: BackendListing): ProductStatus {
   if (l.availability_status === "out_of_stock" || l.stock_quantity <= 0) return "out_of_stock";
@@ -74,14 +84,16 @@ export default function DashboardPage() {
     const monthlyRevenue = orders
       .filter(o => o.status === "completed" || o.status === "delivered")
       .reduce((s, o) => s + (o.net_amount ?? o.total_amount), 0);
-    const pendingOrders = orders.filter(o => o.status === "pending").length;
+    const inProgressOrders = orders.filter(o =>
+      IN_PROGRESS_STATUSES.has((o.status || o.order_status || "").toLowerCase()),
+    ).length;
     const totalProducts = listings.length;
     const activeListings = listings.filter(l => uiStatus(l) === "available").length;
     const lowStockCount = listings.filter(l => {
       const s = uiStatus(l);
       return s === "low_stock" || s === "out_of_stock";
     }).length;
-    return { monthlyRevenue, pendingOrders, totalProducts, activeListings, lowStockCount };
+    return { monthlyRevenue, inProgressOrders, totalProducts, activeListings, lowStockCount };
   }, [orders, listings]);
 
   // Build orders chart: last 7 days by date
@@ -139,7 +151,17 @@ export default function DashboardPage() {
         icon={LayoutDashboard}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Link href="/orders" className="block">
+          <KpiCard
+            title="Orders in Progress"
+            value={String(kpis.inProgressOrders)}
+            icon={Clock}
+            iconBg="bg-amber-100"
+            iconColor="text-amber-600"
+            className="h-full hover:border-farumasi-300 transition-colors cursor-pointer"
+          />
+        </Link>
         <KpiCard
           title="Revenue (Completed)"
           value={formatCompactRWF(kpis.monthlyRevenue)}
@@ -153,11 +175,11 @@ export default function DashboardPage() {
           iconColor="text-blue-600"
         />
         <KpiCard
-          title="Pending Orders"
-          value={String(kpis.pendingOrders)}
+          title="Open Orders (pending)"
+          value={String(orders.filter(o => o.status === "pending").length)}
           icon={ShoppingCart}
-          iconBg="bg-amber-100"
-          iconColor="text-amber-600"
+          iconBg="bg-slate-100"
+          iconColor="text-slate-600"
         />
         <KpiCard
           title="Low Stock Items"
@@ -275,7 +297,7 @@ export default function DashboardPage() {
                   </div>
                 ))}
                 <Button variant="outline" size="sm" className="w-full mt-2 text-xs" asChild>
-                  <Link href="/inventory">Manage Inventory</Link>
+                  <Link href="/products/listed">Manage Listings</Link>
                 </Button>
               </CardContent>
             </Card>

@@ -38,8 +38,16 @@ async def lifespan(app: FastAPI):
                     )
                 )
             logger.info("health_articles.is_sponsored column OK")
+            for stmt in (
+                "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500)",
+                "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS description TEXT",
+                "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS commission_rate_percent NUMERIC(5,2)",
+                "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT true",
+            ):
+                await conn.execute(text(stmt))
+            logger.info("partner_companies profile columns OK")
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Could not ensure is_sponsored column: %s", exc)
+            logger.warning("Could not ensure optional DB columns: %s", exc)
     except Exception as exc:  # noqa: BLE001
         logger.critical("Database startup ping FAILED: %s", exc)
         raise RuntimeError(

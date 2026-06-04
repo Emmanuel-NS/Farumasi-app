@@ -56,13 +56,10 @@ function parseDesc(raw: string | null | undefined): ParsedDesc {
 }
 
 export function adaptProduct(p: BackendProduct): Medicine {
-  // Use real listing price if available, fall back to deterministic placeholder
-  const displayPrice = p.price_from != null
-    ? Math.round(p.price_from)
-    : 1500 + (p.id.charCodeAt(0) % 10) * 500;
-  const maxPrice = p.price_to != null
-    ? Math.round(p.price_to)
-    : displayPrice;
+  const displayPrice =
+    p.price_from != null ? Math.round(p.price_from) : 0;
+  const maxPrice =
+    p.price_to != null ? Math.round(p.price_to) : displayPrice;
 
   const desc = parseDesc(p.description);
   const shortDesc = desc.short?.trim() ||
@@ -85,7 +82,7 @@ export function adaptProduct(p: BackendProduct): Medicine {
     additionalCategories: [],
     additionalSubCategories: [],
     requiresPrescription: p.prescription_required,
-    rating: 4.2,
+    rating: (p.listing_count ?? 0) > 0 ? 0 : 0,
     isPopular: (p.listing_count ?? 0) >= 5,
     dosage: p.strength ? `${p.strength} — follow prescriber instructions.` : "Follow prescriber instructions.",
     sideEffects: "Consult your pharmacist or doctor for side-effect information.",

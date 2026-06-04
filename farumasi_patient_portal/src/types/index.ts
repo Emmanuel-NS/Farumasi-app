@@ -353,6 +353,8 @@ export interface Pharmacy {
   imageUrl: string;
   province: string;
   district: string;
+  /** When set, checkout uses partner_company_id instead of pharmacy_id */
+  sellerKind?: "pharmacy" | "partner";
 }
 
 // ── Address ───────────────────────────────────

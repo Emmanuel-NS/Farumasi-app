@@ -1,4 +1,4 @@
-﻿export default function Loading() {
+export default function Loading() {
   return (
     <div className="space-y-6 animate-pulse">
       <div className="flex items-center justify-between">

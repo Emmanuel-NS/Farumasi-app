@@ -12,6 +12,8 @@ from app.core.constants import RevenueStatus, WithdrawalStatus
 class RevenueOut(FarumasiBaseModel):
     id: str
     order_id: str
+    order_code: Optional[str] = None
+    order_status: Optional[str] = None
     partner_type: str
     pharmacy_id: Optional[str] = None
     partner_company_id: Optional[str] = None

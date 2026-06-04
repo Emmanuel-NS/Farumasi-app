@@ -590,8 +590,10 @@ async def seed():
 
         # ─── Partner company ──────────────────────────────────────────────
         partner_admin_user = email_to_user.get("partner_admin@farumasi.com")
-        existing_partner = (await db.execute(select(PartnerCompany).limit(1))).scalar_one_or_none()
-        if not existing_partner:
+        medihub = (
+            await db.execute(select(PartnerCompany).where(PartnerCompany.name == "MediHub Rwanda").limit(1))
+        ).scalar_one_or_none()
+        if not medihub:
             partner_company = PartnerCompany(
                 owner_user_id=(partner_admin_user or fallback_user).id,
                 name="MediHub Rwanda",
@@ -608,11 +610,33 @@ async def seed():
             await db.flush()
             print(f"  [+] Partner: {partner_company.name}")
         else:
-            partner_company = existing_partner
+            partner_company = medihub
             if partner_admin_user and partner_company.owner_user_id != partner_admin_user.id:
                 partner_company.owner_user_id = partner_admin_user.id
                 print(f"  [fix] Partner owner linked to partner_admin@farumasi.com")
-            print(f"  [skip] Partner company already exists")
+            print(f"  [skip] Partner MediHub Rwanda exists")
+
+        # Legacy MVP rows: partner companies named like pharmacies — hide from patient store
+        if seeded_pharmacies:
+            pharm_names = [p.name for p in seeded_pharmacies]
+            legacy_dupes = (
+                await db.execute(
+                    select(PartnerCompany).where(
+                        PartnerCompany.name.in_(pharm_names),
+                        PartnerCompany.id != partner_company.id,
+                    )
+                )
+            ).scalars().all()
+            for dup in legacy_dupes:
+                dup.status = EntityStatus.SUSPENDED
+                dup_listings = (
+                    await db.execute(
+                        select(ProductListing).where(ProductListing.partner_company_id == dup.id)
+                    )
+                ).scalars().all()
+                for listing in dup_listings:
+                    listing.status = EntityStatus.SUSPENDED
+                print(f"  [fix] Suspended duplicate partner '{dup.name}' (use Pharmacy entity instead)")
 
         # ─── Products + Listings ──────────────────────────────────────────
         # pharmacy[0] = Kigali City Pharmacy  (all products, price tier A)

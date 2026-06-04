@@ -34,20 +34,23 @@ export const useLayoutDataStore = create<LayoutDataState>()((set) => ({
       notificationsService.unreadCount(),
       notificationsService.list({ offset: 0, limit: 5 }),
       revenueService.getSummary(),
-      productRequestsService.list({ status: "pending", offset: 0, limit: 1 }),
+      productRequestsService.list({ offset: 0, limit: 50 }),
     ]);
 
     const unreadCount = results[0].status === "fulfilled" ? (results[0].value as number) : undefined;
     const notifList = results[1].status === "fulfilled" ? results[1].value : undefined;
     const summary = results[2].status === "fulfilled" ? results[2].value : undefined;
     const requests = results[3].status === "fulfilled" ? results[3].value : undefined;
+    const openRequestStatuses = new Set(["draft", "submitted", "under_review", "more_info_required"]);
+    const openRequests =
+      requests?.items?.filter((r) => openRequestStatuses.has(r.status)).length ?? undefined;
 
     set(prev => ({
       unreadCount: unreadCount ?? prev.unreadCount,
       recentNotifications: notifList?.items ?? prev.recentNotifications,
       availableBalance: summary?.available_balance ?? prev.availableBalance,
       pendingBalance: summary?.pending_balance ?? prev.pendingBalance,
-      pendingRequests: requests?.total ?? prev.pendingRequests,
+      pendingRequests: openRequests ?? prev.pendingRequests,
       lastFetchedAt: Date.now(),
     }));
   },

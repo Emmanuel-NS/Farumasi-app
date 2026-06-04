@@ -29,8 +29,12 @@ export default function SupportPage() {
       toast.error("Please fill in Subject and Message");
       return;
     }
-    setSubject(""); setCategory(""); setMessage("");
-    toast.success("Support ticket submitted — we'll respond within 24 hours");
+    const body = encodeURIComponent(
+      `Category: ${category || "General"}\n\n${message.trim()}`,
+    );
+    const mailSubject = encodeURIComponent(`[Partner Portal] ${subject.trim()}`);
+    window.location.href = `mailto:partners@farumasi.rw?subject=${mailSubject}&body=${body}`;
+    toast.info("Opening your email client — support tickets are handled by email until in-app ticketing is live.");
   };
 
   const handleContact = (type: string) => {
@@ -108,7 +112,10 @@ export default function SupportPage() {
             <Textarea placeholder="Describe your issue in detail…" rows={4} value={message} onChange={e => setMessage(e.target.value)} />
           </div>
           <div className="flex justify-end">
-            <Button size="sm" className="text-xs" onClick={handleTicket}>Submit Ticket</Button>
+            <p className="text-[11px] text-muted-foreground">
+              Opens your email client — messages are not stored in the portal until ticketing is integrated.
+            </p>
+            <Button size="sm" className="text-xs" onClick={handleTicket}>Email Support</Button>
           </div>
         </CardContent>
       </Card>

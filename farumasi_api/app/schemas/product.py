@@ -166,6 +166,29 @@ class ListingAvailabilityUpdate(FarumasiBaseModel):
     availability_status: ListingAvailability
 
 
+class ListingPharmacyBrief(FarumasiBaseModel):
+    """Patient-safe pharmacy summary on a listing."""
+
+    id: str
+    name: str
+    district: Optional[str] = None
+    image_url: Optional[str] = None
+    is_open: bool = True
+    accepts_delivery: bool = True
+
+
+class ListingPartnerBrief(FarumasiBaseModel):
+    """Patient-safe partner / healthcare company summary on a listing."""
+
+    id: str
+    name: str
+    company_type: Optional[str] = None
+    district: Optional[str] = None
+    logo_url: Optional[str] = None
+    description: Optional[str] = None
+    is_open: bool = True
+
+
 class ProductListingOut(FarumasiBaseModel):
     id: str
     product_id: str
@@ -185,6 +208,8 @@ class ProductListingOut(FarumasiBaseModel):
     status: str
     created_at: datetime
     product: Optional[ProductOut] = None
+    pharmacy: Optional[ListingPharmacyBrief] = None
+    partner_company: Optional[ListingPartnerBrief] = None
 
 
 # ─── Product Requests ─────────────────────────────────────────────────────

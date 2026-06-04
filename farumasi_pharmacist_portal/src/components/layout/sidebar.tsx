@@ -6,7 +6,7 @@ import { cn, getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import {
   LayoutDashboard, FileText, ShoppingBag, Package,
-  Settings, LogOut, ChevronRight, Heart,
+  Settings, LogOut, ChevronRight, Heart, ClipboardList,
 } from "lucide-react";
 
 interface NavItem {
@@ -18,7 +18,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Overview",   href: "/overview",   icon: LayoutDashboard },
-  { label: "Requests",   href: "/requests",   icon: FileText },
+  { label: "Prescriptions", href: "/requests", icon: FileText },
+  { label: "Product Requests", href: "/product-requests", icon: ClipboardList },
   { label: "Orders",     href: "/orders",     icon: ShoppingBag },
   { label: "Inventory",  href: "/inventory",  icon: Package },
   { label: "Health",     href: "/health",     icon: Heart },

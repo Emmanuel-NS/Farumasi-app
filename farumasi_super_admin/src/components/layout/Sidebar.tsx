@@ -5,14 +5,12 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard, Activity, Brain, BarChart3,
-  Users, Building2, Stethoscope, ShoppingBag, UserCheck, Truck, Boxes,
-  Package, ClipboardList, Warehouse, Globe2, Store,
-  ShoppingCart, CheckCircle2, Navigation, Pill,
-  DollarSign, Receipt, ArrowDownToLine, CreditCard, TrendingUp, Layers,
-  Sparkles, TrendingDown, AlertTriangle, Lightbulb, Zap,
-  ShieldCheck, BadgeCheck, FileText, Shield,
-  KeyRound, Bell, Plug, Flag, Settings, Code2, Monitor,
+  LayoutDashboard,
+  Users, ShoppingBag, Truck,
+  Package, ClipboardList, Store,
+  ShoppingCart, FileText,
+  DollarSign, ArrowDownToLine,
+  Settings,
   ChevronDown, ChevronRight,
 } from "lucide-react";
 
@@ -34,27 +32,20 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
+/** CIP MVP navigation — API-backed routes only. */
 const NAV: NavSection[] = [
   {
-    title: "EXECUTIVE",
+    title: "OVERVIEW",
     items: [
-      { label: "Command Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Ecosystem Health", href: "/ecosystem", icon: Activity },
-      { label: "Operational Intelligence", href: "/intelligence", icon: Brain },
-      { label: "Business Intelligence", href: "/bi", icon: BarChart3 },
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
-    title: "PLATFORM MANAGEMENT",
+    title: "PLATFORM",
     items: [
       { label: "Users", href: "/users", icon: Users },
-      { label: "Hospitals", href: "/hospitals", icon: Building2 },
-      { label: "Doctors", href: "/doctors", icon: Stethoscope },
       { label: "Pharmacies", href: "/pharmacies", icon: ShoppingBag },
-      { label: "Pharmacists", href: "/pharmacists", icon: UserCheck },
-      { label: "Suppliers & Companies", href: "/suppliers", icon: Truck },
-      { label: "Riders", href: "/riders", icon: Navigation },
-      { label: "Departments", href: "/departments", icon: Boxes },
+      { label: "Partners & Companies", href: "/suppliers", icon: Truck },
     ],
   },
   {
@@ -62,61 +53,33 @@ const NAV: NavSection[] = [
     items: [
       { label: "Product Catalogue", href: "/catalogue", icon: Package },
       { label: "Product Requests", href: "/product-requests", icon: ClipboardList },
-      { label: "Inventory Intelligence", href: "/inventory", icon: Warehouse },
-      { label: "Availability Intelligence", href: "/availability", icon: Globe2 },
-      { label: "Marketplace Listings", href: "/listings", icon: Store },
+      { label: "Listings", href: "/listings", icon: Store },
     ],
   },
   {
     title: "OPERATIONS",
     items: [
       { label: "Orders", href: "/orders", icon: ShoppingCart },
-      { label: "Fulfillment", href: "/fulfillment", icon: CheckCircle2 },
-      { label: "Delivery Operations", href: "/delivery", icon: Truck },
-      { label: "Prescription Coordination", href: "/prescriptions", icon: FileText },
-      { label: "Pharmacy Coordination", href: "/pharmacy-coordination", icon: Pill },
+      { label: "Prescriptions", href: "/prescriptions", icon: FileText },
     ],
   },
   {
     title: "FINANCE",
     items: [
-      { label: "Revenue Management", href: "/revenue", icon: DollarSign },
-      { label: "Commissions", href: "/commissions", icon: Receipt },
+      { label: "Revenue", href: "/revenue", icon: DollarSign },
       { label: "Withdrawals", href: "/withdrawals", icon: ArrowDownToLine },
-      { label: "Payouts", href: "/payouts", icon: CreditCard },
-      { label: "Financial Analytics", href: "/financial-analytics", icon: TrendingUp },
-      { label: "Subscriptions", href: "/subscriptions", icon: Layers },
-    ],
-  },
-  {
-    title: "AI & INSIGHTS",
-    items: [
-      { label: "AI Operational Insights", href: "/ai-insights", icon: Sparkles },
-      { label: "Demand Forecasting", href: "/forecasting", icon: TrendingDown },
-      { label: "Shortage Intelligence", href: "/shortage-intelligence", icon: AlertTriangle },
-      { label: "Recommendation Intelligence", href: "/recommendations", icon: Lightbulb },
-      { label: "Ecosystem Predictions", href: "/predictions", icon: Zap },
     ],
   },
   {
     title: "COMPLIANCE",
     items: [
-      { label: "Verification Center", href: "/verification", icon: BadgeCheck },
-      { label: "Compliance Monitoring", href: "/compliance", icon: ShieldCheck },
       { label: "Audit Logs", href: "/audit", icon: FileText },
-      { label: "Security Events", href: "/security", icon: Shield },
     ],
   },
   {
     title: "SYSTEM",
     items: [
-      { label: "Roles & Permissions", href: "/roles", icon: KeyRound },
-      { label: "Notifications", href: "/notifications", icon: Bell },
-      { label: "Integrations", href: "/integrations", icon: Plug },
-      { label: "Feature Flags", href: "/feature-flags", icon: Flag },
-      { label: "Platform Settings", href: "/settings", icon: Settings },
-      { label: "API Management", href: "/api-management", icon: Code2 },
-      { label: "System Monitoring", href: "/system-monitoring", icon: Monitor },
+      { label: "Settings", href: "/settings", icon: Settings },
     ],
   },
 ];
@@ -132,7 +95,7 @@ function NavItemComponent({ item, depth = 0, sidebarCollapsed = false }: { item:
       <Link
         href={item.href}
         title={item.label}
-        prefetch
+        prefetch={false}
         className={cn(
           "flex items-center justify-center w-9 h-9 rounded-xl mx-auto transition-colors",
           isActive ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
@@ -146,7 +109,7 @@ function NavItemComponent({ item, depth = 0, sidebarCollapsed = false }: { item:
   return (
     <Link
       href={item.href}
-      prefetch
+      prefetch={false}
       className={cn(
         "flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium transition-colors",
         depth > 0 && "ml-4 text-[12px]",

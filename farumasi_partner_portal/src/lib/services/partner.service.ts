@@ -12,6 +12,10 @@ export interface BackendPartnerCompany {
   latitude?: number | null;
   longitude?: number | null;
   business_registration_number?: string | null;
+  logo_url?: string | null;
+  description?: string | null;
+  commission_rate_percent?: number | null;
+  is_open: boolean;
   verification_status: string;
   status: string;
   created_at: string;
@@ -27,6 +31,9 @@ export interface PartnerCompanyUpdatePayload {
   latitude?: number | null;
   longitude?: number | null;
   business_registration_number?: string | null;
+  logo_url?: string | null;
+  description?: string | null;
+  is_open?: boolean | null;
 }
 
 export interface PartnerCompanyCreatePayload {

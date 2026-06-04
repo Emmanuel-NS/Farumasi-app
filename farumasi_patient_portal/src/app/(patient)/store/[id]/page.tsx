@@ -412,8 +412,11 @@ export default function MedicineDetailPage() {
           <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-3">
             <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Available At</p>
             {listings.map((l) => {
-              const pharmacy = l.pharmacy_id ? pharmacyMap.get(l.pharmacy_id) : null;
-              const name = pharmacy?.name ?? (l.partner_company_id ? "Partner Wholesale" : "Unknown Pharmacy");
+              const name =
+                l.partner_company?.name
+                ?? l.pharmacy?.name
+                ?? (l.pharmacy_id ? pharmacyMap.get(l.pharmacy_id)?.name : null)
+                ?? "Seller";
               return (
                 <div key={l.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <div className="flex items-center gap-3">

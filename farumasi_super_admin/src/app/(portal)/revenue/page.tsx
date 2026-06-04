@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { formatRWF, formatDate } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent, PageHeader, Badge, Table, Thead, Th, Td, Tr, StatCard } from "@/components/ui";
 import { DollarSign, TrendingUp, Truck } from "lucide-react";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { SafeChartContainer } from "@/components/charts/SafeChartContainer";
 import { revenueService, type RevenueSummary } from "@/lib/services/revenue.service";
 import type { RevenueRecord } from "@/types";
 
@@ -61,7 +62,7 @@ export default function RevenuePage() {
       <Card>
         <CardHeader><CardTitle>Revenue Trend (M RWF)</CardTitle></CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={200}>
+          <SafeChartContainer height={200}>
             <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
               <defs>
                 <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
@@ -73,9 +74,9 @@ export default function RevenuePage() {
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-              <Area type="monotone" dataKey="revenue" stroke="#1e9e68" strokeWidth={2} fill="url(#revGrad)" name="Revenue (M)" />
+              <Area type="monotone" dataKey="revenue" stroke="#1e9e68" strokeWidth={2} fill="url(#revGrad)" name="Revenue (M)" isAnimationActive={false} />
             </AreaChart>
-          </ResponsiveContainer>
+          </SafeChartContainer>
         </CardContent>
       </Card>
 

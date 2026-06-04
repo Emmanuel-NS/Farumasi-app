@@ -3,16 +3,25 @@ import api from "@/lib/api";
 export interface BackendOrderItem {
   id: string;
   product_id?: string;
+  product_listing_id?: string;
+  product_name?: string;
+  product_image_url?: string;
   quantity: number;
   unit_price: number;
   total_price: number;
-  product?: { id: string; name: string; image_url?: string; prescription_required?: boolean };
+  sell_mode?: string;
+  product?: {
+    id: string;
+    name: string;
+    image_url?: string;
+    prescription_required?: boolean;
+  };
 }
 
 export interface BackendOrder {
   id: string;
   order_status: string;
-  status: string;          // alias for order_status — set by service normalizer
+  status: string;
   order_code?: string | null;
   payment_status?: string;
   payment_method?: string;
@@ -20,7 +29,9 @@ export interface BackendOrder {
   subtotal?: number;
   delivery_fee?: number;
   commission?: number;
+  platform_commission?: number;
   net_amount?: number;
+  net_partner_amount?: number;
   delivery_address?: string;
   delivery_method?: string;
   is_delivery?: boolean;
@@ -52,7 +63,6 @@ export interface PaginatedOrders {
   limit: number;
 }
 
-/** Map legacy MVP order statuses to current canonical values. */
 const LEGACY_ORDER_STATUS: Record<string, string> = {
   processing: "preparing",
   confirmed: "accepted",
@@ -64,13 +74,34 @@ function normalizeOrderStatus(status: string): string {
   return LEGACY_ORDER_STATUS[status] ?? status;
 }
 
-/** Backend sends `order_status`; normalise to also populate `status` for UI.
- *  Also normalises `is_delivery` from `delivery_method` if missing. */
+function normItem(raw: BackendOrderItem): BackendOrderItem {
+  const name = raw.product_name ?? raw.product?.name ?? "Item";
+  const image = raw.product_image_url ?? raw.product?.image_url;
+  const productId = raw.product_id ?? raw.product?.id;
+  return {
+    ...raw,
+    product_name: name,
+    product_image_url: image,
+    product: raw.product ?? (productId
+      ? { id: productId, name, image_url: image, prescription_required: raw.product?.prescription_required }
+      : { id: productId ?? raw.id, name, image_url: image }),
+  };
+}
+
 function norm(o: BackendOrder): BackendOrder {
   const raw = o.order_status ?? o.status ?? "";
   const status = normalizeOrderStatus(raw);
   const is_delivery = o.is_delivery !== undefined ? o.is_delivery : o.delivery_method === "delivery";
-  return { ...o, status, order_status: status, is_delivery };
+  return {
+    ...o,
+    status,
+    order_status: status,
+    is_delivery,
+    commission: o.commission ?? o.platform_commission,
+    net_amount: o.net_amount ?? o.net_partner_amount ?? o.total_amount,
+    subtotal: o.subtotal ?? o.total_amount,
+    items: (o.items ?? []).map(normItem),
+  };
 }
 
 export const ordersService = {

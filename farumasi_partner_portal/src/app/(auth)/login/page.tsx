@@ -71,10 +71,10 @@ export default function LoginPage() {
             <span className="text-farumasi-400">amplified.</span>
           </h1>
           <p className="text-sidebar-text text-sm leading-relaxed max-w-sm">
-            Manage your listings, track orders, monitor inventory, and grow your revenue — all from one powerful dashboard.
+            Manage catalogue listings, fulfil orders, track revenue, and request new products — connected to the live FARUMASI API.
           </p>
           <div className="grid grid-cols-3 gap-4">
-            {["10+ Modules", "Real-time Analytics", "Rwanda-first"].map(f => (
+            {["Live Listings", "Order Fulfilment", "Rwanda-first"].map(f => (
               <div key={f} className="rounded-xl bg-sidebar-hover border border-sidebar-border p-3 text-center">
                 <p className="text-white text-xs font-semibold">{f}</p>
               </div>

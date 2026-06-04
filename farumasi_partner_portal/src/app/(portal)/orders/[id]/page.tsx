@@ -1,23 +1,19 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { ArrowLeft, MapPin, Phone, Package, CheckCircle2, XCircle, Truck, Loader2, FileText, User2, Key, ShieldCheck } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Package, Pill, CheckCircle2, XCircle, Truck, Loader2, FileText, User2, Key, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { formatRWF, formatDateTime } from "@/lib/utils";
+import { formatRWF, formatDateTime, mediaUrl, orderDisplayCode } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
 import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
 import { deliveriesService, type BackendDelivery } from "@/lib/services/deliveries.service";
 import { prescriptionsService, type BackendPrescription } from "@/lib/services/prescriptions.service";
 import type { OrderStatus } from "@/types";
-
-function shortId(id: string): string {
-  return `FRM-${id.slice(0, 8).toUpperCase()}`;
-}
 
 const PROGRESS_FORWARD: Record<string, { next: OrderStatus; label: string }> = {
   pending:           { next: "accepted",         label: "Accept Order" },
@@ -139,8 +135,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <Link href="/orders"><ArrowLeft className="w-4 h-4" /></Link>
         </Button>
         <div>
-          <h1 className="text-lg font-bold">{shortId(order.id)}</h1>
-          <p className="text-xs text-muted-foreground">Placed {formatDateTime(order.created_at)}</p>
+          <h1 className="text-lg font-bold">{orderDisplayCode(order.id, order.order_code)}</h1>
+          <p className="text-xs text-muted-foreground">
+            Placed {formatDateTime(order.created_at)}
+            {order.payment_status && <> · Payment {order.payment_status}</>}
+          </p>
         </div>
         <StatusBadge status={order.status as OrderStatus} type="order" className="ml-auto" />
       </div>
@@ -150,18 +149,45 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Package className="w-4 h-4" /> Order Items</CardTitle></CardHeader>
             <CardContent className="divide-y">
-              {order.items.map(item => (
-                <div key={item.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                  <div>
-                    <p className="font-medium text-sm">{item.product?.name || "Item"}</p>
-                    <p className="text-xs text-muted-foreground">Qty: {item.quantity} × {formatRWF(item.unit_price)}</p>
-                    {item.product?.prescription_required && (
-                      <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Prescription Required</span>
-                    )}
+              {order.items.map(item => {
+                const name = item.product_name ?? item.product?.name ?? "Item";
+                const img = mediaUrl(item.product_image_url ?? item.product?.image_url);
+                const productId = item.product_id ?? item.product?.id;
+                return (
+                  <div key={item.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="w-14 h-14 rounded-xl bg-slate-100 border overflow-hidden shrink-0 flex items-center justify-center">
+                      {img ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={img} alt={name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Pill className="w-6 h-6 text-slate-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Qty {item.quantity}
+                        {item.sell_mode && item.sell_mode !== "pack" ? ` (${item.sell_mode})` : ""}
+                        {" · "}{formatRWF(item.unit_price)} each
+                      </p>
+                      {item.product?.prescription_required && (
+                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full mt-1 inline-block">
+                          Prescription Required
+                        </span>
+                      )}
+                      {productId && (
+                        <Link
+                          href={`/products/catalogue?highlight=${productId}`}
+                          className="text-[11px] text-farumasi-600 font-semibold hover:underline mt-0.5 inline-block"
+                        >
+                          View in catalogue →
+                        </Link>
+                      )}
+                    </div>
+                    <p className="font-semibold shrink-0">{formatRWF(item.total_price)}</p>
                   </div>
-                  <p className="font-semibold">{formatRWF(item.total_price)}</p>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
 

@@ -16,6 +16,8 @@ import { prescriptionsService } from "@/lib/services/prescriptions.service";
 import { recommendationsService } from "@/lib/services/recommendations.service";
 import { ordersService } from "@/lib/services/orders.service";
 import { pharmaciesService, BackendPharmacy } from "@/lib/services/pharmacies.service";
+import { partnersService, partnerAsStoreSeller } from "@/lib/services/partners.service";
+import { mediaUrl } from "@/lib/api";
 import { getPatientCoords } from "@/lib/location";
 import type { DigitalPrescription } from "@/types";
 import {
@@ -148,13 +150,47 @@ function StorePageInner() {
         .sort((a, b) => (countMap[b.name] ?? 0) - (countMap[a.name] ?? 0));
       setBackendCategories(sorted);
     }).catch(() => toast.error("Failed to load products")).finally(() => setLoadingProducts(false));
-    // Load pharmacies and filter to only those with at least one available product in stock
-    Promise.all([
-      pharmaciesService.listPharmacies(0, 200),
-      pharmaciesService.listActivePharmacyIds(),
-    ]).then(([all, activeIds]) => {
-      setPharmacies(all.filter((p) => activeIds.has(p.id)));
-    }).catch(() => {});
+    let cancelled = false;
+    if (pharmacies.length === 0) setSellersLoading(true);
+    setSellersError(false);
+    (async () => {
+      try {
+        const [pharmsRes, partnersRes, idsRes] = await Promise.allSettled([
+          pharmaciesService.listPharmacies(0, 200),
+          partnersService.listPublic(0, 100),
+          pharmaciesService.listActiveSellerIds(),
+        ]);
+        if (cancelled) return;
+        const allPharms = pharmsRes.status === "fulfilled" ? pharmsRes.value : [];
+        const allPartners = partnersRes.status === "fulfilled" ? partnersRes.value : [];
+        const { pharmacyIds, partnerIds } =
+          idsRes.status === "fulfilled"
+            ? idsRes.value
+            : { pharmacyIds: new Set<string>(), partnerIds: new Set<string>() };
+        if (
+          pharmsRes.status === "rejected" &&
+          partnersRes.status === "rejected" &&
+          idsRes.status === "rejected"
+        ) {
+          setSellersError(true);
+        }
+        const withPharm = allPharms
+          .filter((p) => pharmacyIds.has(p.id))
+          .map((p) => ({ ...p, sellerKind: "pharmacy" as const }));
+        const pharmNames = new Set(withPharm.map((p) => p.name.trim().toLowerCase()));
+        const withPartner = allPartners
+          .filter((p) => partnerIds.has(p.id))
+          .filter((p) => (p.company_type ?? "").toLowerCase() !== "pharmacy")
+          .filter((p) => !pharmNames.has(p.name.trim().toLowerCase()))
+          .map((p) => ({ ...partnerAsStoreSeller(p), sellerKind: "partner" as const }));
+        setPharmacies([...withPharm, ...withPartner]);
+      } finally {
+        if (!cancelled) setSellersLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -276,22 +312,25 @@ function StorePageInner() {
   // Pharmacy filter — mirrors Flutter PharmacyDetailScreen navigation
   const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
   const [selectedPharmacyId, setSelectedPharmacyId] = useState<string | null>(null);
-  const [pharmacies, setPharmacies] = useState<BackendPharmacy[]>([]);
+  const [selectedSellerKind, setSelectedSellerKind] = useState<"pharmacy" | "partner" | null>(null);
+  const [pharmacies, setPharmacies] = useState<(BackendPharmacy & { sellerKind?: "pharmacy" | "partner" })[]>([]);
+  const [sellersLoading, setSellersLoading] = useState(true);
+  const [sellersError, setSellersError] = useState(false);
   // product_id → { price, status } for the currently selected pharmacy
   const [pharmacyListings, setPharmacyListings] = useState<Map<string, { price: number; status: string }>>(new Map());
 
   // Fetch listings for selected pharmacy so we can filter products to what's available there.
   // This useEffect MUST be declared after selectedPharmacyId / setPharmacyListings are initialized.
   useEffect(() => {
-    if (!selectedPharmacyId) {
+    if (!selectedPharmacyId || !selectedSellerKind) {
       setPharmacyListings(new Map());
       return;
     }
-    pharmaciesService.listingsForPharmacy(selectedPharmacyId).then((listings) => {
+    pharmaciesService.listingsForSeller(selectedPharmacyId, selectedSellerKind).then((listings) => {
       const map = new Map(listings.map((l) => [l.product_id, { price: l.price, status: l.availability_status }]));
       setPharmacyListings(map);
     }).catch(() => {});
-  }, [selectedPharmacyId]);
+  }, [selectedPharmacyId, selectedSellerKind]);
 
   function toggleCategory(cat: string) {
     toggleCategoryStore(cat);
@@ -617,14 +656,14 @@ function StorePageInner() {
         )}
       </div>
 
-      {/* ── Pharmacies we work with — always visible when no search/category filter ── */}
+      {/* ── Pharmacies & companies we work with — visible when no search/category filter ── */}
       {showPharmacies && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[19px] font-bold text-[#0F172A]">{t.store_pharmacies}</h2>
             {selectedPharmacy && (
               <button
-                onClick={() => { setSelectedPharmacy(null); setSelectedPharmacyId(null); }}
+                onClick={() => { setSelectedPharmacy(null); setSelectedPharmacyId(null); setSelectedSellerKind(null); }}
                 className="flex items-center gap-1 text-xs text-farumasi-700 font-semibold bg-farumasi-50 px-3 py-1.5 rounded-full hover:bg-farumasi-100 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
@@ -633,11 +672,19 @@ function StorePageInner() {
             )}
           </div>
           <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
-            {pharmacies.length === 0 && (
+            {sellersLoading && pharmacies.length === 0 && (
               <p className="text-sm text-slate-400 py-2">Loading partners…</p>
             )}
+            {!sellersLoading && pharmacies.length === 0 && (
+              <p className="text-sm text-slate-400 py-2">
+                {sellersError
+                  ? "Could not load sellers. Check your connection and try again."
+                  : "No pharmacies or companies with stock right now."}
+              </p>
+            )}
             {pharmacies.map((pharmacy) => {
-              const isSelected = selectedPharmacy === pharmacy.name;
+              const isSelected = selectedPharmacyId === pharmacy.id;
+              const imgSrc = pharmacy.image_url ? mediaUrl(pharmacy.image_url) : null;
               const mapUrl = pharmacy.latitude && pharmacy.longitude
                 ? `https://www.google.com/maps?q=${pharmacy.latitude},${pharmacy.longitude}`
                 : pharmacy.address
@@ -659,15 +706,22 @@ function StorePageInner() {
                     className="absolute inset-0 w-full h-full z-0"
                     aria-label={`Select ${pharmacy.name}`}
                     onClick={() => {
-                      if (isSelected) { setSelectedPharmacy(null); setSelectedPharmacyId(null); }
-                      else { setSelectedPharmacy(pharmacy.name); setSelectedPharmacyId(pharmacy.id); }
+                      if (isSelected) {
+                        setSelectedPharmacy(null);
+                        setSelectedPharmacyId(null);
+                        setSelectedSellerKind(null);
+                      } else {
+                        setSelectedPharmacy(pharmacy.name);
+                        setSelectedPharmacyId(pharmacy.id);
+                        setSelectedSellerKind(pharmacy.sellerKind ?? "pharmacy");
+                      }
                     }}
                   />
                   {/* Image / placeholder */}
                   <div className="w-24 shrink-0 overflow-hidden relative bg-slate-100 flex items-center justify-center">
-                    {pharmacy.image_url ? (
+                    {imgSrc ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={pharmacy.image_url} alt={pharmacy.name} className="w-full h-full object-cover" />
+                      <img src={imgSrc} alt={pharmacy.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-farumasi-50 to-slate-100">
                         <MapPin className="w-7 h-7 text-farumasi-300" />
@@ -695,8 +749,8 @@ function StorePageInner() {
                       {pharmacy.district}
                     </p>
                     <p className="text-[11px] text-slate-400 mt-0.5 leading-tight line-clamp-1">
-                      {pharmacy.is_open ? "Open now" : "Closed"}
-                      {pharmacy.accepts_delivery ? " · Delivers" : ""}
+                      {pharmacy.sellerKind === "partner" ? "Healthcare company" : pharmacy.is_open ? "Open now" : "Closed"}
+                      {pharmacy.sellerKind === "pharmacy" && pharmacy.accepts_delivery ? " · Delivers" : ""}
                     </p>
                     {isSelected && (
                       <span className="inline-block mt-1 text-[10px] font-bold text-farumasi-700 bg-farumasi-50 px-2 py-0.5 rounded-full w-fit">
@@ -837,7 +891,7 @@ function StorePageInner() {
                   </p>
                   {/* Price — 12px bold green; shows pharmacy-specific price when pharmacy is selected */}
                   <p className="text-[12px] font-bold text-farumasi-600 mt-1">
-                    {formatPrice(displayPrice)}
+                    {displayPrice > 0 ? formatPrice(displayPrice) : "See seller prices"}
                     {!selectedPharmacy && med.maxPrice && med.maxPrice !== med.price ? ` – ${formatPrice(med.maxPrice)}` : ""}
                     {selectedPharmacy && (
                       <span className="ml-1 text-[10px] font-normal text-slate-400">

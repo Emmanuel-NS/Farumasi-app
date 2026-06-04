@@ -13,12 +13,29 @@ export default function ProductRequestsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ProductRequestStatus | "All">("All");
   const [allRequests, setAllRequests] = useState<ProductRequest[]>([]);
+  const [actingId, setActingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = () => {
     productRequestsService.getProductRequests({ limit: 100 }).then(({ items }) => {
       setAllRequests(items);
     }).catch(() => {});
+  };
+
+  useEffect(() => {
+    load();
   }, []);
+
+  async function handleReview(id: string, action: "approve" | "reject") {
+    setActingId(id);
+    try {
+      await productRequestsService.review(id, action);
+      load();
+    } catch {
+      /* keep list as-is on failure */
+    } finally {
+      setActingId(null);
+    }
+  }
 
   const filtered = allRequests.filter((r) => {
     const matchSearch = search === "" || r.productName.toLowerCase().includes(search.toLowerCase()) || r.requestedByName.toLowerCase().includes(search.toLowerCase());
@@ -87,8 +104,22 @@ export default function ProductRequestsPage() {
                 <Td>
                   {r.status === "Submitted" && (
                     <div className="flex items-center gap-1">
-                      <Button variant="success" size="xs"><CheckCircle2 className="w-3.5 h-3.5" /> Approve</Button>
-                      <Button variant="destructive" size="xs"><XCircle className="w-3.5 h-3.5" /> Reject</Button>
+                      <Button
+                        variant="success"
+                        size="xs"
+                        disabled={actingId === r.id}
+                        onClick={() => handleReview(r.id, "approve")}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="xs"
+                        disabled={actingId === r.id}
+                        onClick={() => handleReview(r.id, "reject")}
+                      >
+                        <XCircle className="w-3.5 h-3.5" /> Reject
+                      </Button>
                     </div>
                   )}
                 </Td>

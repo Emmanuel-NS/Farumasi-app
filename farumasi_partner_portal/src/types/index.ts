@@ -12,7 +12,14 @@ export type OrderStatus =
   | "completed"
   | "cancelled"
   | "failed";
-export type RequestStatus = "draft" | "submitted" | "under_review" | "requires_info" | "approved" | "rejected";
+export type RequestStatus =
+  | "draft"
+  | "submitted"
+  | "under_review"
+  | "more_info_required"
+  | "requires_info"
+  | "approved"
+  | "rejected";
 export type WithdrawalStatus = "pending" | "processing" | "completed" | "rejected";
 export type VerificationStatus = "unverified" | "pending" | "verified" | "suspended";
 export type TeamRole = "owner" | "manager" | "inventory_staff" | "finance_staff" | "pharmacist_staff";

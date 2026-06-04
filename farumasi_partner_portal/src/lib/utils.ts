@@ -6,6 +6,21 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const API_ORIGIN = (
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"
+).replace(/\/api\/v1\/?$/, "");
+
+export function mediaUrl(path?: string | null): string {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  return `${API_ORIGIN}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+export function orderDisplayCode(orderId: string, orderCode?: string | null): string {
+  if (orderCode?.trim()) return orderCode.trim();
+  return `FRM-${orderId.slice(0, 8).toUpperCase()}`;
+}
+
 export function formatRWF(amount: number): string {
   return new Intl.NumberFormat("en-RW", {
     style: "currency",
@@ -76,6 +91,7 @@ export const requestStatusConfig: Record<RequestStatus, { label: string; color: 
   submitted: { label: "Submitted", color: "bg-blue-100 text-blue-700 border-blue-200" },
   under_review: { label: "Under Review", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
   requires_info: { label: "Info Required", color: "bg-orange-100 text-orange-700 border-orange-200" },
+  more_info_required: { label: "Info Required", color: "bg-orange-100 text-orange-700 border-orange-200" },
   approved: { label: "Approved", color: "bg-green-100 text-green-700 border-green-200" },
   rejected: { label: "Rejected", color: "bg-red-100 text-red-700 border-red-200" },
 };

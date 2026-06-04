@@ -23,9 +23,16 @@ export interface PaginatedOrders {
 }
 
 const STATUS_MAP: Record<string, Order["status"]> = {
-  pending: "Pending", accepted: "Confirmed", preparing: "Processing",
-  ready: "Ready", completed: "Delivered", rejected: "Cancelled",
-  cancelled: "Cancelled", in_transit: "Out for Delivery",
+  pending: "Pending",
+  accepted: "Confirmed",
+  preparing: "Processing",
+  ready: "Ready",
+  ready_for_pickup: "Ready",
+  out_for_delivery: "Out for Delivery",
+  in_transit: "Out for Delivery",
+  completed: "Delivered",
+  rejected: "Cancelled",
+  cancelled: "Cancelled",
 };
 
 function adapt(o: BackendOrder): Order {

@@ -3,17 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
-import api from "@/lib/api";
+import { authService, getApiError } from "@/lib/services/auth.service";
+import { TOKEN_KEY } from "@/lib/api";
 import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 
-interface TokenResponse {
-  access_token: string;
-  token_type: string;
-}
+const ALLOWED_ROLES = new Set(["super_admin"]);
 
 export default function LoginPage() {
   const router = useRouter();
-  const login = useAuthStore((s) => s.login);
+  const setSession = useAuthStore((s) => s.setSession);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -25,23 +23,25 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const { data } = await api.post<TokenResponse>("/auth/login", { email, password });
-      // Decode the JWT payload to check role (backend doesn't return user object)
-      const jwtPayload = JSON.parse(atob(data.access_token.split(".")[1]));
-      if (jwtPayload.role !== "super_admin") {
+      const tokens = await authService.login(email, password);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(TOKEN_KEY, tokens.access_token);
+      }
+      const me = await authService.getMe();
+      if (!ALLOWED_ROLES.has(me.role)) {
+        localStorage.removeItem(TOKEN_KEY);
         setError("Access denied. Super Admin credentials required.");
         return;
       }
-      login(data.access_token, {
-        id: jwtPayload.sub,
-        email: jwtPayload.email,
-        full_name: jwtPayload.email,
-        role: jwtPayload.role,
+      setSession(tokens, {
+        id: me.id,
+        email: me.email,
+        full_name: me.full_name,
+        role: me.role,
       });
       router.replace("/dashboard");
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setError(msg ?? "Invalid credentials. Please try again.");
+      setError(getApiError(err, "Invalid credentials. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-farumasi-700 via-farumasi-600 to-farumasi-500 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center mb-3">
             <Shield className="w-7 h-7 text-white" />
@@ -59,7 +58,6 @@ export default function LoginPage() {
           <p className="text-farumasi-100 text-sm mt-1">Super Admin Portal</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white rounded-3xl shadow-2xl p-8">
           <h2 className="text-xl font-bold text-slate-900 mb-1">Sign in</h2>
           <p className="text-sm text-slate-500 mb-6">Enter your admin credentials to continue</p>
@@ -87,7 +85,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  placeholder="••••••••••"
+                  placeholder="Admin@12345"
                   className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-500 focus:border-transparent transition"
                 />
                 <button
@@ -115,6 +113,15 @@ export default function LoginPage() {
               {loading ? "Signing in…" : "Sign in"}
             </button>
           </form>
+
+          {process.env.NODE_ENV === "development" && (
+            <p className="mt-4 text-[11px] text-slate-400 text-center leading-relaxed">
+              Dev seed: <span className="font-mono">admin@farumasi.com</span> /{" "}
+              <span className="font-mono">Admin@12345</span>
+              <br />
+              Run <span className="font-mono">python scripts/seed.py</span> if login fails.
+            </p>
+          )}
         </div>
 
         <p className="text-center text-farumasi-100 text-xs mt-6">

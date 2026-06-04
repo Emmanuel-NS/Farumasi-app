@@ -28,10 +28,13 @@ from app.models.pharmacy import Pharmacy
 from app.models.product import ProductCatalogueItem, ProductListing, ProductRequest, ProductCategory
 from app.models.user import User
 from app.schemas.product import (
+    ListingPartnerBrief,
+    ListingPharmacyBrief,
     ProductCategoryCreate,
     ProductCategoryUpdate,
     ProductCreate,
     ProductListingCreate,
+    ProductListingOut,
     ProductListingUpdate,
     ProductRequestCreate,
     ProductRequestReview,
@@ -48,6 +51,33 @@ from app.utils.packaging import validate_listing_prices, validate_product_packag
 _PRODUCT_MANAGERS = {UserRole.SUPER_ADMIN, UserRole.PHARMACIST}
 _REQUEST_REVIEWERS = {UserRole.SUPER_ADMIN, UserRole.PHARMACIST}
 _REQUEST_CREATORS = {UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST, UserRole.PARTNER_COMPANY_ADMIN}
+
+
+def listing_to_out(listing: ProductListing) -> ProductListingOut:
+    """Build API listing response with nested pharmacy / partner summaries."""
+    out = ProductListingOut.model_validate(listing)
+    if listing.pharmacy:
+        ph = listing.pharmacy
+        out.pharmacy = ListingPharmacyBrief(
+            id=ph.id,
+            name=ph.name,
+            district=ph.district,
+            image_url=getattr(ph, "image_url", None),
+            is_open=bool(getattr(ph, "is_open", True)),
+            accepts_delivery=bool(getattr(ph, "accepts_delivery", True)),
+        )
+    if listing.partner_company and listing.partner_company.status == EntityStatus.ACTIVE:
+        co = listing.partner_company
+        out.partner_company = ListingPartnerBrief(
+            id=co.id,
+            name=co.name,
+            company_type=co.company_type,
+            district=co.district,
+            logo_url=co.logo_url,
+            description=co.description,
+            is_open=bool(co.is_open),
+        )
+    return out
 
 
 def _ensure_role(actor: User, allowed: set[str], action: str) -> None:
@@ -476,7 +506,11 @@ class ProductService:
 
         data_q = (
             select(ProductListing)
-            .options(selectinload(ProductListing.product))
+            .options(
+                selectinload(ProductListing.product),
+                selectinload(ProductListing.pharmacy),
+                selectinload(ProductListing.partner_company),
+            )
             .order_by(ProductListing.created_at.desc())
             .offset(offset)
             .limit(limit)
@@ -572,13 +606,16 @@ class ProductService:
 
         # Notify reviewers (super_admins as a placeholder routing group)
         try:
-            await NotificationService(self.db).broadcast_to_role(
-                UserRole.SUPER_ADMIN,
-                title="Product Request Submitted",
-                message=f"A new product request has been submitted: {req.product_name}.",
-                category="product_request",
-                action_url=f"/product-requests/{req.id}",
-            )
+            notif = NotificationService(self.db)
+            msg = f"New product request: {req.product_name}."
+            for role in (UserRole.SUPER_ADMIN, UserRole.PHARMACIST):
+                await notif.broadcast_to_role(
+                    role,
+                    title="Product Request Submitted",
+                    message=msg,
+                    category="product_request",
+                    action_url=f"/product-requests/{req.id}",
+                )
             await self.db.commit()
         except Exception:
             pass
@@ -678,7 +715,11 @@ class ProductService:
     async def _get_listing_or_404(self, listing_id: str) -> ProductListing:
         result = await self.db.execute(
             select(ProductListing)
-            .options(selectinload(ProductListing.product))
+            .options(
+                selectinload(ProductListing.product),
+                selectinload(ProductListing.pharmacy),
+                selectinload(ProductListing.partner_company),
+            )
             .where(ProductListing.id == listing_id)
         )
         listing = result.scalar_one_or_none()

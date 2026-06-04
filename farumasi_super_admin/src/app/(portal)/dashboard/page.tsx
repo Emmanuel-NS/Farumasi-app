@@ -9,9 +9,10 @@ import {
   Navigation, BadgeCheck, TrendingUp, Package, ClipboardList,
 } from "lucide-react";
 import {
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
+  AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
   BarChart, Bar,
 } from "recharts";
+import { SafeChartContainer } from "@/components/charts/SafeChartContainer";
 import { analyticsService, type AdminSummary } from "@/lib/services/analytics.service";
 import api from "@/lib/api";
 
@@ -92,7 +93,7 @@ export default function DashboardPage() {
     analyticsService.getAdminSummary().then(setSummary).catch(() => {});
 
     api
-      .get<{ items: BackendOrder[]; total: number }>("/orders/", { params: { limit: 200, offset: 0 } })
+      .get<{ items: BackendOrder[]; total: number }>("/orders/", { params: { limit: 50, offset: 0 } })
       .then((r) => setOrders(r.data.items))
       .catch(() => {});
 
@@ -185,7 +186,7 @@ export default function DashboardPage() {
             <Badge variant="success">Live</Badge>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
+            <SafeChartContainer height={220}>
               <AreaChart data={ordersChart} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                 <defs>
                   <linearGradient id="gradOrders" x1="0" y1="0" x2="0" y2="1">
@@ -201,10 +202,10 @@ export default function DashboardPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                <Area type="monotone" dataKey="orders" stroke="#6366f1" strokeWidth={2} fill="url(#gradOrders)" name="Total Orders" />
-                <Area type="monotone" dataKey="completed" stroke="#1e9e68" strokeWidth={2} fill="url(#gradCompleted)" name="Completed" />
+                <Area type="monotone" dataKey="orders" stroke="#6366f1" strokeWidth={2} fill="url(#gradOrders)" name="Total Orders" isAnimationActive={false} />
+                <Area type="monotone" dataKey="completed" stroke="#1e9e68" strokeWidth={2} fill="url(#gradCompleted)" name="Completed" isAnimationActive={false} />
               </AreaChart>
-            </ResponsiveContainer>
+            </SafeChartContainer>
           </CardContent>
         </Card>
 
@@ -215,15 +216,15 @@ export default function DashboardPage() {
             <p className="text-xs text-slate-400">From completed orders</p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
+            <SafeChartContainer height={220}>
               <BarChart data={revenueChart} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                <Bar dataKey="revenue" fill="#1e9e68" radius={[4, 4, 0, 0]} name="Revenue (K RWF)" />
+                <Bar dataKey="revenue" fill="#1e9e68" radius={[4, 4, 0, 0]} name="Revenue (K RWF)" isAnimationActive={false} />
               </BarChart>
-            </ResponsiveContainer>
+            </SafeChartContainer>
           </CardContent>
         </Card>
       </div>

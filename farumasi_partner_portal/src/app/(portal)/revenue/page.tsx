@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { TrendingUp, DollarSign, CreditCard, Clock, ArrowDownToLine, Download, X, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { orderDisplayCode, formatDateTime } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -277,19 +279,31 @@ export default function RevenuePage() {
                 <TableRow>
                   <TableHead>Order</TableHead>
                   <TableHead>Gross</TableHead>
-                  <TableHead>Net</TableHead>
-                  <TableHead>When</TableHead>
+                  <TableHead>Commission</TableHead>
+                  <TableHead>Your earnings</TableHead>
+                  <TableHead>Date & time</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTransactions.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center text-xs text-muted-foreground py-6">No transactions in this period</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-xs text-muted-foreground py-6">No transactions in this period</TableCell></TableRow>
                 ) : filteredTransactions.map(tx => (
                   <TableRow key={tx.id}>
-                    <TableCell className="text-xs font-mono">FRM-{tx.order_id.slice(0, 8).toUpperCase()}</TableCell>
+                    <TableCell>
+                      <Link href={`/orders/${tx.order_id}`} className="text-xs font-semibold text-farumasi-700 hover:underline">
+                        {orderDisplayCode(tx.order_id, tx.order_code)}
+                      </Link>
+                      {tx.order_status && (
+                        <p className="text-[10px] text-muted-foreground capitalize mt-0.5">{tx.order_status.replace(/_/g, " ")}</p>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-slate-700">{formatCompactRWF(tx.gross_amount)}</TableCell>
+                    <TableCell className="text-sm text-amber-700">−{formatCompactRWF(tx.platform_commission)}</TableCell>
                     <TableCell className="text-sm font-semibold text-green-600">+{formatCompactRWF(tx.net_amount)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{timeAgo(tx.created_at)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <p>{formatDateTime(tx.created_at)}</p>
+                      <p className="text-[10px]">{timeAgo(tx.created_at)}</p>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

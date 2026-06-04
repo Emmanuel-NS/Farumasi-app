@@ -14,6 +14,26 @@ export interface BackendPharmacy {
   accepts_delivery: boolean;
   created_at: string;
   image_url?: string | null;
+  sellerKind?: "pharmacy" | "partner";
+}
+
+export interface ListingPharmacyBrief {
+  id: string;
+  name: string;
+  district?: string | null;
+  image_url?: string | null;
+  is_open?: boolean;
+  accepts_delivery?: boolean;
+}
+
+export interface ListingPartnerBrief {
+  id: string;
+  name: string;
+  company_type?: string | null;
+  district?: string | null;
+  logo_url?: string | null;
+  description?: string | null;
+  is_open?: boolean;
 }
 
 export interface BackendListing {
@@ -28,6 +48,8 @@ export interface BackendListing {
   fulfillment_time_minutes: number;
   expiry_date: string | null;
   status: string;
+  pharmacy?: ListingPharmacyBrief | null;
+  partner_company?: ListingPartnerBrief | null;
 }
 
 export interface PaginatedPharmacies {
@@ -59,24 +81,32 @@ export const pharmaciesService = {
     );
   },
 
-  /** Fetch all active listings for a specific pharmacy (for pharmacy filter on store page). */
-  async listingsForPharmacy(pharmacyId: string): Promise<BackendListing[]> {
+  /** Fetch active listings for a pharmacy or partner company (store filter). */
+  async listingsForSeller(sellerId: string, kind: "pharmacy" | "partner"): Promise<BackendListing[]> {
+    const params =
+      kind === "pharmacy"
+        ? { pharmacy_id: sellerId, limit: 100 }
+        : { partner_company_id: sellerId, limit: 100 };
     const { data } = await api.get<{ items: BackendListing[]; total: number }>("/listings/", {
-      params: { pharmacy_id: pharmacyId, limit: 100 },
+      params,
     });
     return data.items.filter(
       (l) =>
         l.status === "active" &&
-        (l.availability_status === "available" || l.availability_status === "low_stock")
+        (l.availability_status === "available" || l.availability_status === "low_stock"),
     );
   },
 
+  async listingsForPharmacy(pharmacyId: string): Promise<BackendListing[]> {
+    return this.listingsForSeller(pharmacyId, "pharmacy");
+  },
+
   /**
-   * Returns the set of pharmacy IDs that have at least one available/low_stock active listing.
-   * Paginates through all listings (API max 100 per page) to collect all.
+   * Pharmacy and partner company IDs with at least one available active listing.
    */
-  async listActivePharmacyIds(): Promise<Set<string>> {
-    const ids = new Set<string>();
+  async listActiveSellerIds(): Promise<{ pharmacyIds: Set<string>; partnerIds: Set<string> }> {
+    const pharmacyIds = new Set<string>();
+    const partnerIds = new Set<string>();
     let offset = 0;
     const pageSize = 100;
     const maxPages = 20;
@@ -86,17 +116,24 @@ export const pharmaciesService = {
       });
       for (const l of data.items) {
         if (
-          l.pharmacy_id &&
-          l.status === "active" &&
-          (l.availability_status === "available" || l.availability_status === "low_stock")
+          l.status !== "active" ||
+          !(l.availability_status === "available" || l.availability_status === "low_stock")
         ) {
-          ids.add(l.pharmacy_id);
+          continue;
         }
+        if (l.pharmacy_id) pharmacyIds.add(l.pharmacy_id);
+        if (l.partner_company_id) partnerIds.add(l.partner_company_id);
       }
       const total = data.total ?? data.items.length;
       if (data.items.length < pageSize || offset + pageSize >= total) break;
       offset += pageSize;
     }
-    return ids;
+    return { pharmacyIds, partnerIds };
+  },
+
+  /** @deprecated Use listActiveSellerIds */
+  async listActivePharmacyIds(): Promise<Set<string>> {
+    const { pharmacyIds } = await this.listActiveSellerIds();
+    return pharmacyIds;
   },
 };

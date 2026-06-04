@@ -385,33 +385,34 @@ async def rapid_dashboard_load(client: httpx.AsyncClient, h: dict) -> None:
 
 async def frontend_pages() -> None:
     print("\n--- Partner portal page loads ---")
-    routes = [
+    active_routes = [
         "/login",
         "/dashboard",
         "/products/catalogue",
         "/products/listed",
-        "/inventory",
         "/orders",
-        "/analytics",
         "/revenue",
-        "/customers",
-        "/notifications",
         "/requests",
-        "/compliance",
-        "/team",
-        "/activity",
         "/settings",
         "/support",
     ]
+    removed_routes = [
+        "/inventory",
+        "/analytics",
+        "/customers",
+        "/notifications",
+        "/compliance",
+        "/team",
+        "/activity",
+    ]
 
     async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as fe:
-        for path in routes:
+        for path in active_routes:
             url = f"{PARTNER_PORTAL}{path}"
 
             async def load(u=url, p=path):
                 try:
                     r = await fe.get(u)
-                    # 200 or redirect to login is acceptable for protected routes
                     ok = r.status_code < 500
                     return ok, f"HTTP {r.status_code}"
                 except httpx.ConnectError:
@@ -421,11 +422,23 @@ async def frontend_pages() -> None:
 
             await timed(f"Page {path}", load)
 
+        for path in removed_routes:
+            url = f"{PARTNER_PORTAL}{path}"
+
+            async def load_removed(u=url, p=path):
+                try:
+                    r = await fe.get(u)
+                    return r.status_code == 404, f"HTTP {r.status_code} (expect 404)"
+                except httpx.ConnectError:
+                    return False, "portal not running"
+
+            await timed(f"Removed {path}", load_removed)
+
     print("\n--- Patient + pharmacist smoke (quick) ---")
     smoke = [
         ("patient /store", f"{PATIENT_PORTAL}/store"),
         ("patient /orders", f"{PATIENT_PORTAL}/orders"),
-        ("pharmacist /requests", f"{PHARMACIST_PORTAL}/requests"),
+        ("pharmacist /product-requests", f"{PHARMACIST_PORTAL}/product-requests"),
         ("pharmacist /orders", f"{PHARMACIST_PORTAL}/orders"),
     ]
     async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as fe:

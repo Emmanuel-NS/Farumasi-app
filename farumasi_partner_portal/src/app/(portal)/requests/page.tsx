@@ -93,7 +93,7 @@ export default function RequestsPage() {
     <div className="space-y-6 max-w-4xl">
       <PageHeader
         title="Product Requests"
-        description="Submit and track requests to add new products to the FARUMASI catalogue"
+        description="Submit new catalogue items for FARUMASI pharmacist review. You will be notified when approved or if more information is needed."
         icon={FileSearch}
         actions={
           <Button size="sm" className="gap-1.5 text-xs" onClick={() => setShowForm(true)}>
@@ -144,15 +144,26 @@ export default function RequestsPage() {
                   <p className="text-xs"><span className="text-muted-foreground">Intended use: </span>{req.intended_use}</p>
                 )}
 
+                {req.status === "approved" && (
+                  <div className="rounded-lg px-3 py-2 text-xs bg-green-50 text-green-800 border border-green-200">
+                    Product approved{req.linked_product_id ? " and added to the catalogue" : ""}.
+                    List it under <span className="font-semibold">My Listings</span> when ready to sell.
+                  </div>
+                )}
                 {req.review_notes && (
                   <div className={`rounded-lg px-3 py-2 text-xs ${
                     req.status === "approved"
-                      ? "bg-green-50 text-green-800 border border-green-200"
-                      : "bg-amber-50 text-amber-800 border border-amber-200"
+                      ? "bg-green-50/80 text-green-900 border border-green-200"
+                      : req.status === "rejected"
+                        ? "bg-red-50 text-red-800 border border-red-200"
+                        : "bg-amber-50 text-amber-800 border border-amber-200"
                   }`}>
-                    <span className="font-semibold">Review Note: </span>{req.review_notes}
+                    <span className="font-semibold">Pharmacist feedback: </span>{req.review_notes}
                   </div>
                 )}
+                {req.status === "submitted" || req.status === "under_review" ? (
+                  <p className="text-[11px] text-muted-foreground">Waiting for pharmacist review…</p>
+                ) : null}
 
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[11px] text-muted-foreground">Submitted {timeAgo(req.created_at)}</span>

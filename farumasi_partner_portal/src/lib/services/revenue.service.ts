@@ -3,6 +3,8 @@ import api from "@/lib/api";
 export interface BackendRevenueRecord {
   id: string;
   order_id: string;
+  order_code?: string | null;
+  order_status?: string | null;
   partner_type: string;
   pharmacy_id?: string | null;
   partner_company_id?: string | null;

@@ -11,6 +11,7 @@ import { cartLineUnitPrice, minQuantityForLine } from "@/lib/cart-pricing";
 import { useTranslation } from "@/lib/translations";
 import { toast } from "sonner";
 import { pharmaciesService, BackendPharmacy, BackendListing } from "@/lib/services/pharmacies.service";
+import { partnersService, partnerAsStoreSeller } from "@/lib/services/partners.service";
 import { ordersService } from "@/lib/services/orders.service";
 import {
   prescriptionsService,
@@ -85,9 +86,10 @@ function adaptBackendPharmacy(p: BackendPharmacy): Pharmacy {
     coordinates: [p.latitude ?? -1.9441, p.longitude ?? 30.0619] as [number, number],
     supportedInsurances: [],
     isOpen: p.is_open,
-    imageUrl: "",
+    imageUrl: p.image_url ?? "",
     province: "Kigali",
     district: p.district,
+    sellerKind: p.sellerKind ?? "pharmacy",
   };
 }
 
@@ -354,9 +356,17 @@ export default function CartPage() {
   const [rxProductsMap, setRxProductsMap] = useState<Map<string, Medicine>>(new Map());
 
   useEffect(() => {
-    pharmaciesService.listPharmacies().then((items) => {
-      setPharmacyList(items.map(adaptBackendPharmacy));
-    }).catch(() => {});
+    Promise.all([
+      pharmaciesService.listPharmacies(0, 200),
+      partnersService.listPublic(0, 100),
+    ])
+      .then(([pharms, partners]) => {
+        setPharmacyList([
+          ...pharms.map(adaptBackendPharmacy),
+          ...partners.map((p) => adaptBackendPharmacy(partnerAsStoreSeller(p))),
+        ]);
+      })
+      .catch(() => {});
   }, []);
 
   // Load prescription data when in locked mode
@@ -1670,9 +1680,12 @@ export default function CartPage() {
                   unit_price: unitPrice,
                 };
               });
+              const seller = selectedOption?.pharmacy;
+              const isPartnerSeller = seller?.sellerKind === "partner";
               const result = await ordersService.createOrder({
                 prescription_id: rxId ?? undefined,  // links order to prescription when locked
-                pharmacy_id: selectedOption?.pharmacy.id,
+                pharmacy_id: isPartnerSeller ? undefined : seller?.id,
+                partner_company_id: isPartnerSeller ? seller?.id : undefined,
                 delivery_method: fulfillment,
                 delivery_address: deliveryAddr,
                 delivery_latitude: fulfillment === "delivery"

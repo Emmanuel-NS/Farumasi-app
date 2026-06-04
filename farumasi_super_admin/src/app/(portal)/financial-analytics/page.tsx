@@ -5,7 +5,8 @@ import api from "@/lib/api";
 import { formatRWF } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent, PageHeader, StatCard } from "@/components/ui";
 import { TrendingUp, DollarSign, Loader2 } from "lucide-react";
-import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { SafeChartContainer } from "@/components/charts/SafeChartContainer";
 
 interface RevenueSummary {
   total_gross: number;
@@ -82,16 +83,16 @@ export default function FinancialAnalyticsPage() {
             <Card>
               <CardHeader><CardTitle>Revenue vs Commission (Monthly)</CardTitle></CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={220}>
+                <SafeChartContainer height={220}>
                   <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
                     <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                    <Bar dataKey="revenue" fill="#1e9e68" radius={[4, 4, 0, 0]} name="Revenue (K RWF)" />
-                    <Line type="monotone" dataKey="commissions" stroke="#6366f1" strokeWidth={2} dot={false} name="Commission (K RWF)" />
+                    <Bar dataKey="revenue" fill="#1e9e68" radius={[4, 4, 0, 0]} name="Revenue (K RWF)" isAnimationActive={false} />
+                    <Line type="monotone" dataKey="commissions" stroke="#6366f1" strokeWidth={2} dot={false} name="Commission (K RWF)" isAnimationActive={false} />
                   </ComposedChart>
-                </ResponsiveContainer>
+                </SafeChartContainer>
               </CardContent>
             </Card>
 

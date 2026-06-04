@@ -8,7 +8,14 @@ from app.dependencies.roles import require_roles
 from app.core.constants import UserRole
 from app.models.user import User
 from app.models.partner import PartnerCompany
-from app.schemas.partner import PartnerCompanyOut, PartnerCompanyCreate, PartnerCompanyUpdate
+from app.schemas.partner import (
+    PartnerCompanyOut,
+    PartnerCompanyPublicOut,
+    PartnerCompanyCreate,
+    PartnerCompanyUpdate,
+    PartnerCompanyAdminUpdate,
+)
+from app.core.constants import EntityStatus
 from app.schemas.common import PaginatedResponse
 from app.core.exceptions import NotFoundError, AuthorizationError
 
@@ -61,11 +68,52 @@ async def update_my_company(
     company = result.scalars().first()
     if not company:
         raise NotFoundError("Partner company")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    payload = data.model_dump(exclude_unset=True)
+    payload.pop("commission_rate_percent", None)
+    payload.pop("verification_status", None)
+    payload.pop("status", None)
+    for field, value in payload.items():
         setattr(company, field, value)
     await db.commit()
     await db.refresh(company)
     return company
+
+
+@router.get("/public/", response_model=PaginatedResponse[PartnerCompanyPublicOut])
+async def list_public_partners(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Active healthcare companies / distributors visible on the patient store."""
+    cond = PartnerCompany.status == EntityStatus.ACTIVE
+    total = (
+        await db.execute(select(func.count(PartnerCompany.id)).where(cond))
+    ).scalar_one()
+    result = await db.execute(
+        select(PartnerCompany).where(cond).order_by(PartnerCompany.name).offset(offset).limit(limit)
+    )
+    items = list(result.scalars().all())
+    return PaginatedResponse(
+        items=[PartnerCompanyPublicOut.model_validate(p) for p in items],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
+
+
+@router.get("/public/{partner_id}", response_model=PartnerCompanyPublicOut)
+async def get_public_partner(partner_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(PartnerCompany).where(
+            PartnerCompany.id == partner_id,
+            PartnerCompany.status == EntityStatus.ACTIVE,
+        )
+    )
+    partner = result.scalar_one_or_none()
+    if not partner:
+        raise NotFoundError("Partner", partner_id)
+    return PartnerCompanyPublicOut.model_validate(partner)
 
 
 @router.get("/", response_model=PaginatedResponse[PartnerCompanyOut])
@@ -91,15 +139,14 @@ async def get_partner(partner_id: str, db: AsyncSession = Depends(get_db)):
 @router.put("/{partner_id}", response_model=PartnerCompanyOut)
 async def update_partner(
     partner_id: str,
-    data: PartnerCompanyUpdate,
+    data: PartnerCompanyAdminUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN)),
 ):
     result = await db.execute(select(PartnerCompany).where(PartnerCompany.id == partner_id))
     partner = result.scalar_one_or_none()
     if not partner:
         raise NotFoundError("Partner", partner_id)
-    _assert_owner(partner, current_user)
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(partner, field, value)
     await db.commit()
@@ -220,7 +267,24 @@ async def list_my_partner_revenue(
     current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
 ):
     company = await _get_my_partner(db, current_user)
-    return await RevenueService(db).list_records(partner_company_id=company.id)
+    records = await RevenueService(db).list_records(partner_company_id=company.id)
+    return [
+        RevenueRecordOut(
+            id=r.id,
+            order_id=r.order_id,
+            order_code=r.order.order_code if r.order else None,
+            order_status=r.order.order_status if r.order else None,
+            partner_type=r.partner_type,
+            pharmacy_id=r.pharmacy_id,
+            partner_company_id=r.partner_company_id,
+            gross_amount=float(r.gross_amount),
+            platform_commission=float(r.platform_commission),
+            net_amount=float(r.net_amount),
+            status=r.status,
+            created_at=r.created_at,
+        )
+        for r in records
+    ]
 
 
 @router.get("/me/revenue/summary", response_model=RevenueSummary)

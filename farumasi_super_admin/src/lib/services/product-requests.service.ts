@@ -55,10 +55,10 @@ export const productRequestsService = {
     return { items: data.items.map(adapt), total: data.total };
   },
 
-  async review(id: string, action: "approve" | "reject", notes?: string): Promise<ProductRequest> {
+  async review(id: string, action: "approve" | "reject", review_notes?: string): Promise<ProductRequest> {
     const { data } = await api.patch<BackendProductRequest>(`/product-requests/${id}/review`, {
       status: action === "approve" ? "approved" : "rejected",
-      notes,
+      review_notes,
     });
     return adapt(data);
   },

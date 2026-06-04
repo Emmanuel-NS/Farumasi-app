@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ShoppingCart, Filter, Download, ChevronRight, Loader2 } from "lucide-react";
+import { ShoppingCart, Filter, Download, ChevronRight, Loader2, Clock } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -24,6 +24,17 @@ const ORDER_TABS: { label: string; value: string; statuses?: OrderStatus[] }[] =
   { label: "Completed", value: "completed", statuses: ["delivered", "completed"] },
   { label: "Cancelled", value: "cancelled", statuses: ["cancelled", "rejected", "failed"] },
 ];
+
+const IN_PROGRESS_STATUSES: OrderStatus[] = [
+  "accepted",
+  "preparing",
+  "ready_for_pickup",
+  "out_for_delivery",
+];
+
+function orderStatus(o: BackendOrder): string {
+  return (o.status || o.order_status || "").toLowerCase();
+}
 
 function shortId(id: string): string {
   return `FRM-${id.slice(0, 8).toUpperCase()}`;
@@ -56,10 +67,17 @@ export default function OrdersPage() {
   }, []);
 
   const kpis = useMemo(() => {
-    const pending = orders.filter(o => o.status === "pending").length;
-    const completed = orders.filter(o => o.status === "completed" || o.status === "delivered").length;
-    const cancelled = orders.filter(o => ["cancelled", "rejected", "failed"].includes(o.status)).length;
-    return { pending, completed, cancelled };
+    const pending = orders.filter(o => orderStatus(o) === "pending").length;
+    const inProgress = orders.filter(o =>
+      IN_PROGRESS_STATUSES.includes(orderStatus(o) as OrderStatus),
+    ).length;
+    const completed = orders.filter(o =>
+      ["completed", "delivered"].includes(orderStatus(o)),
+    ).length;
+    const cancelled = orders.filter(o =>
+      ["cancelled", "rejected", "failed"].includes(orderStatus(o)),
+    ).length;
+    return { pending, inProgress, completed, cancelled };
   }, [orders]);
 
   return (
@@ -75,8 +93,9 @@ export default function OrdersPage() {
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard title="Pending" value={String(kpis.pending)} icon={ShoppingCart} iconBg="bg-amber-100" iconColor="text-amber-600" />
+        <KpiCard title="In Progress" value={String(kpis.inProgress)} icon={Clock} iconBg="bg-blue-100" iconColor="text-blue-600" />
         <KpiCard title="Completed" value={String(kpis.completed)} icon={ShoppingCart} iconBg="bg-green-100" iconColor="text-green-600" />
         <KpiCard title="Cancelled" value={String(kpis.cancelled)} icon={ShoppingCart} iconBg="bg-red-100" iconColor="text-red-600" />
         <KpiCard title="Total Orders" value={orders.length.toLocaleString()} icon={ShoppingCart} />
@@ -107,6 +126,9 @@ export default function OrdersPage() {
                     {tab.value === "new" && kpis.pending > 0 && (
                       <span className="ml-1 text-[9px] font-bold bg-farumasi-600 text-white rounded-full px-1">{kpis.pending}</span>
                     )}
+                    {tab.value === "progress" && kpis.inProgress > 0 && (
+                      <span className="ml-1 text-[9px] font-bold bg-blue-600 text-white rounded-full px-1">{kpis.inProgress}</span>
+                    )}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -115,7 +137,11 @@ export default function OrdersPage() {
             {ORDER_TABS.map(tab => {
               const q = search.toLowerCase();
               const filtered = orders
-                .filter(o => tab.statuses ? tab.statuses.includes(o.status as OrderStatus) : true)
+                .filter(o =>
+                  tab.statuses
+                    ? tab.statuses.includes(orderStatus(o) as OrderStatus)
+                    : true,
+                )
                 .filter(o => {
                   if (!q) return true;
                   const num = shortId(o.id).toLowerCase();
