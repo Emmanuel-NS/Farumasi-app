@@ -34,7 +34,7 @@ export default function PayoutsPage() {
         <StatCard label="Ready for Payout" value={approved.length} icon={CreditCard} color="text-blue-700" />
         <StatCard label="Payout Amount" value={formatRWF(total)} icon={CreditCard} color="text-farumasi-700" />
         <StatCard label="Processing" value={allWithdrawals.filter(w => w.status === "Under Review").length} icon={CreditCard} color="text-amber-700" />
-        <StatCard label="Completed" value={allWithdrawals.filter(w => w.status === "Processed").length} icon={CheckCircle2} color="text-emerald-700" />
+        <StatCard label="Paid" value={allWithdrawals.filter(w => w.status === "Paid").length} icon={CheckCircle2} color="text-emerald-700" />
       </div>
 
       <Card>
@@ -54,7 +54,7 @@ export default function PayoutsPage() {
             </tr>
           </Thead>
           <tbody>
-            {allWithdrawals.filter(w => ["Approved", "Processed"].includes(w.status)).map((w) => (
+            {allWithdrawals.filter(w => ["Approved", "Processing", "Paid"].includes(w.status)).map((w) => (
               <Tr key={w.id}>
                 <Td>
                   <div>
@@ -65,7 +65,7 @@ export default function PayoutsPage() {
                 <Td><Badge variant="default">{w.method}</Badge></Td>
                 <Td className="text-[12px] font-semibold text-farumasi-700">{formatRWF(w.amount)}</Td>
                 <Td>
-                  <Badge variant={w.status === "Processed" ? "success" : "info"}>{w.status}</Badge>
+                  <Badge variant={w.status === "Paid" ? "success" : "info"}>{w.status}</Badge>
                 </Td>
                 <Td className="text-[12px] text-slate-400">{w.processedAt ? formatDate(w.processedAt) : "—"}</Td>
                 <Td>

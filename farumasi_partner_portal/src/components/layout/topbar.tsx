@@ -13,6 +13,8 @@ import { cn, formatCompactRWF, formatRWF, timeAgo } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/lib/store/auth";
 import { useLayoutDataStore } from "@/lib/store/layout-data";
+import { openNotification } from "@/lib/notification-links";
+import { notificationsService } from "@/lib/services/notifications.service";
 
 interface TopbarProps { collapsed: boolean; onToggle: () => void }
 
@@ -44,6 +46,19 @@ export function Topbar({ onToggle }: TopbarProps) {
     .join("")
     .toUpperCase();
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = search.trim();
+    if (!q) return;
+    const orderLike = /^frm-/i.test(q) || q.length >= 8;
+    router.push(
+      orderLike
+        ? `/orders?q=${encodeURIComponent(q)}`
+        : `/products/listed?q=${encodeURIComponent(q)}`,
+    );
+    setSearch("");
+  };
+
   return (
     <header className="h-16 bg-farumasi-600 flex items-center gap-3 px-4 shrink-0 sticky top-0 z-20">
       <button
@@ -60,7 +75,7 @@ export function Topbar({ onToggle }: TopbarProps) {
         <span className="text-white font-bold text-lg tracking-wide hidden sm:block">Farumasi</span>
       </Link>
 
-      <div className="flex-1 max-w-xl mx-auto">
+      <form className="flex-1 max-w-xl mx-auto" onSubmit={handleSearchSubmit}>
         <div className="flex items-center bg-white rounded-full px-4 h-10 gap-2 shadow-sm">
           <Search className="w-4 h-4 text-slate-400 shrink-0" />
           <input
@@ -69,11 +84,11 @@ export function Topbar({ onToggle }: TopbarProps) {
             className="bg-transparent text-sm flex-1 outline-none placeholder:text-slate-400 text-slate-700"
             placeholder="Search products, orders, pharmacies…"
           />
-          <button className="p-1 text-slate-400 hover:text-farumasi-600 transition-colors">
+          <button type="button" className="p-1 text-slate-400 hover:text-farumasi-600 transition-colors">
             <SlidersHorizontal className="w-4 h-4" />
           </button>
         </div>
-      </div>
+      </form>
 
       <div className="relative shrink-0">
         <button
@@ -81,7 +96,7 @@ export function Topbar({ onToggle }: TopbarProps) {
           className="flex items-center gap-1.5 px-3 h-9 rounded-full bg-white/15 hover:bg-white/25 transition-colors text-white border border-white/20"
         >
           <Wallet className="w-3.5 h-3.5" />
-          <span className="text-xs font-semibold hidden sm:block">{formatCompactRWF(availableBalance)}</span>
+          <span className="text-xs font-semibold hidden sm:block tabular-nums">{formatRWF(availableBalance)}</span>
         </button>
         {showWallet && (
           <div className="absolute right-0 top-12 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden">
@@ -138,10 +153,17 @@ export function Topbar({ onToggle }: TopbarProps) {
                   <div className="px-4 py-8 text-center text-xs text-slate-400">No notifications</div>
                 )}
                 {notifications.map((n) => (
-                  <div
+                  <button
                     key={n.id}
+                    type="button"
+                    onClick={() => {
+                      void openNotification(n, router, (id) => notificationsService.markRead(id)).then(() => {
+                        void useLayoutDataStore.getState().fetch();
+                        setShowNotifications(false);
+                      });
+                    }}
                     className={cn(
-                      "flex gap-3 px-4 py-3 hover:bg-slate-50 border-b border-slate-100 transition-colors cursor-pointer",
+                      "flex gap-3 px-4 py-3 hover:bg-slate-50 border-b border-slate-100 transition-colors cursor-pointer w-full text-left",
                       !n.read_status && "bg-farumasi-50/60"
                     )}
                   >
@@ -150,8 +172,11 @@ export function Topbar({ onToggle }: TopbarProps) {
                       <p className={cn("text-xs font-semibold", !n.read_status && "text-farumasi-800")}>{n.title}</p>
                       <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{n.message}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">{timeAgo(n.created_at)}</p>
+                      {n.action_url && (
+                        <p className="text-[10px] text-farumasi-600 font-medium mt-0.5">Tap to open →</p>
+                      )}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
               {unreadCount > 0 && (

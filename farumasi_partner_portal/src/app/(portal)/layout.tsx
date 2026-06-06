@@ -8,7 +8,7 @@ import { PortalLoadingShell } from "@/components/layout/portal-loading-shell";
 import { useAuthStore } from "@/lib/store/auth";
 import { useLayoutDataStore } from "@/lib/store/layout-data";
 
-const ALLOWED_ROLES = new Set(["partner_company_admin", "super_admin"]);
+const ALLOWED_ROLES = new Set(["partner_company_admin", "pharmacy_admin", "pharmacist", "super_admin"]);
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

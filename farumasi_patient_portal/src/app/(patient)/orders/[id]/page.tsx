@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ordersService } from "@/lib/services/orders.service";
-import { deliveryService } from "@/lib/services/delivery.service";
+import { deliveryService, type BackendDelivery, coordsPair, deliveryProgress, estimateDeliveryEtaMinutes } from "@/lib/services/delivery.service";
 import { mediaUrl } from "@/lib/api";
 import type { Order, DeliveryQR } from "@/types";
 import { cn, formatPrice } from "@/lib/utils";
@@ -50,7 +50,7 @@ export default function OrderDetailPage() {
 
   const [order, setOrder]           = useState<Order | null>(null);
   const [loading, setLoading]       = useState(true);
-  const [eta, setEta]               = useState(18);
+  const [delivery, setDelivery]     = useState<BackendDelivery | null>(null);
   const [deliveryQR, setDeliveryQR] = useState<DeliveryQR | null>(null);
   const [qrLoading, setQrLoading]   = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -80,13 +80,17 @@ export default function OrderDetailPage() {
       .then(setDeliveryQR)
       .catch(() => setDeliveryQR(null))
       .finally(() => setQrLoading(false));
-  }, [id, order?.status]);
+  }, [id, order?.status, order?.deliveryMethod]);
 
   useEffect(() => {
-    if (order?.status !== "out_for_delivery") return;
-    const t = setInterval(() => setEta((p) => Math.max(p - 1, 1)), 60_000);
-    return () => clearInterval(t);
-  }, [order?.status]);
+    if (!id || !order || order.status !== "out_for_delivery") {
+      setDelivery(null);
+      return;
+    }
+    deliveryService.getDeliveryForOrder(id)
+      .then(setDelivery)
+      .catch(() => setDelivery(null));
+  }, [id, order?.status]);
 
   const handleCancel = async () => {
     if (!order) return;
@@ -140,6 +144,15 @@ export default function OrderDetailPage() {
   const total       = subtotal + deliveryFee;
 
   const itemList = order.itemList ?? [];
+
+  const etaMinutes = delivery ? estimateDeliveryEtaMinutes(delivery) : null;
+  const pickupCoords = delivery
+    ? coordsPair(delivery.pickup_latitude, delivery.pickup_longitude)
+    : null;
+  const destCoords = delivery
+    ? coordsPair(delivery.destination_latitude, delivery.destination_longitude)
+    : null;
+  const routeProgress = delivery ? deliveryProgress(delivery) : 0.2;
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
@@ -206,10 +219,16 @@ export default function OrderDetailPage() {
             </div>
             <div className="flex items-center gap-1.5 text-farumasi-50 text-sm font-bold">
               <Clock className="w-3.5 h-3.5" />
-              {eta} {t.order_eta_min}
+              {etaMinutes != null ? `${etaMinutes} ${t.order_eta_min}` : t.order_live}
             </div>
           </div>
-          <TrackingMap pharmacyName={order.pharmacy} eta={eta} />
+          <TrackingMap
+            pharmacyName={order.pharmacy}
+            eta={etaMinutes}
+            pickup={pickupCoords}
+            destination={destCoords}
+            progress={routeProgress}
+          />
         </div>
       )}
 

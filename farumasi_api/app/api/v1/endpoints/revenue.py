@@ -7,7 +7,7 @@ from app.core.constants import UserRole
 from app.core.database import get_db
 from app.core.exceptions import AuthorizationError
 from app.dependencies.auth import get_current_user
-from app.dependencies.roles import require_finance
+from app.dependencies.roles import require_finance, require_any_admin
 from app.models.user import User
 from app.models.pharmacy import Pharmacy
 from app.models.partner import PartnerCompany
@@ -18,7 +18,12 @@ from app.core.exceptions import NotFoundError
 router = APIRouter()
 
 
-_PLATFORM_ROLES = {UserRole.SUPER_ADMIN, UserRole.FINANCE_ADMIN}
+_PLATFORM_ROLES = {
+    UserRole.SUPER_ADMIN,
+    UserRole.FINANCE_ADMIN,
+    UserRole.OPERATIONS_ADMIN,
+    UserRole.COMPLIANCE_ADMIN,
+}
 _OWNER_ROLES = {UserRole.PHARMACY_ADMIN, UserRole.PARTNER_COMPANY_ADMIN}
 
 
@@ -29,6 +34,9 @@ def _empty_summary() -> RevenueSummary:
         gross_revenue=0.0, platform_commission=0.0, net_revenue=0.0,
         withdrawn_amount=0.0, pending_withdrawals=0.0, paid_withdrawals=0.0,
         total_orders=0, completed_orders=0,
+        pending_settlement_count=0,
+        available_settlement_count=0,
+        withdrawn_settlement_count=0,
     )
 
 
@@ -40,7 +48,7 @@ async def _resolve_entity(actor: User, db: AsyncSession):
     return pharmacy, partner
 
 
-@router.get("/", response_model=list[RevenueRecordOut], dependencies=[Depends(require_finance())])
+@router.get("/", response_model=list[RevenueRecordOut], dependencies=[Depends(require_any_admin())])
 async def list_revenue_records(
     pharmacy_id: Optional[str] = Query(None),
     partner_company_id: Optional[str] = Query(None),
@@ -56,7 +64,7 @@ async def get_revenue_summary(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    # Platform-wide view is restricted to super_admin / finance_admin.
+    # Platform-wide view for all platform admin roles.
     if actor.role in _PLATFORM_ROLES:
         return await RevenueService(db).get_summary()
 
@@ -69,6 +77,8 @@ async def get_revenue_summary(
     # Owner without an associated entity yet → own (empty) scope, not platform.
     if not pharmacy and not partner:
         return _empty_summary()
+    if pharmacy and partner:
+        return await RevenueService(db).get_summary_for_owner(actor.id)
     return await RevenueService(db).get_summary(
         pharmacy_id=pharmacy.id if pharmacy else None,
         partner_company_id=partner.id if partner else None,

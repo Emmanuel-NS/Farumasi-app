@@ -340,6 +340,7 @@ export interface AppNotification {
   time: string;
   category: NotificationCategory;
   isRead: boolean;
+  actionUrl?: string | null;
 }
 
 // ── Pharmacy ──────────────────────────────────

@@ -53,16 +53,48 @@ _REQUEST_REVIEWERS = {UserRole.SUPER_ADMIN, UserRole.PHARMACIST}
 _REQUEST_CREATORS = {UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST, UserRole.PARTNER_COMPANY_ADMIN}
 
 
+def open_seller_listing_filter():
+    """Listings from active sellers that are open for patient commerce."""
+    pharmacy_ok = (
+        select(Pharmacy.id)
+        .where(
+            Pharmacy.id == ProductListing.pharmacy_id,
+            Pharmacy.status == EntityStatus.ACTIVE,
+            Pharmacy.is_open.is_(True),
+        )
+        .correlate(ProductListing)
+        .exists()
+    )
+    partner_ok = (
+        select(PartnerCompany.id)
+        .where(
+            PartnerCompany.id == ProductListing.partner_company_id,
+            PartnerCompany.status == EntityStatus.ACTIVE,
+            PartnerCompany.is_open.is_(True),
+        )
+        .correlate(ProductListing)
+        .exists()
+    )
+    return or_(
+        and_(ProductListing.pharmacy_id.isnot(None), pharmacy_ok),
+        and_(ProductListing.partner_company_id.isnot(None), partner_ok),
+    )
+
+
 def listing_to_out(listing: ProductListing) -> ProductListingOut:
     """Build API listing response with nested pharmacy / partner summaries."""
     out = ProductListingOut.model_validate(listing)
     if listing.pharmacy:
         ph = listing.pharmacy
+        logo = getattr(ph, "logo_url", None) or getattr(ph, "image_url", None)
+        if not logo and listing.partner_company and listing.partner_company.logo_url:
+            if (ph.name or "").strip().lower() == (listing.partner_company.name or "").strip().lower():
+                logo = listing.partner_company.logo_url
         out.pharmacy = ListingPharmacyBrief(
             id=ph.id,
             name=ph.name,
             district=ph.district,
-            image_url=getattr(ph, "image_url", None),
+            image_url=logo,
             is_open=bool(getattr(ph, "is_open", True)),
             accepts_delivery=bool(getattr(ph, "accepts_delivery", True)),
         )
@@ -178,24 +210,26 @@ class ProductService:
         item = await self._get_product_or_404(product_id)
         # Attach listing stats via a separate aggregation query (avoids UUID subquery join issues)
         _active_statuses = [ListingAvailability.AVAILABLE, ListingAvailability.LOW_STOCK]
-        from sqlalchemy import text
-        raw = (
+        stats_row = (
             await self.db.execute(
-                text(
-                    "SELECT MIN(price), MAX(price), COUNT(id), MIN(unit_price) "
-                    "FROM product_listings "
-                    "WHERE product_id = :pid "
-                    "  AND availability_status IN ('available','low_stock') "
-                    "  AND status = 'active'"
-                ),
-                {"pid": product_id},
+                select(
+                    func.min(ProductListing.price),
+                    func.max(ProductListing.price),
+                    func.count(ProductListing.id),
+                    func.min(ProductListing.unit_price),
+                ).where(
+                    ProductListing.product_id == product_id,
+                    ProductListing.availability_status.in_(_active_statuses),
+                    ProductListing.status == EntityStatus.ACTIVE,
+                    open_seller_listing_filter(),
+                )
             )
         ).one_or_none()
-        if raw and raw[2]:
-            item.price_from = float(raw[0]) if raw[0] is not None else None  # type: ignore[attr-defined]
-            item.price_to = float(raw[1]) if raw[1] is not None else None    # type: ignore[attr-defined]
-            item.listing_count = int(raw[2])                                  # type: ignore[attr-defined]
-            item.unit_price_from = float(raw[3]) if raw[3] is not None else None  # type: ignore[attr-defined]
+        if stats_row and stats_row[2]:
+            item.price_from = float(stats_row[0]) if stats_row[0] is not None else None  # type: ignore[attr-defined]
+            item.price_to = float(stats_row[1]) if stats_row[1] is not None else None    # type: ignore[attr-defined]
+            item.listing_count = int(stats_row[2])                                  # type: ignore[attr-defined]
+            item.unit_price_from = float(stats_row[3]) if stats_row[3] is not None else None  # type: ignore[attr-defined]
         else:
             item.price_from = None     # type: ignore[attr-defined]
             item.price_to = None       # type: ignore[attr-defined]
@@ -212,9 +246,19 @@ class ProductService:
         category: Optional[str] = None,
         include_unapproved: bool = False,
         only_with_listings: bool = True,
+        require_open_seller: bool = False,
     ) -> Tuple[List[ProductCatalogueItem], int]:
+        # Patient store uses only_with_listings=True → prices from open sellers only.
+        if only_with_listings:
+            require_open_seller = True
         # ── Active listing stats subquery ──────────────────────────────────
         _active_statuses = [ListingAvailability.AVAILABLE, ListingAvailability.LOW_STOCK]
+        listing_conditions = [
+            ProductListing.availability_status.in_(_active_statuses),
+            ProductListing.status == EntityStatus.ACTIVE,
+        ]
+        if require_open_seller:
+            listing_conditions.append(open_seller_listing_filter())
         listing_stats = (
             select(
                 ProductListing.product_id.label("product_id"),
@@ -223,12 +267,7 @@ class ProductService:
                 func.count(ProductListing.id).label("listing_count"),
                 func.min(ProductListing.unit_price).label("unit_price_from"),
             )
-            .where(
-                and_(
-                    ProductListing.availability_status.in_(_active_statuses),
-                    ProductListing.status == EntityStatus.ACTIVE,
-                )
-            )
+            .where(and_(*listing_conditions))
             .group_by(ProductListing.product_id)
             .subquery()
         )
@@ -488,8 +527,11 @@ class ProductService:
         partner_company_id: Optional[str] = None,
         product_id: Optional[str] = None,
         availability_status: Optional[str] = None,
+        require_open_seller: bool = False,
     ) -> Tuple[List[ProductListing], int]:
         filters = []
+        if require_open_seller:
+            filters.append(open_seller_listing_filter())
         if pharmacy_id:
             filters.append(ProductListing.pharmacy_id == pharmacy_id)
         if partner_company_id:
@@ -520,6 +562,60 @@ class ProductService:
 
         result = await self.db.execute(data_q)
         return list(result.scalars().all()), total
+
+    async def list_listings_for_owner(
+        self,
+        owner_user_id: str,
+        *,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> Tuple[List[ProductListing], int]:
+        """Listings across all pharmacies and partner companies owned by the user."""
+        pharmacy_ids = list(
+            (
+                await self.db.execute(
+                    select(Pharmacy.id).where(Pharmacy.owner_user_id == owner_user_id)
+                )
+            ).scalars().all()
+        )
+        partner_ids = list(
+            (
+                await self.db.execute(
+                    select(PartnerCompany.id).where(
+                        PartnerCompany.owner_user_id == owner_user_id
+                    )
+                )
+            ).scalars().all()
+        )
+        if not pharmacy_ids and not partner_ids:
+            return [], 0
+
+        scope_conds = []
+        if pharmacy_ids:
+            scope_conds.append(ProductListing.pharmacy_id.in_(pharmacy_ids))
+        if partner_ids:
+            scope_conds.append(ProductListing.partner_company_id.in_(partner_ids))
+        scope = or_(*scope_conds)
+
+        total = (
+            await self.db.execute(
+                select(func.count()).select_from(ProductListing).where(scope)
+            )
+        ).scalar_one()
+
+        result = await self.db.execute(
+            select(ProductListing)
+            .options(
+                selectinload(ProductListing.product),
+                selectinload(ProductListing.pharmacy),
+                selectinload(ProductListing.partner_company),
+            )
+            .where(scope)
+            .order_by(ProductListing.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return list(result.scalars().all()), int(total)
 
     # ════════════════════════════════════════════════════════════════════
     # Product Requests
@@ -614,7 +710,7 @@ class ProductService:
                     title="Product Request Submitted",
                     message=msg,
                     category="product_request",
-                    action_url=f"/product-requests/{req.id}",
+                    action_url="/product-requests",
                 )
             await self.db.commit()
         except Exception:

@@ -50,6 +50,8 @@ class Pharmacy(Base, UUIDMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(50), default=EntityStatus.ACTIVE)
     accepts_delivery: Mapped[bool] = mapped_column(Boolean, default=True)
     is_open: Mapped[bool] = mapped_column(Boolean, default=True)
+    logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    commission_rate_percent: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────
     owner: Mapped["User"] = relationship(

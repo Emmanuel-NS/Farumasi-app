@@ -5,16 +5,43 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_current_user, get_optional_current_user
 from app.dependencies.roles import require_roles
-from app.core.constants import UserRole
+from app.core.constants import EntityStatus, UserRole
 from app.models.user import User
 from app.models.pharmacy import Pharmacy
 from app.schemas.pharmacy import PharmacyOut, PharmacyCreate, PharmacyUpdate
 from app.schemas.common import PaginatedResponse
-from app.core.exceptions import NotFoundError, AuthorizationError
+from app.core.exceptions import NotFoundError, AuthorizationError, AuthenticationError
 
 router = APIRouter()
+
+_ADMIN_PHARMACY_ROLES = (
+    UserRole.SUPER_ADMIN,
+    UserRole.OPERATIONS_ADMIN,
+    UserRole.FINANCE_ADMIN,
+    UserRole.COMPLIANCE_ADMIN,
+)
+
+
+def _pharmacy_out(pharmacy: Pharmacy) -> PharmacyOut:
+    from app.services.seller_commission import (
+        commission_rate_source,
+        effective_commission_rate_percent,
+    )
+
+    stored = (
+        float(pharmacy.commission_rate_percent)
+        if pharmacy.commission_rate_percent is not None
+        else None
+    )
+    out = PharmacyOut.model_validate(pharmacy)
+    return out.model_copy(
+        update={
+            "effective_commission_rate_percent": effective_commission_rate_percent(stored),
+            "commission_rate_source": commission_rate_source(stored),
+        }
+    )
 
 
 def _assert_owner(pharmacy: Pharmacy, current_user: User) -> None:
@@ -48,7 +75,7 @@ async def get_my_pharmacy(
     pharmacy = await resolve_user_pharmacy(db, current_user)
     if not pharmacy:
         raise NotFoundError("Pharmacy")
-    return pharmacy
+    return _pharmacy_out(pharmacy)
 
 
 @router.patch("/me", response_model=PharmacyOut)
@@ -66,23 +93,63 @@ async def update_my_pharmacy(
         setattr(pharmacy, field, value)
     await db.commit()
     await db.refresh(pharmacy)
-    return pharmacy
+    return _pharmacy_out(pharmacy)
 
 
 @router.get("/", response_model=PaginatedResponse[PharmacyOut])
 async def list_pharmacies(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    open_only: bool = Query(False, description="When true, only sellers open for patient orders"),
     db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
+    if not open_only:
+        if current_user is None:
+            raise AuthenticationError("Authentication credentials not provided")
+        if current_user.role not in _ADMIN_PHARMACY_ROLES:
+            raise AuthorizationError("Not allowed to list all pharmacies")
     from sqlalchemy import func
-    total = (await db.execute(select(func.count(Pharmacy.id)))).scalar_one()
-    result = await db.execute(select(Pharmacy).offset(offset).limit(limit))
-    return PaginatedResponse(items=list(result.scalars().all()), total=total, offset=offset, limit=limit)
+    filters = []
+    if open_only:
+        filters.extend([Pharmacy.status == EntityStatus.ACTIVE, Pharmacy.is_open.is_(True)])
+    count_q = select(func.count(Pharmacy.id))
+    data_q = (
+        select(Pharmacy)
+        .options(selectinload(Pharmacy.owner))
+        .order_by(Pharmacy.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    if filters:
+        count_q = count_q.where(*filters)
+        data_q = data_q.where(*filters)
+    total = (await db.execute(count_q)).scalar_one()
+    result = await db.execute(data_q)
+    rows = list(result.scalars().all())
+    owner_ids = list({p.owner_user_id for p in rows if p.owner_user_id and not p.logo_url})
+    if owner_ids:
+        from app.services.seller_branding import load_partner_logo_index, resolve_pharmacy_logo
+
+        logo_index = await load_partner_logo_index(db, owner_ids)
+        items = []
+        for pharmacy in rows:
+            out = PharmacyOut.model_validate(pharmacy)
+            resolved = resolve_pharmacy_logo(pharmacy, logo_index)
+            if resolved and not out.logo_url:
+                out = out.model_copy(update={"logo_url": resolved})
+            items.append(out)
+    else:
+        items = [PharmacyOut.model_validate(p) for p in rows]
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
 @router.get("/{pharmacy_id}", response_model=PharmacyOut)
-async def get_pharmacy(pharmacy_id: str, db: AsyncSession = Depends(get_db)):
+async def get_pharmacy(
+    pharmacy_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(*_ADMIN_PHARMACY_ROLES)),
+):
     result = await db.execute(select(Pharmacy).where(Pharmacy.id == pharmacy_id))
     pharmacy = result.scalar_one_or_none()
     if not pharmacy:

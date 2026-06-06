@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import UserRole
@@ -31,6 +31,9 @@ async def list_audit_logs(
             UserRole.PARTNER_COMPANY_ADMIN,
             UserRole.SUPER_ADMIN,
             UserRole.PHARMACIST,
+            UserRole.OPERATIONS_ADMIN,
+            UserRole.FINANCE_ADMIN,
+            UserRole.COMPLIANCE_ADMIN,
         )
     ),
 ):
@@ -47,15 +50,36 @@ async def list_audit_logs(
         count_stmt = count_stmt.where(AuditLog.actor_user_id == actor.id)
 
     if action:
-        stmt = stmt.where(AuditLog.action == action)
-        count_stmt = count_stmt.where(AuditLog.action == action)
+        action_key = action.strip().lower()
+        stmt = stmt.where(
+            or_(
+                AuditLog.action.ilike(f"%{action_key}%"),
+                AuditLog.action.ilike(f"%{action.strip()}%"),
+            )
+        )
+        count_stmt = count_stmt.where(
+            or_(
+                AuditLog.action.ilike(f"%{action_key}%"),
+                AuditLog.action.ilike(f"%{action.strip()}%"),
+            )
+        )
     if entity_type:
         stmt = stmt.where(AuditLog.entity_type == entity_type)
         count_stmt = count_stmt.where(AuditLog.entity_type == entity_type)
     if search:
         like = f"%{search}%"
-        stmt = stmt.where(AuditLog.entity_id.ilike(like))
-        count_stmt = count_stmt.where(AuditLog.entity_id.ilike(like))
+        stmt = stmt.where(
+            or_(
+                AuditLog.entity_id.ilike(like),
+                AuditLog.action.ilike(like),
+            )
+        )
+        count_stmt = count_stmt.where(
+            or_(
+                AuditLog.entity_id.ilike(like),
+                AuditLog.action.ilike(like),
+            )
+        )
 
     stmt = stmt.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
     total = (await db.execute(count_stmt)).scalar_one()

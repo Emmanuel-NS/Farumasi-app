@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { getSellerMeBase } from "@/lib/seller-api";
 
 export interface BackendRevenueRecord {
   id: string;
@@ -40,11 +41,12 @@ export interface BackendWithdrawal {
   amount: number;
   payout_method: string;
   payout_details?: Record<string, unknown> | null;
-  status: "pending" | "processing" | "completed" | "rejected";
+  status: "pending" | "approved" | "processing" | "paid" | "completed" | "rejected";
   admin_notes?: string | null;
-  processed_by_user_id?: string | null;
-  created_at: string;
+  payment_reference?: string | null;
+  payment_proof_url?: string | null;
   processed_at?: string | null;
+  created_at: string;
 }
 
 export interface WithdrawalCreatePayload {
@@ -55,22 +57,22 @@ export interface WithdrawalCreatePayload {
 
 export const revenueService = {
   async getSummary(): Promise<BackendRevenueSummary> {
-    const { data } = await api.get<BackendRevenueSummary>("/partners/me/revenue/summary");
+    const { data } = await api.get<BackendRevenueSummary>(`${getSellerMeBase()}/revenue/summary`);
     return data;
   },
 
   async listTransactions(): Promise<BackendRevenueRecord[]> {
-    const { data } = await api.get<BackendRevenueRecord[]>("/partners/me/revenue");
+    const { data } = await api.get<BackendRevenueRecord[]>(`${getSellerMeBase()}/revenue`);
     return data;
   },
 
   async listWithdrawals(): Promise<BackendWithdrawal[]> {
-    const { data } = await api.get<BackendWithdrawal[]>("/partners/me/withdrawals");
+    const { data } = await api.get<BackendWithdrawal[]>(`${getSellerMeBase()}/withdrawals`);
     return data;
   },
 
   async requestWithdrawal(payload: WithdrawalCreatePayload): Promise<BackendWithdrawal> {
-    const { data } = await api.post<BackendWithdrawal>("/partners/me/withdrawals", payload);
+    const { data } = await api.post<BackendWithdrawal>(`${getSellerMeBase()}/withdrawals`, payload);
     return data;
   },
 };

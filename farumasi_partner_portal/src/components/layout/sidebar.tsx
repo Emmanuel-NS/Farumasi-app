@@ -32,7 +32,7 @@ const baseNavigation: NavItem[] = [
   },
   { name: "Orders", href: "/orders", icon: ShoppingCart },
   { name: "Revenue", href: "/revenue", icon: DollarSign },
-  { name: "Product Requests", href: "/requests", icon: FileSearch },
+  { name: "Requests", href: "/requests", icon: FileSearch },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Help & Support", href: "/support", icon: HelpCircle },
 ];
@@ -53,7 +53,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
   const pendingRequests = useLayoutDataStore(s => s.pendingRequests);
 
   const navigation: NavItem[] = baseNavigation.map(item => {
-    if (item.name === "Product Requests") return { ...item, badge: pendingRequests };
+    if (item.name === "Requests") return { ...item, badge: pendingRequests };
     return item;
   });
 

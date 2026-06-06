@@ -73,6 +73,8 @@ class PartnerCompanyOut(BaseModel):
     logo_url: Optional[str] = None
     description: Optional[str] = None
     commission_rate_percent: Optional[float] = None
+    effective_commission_rate_percent: Optional[float] = None
+    commission_rate_source: Optional[str] = None
     is_open: bool = True
     verification_status: str
     status: str

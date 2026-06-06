@@ -38,7 +38,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
 
     # ── Business Logic ────────────────────────────────────────────────────
-    PLATFORM_COMMISSION_RATE: float = 0.10  # 10% platform fee
+    PLATFORM_COMMISSION_RATE: float = 0.10  # 10% platform fee (fallback when seller has no rate)
+    MIN_WITHDRAWAL_AMOUNT: float = 1000.0  # whole RWF
 
     # ── File Storage ──────────────────────────────────────────────────────
     STORAGE_BACKEND: str = "local"  # local | s3 | cloudinary

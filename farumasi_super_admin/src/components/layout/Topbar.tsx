@@ -3,33 +3,32 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { cn, timeAgo } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth-store";
 import api from "@/lib/api";
+import { openNotification } from "@/lib/notification-links";
 import {
   Bell, Search, Menu, ChevronDown, Settings, LogOut,
-  AlertTriangle, Info, Shield, User,
+  AlertTriangle, Info, User,
 } from "lucide-react";
 
 const routeLabels: Record<string, string> = {
-  dashboard: "Dashboard", users: "Users", hospitals: "Hospitals",
-  doctors: "Doctors", pharmacies: "Pharmacies", pharmacists: "Pharmacists",
-  suppliers: "Suppliers & Companies", riders: "Riders", departments: "Departments",
-  catalogue: "Product Catalogue", "product-requests": "Product Requests",
-  inventory: "Inventory Intelligence", availability: "Availability Intelligence",
-  listings: "Marketplace Listings", orders: "Orders", fulfillment: "Fulfillment",
-  delivery: "Delivery Operations", prescriptions: "Prescription Coordination",
-  "pharmacy-coordination": "Pharmacy Coordination", revenue: "Revenue Management",
-  commissions: "Commissions", withdrawals: "Withdrawals", payouts: "Payouts",
-  "financial-analytics": "Financial Analytics", subscriptions: "Subscriptions",
-  "ai-insights": "AI Operational Insights", forecasting: "Demand Forecasting",
-  "shortage-intelligence": "Shortage Intelligence", recommendations: "Recommendation Intelligence",
-  predictions: "Ecosystem Predictions", verification: "Verification Center",
-  compliance: "Compliance Monitoring", audit: "Audit Logs", security: "Security Events",
-  roles: "Roles & Permissions", notifications: "Notifications", integrations: "Integrations",
-  "feature-flags": "Feature Flags", settings: "Platform Settings",
-  "api-management": "API Management", "system-monitoring": "System Monitoring",
-  ecosystem: "Ecosystem Health", intelligence: "Operational Intelligence", bi: "Business Intelligence",
+  dashboard: "Dashboard",
+  users: "Users",
+  patients: "Patients",
+  pharmacists: "Pharmacists",
+  riders: "Riders",
+  pharmacies: "Pharmacies & Companies",
+  orders: "Orders",
+  prescriptions: "Prescriptions",
+  finance: "Finance Hub",
+  revenue: "Revenue",
+  withdrawals: "Withdrawals",
+  audit: "Audit & Compliance",
+  settings: "Settings",
+  notifications: "Notifications",
+  security: "Security",
 };
 
 function Breadcrumb() {
@@ -52,13 +51,46 @@ function Breadcrumb() {
 }
 
 export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [search, setSearch] = useState("");
-  const [notifications, setNotifications] = useState<Array<{ id: string; title: string; message?: string | null; notification_type?: string; is_read: boolean; created_at: string }>>([]);
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    title: string;
+    message?: string | null;
+    category?: string | null;
+    read_status: boolean;
+    action_url?: string | null;
+    created_at: string;
+  }>>([]);
+
+  const initials =
+    user?.full_name
+      ?.split(/\s+/)
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() ?? "SA";
+
+  function handleSignOut() {
+    logout();
+    setShowProfile(false);
+    router.replace("/login");
+  }
 
   useEffect(() => {
-    type NotifItem = { id: string; title: string; message?: string | null; notification_type?: string; is_read: boolean; created_at: string };
+    type NotifItem = {
+      id: string;
+      title: string;
+      message?: string | null;
+      category?: string | null;
+      read_status: boolean;
+      action_url?: string | null;
+      created_at: string;
+    };
     api.get<{ items: NotifItem[] } | NotifItem[]>("/notifications/", { params: { limit: 20 } })
       .then(r => {
         const data = r.data;
@@ -67,15 +99,48 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
       .catch(() => setNotifications([]));
   }, []);
 
-  const unread = notifications.filter((n) => !n.is_read).length;
+  const unread = notifications.filter((n) => !n.read_status).length;
 
-  const notifIcon = (severity: string) => {
-    switch (severity) {
-      case "Critical": return <AlertTriangle className="w-3.5 h-3.5 text-red-400" />;
-      case "Warning":  return <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />;
-      default:         return <Info className="w-3.5 h-3.5 text-blue-400" />;
+  async function handleNotifClick(notif: (typeof notifications)[number]) {
+    await openNotification(
+      notif,
+      router,
+      async (id) => {
+        await api.patch(`/notifications/${id}/read`);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, read_status: true } : n)),
+        );
+      },
+    );
+    setShowNotif(false);
+  }
+
+  const notifIcon = (category?: string | null) => {
+    switch (category) {
+      case "withdrawal":
+      case "alert":
+      case "critical":
+        return <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />;
+      case "warning":
+        return <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />;
+      default:
+        return <Info className="w-3.5 h-3.5 text-blue-400" />;
     }
   };
+
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const q = search.trim();
+    if (!q) return;
+    if (/^frm-/i.test(q) || q.includes("-")) {
+      router.push(`/orders?q=${encodeURIComponent(q)}`);
+    } else if (q.includes("@")) {
+      router.push(`/users/patients?q=${encodeURIComponent(q)}`);
+    } else {
+      router.push(`/pharmacies?q=${encodeURIComponent(q)}`);
+    }
+    setSearch("");
+  }
 
   return (
     <header className="h-16 bg-farumasi-600 flex items-center gap-3 px-4 shrink-0 z-20">
@@ -105,17 +170,17 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
       </div>
 
       {/* Search */}
-      <div className="flex-1 max-w-xl mx-auto">
+      <form className="flex-1 max-w-xl mx-auto" onSubmit={handleSearchSubmit}>
         <div className="flex items-center bg-white rounded-full px-4 h-10 gap-2 shadow-sm">
           <Search className="w-4 h-4 text-slate-400 shrink-0" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="bg-transparent text-sm flex-1 outline-none placeholder:text-slate-400 text-slate-700"
-            placeholder="Search ecosystem..."
+            placeholder="Search orders, pharmacies, users…"
           />
         </div>
-      </div>
+      </form>
 
       {/* Right controls */}
       <div className="flex items-center gap-0.5 shrink-0">
@@ -141,20 +206,25 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
                 {notifications.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-8">No notifications.</p>
                 ) : notifications.map((notif) => (
-                  <div
+                  <button
                     key={notif.id}
+                    type="button"
+                    onClick={() => void handleNotifClick(notif)}
                     className={cn(
-                      "flex gap-3 px-4 py-3 hover:bg-slate-50 border-b border-slate-100 transition-colors cursor-pointer",
-                      !notif.is_read && "bg-farumasi-50/60"
+                      "flex gap-3 px-4 py-3 hover:bg-slate-50 border-b border-slate-100 transition-colors cursor-pointer w-full text-left",
+                      !notif.read_status && "bg-farumasi-50/60"
                     )}
                   >
-                    <div className="mt-0.5 shrink-0">{notifIcon(notif.notification_type ?? "info")}</div>
+                    <div className="mt-0.5 shrink-0">{notifIcon(notif.category)}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={cn("text-xs font-semibold", !notif.is_read && "text-farumasi-800")}>{notif.title}</p>
+                      <p className={cn("text-xs font-semibold", !notif.read_status && "text-farumasi-800")}>{notif.title}</p>
                       <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{notif.message ?? ""}</p>
                       <p className="text-[10px] text-slate-400 mt-1">{timeAgo(notif.created_at)}</p>
+                      {notif.action_url && (
+                        <p className="text-[10px] text-farumasi-600 font-medium mt-0.5">Tap to open →</p>
+                      )}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
               <Link
@@ -175,7 +245,7 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
             className="flex items-center gap-1.5 rounded-full px-1.5 py-1 text-white hover:bg-white/10 transition-colors"
           >
             <div className="w-8 h-8 rounded-full bg-white/25 border-2 border-white/40 flex items-center justify-center text-white text-sm font-bold">
-              SA
+              {initials}
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-white/70 hidden sm:block" />
           </button>
@@ -183,13 +253,12 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
           {showProfile && (
             <div className="absolute right-0 top-12 w-52 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden">
               <div className="px-4 py-3 border-b bg-farumasi-50">
-                <p className="text-xs font-semibold mt-1">Super Admin</p>
-                <p className="text-[10px] text-slate-500">superadmin@farumasi.rw</p>
+                <p className="text-xs font-semibold mt-1">{user?.full_name ?? "Super Admin"}</p>
+                <p className="text-[10px] text-slate-500">{user?.email ?? "—"}</p>
               </div>
               {[
-                { icon: User,     label: "My Profile", href: "/settings" },
-                { icon: Settings, label: "Settings",   href: "/settings" },
-                { icon: Shield,   label: "Security",   href: "/security" },
+                { icon: User, label: "My Profile", href: "/settings" },
+                { icon: Settings, label: "Settings", href: "/settings" },
               ].map(({ icon: Icon, label, href }) => (
                 <Link
                   key={label}
@@ -202,7 +271,11 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
                 </Link>
               ))}
               <div className="border-t">
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
                   <LogOut className="w-4 h-4" />
                   Sign Out
                 </button>

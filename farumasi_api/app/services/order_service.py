@@ -20,6 +20,7 @@ from app.core.constants import (
     RevenueStatus,
     UserRole,
     normalize_order_status,
+    order_bucket_statuses,
 )
 from app.core.exceptions import (
     AuthorizationError,
@@ -108,7 +109,8 @@ class OrderService:
         if data.delivery_method == DeliveryMethod.DELIVERY:
             delivery_fee = 0.0 if subtotal >= 10_000 else 1_500.0
 
-        commission = round(subtotal * settings.PLATFORM_COMMISSION_RATE, 2)
+        commission_rate = await self._resolve_commission_rate(pharmacy_id, partner_id)
+        commission = round(subtotal * commission_rate, 2)
         total = round(subtotal + delivery_fee, 2)
         net_partner = round(subtotal - commission, 2)
 
@@ -183,7 +185,7 @@ class OrderService:
             if owner_user_id:
                 recipient_ids = [owner_user_id]
         for uid in recipient_ids:
-            await notif.order_placed(uid, order.order_code)
+            await notif.order_placed(uid, order.id, order_code=order.order_code)
 
         await AuditService(self.db).log(
             actor_user_id=actor.id,
@@ -253,10 +255,46 @@ class OrderService:
         limit: int,
         status: Optional[str] = None,
     ) -> Tuple[List[Order], int]:
-        partner = await self._get_owned_partner(actor)
-        if not partner:
-            raise NotFoundError("Partner company")
-        conds = [Order.partner_company_id == partner.id]
+        """All orders for pharmacies and partner companies owned by this user."""
+        return await self.list_orders_for_owner(
+            actor, offset=offset, limit=limit, status=status
+        )
+
+    async def list_orders_for_owner(
+        self,
+        actor: User,
+        *,
+        offset: int,
+        limit: int,
+        status: Optional[str] = None,
+    ) -> Tuple[List[Order], int]:
+        from sqlalchemy import or_
+
+        pharmacy_ids = list(
+            (
+                await self.db.execute(
+                    select(Pharmacy.id).where(Pharmacy.owner_user_id == actor.id)
+                )
+            ).scalars().all()
+        )
+        partner_ids = list(
+            (
+                await self.db.execute(
+                    select(PartnerCompany.id).where(
+                        PartnerCompany.owner_user_id == actor.id
+                    )
+                )
+            ).scalars().all()
+        )
+        if not pharmacy_ids and not partner_ids:
+            return [], 0
+
+        scope: list = []
+        if pharmacy_ids:
+            scope.append(Order.pharmacy_id.in_(pharmacy_ids))
+        if partner_ids:
+            scope.append(Order.partner_company_id.in_(partner_ids))
+        conds = [or_(*scope)]
         if status:
             conds.append(Order.order_status == status)
         return await self._paginate(*conds, offset=offset, limit=limit)
@@ -268,12 +306,24 @@ class OrderService:
         offset: int,
         limit: int,
         status: Optional[str] = None,
+        bucket: Optional[str] = None,
     ) -> Tuple[List[Order], int]:
         """Role-scoped list. Used by ``GET /api/v1/orders``."""
         role = actor.role
-        if role == UserRole.SUPER_ADMIN:
+        platform_roles = {
+            UserRole.SUPER_ADMIN,
+            UserRole.OPERATIONS_ADMIN,
+            UserRole.FINANCE_ADMIN,
+            UserRole.COMPLIANCE_ADMIN,
+        }
+        if role in platform_roles:
             conds = []
-            if status:
+            if bucket:
+                statuses = order_bucket_statuses(bucket)
+                if not statuses:
+                    raise ValidationError(f"Unknown order bucket '{bucket}'")
+                conds.append(Order.order_status.in_(statuses))
+            elif status:
                 conds.append(Order.order_status == status)
             return await self._paginate(*conds, offset=offset, limit=limit)
         if role == UserRole.PATIENT:
@@ -315,7 +365,7 @@ class OrderService:
         ):
             await self._release_stock_for_order(order)
 
-        if data.order_status == OrderStatus.COMPLETED:
+        if data.order_status in (OrderStatus.COMPLETED, OrderStatus.DELIVERED):
             await self._create_revenue(order)
 
         await self.db.flush()
@@ -324,7 +374,7 @@ class OrderService:
         patient_user_id = await self._patient_user_id(order.patient_id)
         if patient_user_id:
             await notif.order_status_changed(
-                patient_user_id, order.order_code, data.order_status
+                patient_user_id, order.id, data.order_status, order_code=order.order_code
             )
 
         await AuditService(self.db).log(
@@ -389,6 +439,7 @@ class OrderService:
         order = await self.repo.get_by_id(order_id)
         if not order:
             raise NotFoundError("Order", order_id)
+        await self._assert_can_verify_access_code(order, actor)
         if not order.patient_access_code:
             raise BusinessRuleError("This order has no access code set")
         if order.patient_access_code.lower() != data.access_code.lower():
@@ -402,7 +453,7 @@ class OrderService:
                 raise BusinessRuleError("Order must be out_for_delivery to verify delivery access code")
             order.order_status = OrderStatus.DELIVERED
         await self.db.flush()
-        if order.order_status == OrderStatus.COMPLETED:
+        if order.order_status in (OrderStatus.COMPLETED, OrderStatus.DELIVERED):
             await self._create_revenue(order)
         await self.db.flush()
         return await self._reload(order.id)
@@ -716,13 +767,57 @@ class OrderService:
 
     async def _assert_can_update_payment(self, order: Order, actor: User) -> None:
         role = actor.role
-        if role == UserRole.SUPER_ADMIN:
+        if role in (UserRole.SUPER_ADMIN, UserRole.FINANCE_ADMIN):
             return
-        if role == UserRole.PATIENT:
-            patient = await self._get_patient_for_user(actor)
-            if patient and patient.id == order.patient_id:
+        if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
+            pharmacy = await self._get_owned_pharmacy(actor)
+            if not pharmacy and role == UserRole.PHARMACIST:
+                from app.services.pharmacy_access import resolve_user_pharmacy
+
+                pharmacy = await resolve_user_pharmacy(self.db, actor)
+            if pharmacy and order.pharmacy_id == pharmacy.id:
+                return
+        if role == UserRole.PARTNER_COMPANY_ADMIN:
+            if order.partner_company_id and await self._owns_partner(
+                actor, order.partner_company_id
+            ):
                 return
         raise AuthorizationError("Not allowed to update payment status")
+
+    async def _assert_can_verify_access_code(self, order: Order, actor: User) -> None:
+        role = actor.role
+        if role == UserRole.SUPER_ADMIN:
+            return
+        if role == UserRole.RIDER:
+            rider_res = await self.db.execute(
+                select(RiderProfile).where(RiderProfile.user_id == actor.id)
+            )
+            rider = rider_res.scalar_one_or_none()
+            if not rider:
+                raise AuthorizationError("Not allowed to verify access code")
+            delivery_res = await self.db.execute(
+                select(Delivery).where(
+                    Delivery.order_id == order.id,
+                    Delivery.rider_id == rider.id,
+                )
+            )
+            if delivery_res.scalar_one_or_none():
+                return
+            raise AuthorizationError("Not allowed to verify access code")
+        if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
+            pharmacy = await self._get_owned_pharmacy(actor)
+            if not pharmacy and role == UserRole.PHARMACIST:
+                from app.services.pharmacy_access import resolve_user_pharmacy
+
+                pharmacy = await resolve_user_pharmacy(self.db, actor)
+            if pharmacy and order.pharmacy_id == pharmacy.id:
+                return
+        if role == UserRole.PARTNER_COMPANY_ADMIN:
+            if order.partner_company_id and await self._owns_partner(
+                actor, order.partner_company_id
+            ):
+                return
+        raise AuthorizationError("Not allowed to verify access code")
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
@@ -851,11 +946,39 @@ class OrderService:
         res = await self.db.execute(q)
         return list(res.scalars().all()), int(total)
 
+    async def _resolve_commission_rate(
+        self,
+        pharmacy_id: Optional[str],
+        partner_id: Optional[str],
+    ) -> float:
+        """Decimal commission rate from seller agreement, else platform default."""
+        if pharmacy_id:
+            pct = (
+                await self.db.execute(
+                    select(Pharmacy.commission_rate_percent).where(
+                        Pharmacy.id == pharmacy_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if pct is not None:
+                return float(pct) / 100.0
+        if partner_id:
+            pct = (
+                await self.db.execute(
+                    select(PartnerCompany.commission_rate_percent).where(
+                        PartnerCompany.id == partner_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if pct is not None:
+                return float(pct) / 100.0
+        return settings.PLATFORM_COMMISSION_RATE
+
     async def _create_revenue(self, order: Order) -> None:
         """Create a revenue record when order is completed.
 
-        Pre-existing Phase 8 placeholder behavior — kept so existing
-        revenue tests continue to pass. Not exercised by Phase 6 flow.
+        Gross = product subtotal (order revenue). Commission is deducted once;
+        net_amount is the partner's full earning. Withdrawals draw from net only.
         """
         existing = await self.db.execute(
             select(RevenueRecord).where(RevenueRecord.order_id == order.id)

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   DollarSign, ShoppingCart, Package, AlertTriangle,
-  ArrowRight, LayoutDashboard, Loader2, Clock,
+  ArrowRight, LayoutDashboard, Loader2, Clock, TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { KpiCard } from "@/components/shared/kpi-card";
@@ -17,15 +17,17 @@ import { OrdersChart } from "@/components/charts/orders-chart";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
-import { formatCompactRWF, timeAgo } from "@/lib/utils";
+import { formatCompactRWF, formatRWF, timeAgo } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store/auth";
 import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
 import { listingsService, type BackendListing } from "@/lib/services/listings.service";
-import { revenueService, type BackendRevenueRecord } from "@/lib/services/revenue.service";
+import { revenueService, type BackendRevenueRecord, type BackendRevenueSummary } from "@/lib/services/revenue.service";
+import { buildRevenueChartData } from "@/lib/revenue-utils";
 import type { ChartDataPoint } from "@/types";
 import type { OrderStatus, ProductStatus } from "@/types";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
+import { StoreOpenToggle } from "@/components/shared/store-open-toggle";
 
 const LOW_THRESHOLD = 10;
 
@@ -56,6 +58,7 @@ export default function DashboardPage() {
   const [orders, setOrders] = useState<BackendOrder[]>([]);
   const [listings, setListings] = useState<BackendListing[]>([]);
   const [revenue, setRevenue] = useState<BackendRevenueRecord[]>([]);
+  const [revenueSummary, setRevenueSummary] = useState<BackendRevenueSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,14 +66,16 @@ export default function DashboardPage() {
     setLoading(true);
     Promise.all([
       ordersService.listPartnerOrders({ offset: 0, limit: 100 }),
-      listingsService.listMyListings({ offset: 0, limit: 200 }),
+      listingsService.listMyListings({ offset: 0, limit: 100 }),
       revenueService.listTransactions().catch(() => [] as BackendRevenueRecord[]),
+      revenueService.getSummary().catch(() => null),
     ])
-      .then(([o, l, r]) => {
+      .then(([o, l, r, summary]) => {
         if (cancelled) return;
         setOrders(o.items);
         setListings(l.items);
         setRevenue(r);
+        setRevenueSummary(summary);
       })
       .catch(err => {
         if (cancelled) return;
@@ -81,9 +86,6 @@ export default function DashboardPage() {
   }, []);
 
   const kpis = useMemo(() => {
-    const monthlyRevenue = orders
-      .filter(o => o.status === "completed" || o.status === "delivered")
-      .reduce((s, o) => s + (o.net_amount ?? o.total_amount), 0);
     const inProgressOrders = orders.filter(o =>
       IN_PROGRESS_STATUSES.has((o.status || o.order_status || "").toLowerCase()),
     ).length;
@@ -93,8 +95,15 @@ export default function DashboardPage() {
       const s = uiStatus(l);
       return s === "low_stock" || s === "out_of_stock";
     }).length;
-    return { monthlyRevenue, inProgressOrders, totalProducts, activeListings, lowStockCount };
-  }, [orders, listings]);
+    return {
+      availableBalance: revenueSummary?.available_balance ?? 0,
+      netEarnings: revenueSummary?.total_net ?? 0,
+      inProgressOrders,
+      totalProducts,
+      activeListings,
+      lowStockCount,
+    };
+  }, [orders, listings, revenueSummary]);
 
   // Build orders chart: last 7 days by date
   const ordersChart = useMemo<ChartDataPoint[]>(() => {
@@ -112,31 +121,9 @@ export default function DashboardPage() {
     return Object.entries(map).map(([label, value]) => ({ label, value }));
   }, [orders]);
 
-  // Build revenue chart: last 6 months by month
   const revenueChart = useMemo<ChartDataPoint[]>(() => {
-    const map: Record<string, { value: number; secondary: number }> = {};
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-      map[key] = { value: 0, secondary: 0 };
-    }
-    revenue.forEach(r => {
-      const key = new Date(r.created_at).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-      if (key in map) {
-        map[key].value += r.net_amount;
-        map[key].secondary += r.platform_commission;
-      }
-    });
-    // If no real revenue, derive from completed orders
-    if (revenue.length === 0) {
-      orders.filter(o => o.status === "completed" || o.status === "delivered").forEach(o => {
-        const key = new Date(o.created_at).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-        if (key in map) map[key].value += o.net_amount ?? o.total_amount;
-      });
-    }
-    return Object.entries(map).map(([label, { value, secondary }]) => ({ label, value, secondary }));
-  }, [revenue, orders]);
+    return buildRevenueChartData(revenue, range);
+  }, [revenue, range]);
 
   const recentOrders = orders.slice(0, 5);
   const lowStockProducts = listings
@@ -151,7 +138,9 @@ export default function DashboardPage() {
         icon={LayoutDashboard}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <StoreOpenToggle />
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <Link href="/orders" className="block">
           <KpiCard
             title="Orders in Progress"
@@ -162,10 +151,20 @@ export default function DashboardPage() {
             className="h-full hover:border-farumasi-300 transition-colors cursor-pointer"
           />
         </Link>
+        <Link href="/revenue" className="block">
+          <KpiCard
+            title="Available Balance"
+            value={formatRWF(kpis.availableBalance)}
+            icon={DollarSign}
+            iconBg="bg-green-100"
+            iconColor="text-green-600"
+            className="h-full hover:border-farumasi-300 transition-colors cursor-pointer"
+          />
+        </Link>
         <KpiCard
-          title="Revenue (Completed)"
-          value={formatCompactRWF(kpis.monthlyRevenue)}
-          icon={DollarSign}
+          title="Net Earnings (all time)"
+          value={formatRWF(kpis.netEarnings)}
+          icon={TrendingUp}
         />
         <KpiCard
           title="Active Listings"

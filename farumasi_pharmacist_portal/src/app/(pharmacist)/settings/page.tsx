@@ -148,7 +148,7 @@ function GeneralSection() {
       <div className="flex items-center justify-between pt-2">
         <div>
           <p className="text-sm font-semibold text-slate-900">Currently open</p>
-          <p className="text-xs text-slate-500">Show patients we&apos;re accepting orders now.</p>
+          <p className="text-xs text-slate-500">When closed, your pharmacy is hidden from the patient store (no products or prices).</p>
         </div>
         <Toggle value={form.is_open} onChange={(v) => setForm((p) => ({ ...p, is_open: v }))} />
       </div>

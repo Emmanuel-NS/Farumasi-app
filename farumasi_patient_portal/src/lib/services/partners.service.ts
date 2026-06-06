@@ -168,7 +168,7 @@ export const partnersService = {
 
       return data.items
 
-        .filter((p) => p.status === "active")
+        .filter((p) => p.status === "active" && p.is_open !== false)
 
         .map(toPublicPartner);
 

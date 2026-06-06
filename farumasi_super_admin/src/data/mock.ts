@@ -408,7 +408,7 @@ export const mockWithdrawals: WithdrawalRequest[] = Array.from({ length: 16 }, (
   entityType: (["Pharmacy", "Supplier", "Rider"] as const)[i % 3],
   entityName: i % 3 === 0 ? pharmacyNames[i % 12] : i % 3 === 1 ? supplierNames[i % 8] : userNames[(i + 8) % userNames.length],
   amount: 200000 + i * 85000,
-  status: (["Pending", "Under Review", "Approved", "Processed", "Rejected"] as const)[i % 5] as WithdrawalRequest["status"],
+  status: (["Pending", "Under Review", "Approved", "Paid", "Rejected"] as const)[i % 5] as WithdrawalRequest["status"],
   requestedAt: makeDate(3 + i * 2),
   processedAt: i % 5 >= 3 ? makeDate(i % 4) : undefined,
   processedBy: i % 5 >= 3 ? "Finance Admin" : undefined,

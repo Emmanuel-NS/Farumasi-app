@@ -34,7 +34,7 @@ export default function FinancialAnalyticsPage() {
   useEffect(() => {
     Promise.all([
       api.get<RevenueSummary>("/revenue/summary"),
-      api.get<RevenueRecord[]>("/revenue/", { params: { limit: 200 } }),
+      api.get<RevenueRecord[]>("/revenue/"),
     ])
       .then(([s, r]) => { setSummary(s.data); setRecords(r.data); })
       .catch(() => {})

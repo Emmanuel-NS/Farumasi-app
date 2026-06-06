@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import AuthenticationError, ConflictError
+from app.core.exceptions import AuthenticationError, ConflictError, ValidationError
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
 from app.core.constants import UserStatus, UserRole, EntityStatus
 from app.models.user import User
@@ -16,6 +16,8 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
 from app.services.audit_service import AuditService
 
+_PUBLIC_REGISTER_ROLES = frozenset({UserRole.PATIENT})
+
 
 class AuthService:
     def __init__(self, db: AsyncSession):
@@ -23,6 +25,11 @@ class AuthService:
         self.user_repo = UserRepository(db)
 
     async def register(self, data: RegisterRequest, ip_address: str | None = None) -> TokenResponse:
+        if data.role not in _PUBLIC_REGISTER_ROLES:
+            raise ValidationError(
+                "Public registration is only available for patient accounts. "
+                "Staff accounts must be created by an administrator."
+            )
         if await self.user_repo.email_exists(data.email):
             raise ConflictError(f"Email '{data.email}' is already registered")
 
@@ -49,7 +56,11 @@ class AuthService:
         payload = {"sub": user.id, "role": user.role, "email": user.email}
         access_token = create_access_token(payload)
         refresh_token = create_refresh_token(payload)
-        return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            must_change_password=bool(user.must_change_password),
+        )
 
     async def login(self, data: LoginRequest, ip_address: str | None = None) -> TokenResponse:
         user = await self.user_repo.get_by_email(data.email)
@@ -79,7 +90,11 @@ class AuthService:
             ip_address=ip_address,
         )
 
-        return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            must_change_password=bool(user.must_change_password),
+        )
 
     async def refresh(self, refresh_token: str) -> TokenResponse:
         from app.core.security import verify_refresh_token
@@ -104,6 +119,7 @@ class AuthService:
         return TokenResponse(
             access_token=create_access_token(new_payload),
             refresh_token=create_refresh_token(new_payload),
+            must_change_password=bool(user.must_change_password),
         )
 
     async def _create_profile(self, user: User) -> None:

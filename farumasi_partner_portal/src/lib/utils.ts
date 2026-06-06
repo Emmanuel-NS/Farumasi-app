@@ -96,9 +96,11 @@ export const requestStatusConfig: Record<RequestStatus, { label: string; color: 
   rejected: { label: "Rejected", color: "bg-red-100 text-red-700 border-red-200" },
 };
 
-export const withdrawalStatusConfig: Record<WithdrawalStatus, { label: string; color: string }> = {
+export const withdrawalStatusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: "Pending", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+  approved: { label: "Approved", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
   processing: { label: "Processing", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  paid: { label: "Paid", color: "bg-green-100 text-green-700 border-green-200" },
   completed: { label: "Completed", color: "bg-green-100 text-green-700 border-green-200" },
   rejected: { label: "Rejected", color: "bg-red-100 text-red-700 border-red-200" },
 };

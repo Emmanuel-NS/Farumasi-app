@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { notificationsService } from "@/lib/services/notifications.service";
 import { cn } from "@/lib/utils";
 import { useTranslation, tf, useTimeAgo } from "@/lib/translations";
 import { Bell, Trash2, X } from "lucide-react";
 import type { AppNotification } from "@/types";
+import { openNotification } from "@/lib/notification-links";
 
 const CAT_FILTERS = ["All", "Order", "Health", "Promo", "Reminder"];
 
@@ -27,6 +29,7 @@ const catMatch: Record<string, string[]> = {
 };
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [filter, setFilter] = useState<"All" | "Read" | "Unread">("All");
   const [cat, setCat] = useState("All");
@@ -66,12 +69,21 @@ export default function NotificationsPage() {
   const markRead = (id: string) => {
     const target = notifications.find((n) => n.id === id);
     if (!target || target.isRead) return;
-    // Optimistic update
     setNotifications((p) => p.map((n) => n.id === id ? { ...n, isRead: true } : n));
     notificationsService.markRead(id).catch(() => {
-      // Revert on failure
       setNotifications((p) => p.map((n) => n.id === id ? { ...n, isRead: false } : n));
     });
+  };
+
+  const handleOpen = async (n: AppNotification) => {
+    await openNotification(
+      { id: n.id, read_status: n.isRead, action_url: n.actionUrl },
+      router,
+      async (id) => {
+        setNotifications((p) => p.map((row) => (row.id === id ? { ...row, isRead: true } : row)));
+        await notificationsService.markRead(id);
+      },
+    );
   };
   // Local-only — backend has no notification delete endpoint.
   // Deletion persists across reloads via localStorage.
@@ -159,7 +171,7 @@ export default function NotificationsPage() {
             return (
             <div
               key={n.id}
-              onClick={() => markRead(n.id)}
+              onClick={() => void handleOpen(n)}
               className={cn(
                 "group flex gap-3 bg-white rounded-2xl border px-4 py-3.5 cursor-pointer hover:shadow-sm transition-all",
                 !n.isRead ? "border-farumasi-100 bg-farumasi-50/50" : "border-slate-100"
@@ -170,6 +182,9 @@ export default function NotificationsPage() {
                 <p className={cn("text-sm text-slate-900", !n.isRead ? "font-bold" : "font-medium")}>{ln.title}</p>
                 <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{ln.message}</p>
                 <p className="text-[10px] text-slate-400 mt-1.5">{timeAgoLocal(n.time)}</p>
+                {n.actionUrl && (
+                  <p className="text-[10px] text-farumasi-600 font-medium mt-0.5">Tap to open →</p>
+                )}
               </div>
               <div className="flex flex-col items-end gap-1.5 shrink-0">
                 {!n.isRead && <div className="w-2 h-2 rounded-full bg-farumasi-500" />}

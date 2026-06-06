@@ -37,18 +37,22 @@ async def list_orders(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     status: Optional[str] = Query(None),
+    bucket: Optional[str] = Query(
+        None,
+        description="High-level filter: pending | in_progress | completed | cancelled",
+    ),
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
     """Role-scoped paginated listing.
 
-    - SUPER_ADMIN: all orders
+    - Platform admins: all orders (optional ``bucket`` or ``status`` filter)
     - PATIENT: own orders
     - PHARMACY_ADMIN: orders for the pharmacy they own
     - PARTNER_COMPANY_ADMIN: orders for the partner company they own
     """
     items, total = await OrderService(db).list_all_orders(
-        actor, offset=offset, limit=limit, status=status
+        actor, offset=offset, limit=limit, status=status, bucket=bucket
     )
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 

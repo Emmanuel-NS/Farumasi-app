@@ -26,6 +26,20 @@ def _h(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
+def _withdrawal_json(
+    amount: float,
+    *,
+    method: str = "mobile_money",
+    account: str = "+250788000000",
+    name: str = "Test Partner",
+) -> dict:
+    return {
+        "amount": amount,
+        "payout_method": method,
+        "payout_details": {"account": account, "account_name": name},
+    }
+
+
 async def _register(client: AsyncClient, role: str) -> dict:
     email = f"{role}_{_uid()}@farumasi.com"
     r = await client.post(
@@ -297,7 +311,7 @@ async def test_pending_withdrawal_reduces_available_balance(client: AsyncClient)
     r = await client.post(
         "/api/v1/pharmacies/me/withdrawals",
         headers=_h(admin),
-        json={"amount": amount, "payout_method": "mobile_money"},
+        json=_withdrawal_json(amount),
     )
     assert r.status_code == 201, r.text
     after = (
@@ -318,13 +332,13 @@ async def test_multiple_withdrawals_cannot_exceed_balance(client: AsyncClient):
     r1 = await client.post(
         "/api/v1/pharmacies/me/withdrawals",
         headers=_h(admin),
-        json={"amount": avail * 0.6, "payout_method": "mobile_money"},
+        json=_withdrawal_json(avail * 0.6),
     )
     assert r1.status_code == 201, r1.text
     r2 = await client.post(
         "/api/v1/pharmacies/me/withdrawals",
         headers=_h(admin),
-        json={"amount": avail * 0.6, "payout_method": "mobile_money"},
+        json=_withdrawal_json(avail * 0.6),
     )
     assert r2.status_code == 400, r2.text
 
@@ -336,7 +350,7 @@ async def test_pharmacy_admin_requests_withdrawal(client: AsyncClient):
     r = await client.post(
         "/api/v1/pharmacies/me/withdrawals",
         headers=_h(admin),
-        json={"amount": 100.0, "payout_method": "mobile_money"},
+        json=_withdrawal_json(100.0),
     )
     assert r.status_code == 201, r.text
     body = r.json()
@@ -351,7 +365,7 @@ async def test_partner_admin_requests_withdrawal(client: AsyncClient):
     r = await client.post(
         "/api/v1/partners/me/withdrawals",
         headers=_h(admin),
-        json={"amount": 100.0, "payout_method": "bank_transfer"},
+        json=_withdrawal_json(100.0, method="bank_transfer"),
     )
     assert r.status_code == 201, r.text
     body = r.json()
@@ -366,7 +380,7 @@ async def test_withdrawal_exceeds_available_balance(client: AsyncClient):
     r = await client.post(
         "/api/v1/pharmacies/me/withdrawals",
         headers=_h(admin),
-        json={"amount": 9_999_999.0, "payout_method": "mobile_money"},
+        json=_withdrawal_json(9_999_999.0),
     )
     assert r.status_code == 400, r.text
 
@@ -378,7 +392,7 @@ async def test_withdrawal_amount_must_be_positive(client: AsyncClient):
     r = await client.post(
         "/api/v1/pharmacies/me/withdrawals",
         headers=_h(admin),
-        json={"amount": 0, "payout_method": "mobile_money"},
+        json=_withdrawal_json(0),
     )
     assert r.status_code == 422, r.text
 
@@ -389,7 +403,7 @@ async def test_patient_cannot_request_withdrawal(client: AsyncClient):
     r = await client.post(
         "/api/v1/withdrawals/",
         headers=_h(patient),
-        json={"amount": 10.0, "payout_method": "mobile_money"},
+        json=_withdrawal_json(10.0),
     )
     assert r.status_code == 403, r.text
 
@@ -408,7 +422,7 @@ async def test_super_admin_lists_all_withdrawals(client: AsyncClient):
     await client.post(
         "/api/v1/pharmacies/me/withdrawals",
         headers=_h(admin),
-        json={"amount": 50.0, "payout_method": "mobile_money"},
+        json=_withdrawal_json(50.0),
     )
     r = await client.get("/api/v1/withdrawals/", headers=_h(sa))
     assert r.status_code == 200, r.text
@@ -424,7 +438,7 @@ async def test_finance_admin_approves_withdrawal(client: AsyncClient):
         await client.post(
             "/api/v1/pharmacies/me/withdrawals",
             headers=_h(admin),
-            json={"amount": 50.0, "payout_method": "mobile_money"},
+            json=_withdrawal_json(50.0),
         )
     ).json()
     r = await client.patch(
@@ -443,7 +457,7 @@ async def test_finance_admin_rejects_withdrawal(client: AsyncClient):
         await client.post(
             "/api/v1/pharmacies/me/withdrawals",
             headers=_h(admin),
-            json={"amount": 50.0, "payout_method": "mobile_money"},
+            json=_withdrawal_json(50.0),
         )
     ).json()
     r = await client.patch(
@@ -463,7 +477,7 @@ async def test_super_admin_marks_withdrawal_paid(client: AsyncClient):
         await client.post(
             "/api/v1/pharmacies/me/withdrawals",
             headers=_h(admin),
-            json={"amount": 100.0, "payout_method": "mobile_money"},
+            json=_withdrawal_json(100.0),
         )
     ).json()
     await client.patch(f"/api/v1/withdrawals/{w['id']}/approve", headers=_h(sa))
@@ -486,7 +500,7 @@ async def test_mark_paid_reduces_balance(client: AsyncClient):
         await client.post(
             "/api/v1/pharmacies/me/withdrawals",
             headers=_h(admin),
-            json={"amount": before["available_balance"], "payout_method": "mobile_money"},
+            json=_withdrawal_json(before["available_balance"]),
         )
     ).json()
     await client.patch(f"/api/v1/withdrawals/{w['id']}/approve", headers=_h(sa))
@@ -510,7 +524,7 @@ async def test_rejected_withdrawal_releases_balance(client: AsyncClient):
         await client.post(
             "/api/v1/pharmacies/me/withdrawals",
             headers=_h(admin),
-            json={"amount": before["available_balance"], "payout_method": "mobile_money"},
+            json=_withdrawal_json(before["available_balance"]),
         )
     ).json()
     await client.patch(f"/api/v1/withdrawals/{w['id']}/reject", headers=_h(sa))
@@ -532,7 +546,7 @@ async def test_requester_cannot_self_approve(client: AsyncClient, db):
         await client.post(
             "/api/v1/pharmacies/me/withdrawals",
             headers=_h(admin),
-            json={"amount": 50.0, "payout_method": "mobile_money"},
+            json=_withdrawal_json(50.0),
         )
     ).json()
     # Promote the same pharmacy_admin user to finance_admin so they can
@@ -558,7 +572,7 @@ async def test_get_withdrawal_by_id_admin_and_requester(client: AsyncClient):
         await client.post(
             "/api/v1/pharmacies/me/withdrawals",
             headers=_h(admin),
-            json={"amount": 50.0, "payout_method": "mobile_money"},
+            json=_withdrawal_json(50.0),
         )
     ).json()
     # Admin (super_admin)
@@ -578,7 +592,7 @@ async def test_get_withdrawal_blocks_unrelated_user(client: AsyncClient):
         await client.post(
             "/api/v1/pharmacies/me/withdrawals",
             headers=_h(admin),
-            json={"amount": 25.0, "payout_method": "mobile_money"},
+            json=_withdrawal_json(25.0),
         )
     ).json()
     intruder = await _register(client, "pharmacy_admin")

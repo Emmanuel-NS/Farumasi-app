@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user
@@ -20,6 +20,26 @@ from app.schemas.common import PaginatedResponse
 from app.core.exceptions import NotFoundError, AuthorizationError
 
 router = APIRouter()
+
+
+def _partner_out(company: PartnerCompany) -> PartnerCompanyOut:
+    from app.services.seller_commission import (
+        commission_rate_source,
+        effective_commission_rate_percent,
+    )
+
+    stored = (
+        float(company.commission_rate_percent)
+        if company.commission_rate_percent is not None
+        else None
+    )
+    out = PartnerCompanyOut.model_validate(company)
+    return out.model_copy(
+        update={
+            "effective_commission_rate_percent": effective_commission_rate_percent(stored),
+            "commission_rate_source": commission_rate_source(stored),
+        }
+    )
 
 
 def _assert_owner(company: PartnerCompany, current_user: User) -> None:
@@ -53,7 +73,7 @@ async def get_my_company(
     company = result.scalars().first()
     if not company:
         raise NotFoundError("Partner company")
-    return company
+    return _partner_out(company)
 
 
 @router.patch("/me", response_model=PartnerCompanyOut)
@@ -74,9 +94,13 @@ async def update_my_company(
     payload.pop("status", None)
     for field, value in payload.items():
         setattr(company, field, value)
+    if "logo_url" in payload:
+        from app.services.seller_branding import sync_partner_logo_to_pharmacies
+
+        await sync_partner_logo_to_pharmacies(db, company)
     await db.commit()
     await db.refresh(company)
-    return company
+    return _partner_out(company)
 
 
 @router.get("/public/", response_model=PaginatedResponse[PartnerCompanyPublicOut])
@@ -86,7 +110,10 @@ async def list_public_partners(
     db: AsyncSession = Depends(get_db),
 ):
     """Active healthcare companies / distributors visible on the patient store."""
-    cond = PartnerCompany.status == EntityStatus.ACTIVE
+    cond = and_(
+        PartnerCompany.status == EntityStatus.ACTIVE,
+        PartnerCompany.is_open.is_(True),
+    )
     total = (
         await db.execute(select(func.count(PartnerCompany.id)).where(cond))
     ).scalar_one()
@@ -108,6 +135,7 @@ async def get_public_partner(partner_id: str, db: AsyncSession = Depends(get_db)
         select(PartnerCompany).where(
             PartnerCompany.id == partner_id,
             PartnerCompany.status == EntityStatus.ACTIVE,
+            PartnerCompany.is_open.is_(True),
         )
     )
     partner = result.scalar_one_or_none()
@@ -121,14 +149,38 @@ async def list_partners(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.OPERATIONS_ADMIN,
+            UserRole.FINANCE_ADMIN,
+            UserRole.COMPLIANCE_ADMIN,
+        )
+    ),
 ):
     total = (await db.execute(select(func.count(PartnerCompany.id)))).scalar_one()
-    result = await db.execute(select(PartnerCompany).offset(offset).limit(limit))
+    result = await db.execute(
+        select(PartnerCompany)
+        .order_by(PartnerCompany.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     return PaginatedResponse(items=list(result.scalars().all()), total=total, offset=offset, limit=limit)
 
 
 @router.get("/{partner_id}", response_model=PartnerCompanyOut)
-async def get_partner(partner_id: str, db: AsyncSession = Depends(get_db)):
+async def get_partner(
+    partner_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.OPERATIONS_ADMIN,
+            UserRole.FINANCE_ADMIN,
+            UserRole.COMPLIANCE_ADMIN,
+        )
+    ),
+):
     result = await db.execute(select(PartnerCompany).where(PartnerCompany.id == partner_id))
     partner = result.scalar_one_or_none()
     if not partner:
@@ -174,9 +226,8 @@ async def list_my_partner_listings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
 ):
-    company = await _get_my_partner(db, current_user)
-    items, total = await ProductService(db).list_listings(
-        offset=offset, limit=limit, partner_company_id=company.id
+    items, total = await ProductService(db).list_listings_for_owner(
+        current_user.id, offset=offset, limit=limit
     )
     # Eagerly serialize ORM objects into Pydantic models while session is still open
     # (ensures nested product relationship is captured before session closes)
@@ -266,8 +317,7 @@ async def list_my_partner_revenue(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
 ):
-    company = await _get_my_partner(db, current_user)
-    records = await RevenueService(db).list_records(partner_company_id=company.id)
+    records = await RevenueService(db).list_records_for_owner(current_user.id)
     return [
         RevenueRecordOut(
             id=r.id,
@@ -292,8 +342,7 @@ async def get_my_partner_revenue_summary(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
 ):
-    company = await _get_my_partner(db, current_user)
-    return await RevenueService(db).get_summary(partner_company_id=company.id)
+    return await RevenueService(db).get_summary_for_owner(current_user.id)
 
 
 @router.get("/me/withdrawals", response_model=list[WithdrawalOut])
@@ -301,8 +350,7 @@ async def list_my_partner_withdrawals(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
 ):
-    company = await _get_my_partner(db, current_user)
-    return await RevenueService(db).list_withdrawals(partner_company_id=company.id)
+    return await RevenueService(db).list_withdrawals_for_owner(current_user.id)
 
 
 @router.post("/me/withdrawals", response_model=WithdrawalOut, status_code=201)
@@ -311,10 +359,8 @@ async def create_my_partner_withdrawal(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
 ):
-    company = await _get_my_partner(db, current_user)
-    return await RevenueService(db).request_withdrawal(
+    withdrawal = await RevenueService(db).request_withdrawal_for_owner(
         data=data,
         actor=current_user,
-        pharmacy_id=None,
-        partner_company_id=company.id,
     )
+    return withdrawal

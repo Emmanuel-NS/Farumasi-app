@@ -22,7 +22,7 @@ export default function FulfillmentPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<PaginatedOrders>("/orders/", { params: { limit: 200 } })
+    api.get<PaginatedOrders>("/orders/", { params: { limit: 100 } })
       .then(r => setOrders(r.data.items))
       .catch(() => setOrders([]))
       .finally(() => setLoading(false));

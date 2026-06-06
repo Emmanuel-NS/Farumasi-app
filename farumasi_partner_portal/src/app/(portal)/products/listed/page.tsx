@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   Package, Plus, AlertTriangle, Edit2, Trash2, Loader2, X,
@@ -73,6 +74,7 @@ interface EditState {
 type StockFilter = "all" | StockStatus;
 
 export default function ListedProductsPage() {
+  const searchParams = useSearchParams();
   const [listings, setListings] = useState<BackendListing[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,11 @@ export default function ListedProductsPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q) setSearch(q);
+  }, [searchParams]);
 
   const load = async () => {
     setLoading(true);

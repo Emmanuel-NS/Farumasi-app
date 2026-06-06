@@ -202,7 +202,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <div className="flex justify-between text-sm text-amber-600"><span>Platform Commission</span><span>−{formatRWF(commission)}</span></div>
               )}
               <Separator />
-              <div className="flex justify-between font-bold"><span>Net to Pharmacy</span><span className="text-farumasi-700">{formatRWF(net)}</span></div>
+              <div className="flex justify-between font-bold"><span>Your net earnings</span><span className="text-farumasi-700">{formatRWF(net)}</span></div>
             </CardContent>
           </Card>
 

@@ -37,15 +37,38 @@ async def lifespan(app: FastAPI):
                         "BOOLEAN NOT NULL DEFAULT false"
                     )
                 )
-            logger.info("health_articles.is_sponsored column OK")
-            for stmt in (
-                "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500)",
-                "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS description TEXT",
-                "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS commission_rate_percent NUMERIC(5,2)",
-                "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT true",
-            ):
-                await conn.execute(text(stmt))
-            logger.info("partner_companies profile columns OK")
+                for stmt in (
+                    "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500)",
+                    "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS description TEXT",
+                    "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS commission_rate_percent NUMERIC(5,2)",
+                    "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT true",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false",
+                    "ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500)",
+                    "ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS commission_rate_percent NUMERIC(5,2)",
+                    "ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(120)",
+                    "ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS payment_proof_url VARCHAR(500)",
+                    """
+                    CREATE TABLE IF NOT EXISTS seller_change_requests (
+                        id VARCHAR(36) PRIMARY KEY,
+                        seller_type VARCHAR(50) NOT NULL,
+                        pharmacy_id VARCHAR(36) REFERENCES pharmacies(id) ON DELETE CASCADE,
+                        partner_company_id VARCHAR(36) REFERENCES partner_companies(id) ON DELETE CASCADE,
+                        owner_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        requested_by_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        field_name VARCHAR(100) NOT NULL,
+                        current_value VARCHAR(255),
+                        proposed_value VARCHAR(255) NOT NULL,
+                        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+                        admin_note TEXT,
+                        partner_note TEXT,
+                        resolved_at TIMESTAMPTZ,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """,
+                ):
+                    await conn.execute(text(stmt))
+            logger.info("Optional DB columns ensured")
         except Exception as exc:  # noqa: BLE001
             logger.warning("Could not ensure optional DB columns: %s", exc)
     except Exception as exc:  # noqa: BLE001

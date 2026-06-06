@@ -66,6 +66,8 @@ class WithdrawalRequest(Base, UUIDMixin, TimestampMixin):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    payment_reference: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    payment_proof_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────
     requester: Mapped["User"] = relationship("User", foreign_keys=[requester_user_id])

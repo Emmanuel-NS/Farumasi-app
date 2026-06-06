@@ -24,7 +24,7 @@ export default function CompliancePage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    api.get<PaginatedPharmacies>("/pharmacies/", { params: { limit: 200 } })
+    api.get<PaginatedPharmacies>("/pharmacies/", { params: { limit: 100 } })
       .then(r => setPharmacies(r.data.items))
       .catch(() => setPharmacies([]))
       .finally(() => setLoading(false));

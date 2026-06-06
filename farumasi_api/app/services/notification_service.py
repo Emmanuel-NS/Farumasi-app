@@ -37,41 +37,68 @@ class NotificationService:
             "New Prescription",
             "Your doctor has created a new prescription for you.",
             category="prescription",
-            action_url=f"/prescriptions/{prescription_id}",
+            action_url="/prescriptions",
         )
 
-    async def order_placed(self, provider_user_id: str, order_code: str) -> None:
+    async def order_placed(
+        self, provider_user_id: str, order_id: str, *, order_code: Optional[str] = None
+    ) -> None:
+        code = order_code or order_id[:8].upper()
         await self.send(
             provider_user_id,
             "New Order Received",
-            f"You have a new order #{order_code} waiting for your confirmation.",
+            f"You have a new order #{code} waiting for your confirmation.",
             category="order",
-            action_url=f"/orders/{order_code}",
+            action_url=f"/orders/{order_id}",
         )
 
-    async def order_status_changed(self, patient_user_id: str, order_code: str, status: str) -> None:
+    async def order_status_changed(
+        self,
+        patient_user_id: str,
+        order_id: str,
+        status: str,
+        *,
+        order_code: Optional[str] = None,
+    ) -> None:
+        code = order_code or order_id[:8].upper()
         await self.send(
             patient_user_id,
             "Order Update",
-            f"Your order #{order_code} status has changed to: {status}.",
+            f"Your order #{code} status has changed to: {status}.",
             category="order",
-            action_url=f"/orders/{order_code}",
+            action_url=f"/orders/{order_id}",
         )
 
-    async def delivery_assigned(self, rider_user_id: str, order_code: str) -> None:
+    async def delivery_assigned(
+        self,
+        rider_user_id: str,
+        delivery_id: str,
+        *,
+        order_code: Optional[str] = None,
+    ) -> None:
+        code = order_code or "your order"
         await self.send(
             rider_user_id,
             "Delivery Assignment",
-            f"You have been assigned a delivery for order #{order_code}.",
+            f"You have been assigned a delivery for order #{code}.",
             category="delivery",
+            action_url=f"/deliveries/{delivery_id}",
         )
 
-    async def delivery_completed(self, patient_user_id: str, order_code: str) -> None:
+    async def delivery_completed(
+        self,
+        patient_user_id: str,
+        order_id: str,
+        *,
+        order_code: Optional[str] = None,
+    ) -> None:
+        code = order_code or order_id[:8].upper()
         await self.send(
             patient_user_id,
             "Order Delivered",
-            f"Your order #{order_code} has been delivered successfully.",
+            f"Your order #{code} has been delivered successfully.",
             category="delivery",
+            action_url=f"/orders/{order_id}",
         )
 
     async def withdrawal_status(self, user_id: str, amount: float, status: str) -> None:
@@ -79,7 +106,8 @@ class NotificationService:
             user_id,
             "Withdrawal Update",
             f"Your withdrawal request of RWF {amount:,.0f} has been {status}.",
-            category="revenue",
+            category="withdrawal",
+            action_url="/requests?tab=withdrawals",
         )
 
     async def account_status_changed(self, user_id: str, new_status: str) -> None:
@@ -88,6 +116,7 @@ class NotificationService:
             "Account Status Update",
             f"Your account status has been updated to: {new_status}. Contact support if you have questions.",
             category="account",
+            action_url="/settings",
         )
 
     # ── Phase 9 additional triggers ───────────────────────────────────────
@@ -99,7 +128,7 @@ class NotificationService:
             "Prescription Reviewed",
             f"A pharmacist has reviewed your prescription. Outcome: {outcome}.",
             category="prescription",
-            action_url=f"/prescriptions/{prescription_id}",
+            action_url="/prescriptions",
         )
 
     async def product_request_submitted(
@@ -110,7 +139,7 @@ class NotificationService:
             "Product Request Submitted",
             f"A new product request has been submitted: {product_name}.",
             category="product_request",
-            action_url=f"/product-requests/{request_id}",
+            action_url="/product-requests",
         )
 
     async def product_request_reviewed(
@@ -121,7 +150,7 @@ class NotificationService:
             "Product Request Update",
             f"Your product request has been {outcome}.",
             category="product_request",
-            action_url=f"/product-requests/{request_id}",
+            action_url="/requests",
         )
 
     async def withdrawal_requested(
@@ -132,7 +161,7 @@ class NotificationService:
             "New Withdrawal Request",
             f"A new withdrawal request of RWF {amount:,.0f} is awaiting review.",
             category="withdrawal",
-            action_url=f"/withdrawals/{withdrawal_id}",
+            action_url="/finance/withdrawals",
         )
 
     async def broadcast_to_role(
@@ -143,10 +172,7 @@ class NotificationService:
         category: Optional[str] = None,
         action_url: Optional[str] = None,
     ) -> int:
-        """Send the same notification to every active user with the given role.
-
-        Returns the number of notifications dispatched.
-        """
+        """Send the same notification to every active user with the given role."""
         from sqlalchemy import select
         from app.models.user import User
 

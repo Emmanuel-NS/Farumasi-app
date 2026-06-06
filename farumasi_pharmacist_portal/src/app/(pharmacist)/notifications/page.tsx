@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { timeAgo, cn } from "@/lib/utils";
 import { Bell, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ import {
   notificationsService,
   type BackendNotification,
 } from "@/lib/services/notifications.service";
+import { openNotification } from "@/lib/notification-links";
 
 const FILTER_TABS = [
   { value: "all", label: "All" },
@@ -31,6 +33,7 @@ const CAT_ICONS: Record<string, string> = {
 };
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const [items, setItems]     = useState<BackendNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab]         = useState<Tab>("all");
@@ -51,13 +54,11 @@ export default function NotificationsPage() {
   useEffect(() => { load(); }, [load]);
 
   const handleClick = async (n: BackendNotification) => {
-    if (n.read_status) return;
     setItems((p) => p.map((x) => x.id === n.id ? { ...x, read_status: true } : x));
     try {
-      await notificationsService.markRead(n.id);
+      await openNotification(n, router, (id) => notificationsService.markRead(id));
     } catch {
-      setItems((p) => p.map((x) => x.id === n.id ? { ...x, read_status: false } : x));
-      toast.error("Could not mark as read");
+      toast.error("Could not open notification");
     }
   };
 
@@ -167,6 +168,9 @@ export default function NotificationsPage() {
                   </p>
                   <p className="text-xs text-slate-500 mt-0.5">{n.message}</p>
                   <p className="text-[10px] text-slate-400 mt-1">{timeAgo(n.created_at)}</p>
+                  {n.action_url && (
+                    <p className="text-[10px] text-farumasi-600 font-medium mt-0.5">Tap to open →</p>
+                  )}
                 </div>
                 {!n.read_status && <div className="w-2 h-2 rounded-full bg-farumasi-500 shrink-0 mt-1.5" />}
               </div>

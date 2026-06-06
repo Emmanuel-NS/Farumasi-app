@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     pharmacists,
     pharmacies,
     partners,
+    sellers,
     riders,
     products,
     product_requests,
@@ -48,6 +49,7 @@ api_router.include_router(hospitals.router, prefix="/hospitals", tags=[f"Hospita
 api_router.include_router(pharmacists.router, prefix="/pharmacists", tags=[f"Pharmacists ({_EXP})"])
 api_router.include_router(pharmacies.router, prefix="/pharmacies", tags=[f"Pharmacies ({_EXP})"])
 api_router.include_router(partners.router, prefix="/partners", tags=[f"Partners ({_EXP})"])
+api_router.include_router(sellers.router, prefix="/sellers", tags=[f"Sellers ({_EXP})"])
 api_router.include_router(riders.router, prefix="/riders", tags=[f"Riders ({_EXP})"])
 api_router.include_router(products.router, prefix="/products", tags=[f"Products ({_EXP})"])
 api_router.include_router(product_requests.router, prefix="/product-requests", tags=[f"Product Requests ({_EXP})"])

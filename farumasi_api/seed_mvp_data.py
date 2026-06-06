@@ -273,7 +273,7 @@ async def seed_revenue(session: AsyncSession, order_ids):
                 'gross': total,
                 'commission': commission,
                 'net': net,
-                'status': 'settled',
+                'status': 'available',
                 'created_at': created_at,
             })
             count += 1

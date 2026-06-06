@@ -8,10 +8,14 @@ from app.core.exceptions import AuthorizationError
 from app.dependencies.auth import get_current_user
 from app.dependencies.roles import require_finance, require_roles
 from app.models.user import User
-from app.models.pharmacy import Pharmacy
-from app.models.partner import PartnerCompany
 from app.models.revenue import WithdrawalRequest
-from app.schemas.revenue import WithdrawalCreate, WithdrawalOut, WithdrawalActionInput
+from app.schemas.revenue import (
+    WithdrawalCreate,
+    WithdrawalOut,
+    WithdrawalAdminOut,
+    WithdrawalActionInput,
+    MarkWithdrawalPaidInput,
+)
 from app.services.revenue_service import RevenueService
 from app.core.exceptions import NotFoundError
 
@@ -40,45 +44,19 @@ async def request_withdrawal(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    pharmacy_result = await db.execute(
-        select(Pharmacy).where(Pharmacy.owner_user_id == actor.id)
-    )
-    pharmacy = pharmacy_result.scalar_one_or_none()
-    partner_result = await db.execute(
-        select(PartnerCompany).where(PartnerCompany.owner_user_id == actor.id)
-    )
-    partner = partner_result.scalar_one_or_none()
-
-    if not pharmacy and not partner:
-        raise AuthorizationError(
-            "Only owners of a pharmacy or partner company can request withdrawals"
-        )
-    if pharmacy and partner:
-        raise AuthorizationError(
-            "Account owns both a pharmacy and a partner company; "
-            "withdrawal target is ambiguous"
-        )
-
-    return await RevenueService(db).request_withdrawal(
-        data, actor,
-        pharmacy_id=pharmacy.id if pharmacy else None,
-        partner_company_id=partner.id if partner else None,
-    )
+    """Request payout against combined wallet (pharmacy + partner entities)."""
+    return await RevenueService(db).request_withdrawal_for_owner(data=data, actor=actor)
 
 
-@router.get("/", response_model=list[WithdrawalOut], dependencies=[Depends(require_finance())])
+@router.get("/", response_model=list[WithdrawalAdminOut], dependencies=[Depends(require_finance())])
 async def list_withdrawals(
     status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(WithdrawalRequest)
-    if status:
-        query = query.where(WithdrawalRequest.status == status)
-    result = await db.execute(query)
-    return list(result.scalars().all())
+    return await RevenueService(db).list_withdrawals_admin(status=status)
 
 
-@router.get("/{withdrawal_id}", response_model=WithdrawalOut)
+@router.get("/{withdrawal_id}", response_model=WithdrawalAdminOut)
 async def get_withdrawal(
     withdrawal_id: str,
     db: AsyncSession = Depends(get_db),
@@ -90,10 +68,14 @@ async def get_withdrawal(
     w = result.scalar_one_or_none()
     if not w:
         raise NotFoundError("Withdrawal request", withdrawal_id)
-    # Admins (super_admin / finance_admin) and the original requester may view.
     if actor.role not in _PLATFORM_ROLES and w.requester_user_id != actor.id:
         raise AuthorizationError("You cannot view this withdrawal request")
-    return w
+    if actor.role in _PLATFORM_ROLES:
+        return await RevenueService(db).withdrawal_to_admin_out(w)
+    from app.schemas.revenue import WithdrawalOut as WO
+
+    base = WO.model_validate(w)
+    return WithdrawalAdminOut(**base.model_dump())
 
 
 @router.post("/{withdrawal_id}/approve", response_model=WithdrawalOut, dependencies=[Depends(require_finance())])
@@ -104,7 +86,8 @@ async def approve_withdrawal(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    return await RevenueService(db).approve_withdrawal(withdrawal_id, actor, notes=data.notes)
+    w = await RevenueService(db).approve_withdrawal(withdrawal_id, actor, notes=data.notes)
+    return w
 
 
 @router.post("/{withdrawal_id}/reject", response_model=WithdrawalOut, dependencies=[Depends(require_finance())])
@@ -115,15 +98,22 @@ async def reject_withdrawal(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    return await RevenueService(db).reject_withdrawal(withdrawal_id, actor, notes=data.notes)
+    w = await RevenueService(db).reject_withdrawal(withdrawal_id, actor, notes=data.notes)
+    return w
 
 
 @router.post("/{withdrawal_id}/mark-paid", response_model=WithdrawalOut, dependencies=[Depends(require_finance())])
 @router.patch("/{withdrawal_id}/mark-paid", response_model=WithdrawalOut, dependencies=[Depends(require_finance())])
 async def mark_paid(
     withdrawal_id: str,
+    data: MarkWithdrawalPaidInput = MarkWithdrawalPaidInput(),
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    return await RevenueService(db).mark_paid(withdrawal_id, actor)
-
+    return await RevenueService(db).mark_paid(
+        withdrawal_id,
+        actor,
+        payment_reference=data.payment_reference,
+        payment_proof_url=data.payment_proof_url,
+        notes=data.notes,
+    )

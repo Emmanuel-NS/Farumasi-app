@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { getSellerMeBase } from "@/lib/seller-api";
 
 export interface BackendProduct {
   id: string;
@@ -98,12 +99,14 @@ export const listingsService = {
   },
 
   async listMyListings(params?: { offset?: number; limit?: number }): Promise<PaginatedListings> {
-    const { data } = await api.get<PaginatedListings>("/partners/me/listings", { params });
+    const base = getSellerMeBase();
+    const { data } = await api.get<PaginatedListings>(`${base}/listings`, { params });
     return data;
   },
 
   async createListing(input: CreateListingInput): Promise<BackendListing> {
-    const { data } = await api.post<BackendListing>("/partners/me/listings", input);
+    const base = getSellerMeBase();
+    const { data } = await api.post<BackendListing>(`${base}/listings`, input);
     return data;
   },
 
@@ -113,18 +116,20 @@ export const listingsService = {
   },
 
   async updateListing(id: string, input: UpdateListingInput): Promise<BackendListing> {
-    const { data } = await api.patch<BackendListing>(`/partners/me/listings/${id}`, input);
+    const base = getSellerMeBase();
+    const { data } = await api.patch<BackendListing>(`${base}/listings/${id}`, input);
     return data;
   },
 
   async setAvailability(id: string, availability_status: ListingAvailability): Promise<BackendListing> {
-    const { data } = await api.patch<BackendListing>(`/partners/me/listings/${id}`, {
+    const base = getSellerMeBase();
+    const { data } = await api.patch<BackendListing>(`${base}/listings/${id}`, {
       availability_status,
     });
     return data;
   },
 
   async deleteListing(id: string): Promise<void> {
-    await api.delete(`/partners/me/listings/${id}`);
+    await api.delete(`${getSellerMeBase()}/listings/${id}`);
   },
 };

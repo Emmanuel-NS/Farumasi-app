@@ -22,7 +22,7 @@ async def resolve_user_partner(db: AsyncSession, actor: User) -> Optional[Partne
     res = await db.execute(
         select(PartnerCompany).where(PartnerCompany.owner_user_id == actor.id)
     )
-    return res.scalar_one_or_none()
+    return res.scalars().first()
 
 
 async def user_owns_partner(db: AsyncSession, actor: User, partner_company_id: str) -> bool:

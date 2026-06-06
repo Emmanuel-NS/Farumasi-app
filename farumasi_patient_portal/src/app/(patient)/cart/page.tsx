@@ -3,14 +3,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn, formatPrice, getInitials } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
 import type { CartEntry } from "@/store/cart-store";
 import { cartLineKey } from "@/lib/packaging-classes";
 import { cartLineUnitPrice, minQuantityForLine } from "@/lib/cart-pricing";
 import { useTranslation } from "@/lib/translations";
 import { toast } from "sonner";
-import { pharmaciesService, BackendPharmacy, BackendListing } from "@/lib/services/pharmacies.service";
+import { pharmaciesService, BackendPharmacy, BackendListing, sellerImageSrc } from "@/lib/services/pharmacies.service";
 import { partnersService, partnerAsStoreSeller } from "@/lib/services/partners.service";
 import { ordersService } from "@/lib/services/orders.service";
 import {
@@ -86,7 +86,7 @@ function adaptBackendPharmacy(p: BackendPharmacy): Pharmacy {
     coordinates: [p.latitude ?? -1.9441, p.longitude ?? 30.0619] as [number, number],
     supportedInsurances: [],
     isOpen: p.is_open,
-    imageUrl: p.image_url ?? "",
+    imageUrl: p.image_url ?? p.logo_url ?? "",
     province: "Kigali",
     district: p.district,
     sellerKind: p.sellerKind ?? "pharmacy",
@@ -1103,18 +1103,29 @@ export default function CartPage() {
               {/* Header */}
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 font-black text-base",
-                      isBest
-                        ? "bg-farumasi-600 text-white"
-                        : opt.rank === 2
-                        ? "bg-slate-700 text-white"
-                        : "bg-slate-200 text-slate-600"
-                    )}
-                  >
-                    {opt.codename}
-                  </div>
+                  {(() => {
+                    const img = sellerImageSrc({ image_url: opt.pharmacy.imageUrl });
+                    return (
+                      <div
+                        className={cn(
+                          "w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden",
+                          !img &&
+                            (isBest
+                              ? "bg-farumasi-600 text-white font-black text-base"
+                              : opt.rank === 2
+                                ? "bg-slate-700 text-white font-black text-base"
+                                : "bg-slate-200 text-slate-600 font-black text-base"),
+                        )}
+                      >
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={img} alt={opt.pharmacy.name} className="w-full h-full object-cover" />
+                        ) : (
+                          opt.codename
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-sm font-bold text-slate-900">

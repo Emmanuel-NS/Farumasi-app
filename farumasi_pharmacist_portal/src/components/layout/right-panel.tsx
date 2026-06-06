@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { cn, timeAgo } from "@/lib/utils";
 import { notificationsService, type BackendNotification } from "@/lib/services/notifications.service";
+import { openNotification } from "@/lib/notification-links";
 
 interface RightPanelProps {
   activePanel: string;
@@ -32,6 +34,7 @@ export function RightPanel({ activePanel, onClose }: RightPanelProps) {
 }
 
 function NotificationsPanel() {
+  const router = useRouter();
   const [notifs, setNotifs] = useState<BackendNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const catIcon: Record<string, string> = { request: "📋", order: "📦", inventory: "📦", system: "⚙️", chat: "💬" };
@@ -43,9 +46,9 @@ function NotificationsPanel() {
       .finally(() => setLoading(false));
   }, []);
 
-  const markRead = async (id: string) => {
-    setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read_status: true } : n));
-    await notificationsService.markRead(id).catch(() => {});
+  const handleClick = async (n: BackendNotification) => {
+    setNotifs((prev) => prev.map((row) => (row.id === n.id ? { ...row, read_status: true } : row)));
+    await openNotification(n, router, (id) => notificationsService.markRead(id));
   };
 
   const markAllRead = async () => {
@@ -68,19 +71,21 @@ function NotificationsPanel() {
       ) : notifs.length === 0 ? (
         <div className="py-10 text-center text-xs text-slate-400">No notifications yet</div>
       ) : notifs.map((n) => (
-        <div
+        <button
           key={n.id}
-          className={cn("group flex gap-3 px-5 py-3.5 border-b border-slate-50 hover:bg-slate-50 cursor-pointer", !n.read_status && "bg-farumasi-50/50")}
-          onClick={() => markRead(n.id)}
+          type="button"
+          className={cn("group flex gap-3 px-5 py-3.5 border-b border-slate-50 hover:bg-slate-50 cursor-pointer w-full text-left", !n.read_status && "bg-farumasi-50/50")}
+          onClick={() => void handleClick(n)}
         >
           <span className="text-xl shrink-0">{catIcon[n.category ?? "system"] ?? "🔔"}</span>
           <div className="flex-1 min-w-0">
             <p className={cn("text-sm text-slate-900", !n.read_status ? "font-bold" : "font-medium")}>{n.title}</p>
             <p className="text-xs text-slate-500 mt-0.5">{n.message}</p>
             <p className="text-[10px] text-slate-400 mt-1">{timeAgo(n.created_at)}</p>
+            {n.action_url && <p className="text-[10px] text-farumasi-600 font-medium mt-0.5">Tap to open →</p>}
           </div>
           {!n.read_status && <div className="w-2 h-2 rounded-full bg-farumasi-500 shrink-0 mt-1.5" />}
-        </div>
+        </button>
       ))}
       <div className="p-4">
         <Link href="/notifications" className="block text-center text-sm text-farumasi-600 font-medium hover:underline">

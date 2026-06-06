@@ -40,5 +40,6 @@ export function adaptNotification(n: BackendNotification): AppNotification {
     category: (CATEGORY_MAP[n.category ?? "general"] ?? "general"),
     isRead: n.read_status,
     time: n.created_at,
+    actionUrl: n.action_url,
   };
 }

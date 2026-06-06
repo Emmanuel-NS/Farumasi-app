@@ -28,7 +28,7 @@ async def test_withdrawal_insufficient_balance(client: AsyncClient):
     resp = await client.post("/api/v1/withdrawals/", headers=headers, json={
         "amount": 999999,
         "payout_method": "mobile_money",
-        "payout_details": {"number": "+250788000000"},
+        "payout_details": {"account": "+250788000000", "account_name": "Rev2 Pharma"},
     })
     # pharmacy_admin with no associated pharmacy is rejected by the
     # entity-ownership check (AuthorizationError → 403). The granular

@@ -23,7 +23,7 @@ export type FulfillmentStatus = "Pending" | "Fulfilled" | "Partially Fulfilled" 
 
 export type DeliveryStatus = "Pending" | "Assigned" | "Picked Up" | "In Transit" | "Delivered" | "Failed" | "Returned";
 
-export type WithdrawalStatus = "Pending" | "Under Review" | "Approved" | "Rejected" | "Processed";
+export type WithdrawalStatus = "Pending" | "Under Review" | "Approved" | "Processing" | "Rejected" | "Paid";
 
 export type InsightSeverity = "Critical" | "High" | "Medium" | "Low" | "Info";
 
@@ -377,7 +377,7 @@ export interface CommissionRecord {
 export interface WithdrawalRequest {
   id: string;
   entityId: string;
-  entityType: "Pharmacy" | "Supplier" | "Rider" | "Admin";
+  entityType: "Pharmacy" | "Partner Company" | "Supplier" | "Rider" | "Admin";
   entityName: string;
   amount: number;
   status: WithdrawalStatus;
@@ -385,7 +385,13 @@ export interface WithdrawalRequest {
   processedAt?: string;
   processedBy?: string;
   notes?: string;
-  method: "Mobile Money" | "Bank Transfer" | "Airtel Money";
+  paymentReference?: string;
+  paymentProofUrl?: string;
+  method: "Mobile Money" | "Bank Transfer" | "Airtel Money" | "MoMo Code";
+  payoutAccount?: string;
+  payoutAccountName?: string;
+  requesterName?: string;
+  requesterEmail?: string;
 }
 
 // ─── AI Insight ────────────────────────────────────────

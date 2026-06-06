@@ -483,7 +483,7 @@ async def test_delivery_completed_notification_helper(client: AsyncClient, db):
     patient = await _register(client, "patient")
     pid = await _user_id(client, patient)
     await NotificationService(db).delivery_completed(
-        pid, "ORD-TEST-123"
+        pid, "order-test-id", order_code="ORD-TEST-123"
     )
     await db.commit()
 

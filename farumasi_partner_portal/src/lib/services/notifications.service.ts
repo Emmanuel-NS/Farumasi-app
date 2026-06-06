@@ -35,6 +35,6 @@ export const notificationsService = {
   },
 
   async markAllRead(): Promise<void> {
-    await api.post("/notifications/mark-all-read");
+    await api.patch("/notifications/read-all");
   },
 };

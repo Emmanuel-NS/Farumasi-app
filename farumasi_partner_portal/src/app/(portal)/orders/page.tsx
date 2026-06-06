@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ShoppingCart, Filter, Download, ChevronRight, Loader2, Clock } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
@@ -14,6 +15,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
 import { formatCompactRWF, timeAgo } from "@/lib/utils";
+import { downloadCsv } from "@/lib/export-csv";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
 import type { OrderStatus } from "@/types";
 
@@ -41,19 +44,28 @@ function shortId(id: string): string {
 }
 
 export default function OrdersPage() {
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState<BackendOrder[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q) setSearch(q);
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     ordersService
-      .listPartnerOrders({ offset: 0, limit: 100 })
+      .listPartnerOrders({ offset: 0, limit: DEFAULT_PAGE_SIZE })
       .then(res => {
         if (cancelled) return;
         setOrders(res.items);
+        setTotal(res.total);
         setError(null);
       })
       .catch(err => {
@@ -65,6 +77,37 @@ export default function OrdersPage() {
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, []);
+
+  const loadMore = () => {
+    if (loadingMore || orders.length >= total) return;
+    setLoadingMore(true);
+    ordersService
+      .listPartnerOrders({ offset: orders.length, limit: DEFAULT_PAGE_SIZE })
+      .then(res => {
+        setOrders(prev => [...prev, ...res.items]);
+        setTotal(res.total);
+      })
+      .catch(err => toast.error(getApiError(err, "Failed to load more orders")))
+      .finally(() => setLoadingMore(false));
+  };
+
+  const exportVisibleOrders = (rows: BackendOrder[]) => {
+    downloadCsv(
+      `orders-${new Date().toISOString().slice(0, 10)}`,
+      ["Order #", "Customer", "Phone", "Type", "Status", "Net amount", "Subtotal", "Placed"],
+      rows.map(o => [
+        shortId(o.id),
+        o.patient?.user?.full_name ?? "",
+        o.patient?.user?.phone ?? "",
+        o.is_delivery ? "Delivery" : "Pickup",
+        o.status,
+        o.net_amount ?? o.total_amount,
+        o.subtotal ?? o.total_amount,
+        o.created_at,
+      ]),
+    );
+    toast.success("Orders exported");
+  };
 
   const kpis = useMemo(() => {
     const pending = orders.filter(o => orderStatus(o) === "pending").length;
@@ -87,7 +130,13 @@ export default function OrdersPage() {
         description="Manage incoming and outgoing customer orders"
         icon={ShoppingCart}
         actions={
-          <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => toast.success("Export coming soon")}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5"
+            onClick={() => exportVisibleOrders(orders)}
+            disabled={orders.length === 0}
+          >
             <Download className="w-3.5 h-3.5" /> Export
           </Button>
         }
@@ -98,7 +147,7 @@ export default function OrdersPage() {
         <KpiCard title="In Progress" value={String(kpis.inProgress)} icon={Clock} iconBg="bg-blue-100" iconColor="text-blue-600" />
         <KpiCard title="Completed" value={String(kpis.completed)} icon={ShoppingCart} iconBg="bg-green-100" iconColor="text-green-600" />
         <KpiCard title="Cancelled" value={String(kpis.cancelled)} icon={ShoppingCart} iconBg="bg-red-100" iconColor="text-red-600" />
-        <KpiCard title="Total Orders" value={orders.length.toLocaleString()} icon={ShoppingCart} />
+        <KpiCard title="Total Orders" value={total.toLocaleString()} icon={ShoppingCart} />
       </div>
 
       <Card>
@@ -219,6 +268,27 @@ export default function OrdersPage() {
               );
             })}
           </Tabs>
+
+          {!loading && orders.length < total && (
+            <div className="p-4 border-t flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={loadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    Loading…
+                  </>
+                ) : (
+                  `Load more (${orders.length} of ${total})`
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

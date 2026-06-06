@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLanguageStore } from "@/store/language-store";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn, formatPrice, getInitials } from "@/lib/utils";
 import { useSearchStore } from "@/store/search-store";
 import { useStoreFilterStore } from "@/store/store-filter-store";
 import { useCartStore } from "@/store/cart-store";
@@ -15,9 +15,8 @@ import { productsService } from "@/lib/services/products.service";
 import { prescriptionsService } from "@/lib/services/prescriptions.service";
 import { recommendationsService } from "@/lib/services/recommendations.service";
 import { ordersService } from "@/lib/services/orders.service";
-import { pharmaciesService, BackendPharmacy } from "@/lib/services/pharmacies.service";
+import { pharmaciesService, sellerImageSrc, type BackendPharmacy } from "@/lib/services/pharmacies.service";
 import { partnersService, partnerAsStoreSeller } from "@/lib/services/partners.service";
-import { mediaUrl } from "@/lib/api";
 import { getPatientCoords } from "@/lib/location";
 import type { DigitalPrescription } from "@/types";
 import {
@@ -44,6 +43,11 @@ import { minQuantityForLine } from "@/lib/cart-pricing";
 import { HEALTHCARE_CATEGORY_ICONS, IconGeneral } from "@/components/icons/CategoryIcons";
 import type { CategoryIconComponent } from "@/components/icons/CategoryIcons";
 import { SponsoredCarousel } from "@/components/health/sponsored-carousel";
+import {
+  SellerImageLightbox,
+  SellerImageThumb,
+  type SellerImagePreview,
+} from "@/components/shared/seller-image-lightbox";
 
 // ── Category → custom icon resolution ───────────────────────────────────────
 const _ICON_BY_NAME: Record<string, CategoryIconComponent> = Object.fromEntries(
@@ -174,12 +178,26 @@ function StorePageInner() {
         ) {
           setSellersError(true);
         }
+        const partnerLogoByName = new Map(
+          allPartners
+            .filter((p) => p.logo_url)
+            .map((p) => [p.name.trim().toLowerCase(), p.logo_url!] as const),
+        );
         const withPharm = allPharms
-          .filter((p) => pharmacyIds.has(p.id))
-          .map((p) => ({ ...p, sellerKind: "pharmacy" as const }));
+          .filter((p) => p.is_open !== false && pharmacyIds.has(p.id))
+          .map((p) => {
+            const partnerLogo = partnerLogoByName.get(p.name.trim().toLowerCase());
+            const logo = p.logo_url ?? p.image_url ?? partnerLogo ?? null;
+            return {
+              ...p,
+              logo_url: logo,
+              image_url: logo,
+              sellerKind: "pharmacy" as const,
+            };
+          });
         const pharmNames = new Set(withPharm.map((p) => p.name.trim().toLowerCase()));
         const withPartner = allPartners
-          .filter((p) => partnerIds.has(p.id))
+          .filter((p) => p.is_open !== false && partnerIds.has(p.id))
           .filter((p) => (p.company_type ?? "").toLowerCase() !== "pharmacy")
           .filter((p) => !pharmNames.has(p.name.trim().toLowerCase()))
           .map((p) => ({ ...partnerAsStoreSeller(p), sellerKind: "partner" as const }));
@@ -316,6 +334,7 @@ function StorePageInner() {
   const [pharmacies, setPharmacies] = useState<(BackendPharmacy & { sellerKind?: "pharmacy" | "partner" })[]>([]);
   const [sellersLoading, setSellersLoading] = useState(true);
   const [sellersError, setSellersError] = useState(false);
+  const [sellerImagePreview, setSellerImagePreview] = useState<SellerImagePreview | null>(null);
   // product_id → { price, status } for the currently selected pharmacy
   const [pharmacyListings, setPharmacyListings] = useState<Map<string, { price: number; status: string }>>(new Map());
 
@@ -684,7 +703,7 @@ function StorePageInner() {
             )}
             {pharmacies.map((pharmacy) => {
               const isSelected = selectedPharmacyId === pharmacy.id;
-              const imgSrc = pharmacy.image_url ? mediaUrl(pharmacy.image_url) : null;
+              const imgSrc = sellerImageSrc(pharmacy);
               const mapUrl = pharmacy.latitude && pharmacy.longitude
                 ? `https://www.google.com/maps?q=${pharmacy.latitude},${pharmacy.longitude}`
                 : pharmacy.address
@@ -718,13 +737,17 @@ function StorePageInner() {
                     }}
                   />
                   {/* Image / placeholder */}
-                  <div className="w-24 shrink-0 overflow-hidden relative bg-slate-100 flex items-center justify-center">
+                  <div className="w-24 shrink-0 overflow-hidden relative bg-slate-100 flex items-center justify-center z-10 pointer-events-auto">
                     {imgSrc ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imgSrc} alt={pharmacy.name} className="w-full h-full object-cover" />
+                      <SellerImageThumb
+                        src={imgSrc}
+                        name={pharmacy.name}
+                        onPreview={setSellerImagePreview}
+                        className="w-full h-full"
+                      />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-farumasi-50 to-slate-100">
-                        <MapPin className="w-7 h-7 text-farumasi-300" />
+                        <span className="text-lg font-bold text-farumasi-700">{getInitials(pharmacy.name)}</span>
                       </div>
                     )}
                     {isSelected && (
@@ -1193,6 +1216,10 @@ function StorePageInner() {
           </div>
         </div>
       )}
+      <SellerImageLightbox
+        preview={sellerImagePreview}
+        onClose={() => setSellerImagePreview(null)}
+      />
     </div>
   );
 }

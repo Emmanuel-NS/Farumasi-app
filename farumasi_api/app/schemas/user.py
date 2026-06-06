@@ -46,6 +46,7 @@ class UserOut(FarumasiBaseModel):
     two_factor_enabled: bool = False
     email_verified: bool = False
     phone_verified: bool = False
+    must_change_password: bool = False
 
 
 class UserUpdateRequest(FarumasiBaseModel):

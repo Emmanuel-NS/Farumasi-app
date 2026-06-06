@@ -59,7 +59,7 @@ export default function InventoryPage() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      api.get<{ items: BackendListing[]; total: number }>("/listings/", { params: { limit: 200, offset: 0 } }),
+      api.get<{ items: BackendListing[]; total: number }>("/listings/", { params: { limit: 100, offset: 0 } }),
       api.get<{ items: unknown[]; total: number }>("/pharmacies/", { params: { limit: 1, offset: 0 } }),
     ])
       .then(([listRes, pharRes]) => {

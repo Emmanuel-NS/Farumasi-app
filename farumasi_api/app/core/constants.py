@@ -145,6 +145,70 @@ def normalize_order_status(status: str) -> str:
     return LEGACY_ORDER_STATUS_MAP.get(status, status)
 
 
+# ── Admin / portal order buckets (Pending → In progress → Completed / Cancelled) ──
+ORDER_BUCKET_PENDING: frozenset[str] = frozenset({OrderStatus.PENDING.value})
+
+ORDER_BUCKET_IN_PROGRESS: frozenset[str] = frozenset(
+    {
+        OrderStatus.ACCEPTED.value,
+        OrderStatus.PREPARING.value,
+        OrderStatus.READY_FOR_PICKUP.value,
+        OrderStatus.OUT_FOR_DELIVERY.value,
+        OrderStatus.DELIVERED.value,
+        "confirmed",
+        "processing",
+        "pharmacy_accepted",
+        "in_transit",
+    }
+)
+
+ORDER_BUCKET_COMPLETED: frozenset[str] = frozenset({OrderStatus.COMPLETED.value})
+
+ORDER_BUCKET_CANCELLED: frozenset[str] = frozenset(
+    {
+        OrderStatus.CANCELLED.value,
+        OrderStatus.REJECTED.value,
+        OrderStatus.FAILED.value,
+    }
+)
+
+_ORDER_BUCKETS: dict[str, frozenset[str]] = {
+    "pending": ORDER_BUCKET_PENDING,
+    "in_progress": ORDER_BUCKET_IN_PROGRESS,
+    "completed": ORDER_BUCKET_COMPLETED,
+    "cancelled": ORDER_BUCKET_CANCELLED,
+}
+
+
+def order_bucket_statuses(bucket: str) -> list[str] | None:
+    """Return raw DB status values for a high-level bucket filter."""
+    statuses = _ORDER_BUCKETS.get(bucket)
+    return list(statuses) if statuses else None
+
+
+def classify_order_bucket(status: str) -> str:
+    """Map any stored order_status to pending | in_progress | completed | cancelled."""
+    raw = (status or OrderStatus.PENDING.value).lower()
+    if raw in ORDER_BUCKET_CANCELLED:
+        return "cancelled"
+    if raw in ORDER_BUCKET_COMPLETED:
+        return "completed"
+    if raw in ORDER_BUCKET_PENDING:
+        return "pending"
+    if raw in ORDER_BUCKET_IN_PROGRESS:
+        return "in_progress"
+    normalized = normalize_order_status(raw)
+    if normalized in ORDER_BUCKET_CANCELLED:
+        return "cancelled"
+    if normalized in ORDER_BUCKET_COMPLETED:
+        return "completed"
+    if normalized in ORDER_BUCKET_PENDING:
+        return "pending"
+    if normalized in ORDER_BUCKET_IN_PROGRESS:
+        return "in_progress"
+    return "in_progress"
+
+
 class PaymentStatus(str, Enum):
     UNPAID = "unpaid"
     PENDING = "pending"

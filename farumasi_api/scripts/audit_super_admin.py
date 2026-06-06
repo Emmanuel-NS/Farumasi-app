@@ -17,16 +17,15 @@ ADMIN_PW = "Admin@12345"
 
 MVP_ROUTES = [
     "/dashboard",
-    "/users",
+    "/users/patients",
+    "/users/pharmacists",
+    "/users/riders",
     "/pharmacies",
-    "/suppliers",
-    "/catalogue",
-    "/product-requests",
-    "/listings",
     "/orders",
     "/prescriptions",
-    "/revenue",
-    "/withdrawals",
+    "/finance",
+    "/finance/revenue",
+    "/finance/withdrawals",
     "/audit",
     "/settings",
 ]
@@ -89,9 +88,9 @@ async def main() -> int:
             if resp.status_code == 200:
                 body = resp.json()
                 n = len(body) if isinstance(body, list) else len(body.get("items", []))
-                finding("OK", "api", f"{method} {path} → 200 ({n} rows)")
+                finding("OK", "api", f"{method} {path} -> 200 ({n} rows)")
             else:
-                finding("P0" if path in ("/analytics/admin", "/users/") else "P1", "api", f"{method} {path} → {resp.status_code}")
+                finding("P0" if path in ("/analytics/admin", "/users/") else "P1", "api", f"{method} {path} -> {resp.status_code}")
                 if path in ("/analytics/admin", "/users/"):
                     p0 += 1
                 else:
@@ -100,10 +99,10 @@ async def main() -> int:
         # Public partners (patient store dependency)
         pub = await client.get(f"{API}/partners/public/", params={"limit": 5})
         if pub.status_code == 404:
-            finding("P1", "api", "/partners/public/ → 404 (restart API; patient portal uses fallback)")
+            finding("P1", "api", "/partners/public/ -> 404 (restart API; patient portal uses fallback)")
             p1 += 1
         elif pub.status_code == 200:
-            finding("OK", "api", f"/partners/public/ → {len(pub.json().get('items', []))} active partners")
+            finding("OK", "api", f"/partners/public/ -> {len(pub.json().get('items', []))} active partners")
 
         # ── Analytics vs list totals ──────────────────────────────────────
         print("\n## Data integrity")
@@ -158,7 +157,7 @@ async def main() -> int:
                 finding("OK", "workflow", "PATCH /product-requests/{id}/review works")
                 # revert to submitted if was only probe — skip revert to avoid side effects
             else:
-                finding("P1", "workflow", f"Product request review → {probe.status_code}: {probe.text[:120]}")
+                finding("P1", "workflow", f"Product request review -> {probe.status_code}: {probe.text[:120]}")
                 p1 += 1
         else:
             finding("P2", "workflow", "No submitted product requests to probe review endpoint")
@@ -183,9 +182,9 @@ async def main() -> int:
                 resp = await client.get(f"{PORTAL}{route}", follow_redirects=True)
                 ok = resp.status_code in (200, 307, 308)
                 if ok:
-                    finding("OK", "portal", f"GET {route} → {resp.status_code}")
+                    finding("OK", "portal", f"GET {route} -> {resp.status_code}")
                 else:
-                    finding("P1", "portal", f"GET {route} → {resp.status_code}")
+                    finding("P1", "portal", f"GET {route} -> {resp.status_code}")
                     p1 += 1
             except httpx.ConnectError:
                 finding("P0", "portal", f"Portal not running at {PORTAL}")

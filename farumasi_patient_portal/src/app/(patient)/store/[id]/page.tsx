@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { productsService, adaptProduct } from "@/lib/services/products.service";
-import { pharmaciesService, type BackendListing, type BackendPharmacy } from "@/lib/services/pharmacies.service";
+import { pharmaciesService, sellerImageSrc, type BackendListing, type BackendPharmacy } from "@/lib/services/pharmacies.service";
 import { useLanguageStore } from "@/store/language-store";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn, formatPrice, getInitials } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
 import { toast } from "sonner";
 import type { Medicine } from "@/types";
@@ -18,8 +18,13 @@ import {
 } from "@/lib/packaging-classes";
 import { minQuantityForLine } from "@/lib/cart-pricing";
 import {
+  SellerImageLightbox,
+  SellerImageThumb,
+  type SellerImagePreview,
+} from "@/components/shared/seller-image-lightbox";
+import {
   ArrowLeft, Star, AlertCircle, ShoppingCart, Upload,
-  MapPin, CheckCircle, XCircle, Clock, ChevronRight,
+  CheckCircle, XCircle, Clock, ChevronRight,
 } from "lucide-react";
 
 function categoryBg(cat?: string): string {
@@ -50,6 +55,7 @@ export default function MedicineDetailPage() {
   const [loading, setLoading] = useState(true);
   const [listings, setListings] = useState<BackendListing[]>([]);
   const [pharmacyMap, setPharmacyMap] = useState<Map<string, BackendPharmacy>>(new Map());
+  const [sellerImagePreview, setSellerImagePreview] = useState<SellerImagePreview | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -417,11 +423,25 @@ export default function MedicineDetailPage() {
                 ?? l.pharmacy?.name
                 ?? (l.pharmacy_id ? pharmacyMap.get(l.pharmacy_id)?.name : null)
                 ?? "Seller";
+              const sellerImg = sellerImageSrc({
+                image_url: l.pharmacy?.image_url,
+                logo_url: l.partner_company?.logo_url,
+              });
               return (
                 <div key={l.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center">
-                      <MapPin className="w-5 h-5 text-farumasi-600" />
+                    <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center overflow-hidden shrink-0">
+                      {sellerImg ? (
+                        <SellerImageThumb
+                          src={sellerImg}
+                          name={name}
+                          onPreview={setSellerImagePreview}
+                          className="w-full h-full rounded-xl"
+                          imgClassName="hover:scale-100"
+                        />
+                      ) : (
+                        <span className="text-xs font-bold text-farumasi-700">{getInitials(name)}</span>
+                      )}
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{name}</p>
@@ -445,6 +465,10 @@ export default function MedicineDetailPage() {
           </div>
         )}
       </div>
+      <SellerImageLightbox
+        preview={sellerImagePreview}
+        onClose={() => setSellerImagePreview(null)}
+      />
     </div>
   );
 }

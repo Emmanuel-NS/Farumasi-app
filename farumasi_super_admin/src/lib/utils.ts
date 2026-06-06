@@ -22,6 +22,15 @@ export function timeAgo(dateStr: string): string {
   try { return formatDistanceToNow(parseISO(dateStr), { addSuffix: true }); } catch { return dateStr; }
 }
 
+/** Resolve API-relative upload paths to absolute URLs for proof links. */
+export function mediaUrl(path: string): string {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+  const origin = apiBase.replace(/\/api\/v1\/?$/, "");
+  return `${origin}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 export function getInitials(name: string): string {
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
@@ -92,7 +101,8 @@ export function orderStatusColor(status: string): string {
 
 export function withdrawalStatusColor(status: string): string {
   switch (status) {
-    case "Processed": return "bg-emerald-50 text-emerald-700";
+    case "Paid": return "bg-emerald-50 text-emerald-700";
+    case "Processing": return "bg-blue-50 text-blue-700";
     case "Approved": return "bg-blue-50 text-blue-700";
     case "Under Review": return "bg-amber-50 text-amber-700";
     case "Pending": return "bg-slate-100 text-slate-600";

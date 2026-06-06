@@ -1,4 +1,4 @@
-import api from "@/lib/api";
+import api, { mediaUrl } from "@/lib/api";
 
 export interface BackendPharmacy {
   id: string;
@@ -14,7 +14,21 @@ export interface BackendPharmacy {
   accepts_delivery: boolean;
   created_at: string;
   image_url?: string | null;
+  logo_url?: string | null;
   sellerKind?: "pharmacy" | "partner";
+}
+
+/** Resolve store logo for pharmacies (logo_url) or partners (logo_url → image_url). */
+export function sellerImageSrc(p: {
+  image_url?: string | null;
+  logo_url?: string | null;
+}): string | null {
+  const raw = p.image_url ?? p.logo_url ?? null;
+  return raw ? mediaUrl(raw) : null;
+}
+
+function normalizePharmacyRow(p: BackendPharmacy): BackendPharmacy {
+  return { ...p, image_url: p.image_url ?? p.logo_url ?? null };
 }
 
 export interface ListingPharmacyBrief {
@@ -64,9 +78,9 @@ export const pharmaciesService = {
     // API caps limit at 100
     const safeLimit = Math.min(limit, 100);
     const { data } = await api.get<PaginatedPharmacies>("/pharmacies/", {
-      params: { offset, limit: safeLimit },
+      params: { offset, limit: safeLimit, open_only: true },
     });
-    return data.items;
+    return data.items.map(normalizePharmacyRow);
   },
 
   /** Fetch all active listings (available or low_stock) for a given product. */
@@ -77,7 +91,8 @@ export const pharmaciesService = {
     return data.items.filter(
       (l) =>
         l.status === "active" &&
-        (l.availability_status === "available" || l.availability_status === "low_stock")
+        (l.availability_status === "available" || l.availability_status === "low_stock") &&
+        (l.pharmacy?.is_open !== false && l.partner_company?.is_open !== false),
     );
   },
 
@@ -93,7 +108,8 @@ export const pharmaciesService = {
     return data.items.filter(
       (l) =>
         l.status === "active" &&
-        (l.availability_status === "available" || l.availability_status === "low_stock"),
+        (l.availability_status === "available" || l.availability_status === "low_stock") &&
+        (l.pharmacy?.is_open !== false && l.partner_company?.is_open !== false),
     );
   },
 

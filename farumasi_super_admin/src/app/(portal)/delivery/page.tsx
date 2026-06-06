@@ -32,7 +32,7 @@ export default function DeliveryPage() {
       .then(r => setOrders(r.data.items))
       .catch(() => {
         // Fallback: get all orders and filter
-        api.get<PaginatedOrders>("/orders/", { params: { limit: 200 } })
+        api.get<PaginatedOrders>("/orders/", { params: { limit: 100 } })
           .then(r2 => setOrders(r2.data.items.filter(o => o.is_delivery || o.delivery_method === "delivery")))
           .catch(() => setOrders([]));
       })

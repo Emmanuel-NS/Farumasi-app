@@ -132,6 +132,30 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
   );
 }
 
+// ─── Error Banner ─────────────────────────────────────────────────────────────
+export function ErrorBanner({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">
+      <p>{message}</p>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="text-xs font-semibold text-red-700 hover:text-red-900 underline shrink-0"
+        >
+          Retry
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 interface StatCardProps {
   label: string;
@@ -141,8 +165,9 @@ interface StatCardProps {
   color?: string;
   bg?: string;
   sublabel?: string;
+  details?: Array<{ label: string; value: string | number }>;
 }
-export function StatCard({ label, value, change, icon: Icon, color = "text-slate-900", bg = "bg-white", sublabel }: StatCardProps) {
+export function StatCard({ label, value, change, icon: Icon, color = "text-slate-900", bg = "bg-white", sublabel, details }: StatCardProps) {
   return (
     <Card className={cn(bg, "p-4")}>
       <div className="flex items-start justify-between gap-2">
@@ -150,6 +175,16 @@ export function StatCard({ label, value, change, icon: Icon, color = "text-slate
           <p className="text-xs text-slate-500 font-medium truncate">{label}</p>
           <p className={cn("text-2xl font-bold mt-1 leading-none", color)}>{value}</p>
           {sublabel && <p className="text-[11px] text-slate-400 mt-1">{sublabel}</p>}
+          {details && details.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-slate-100 space-y-0.5">
+              {details.map((d) => (
+                <p key={d.label} className="text-[11px] text-slate-500">
+                  <span className="text-slate-400">{d.label}:</span>{" "}
+                  <span className="font-semibold text-slate-700">{d.value}</span>
+                </p>
+              ))}
+            </div>
+          )}
         </div>
         {Icon && (
           <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">

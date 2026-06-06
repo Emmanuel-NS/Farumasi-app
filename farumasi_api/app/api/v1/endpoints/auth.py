@@ -51,6 +51,7 @@ async def change_password(
         raise AuthenticationError("New password must be different from the current password")
 
     current_user.password_hash = hash_password(data.new_password)
+    current_user.must_change_password = False
     current_user.session_invalidated_at = datetime.now(timezone.utc)
     await db.flush()
     await AuditService(db).log(

@@ -1,6 +1,6 @@
 # FARUMASI — Super Admin portal audit (CIP MVP)
 
-**Date:** June 2026  
+**Last updated:** June 2026 (deep scan + fixes)  
 **Portal:** `farumasi_super_admin` — http://localhost:3005  
 **API:** http://localhost:8000/api/v1  
 **Credentials:** `admin@farumasi.com` / `Admin@12345`
@@ -11,98 +11,72 @@
 
 | Section | Route | Data source | Status |
 |---------|-------|-------------|--------|
-| Overview | `/dashboard` | `GET /analytics/admin`, `/orders/`, `/product-requests/`, `/listings/` | ✅ Live |
-| Platform | `/users` | `GET /users/` | ✅ Live |
-| Platform | `/pharmacies` | `GET /pharmacies/` | ✅ Live |
-| Platform | `/suppliers` | `GET /partners/` | ✅ Live |
-| Marketplace | `/catalogue` | `GET /products/?include_unapproved=true` | ✅ Live |
-| Marketplace | `/product-requests` | `GET /product-requests/`, `PATCH .../review` | ✅ Live (actions wired) |
-| Marketplace | `/listings` | `GET /listings/` (seller names nested) | ✅ Live |
-| Operations | `/orders` | `GET /orders/` | ✅ Live |
-| Operations | `/prescriptions` | `GET /prescriptions/` | ✅ Live |
-| Finance | `/revenue` | `GET /revenue/`, summary | ✅ Live |
-| Finance | `/withdrawals` | `GET /withdrawals/`, approve/reject | ✅ Live |
-| Compliance | `/audit` | `GET /audit/` | ✅ Live |
-| System | `/settings` | Static UI only | ⚠️ Placeholder |
+| Overview | `/dashboard` | `GET /analytics/admin`, `/orders/`, `/audit/` | Live |
+| Platform | `/users/patients` | `GET /users/?role=patient` | Live |
+| Platform | `/users/pharmacists` | `GET /users/?role=pharmacist` + `pharmacy_admin` | Live |
+| Platform | `/users/riders` | `GET /users/?role=rider` | Live |
+| Platform | `/pharmacies` | `GET /pharmacies/`, `GET /partners/` (companies tab) | Live |
+| Operations | `/orders` | `GET /orders/` (no PHI) | Live |
+| Operations | `/prescriptions` | `GET /prescriptions/` (no PHI) | Live |
+| Finance | `/finance`, `/finance/revenue`, `/finance/withdrawals` | `GET /revenue/`, `/withdrawals/` | Live |
+| Compliance | `/audit` | `GET /audit/` | Live |
+| System | `/settings` | Read-only MVP copy | Placeholder |
 
-**Hidden from sidebar (still in repo):** ecosystem, BI, AI, hospitals, doctors, riders, etc. — “Coming Soon” stubs.
+**Redirects:** `/revenue` → `/finance/revenue`, `/withdrawals` → `/finance/withdrawals`, `/suppliers` → `/pharmacies`
 
-**Legacy:** `src/data/mock.ts` is **not imported** by MVP routes.
+**Hidden from sidebar:** catalogue, listings, product-requests, BI/AI routes (still in repo).
 
 ---
 
-## 2. Cross-portal flows (super admin role)
+## 2. Deep scan — issues found and fixed (June 2026)
 
-```mermaid
-flowchart TB
-  SA[Super Admin]
-  API[farumasi_api]
-  P[Patient store]
-  PT[Partner portal]
-  PH[Pharmacist portal]
-
-  SA -->|approve product requests| API
-  SA -->|view all orders| API
-  SA -->|audit logs| API
-  SA -->|withdrawals approve| API
-  PT -->|submit product request| API
-  PH -->|review product request| API
-  SA -->|final review optional| API
-  P -->|browse listings| API
-  SA -->|catalogue + listings oversight| API
-```
-
-| Flow | Super admin action | API | Partner / Patient |
-|------|-------------------|-----|-------------------|
-| New SKU request | Approve/reject on `/product-requests` | `PATCH /product-requests/{id}/review` | Partner submits |
-| Catalogue governance | View all products + approval status | `GET /products/` | Patient sees approved only |
-| Marketplace health | Listings + low stock on dashboard | `GET /listings/` | Patient store sellers |
-| Orders oversight | All orders, status filters | `GET /orders/` | Patient places; partner fulfills |
-| Payouts | Withdrawal queue | `GET /withdrawals/`, approve | Partner/pharmacy requests |
-| Compliance | Audit trail | `GET /audit/` | All portals write audit events |
-
----
-
-## 3. Audit findings
-
-### P0 — Blockers
-| ID | Issue | Fix |
-|----|-------|-----|
-| — | None if API + seed running | — |
-
-### P0 — Performance / stability (fixed June 2026)
+### P0 — Backend integration (fixed June 2026)
 
 | ID | Issue | Fix |
 |----|-------|-----|
-| SA-P0-1 | Sidebar `prefetch` on all MVP links → dev server compiles every route at once, CPU/RAM spike | **Fixed:** `prefetch={false}` on sidebar links |
-| SA-P0-2 | Recharts `ResponsiveContainer` resize loop in flex layout → GPU/CPU peg, display may cut out | **Fixed:** `SafeChartContainer` with fixed height + debounced measure |
-| SA-P0-3 | Loading shell used infinite `animate-pulse` (continuous repaints) | **Fixed:** static skeleton in `portal-loading-shell.tsx` |
-| SA-P0-4 | Zustand persist race before auth gate | **Fixed:** wait for `persist.onFinishHydration` |
+| SA-INT-1 | `GET /partners/` → 500 — DB missing `logo_url`, `description`, `commission_rate_percent`, `is_open` | Run `python scripts/ensure_partner_columns.py`; Alembic migration added |
+| SA-INT-2 | Pharmacies page used `Promise.all` — partners failure blocked entire page | `Promise.allSettled`; pharmacies tab works independently |
+| SA-INT-3 | Pharmacy adapter expected `owner`, `created_at` not in `PharmacyOut` | API schema + list endpoint now return `created_at`, nested `owner` |
+| SA-INT-4 | Pharmacy status filters used `Approved/Pending` but API uses `active/inactive/suspended` | UI filters aligned to API entity status + verification badge |
+| SA-INT-5 | Orders status filter client-only; seller fallback missing | Server-side `status` query param; seller name enrichment from pharmacies/partners |
 
-### P1 — Should fix
 | ID | Issue | Fix |
 |----|-------|-----|
-| SA-P1-1 | `GET /partners/public/` 404 on stale API process | Restart uvicorn |
-| SA-P1-2 | Duplicate active partner named like a pharmacy (e.g. Kigali City Pharmacy) | Run `python scripts/seed.py` (suspends legacy partner row) |
-| SA-P1-3 | Product request review used `notes` instead of `review_notes` | **Fixed** in `product-requests.service.ts` |
-| SA-P1-4 | Approve/Reject buttons were non-functional | **Fixed** on product-requests page |
+| SA-AUDIT-1 | Revenue adapter used `recorded_at`; API returns `created_at` → invalid dates | `revenue.service.ts` aligned to API |
+| SA-AUDIT-2 | Withdrawals adapter used wrong field names (`payment_method`, nested `pharmacy`) | Mapped `payout_method`, `requester_user_id`, enrich names from `/pharmacies/` + `/partners/` |
+| SA-AUDIT-3 | Auth layout allowed `ready` with token but no persisted user | Wait for Zustand hydration; `getMe()` backfill |
+| SA-AUDIT-4 | Sign out in topbar not wired | `logout()` + redirect to `/login` |
 
-### P2 — Nice to have
+### P1 — UX / correctness (fixed)
+
+| ID | Issue | Fix |
+|----|-------|-----|
+| SA-AUDIT-5 | Silent API failures (empty tables) | `ErrorBanner` + retry on MVP pages |
+| SA-AUDIT-6 | No empty states on filtered tables | `EmptyState` on users, orders, prescriptions, pharmacies, finance |
+| SA-AUDIT-7 | Pharmacies page pre-filtered companies to `active` only | Show all non-pharmacy partners; status filter works |
+| SA-AUDIT-8 | Prescriptions showed non-existent `fulfilled_at` / pharmacy link | Columns: type, line items, status only |
+| SA-AUDIT-9 | Pharmacists list missed `pharmacy_admin` accounts | Dual-role fetch on `/users/pharmacists` |
+| SA-AUDIT-10 | Audit search fired on every keystroke | 350ms debounce |
+| SA-AUDIT-11 | Settings implied live 2FA/Slack | MVP banner + “Planned” badges |
+| SA-AUDIT-12 | Topbar showed hardcoded email | Shows session user from auth store |
+
+### P2 — Remaining gaps
+
 | ID | Issue |
 |----|-------|
-| SA-P2-1 | Settings page static — no platform settings API |
-| SA-P2-2 | Orders missing `partner_company` name in adapter (pharmacy-only fields) |
-| SA-P2-3 | Catalogue: no inline PATCH approve from grid |
-| SA-P2-4 | Users “Invite User” button not wired |
+| SA-P2-1 | Settings — no platform settings API |
+| SA-P2-2 | Users — suspend/activate/restrict in UI | **Fixed** (`PATCH /users/{id}/status`) |
+| SA-P2-3 | Global topbar search disabled (use per-page filters) | By design |
+| SA-P2-4 | Legacy routes redirect to `/dashboard` via `src/middleware.ts` | **Fixed** |
+| SA-P2-5 | Withdrawal approve flow — no “mark paid” step in UI when status is approved |
 
 ---
 
-## 4. Automated audit
+## 3. Automated audit
 
 ```powershell
 cd farumasi_api
 python scripts/audit_super_admin.py
-python scripts/stress_test_super_admin.py
 ```
 
 Start portal:
@@ -114,22 +88,23 @@ npm run dev
 
 ---
 
-## 5. Manual test checklist
+## 4. Manual test checklist
 
-- [ ] Login with super admin credentials; non-admin role rejected
-- [ ] Dashboard KPIs match `/analytics/admin`
-- [ ] Users table loads; search works client-side
-- [ ] Pharmacies + Partners tables show seeded rows
-- [ ] Catalogue shows approved + pending products
-- [ ] Product request: Approve/Reject updates status after refresh
-- [ ] Listings show **seller name** (not UUID prefix)
-- [ ] Orders: partner statuses (`ready_for_pickup`, `out_for_delivery`) display correctly
-- [ ] Withdrawals: approve/reject when seed has pending rows
-- [ ] Audit log loads recent actions
+- [ ] Login; non–super-admin rejected
+- [ ] Sign out returns to login and clears session
+- [ ] Dashboard KPIs + recent audit + quick links
+- [ ] Users: patients / pharmacists (incl. pharmacy admins) / riders
+- [ ] Pharmacies & Companies tabs; search and status filters
+- [ ] Orders: codes and sellers only (no patient names)
+- [ ] Prescriptions: reference + status only
+- [ ] Finance hub → revenue ledger dates and amounts correct
+- [ ] Withdrawals: requester names resolve (not all “Unknown”)
+- [ ] Audit: filters, pagination, CSV export
+- [ ] API offline: pages show error banner with retry
 
 ---
 
-## 6. Related docs
+## 5. Related docs
 
-- [CROSS_PORTAL_AUDIT.md](./CROSS_PORTAL_AUDIT.md) — Patient · Pharmacist · Partner
-- [farumasi_api/README.md](../farumasi_api/README.md) — seeded accounts
+- [CROSS_PORTAL_AUDIT.md](./CROSS_PORTAL_AUDIT.md)
+- [farumasi_api/README.md](../farumasi_api/README.md)

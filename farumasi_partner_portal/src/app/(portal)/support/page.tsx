@@ -12,9 +12,10 @@ import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 const faqs = [
-  { q: "How do I request a new product to be added?", a: "Go to Product Requests in the left sidebar and click 'New Request'. Fill in the product details and submit. Our team reviews requests within 3–5 business days." },
-  { q: "When are withdrawal funds disbursed?", a: "Withdrawal requests are processed within 1–2 business days after approval. Funds are sent directly to your registered bank account." },
-  { q: "How is the commission calculated?", a: "FARUMASI charges a 10% platform commission on each completed order's net amount before delivery fees." },
+  { q: "How do I request a new product to be added?", a: "Open Requests in the sidebar, stay on the Submitted tab, and click 'New product request'. Our team reviews submissions within 3–5 business days." },
+  { q: "Where do I approve commission or agreement changes?", a: "FARUMASI sends those to Requests → Inbox. Confirm or decline there before changes apply to your account." },
+  { q: "When are withdrawal funds disbursed?", a: "Submit a request from Revenue & Wallet. FARUMASI reviews it, then pays you manually via bank transfer or mobile money (no payment gateway). Your balance updates once the payout is marked paid — usually within 1–2 business days after approval." },
+  { q: "How is the commission calculated?", a: "FARUMASI deducts your agreed commission rate once from each order's product revenue (subtotal). What remains is your net earning — withdrawals come from that net balance with no extra commission or fees." },
   { q: "What documents are required for compliance?", a: "You need a valid Business Registration Certificate, Tax Clearance Certificate, Pharmacy Operating License, and RFDA Dispensing License." },
 ];
 

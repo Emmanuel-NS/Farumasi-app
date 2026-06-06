@@ -1,12 +1,25 @@
 "use client";
 
-import { Card, CardHeader, CardTitle, CardContent, PageHeader, Badge, StatCard } from "@/components/ui";
-import { Settings, Globe, Lock, Bell, Server } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent, PageHeader, Badge } from "@/components/ui";
+import { Settings, Globe, Lock, Bell, Server, Info } from "lucide-react";
+import Link from "next/link";
 
 export default function SettingsPage() {
   return (
     <div className="space-y-5">
       <PageHeader title="Platform Settings" subtitle="Global configuration for the FARUMASI platform" breadcrumb="System" />
+
+      <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">
+        <Info className="w-4 h-4 shrink-0 mt-0.5" />
+        <p>
+          MVP read-only view. Platform toggles and live config will connect to an admin settings API in a later
+          release. For compliance actions, use{" "}
+          <Link href="/audit" className="font-semibold underline text-farumasi-700">
+            Audit & Compliance
+          </Link>
+          .
+        </p>
+      </div>
 
       {/* General */}
       <Card>
@@ -42,7 +55,7 @@ export default function SettingsPage() {
             {[
               { label: "Session Timeout", value: "30 minutes" },
               { label: "Max Login Attempts", value: "5" },
-              { label: "Two-Factor Auth", value: "Required for all admins", badge: "active" },
+              { label: "Two-Factor Auth", value: "Planned", badge: "planned" },
               { label: "Password Policy", value: "Min 12 chars, uppercase, symbol" },
               { label: "IP Whitelist", value: "Disabled" },
               { label: "Audit Logging", value: "All actions", badge: "active" },
@@ -50,7 +63,11 @@ export default function SettingsPage() {
               <div key={s.label} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
                 <span className="text-[12px] text-slate-500">{s.label}</span>
                 <div className="flex items-center gap-2">
-                  {s.badge && <Badge variant="success">Active</Badge>}
+                  {s.badge && (
+                    <Badge variant={s.badge === "active" ? "success" : "neutral"}>
+                      {s.badge === "active" ? "Active" : "Planned"}
+                    </Badge>
+                  )}
                   <span className="text-[12px] font-semibold text-slate-900">{s.value}</span>
                 </div>
               </div>
@@ -70,12 +87,16 @@ export default function SettingsPage() {
               { label: "Email Notifications", value: "Enabled", badge: "active" },
               { label: "SMS Alerts", value: "Critical only" },
               { label: "In-App Alerts", value: "All events", badge: "active" },
-              { label: "Slack Webhook", value: "Connected to #ops-alerts", badge: "active" },
+              { label: "Slack Webhook", value: "Not configured", badge: "planned" },
             ].map((s) => (
               <div key={s.label} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
                 <span className="text-[12px] text-slate-500">{s.label}</span>
                 <div className="flex items-center gap-2">
-                  {s.badge && <Badge variant="success">Active</Badge>}
+                  {s.badge && (
+                    <Badge variant={s.badge === "active" ? "success" : "neutral"}>
+                      {s.badge === "active" ? "Active" : "Planned"}
+                    </Badge>
+                  )}
                   <span className="text-[12px] font-semibold text-slate-900">{s.value}</span>
                 </div>
               </div>

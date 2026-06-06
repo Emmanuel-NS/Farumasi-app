@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { getSellerMeBase } from "@/lib/seller-api";
 
 export interface BackendOrderItem {
   id: string;
@@ -110,7 +111,7 @@ export const ordersService = {
     limit?: number;
     status?: string;
   }): Promise<PaginatedOrders> {
-    const { data } = await api.get<PaginatedOrders>("/partners/me/orders", { params });
+    const { data } = await api.get<PaginatedOrders>(`${getSellerMeBase()}/orders`, { params });
     return { ...data, items: data.items.map(norm) };
   },
 
@@ -120,7 +121,7 @@ export const ordersService = {
   },
 
   async updateOrderStatus(id: string, status: string): Promise<BackendOrder> {
-    const { data } = await api.patch<BackendOrder>(`/partners/me/orders/${id}/status`, { order_status: status });
+    const { data } = await api.patch<BackendOrder>(`${getSellerMeBase()}/orders/${id}/status`, { order_status: status });
     return norm(data);
   },
 

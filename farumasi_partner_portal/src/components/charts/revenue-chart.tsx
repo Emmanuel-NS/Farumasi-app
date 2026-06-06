@@ -3,12 +3,23 @@
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { formatCompactRWF } from "@/lib/utils";
+import { formatRWF } from "@/lib/utils";
 import type { ChartDataPoint } from "@/types";
 
 interface RevenueChartProps { data: ChartDataPoint[]; height?: number }
 
 export function RevenueChart({ data, height = 220 }: RevenueChartProps) {
+  if (!data.length) {
+    return (
+      <div
+        className="flex items-center justify-center text-xs text-muted-foreground border border-dashed border-slate-200 rounded-xl bg-slate-50/50"
+        style={{ height }}
+      >
+        No earnings in this period yet
+      </div>
+    );
+  }
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -24,9 +35,9 @@ export function RevenueChart({ data, height = 220 }: RevenueChartProps) {
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-        <YAxis tickFormatter={(v) => formatCompactRWF(v)} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={70} />
+        <YAxis tickFormatter={(v) => formatRWF(v)} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={70} />
         <Tooltip
-          formatter={(value: number, name: string) => [formatCompactRWF(value), name === "value" ? "Revenue" : "Commission"]}
+          formatter={(value: number, name: string) => [formatRWF(value), name === "value" ? "Revenue" : "Commission"]}
           contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)" }}
         />
         <Area type="monotone" dataKey="secondary" name="commission" stroke="#6366f1" strokeWidth={1.5} fill="url(#commissionGrad)" dot={false} />

@@ -15,6 +15,8 @@ export interface BackendPartnerCompany {
   logo_url?: string | null;
   description?: string | null;
   commission_rate_percent?: number | null;
+  effective_commission_rate_percent?: number | null;
+  commission_rate_source?: string | null;
   is_open: boolean;
   verification_status: string;
   status: string;

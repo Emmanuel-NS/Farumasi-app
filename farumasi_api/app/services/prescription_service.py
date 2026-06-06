@@ -41,7 +41,14 @@ from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 
 
-_REVIEWER_ROLES = {UserRole.PHARMACIST, UserRole.PHARMACY_ADMIN, UserRole.SUPER_ADMIN}
+_REVIEWER_ROLES = {
+    UserRole.PHARMACIST,
+    UserRole.PHARMACY_ADMIN,
+    UserRole.SUPER_ADMIN,
+    UserRole.OPERATIONS_ADMIN,
+    UserRole.FINANCE_ADMIN,
+    UserRole.COMPLIANCE_ADMIN,
+}
 
 
 class PrescriptionService:

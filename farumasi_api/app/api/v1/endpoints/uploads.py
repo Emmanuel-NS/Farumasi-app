@@ -43,3 +43,24 @@ async def upload_prescription(
     else:
         url = await UploadService().upload_document(file, folder="prescriptions")
     return {"url": url, "file_key": url.split("/")[-1]}
+
+
+@router.post("/payment-proof")
+async def upload_payment_proof(
+    file: UploadFile = File(...),
+    _: User = Depends(get_current_user),
+):
+    """Upload payment proof (screenshot or PDF) when recording a manual payout."""
+    content_type = (file.content_type or "").lower()
+    if content_type.startswith("image/"):
+        url = await UploadService().upload_image(file, folder="payment-proofs")
+    elif content_type == "application/pdf":
+        url = await UploadService().upload_document(file, folder="payment-proofs")
+    else:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=400,
+            detail="Payment proof must be an image (JPEG, PNG, WebP) or PDF",
+        )
+    return {"url": url, "file_key": url.split("/")[-1]}

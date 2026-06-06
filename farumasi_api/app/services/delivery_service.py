@@ -424,7 +424,7 @@ class DeliveryService:
         await self.db.flush()
 
         await NotificationService(self.db).delivery_assigned(
-            rider.user_id, order.order_code
+            rider.user_id, delivery.id, order_code=order.order_code
         )
 
         await AuditService(self.db).log(
@@ -666,7 +666,7 @@ class DeliveryService:
         patient = patient_res.scalar_one_or_none()
         if patient:
             await NotificationService(self.db).delivery_completed(
-                patient.user_id, order.order_code
+                patient.user_id, order.id, order_code=order.order_code
             )
 
         await AuditService(self.db).log(

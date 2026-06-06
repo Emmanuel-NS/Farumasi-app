@@ -285,6 +285,8 @@ class RecommendationService:
         candidates: List[PharmacyCandidate] = []
 
         for pharmacy in pharmacies:
+            if not pharmacy.is_open:
+                continue
             listings, near_expiry = self._extract_listings(
                 pharmacy.product_listings, required_set, now
             )
@@ -305,6 +307,8 @@ class RecommendationService:
             )
 
         for partner in partners:
+            if not partner.is_open:
+                continue
             listings, near_expiry = self._extract_listings(
                 partner.product_listings, required_set, now
             )
@@ -316,7 +320,7 @@ class RecommendationService:
                     latitude=float(partner.latitude) if getattr(partner, "latitude", None) is not None else None,
                     longitude=float(partner.longitude) if getattr(partner, "longitude", None) is not None else None,
                     accepts_delivery=True,
-                    is_open=True,
+                    is_open=bool(partner.is_open),
                     accepted_insurance_ids=[],
                     available_listings=listings,
                     near_expiry_product_ids=near_expiry,

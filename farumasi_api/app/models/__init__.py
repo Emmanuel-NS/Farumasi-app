@@ -23,6 +23,7 @@ from app.models.article import HealthArticle, ArticleLike, ArticleSave, ArticleC
 from app.models.notification import Notification
 from app.models.audit import AuditLog
 from app.models.consultation import Consultation, ChatMessage
+from app.models.seller_change_request import SellerChangeRequest
 
 __all__ = [
     "Base",
@@ -57,4 +58,7 @@ __all__ = [
     "ArticleComment",
     "Notification",
     "AuditLog",
+    "Consultation",
+    "ChatMessage",
+    "SellerChangeRequest",
 ]

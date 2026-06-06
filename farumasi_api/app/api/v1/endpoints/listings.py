@@ -38,6 +38,7 @@ async def list_listings(
         partner_company_id=partner_company_id,
         product_id=product_id,
         availability_status=availability_status,
+        require_open_seller=True,
     )
     return PaginatedResponse(
         items=[listing_to_out(i) for i in items],

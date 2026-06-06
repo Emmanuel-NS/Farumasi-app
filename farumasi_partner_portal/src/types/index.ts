@@ -20,7 +20,7 @@ export type RequestStatus =
   | "requires_info"
   | "approved"
   | "rejected";
-export type WithdrawalStatus = "pending" | "processing" | "completed" | "rejected";
+export type WithdrawalStatus = "pending" | "approved" | "processing" | "paid" | "completed" | "rejected";
 export type VerificationStatus = "unverified" | "pending" | "verified" | "suspended";
 export type TeamRole = "owner" | "manager" | "inventory_staff" | "finance_staff" | "pharmacist_staff";
 export type CompanyType = "pharmacy" | "supplier" | "device_company" | "distributor" | "wellness" | "importer" | "specialized";

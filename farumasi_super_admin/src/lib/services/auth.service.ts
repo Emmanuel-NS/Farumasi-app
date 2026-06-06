@@ -19,7 +19,9 @@ export function getApiError(err: unknown, fallback: string): string {
     const ax = err as { response?: { data?: { detail?: string } }; message?: string; code?: string };
     if (ax.response?.data?.detail) return String(ax.response.data.detail);
     if (ax.code === "ERR_NETWORK" || ax.message?.includes("Network Error")) {
-      return "Cannot reach the API. Start the backend on http://localhost:8000";
+      if (!ax.response) {
+        return "Cannot reach the API. Start the backend on http://localhost:8000";
+      }
     }
   }
   return fallback;
