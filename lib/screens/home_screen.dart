@@ -33,8 +33,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   static const Color _shellGreenDark = Color(0xFF167B51); // Darker variant
 
   int _currentIndex = 0;
-  late final List<Widget> _pages;
-  late final List<Widget> _pagesWide;
+  late List<Widget> _pages;
+  late List<Widget> _pagesWide;
+  bool _openPrescriptionUpload = false;
   late final AnimationController _hideBottomBarController;
   bool _isBottomBarVisible = true;
   bool _isSidebarCollapsed = false;
@@ -104,11 +105,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void _goToStoreTab() => setState(() => _currentIndex = 0);
 
+  void _rebuildPages({bool embedStoreWide = false}) {
+    _pages = _buildPages(false);
+    _pagesWide = _buildPages(true);
+  }
+
+  void _goToPrescriptionUpload() {
+    setState(() {
+      _openPrescriptionUpload = true;
+      _currentIndex = 4;
+      _rebuildPages();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _openPrescriptionUpload = false);
+    });
+  }
+
   List<Widget> _buildPages(bool embedStoreInShell) {
     return [
       store_screen.MedicineStoreScreen(
         key: ValueKey('store-shell-$embedStoreInShell'),
         embeddedInHomeShell: embedStoreInShell,
+        onUploadPrescription: _goToPrescriptionUpload,
       ),
       const HealthTipsScreen(),
       GuestGate(
@@ -127,9 +145,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       GuestGate(
         feature: 'prescriptions',
         onBrowseStore: _goToStoreTab,
-        child: const PinGate(
+        child: PinGate(
           feature: 'prescriptions',
-          child: PrescriptionsScreen(),
+          child: PrescriptionsScreen(openUploadTab: _openPrescriptionUpload),
         ),
       ),
       const SettingsScreen(),
@@ -147,14 +165,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       value: 1.0, // Fully visible initially
     );
 
+    StateService().addListener(_onStateServiceNavigation);
     // Delay location check slightly to ensure UI is ready
     Future.delayed(Duration.zero, () {
       _autoPickLocation();
     });
   }
 
+  void _onStateServiceNavigation() {
+    final tab = StateService().consumePendingHomeTab();
+    if (tab == null || !mounted) return;
+    final upload = StateService().consumePrescriptionUploadTab();
+    setState(() {
+      _currentIndex = tab;
+      if (upload) _openPrescriptionUpload = true;
+      _rebuildPages();
+    });
+    if (upload) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _openPrescriptionUpload = false);
+      });
+    }
+  }
+
   @override
   void dispose() {
+    StateService().removeListener(_onStateServiceNavigation);
     _hideBottomBarController.dispose();
     super.dispose();
   }
@@ -392,7 +428,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     backgroundColor: Colors.white,
                     elevation: 4,
                     shape: const CircleBorder(),
-                    onPressed: () => setState(() => _currentIndex = 4),
+                    onPressed: _goToPrescriptionUpload,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -769,12 +805,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           const Spacer(),
           _buildDrawerItem(
             context,
-            Icons.settings,
-            'Settings',
-            5,
+            Icons.notifications_outlined,
+            'Notifications',
+            -1,
             restricted: false,
             closeDrawerOnTap: true,
             collapsed: _isSidebarCollapsed,
+            onTapOverride: () {
+              final wide = MediaQuery.sizeOf(context).width >= 600;
+              if (wide) {
+                setState(() {
+                  _activeRightSidebar =
+                      _activeRightSidebar == 'notifications' ? null : 'notifications';
+                });
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationScreen()),
+                );
+              }
+            },
           ),
           if (isLoggedIn)
             _buildDrawerItem(
@@ -985,13 +1035,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           const SizedBox(width: 16),
           if (isLoggedIn) ...[
             _buildShellHeaderIcon(
-              icon: Icons.notifications_none,
-              tooltip: 'Notifications',
-              onTap: () {
-                setState(() {
-                  _activeRightSidebar = _activeRightSidebar == 'notifications' ? null : 'notifications';
-                });
-              },
+              icon: Icons.settings_outlined,
+              tooltip: 'Settings',
+              onTap: () => setState(() => _currentIndex = 5),
             ),
             const SizedBox(width: 12),
             PopupMenuButton<String>(

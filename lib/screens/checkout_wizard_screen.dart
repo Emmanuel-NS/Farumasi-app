@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/repositories/patient_repository.dart';
+import '../core/cart_pharmacy_scoring.dart';
+import '../core/cart_pricing.dart';
 import '../core/sell_mode.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
@@ -23,8 +25,11 @@ class CheckoutWizardScreen extends ConsumerStatefulWidget {
 
 class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   CheckoutStep _step = CheckoutStep.cart;
-  int? _selectedPharmacyIndex;
+  ScoredPharmacyOption? _selectedPharmacy;
+  List<ScoredPharmacyOption> _pharmacyOptions = [];
+  bool _listingsLoading = false;
   int _aiPhase = 0;
+  bool _aiAnimationDone = false;
   bool _pharmaReady = false;
   Timer? _aiTimer;
 
@@ -36,8 +41,6 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   String _momoPhone = '';
   bool _isSubmitting = false;
   String? _confirmedOrderCode;
-
-  static const _deliveryFee = 1500.0;
 
   @override
   void initState() {
@@ -60,9 +63,12 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     _aiTimer?.cancel();
     setState(() {
       _aiPhase = 0;
+      _aiAnimationDone = false;
       _pharmaReady = false;
-      _selectedPharmacyIndex = null;
+      _selectedPharmacy = null;
+      _pharmacyOptions = [];
     });
+    _loadPharmacyRecommendations();
     var tick = 0;
     _aiTimer = Timer.periodic(const Duration(milliseconds: 650), (t) {
       if (!mounted) {
@@ -73,10 +79,82 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
       setState(() => _aiPhase = (tick % 4).clamp(0, 3));
       if (tick >= 4) {
         t.cancel();
-        setState(() => _pharmaReady = true);
+        setState(() => _aiAnimationDone = true);
+        _maybeRevealPharmacies();
       }
     });
   }
+
+  void _maybeRevealPharmacies() {
+    if (_aiAnimationDone && !_listingsLoading) {
+      setState(() => _pharmaReady = true);
+    }
+  }
+
+  Future<void> _loadPharmacyRecommendations() async {
+    setState(() => _listingsLoading = true);
+    try {
+      final items = List<CartItem>.from(StateService().cartItems);
+      final pharmacies = await PatientRepository.instance.fetchPharmacies(limit: 100);
+      final map = <String, Map<String, BackendListing>>{};
+      for (final item in items) {
+        final listings = await PatientRepository.instance.fetchListings(
+          productId: item.medicine.id,
+          limit: 100,
+        );
+        for (final listing in listings) {
+          final sellerId = listing.pharmacyId ?? listing.partnerCompanyId;
+          if (sellerId == null || listing.productId == null) continue;
+          map.putIfAbsent(sellerId, () => {})[listing.productId!] = listing;
+        }
+      }
+
+      List<double>? patientLocation;
+      final coords = StateService().userCoordinates;
+      if (coords != null) {
+        final parts = coords.split(',');
+        if (parts.length == 2) {
+          final lat = double.tryParse(parts[0].trim());
+          final lon = double.tryParse(parts[1].trim());
+          if (lat != null && lon != null) patientLocation = [lat, lon];
+        }
+      }
+
+      final options = scorePharmacies(
+        cartLines: items,
+        pharmacies: pharmacies,
+        listingsMap: map,
+        patientDistrict: _selectedCity,
+        patientLocation: patientLocation,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _pharmacyOptions = options;
+        _listingsLoading = false;
+      });
+      _maybeRevealPharmacies();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _listingsLoading = false;
+        _pharmacyOptions = [];
+      });
+      _maybeRevealPharmacies();
+    }
+  }
+
+  double _catalogueSubtotalMin(List<CartItem> items) => _cartSubtotalRange(items).min;
+
+  double _medicinesTotal(List<CartItem> items) {
+    if (_selectedPharmacy != null) {
+      return _selectedPharmacy!.priceEstimate - _selectedPharmacy!.insuranceSaving;
+    }
+    return _catalogueSubtotalMin(items);
+  }
+
+  double _deliveryFeeFor(List<CartItem> items) =>
+      deliveryFeeForMedicinesSubtotal(_medicinesTotal(items));
 
   int get _stepIndex {
     switch (_step) {
@@ -100,45 +178,6 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         _WizardStep('Payment', Icons.smartphone_outlined),
         _WizardStep('Done', Icons.check_circle_outline),
       ];
-
-  List<_PharmacyOption> _mockPharmacies(List<CartItem> items) {
-    final subtotal = StateService().totalAmount;
-    return [
-      _PharmacyOption(
-        codename: 'A',
-        name: 'Kigali Health Pharmacy',
-        rank: 1,
-        distanceKm: 1.2,
-        availableCount: items.length,
-        totalCount: items.length,
-        priceEstimate: subtotal + 200,
-        deliveryMin: 25,
-        insuranceMatch: true,
-      ),
-      _PharmacyOption(
-        codename: 'B',
-        name: 'Remera MedCenter',
-        rank: 2,
-        distanceKm: 2.8,
-        availableCount: items.length,
-        totalCount: items.length,
-        priceEstimate: subtotal + 500,
-        deliveryMin: 35,
-        insuranceMatch: false,
-      ),
-      _PharmacyOption(
-        codename: 'C',
-        name: 'Nyamirambo Care Pharmacy',
-        rank: 3,
-        distanceKm: 4.1,
-        availableCount: (items.length - 1).clamp(0, items.length),
-        totalCount: items.length,
-        priceEstimate: subtotal - 100,
-        deliveryMin: 45,
-        insuranceMatch: true,
-      ),
-    ];
-  }
 
   Future<void> _submitPayment(List<CartItem> items) async {
     if (ref.read(authProvider).status != AuthStatus.authenticated) {
@@ -188,6 +227,12 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         deliveryLatitude: lat,
         deliveryLongitude: lon,
         patientAccessCode: _accessCodeController.text.trim(),
+        pharmacyId: _selectedPharmacy?.pharmacy.sellerKind == 'pharmacy'
+            ? _selectedPharmacy!.pharmacy.id
+            : null,
+        partnerCompanyId: _selectedPharmacy?.pharmacy.sellerKind != 'pharmacy'
+            ? _selectedPharmacy?.pharmacy.id
+            : null,
       );
 
       final order = await PatientRepository.instance.createOrder(build.payload);
@@ -315,8 +360,25 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     );
   }
 
+  ({double min, double max}) _cartSubtotalRange(List<CartItem> items) {
+    var min = 0.0;
+    var max = 0.0;
+    for (final item in items) {
+      final unit = cartLineUnitPrice(item.medicine, item.sellMode);
+      final packMax = item.sellMode == SellMode.pack &&
+              item.medicine.maxPrice != null &&
+              item.medicine.maxPrice! > item.medicine.price
+          ? item.medicine.maxPrice!
+          : unit;
+      min += unit * item.quantity;
+      max += (packMax > unit ? packMax : unit) * item.quantity;
+    }
+    return (min: min, max: max);
+  }
+
   Widget _buildCartStep(List<CartItem> items) {
-    final subtotal = StateService().totalAmount;
+    final range = _cartSubtotalRange(items);
+    final deliveryFee = deliveryFeeForMedicinesSubtotal(range.min);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -328,8 +390,15 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         ...items.map((item) => _CartLineCard(item: item)),
         const SizedBox(height: 16),
         _SummaryCard(
-          subtotal: subtotal,
-          deliveryFee: _deliveryFee,
+          subtotalMin: range.min,
+          subtotalMax: range.max,
+          deliveryFee: deliveryFee,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Final prices are confirmed when you choose a pharmacy.',
+          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
         ElevatedButton(
@@ -345,7 +414,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   }
 
   Widget _buildPharmacyStep(List<CartItem> items) {
-    final options = _mockPharmacies(items);
+    final options = _pharmacyOptions;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -375,23 +444,62 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
               ],
             ),
           )
+        else if (options.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.store_outlined, size: 48, color: Colors.grey.shade400),
+                const SizedBox(height: 12),
+                const Text(
+                  'No matching pharmacies found',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'None of our partner pharmacies currently have your cart items in stock.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => setState(() => _step = CheckoutStep.cart),
+                  child: const Text('← Edit Cart'),
+                ),
+              ],
+            ),
+          )
         else ...[
           const Text(
             'Recommended pharmacies',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
+          const SizedBox(height: 4),
+          const Text(
+            'Pharmacy names are revealed after payment.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
           const SizedBox(height: 12),
-          ...List.generate(options.length, (i) {
-            final opt = options[i];
-            final selected = _selectedPharmacyIndex == i;
+          ...options.map((opt) {
+            final selected = _selectedPharmacy?.codename == opt.codename;
+            final isBest = opt.rank == 1;
+            final cardDelivery = deliveryFeeForMedicinesSubtotal(
+              opt.priceEstimate - opt.insuranceSaving,
+            );
+            final cardTotal = opt.priceEstimate - opt.insuranceSaving + cardDelivery;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Material(
-                color: Colors.white,
+                color: selected ? const Color(0xFFEDFDF6) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => setState(() => _selectedPharmacyIndex = i),
+                  onTap: () => setState(() => _selectedPharmacy = opt),
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -403,51 +511,80 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                         width: selected ? 2 : 1,
                       ),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CircleAvatar(
-                          backgroundColor: selected
-                              ? const Color(0xFF1E9E68)
-                              : const Color(0xFFF1F5F9),
-                          child: Text(
-                            opt.codename,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: selected ? Colors.white : const Color(0xFF64748B),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                opt.name,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                '${opt.availableCount}/${opt.totalCount} items · ${opt.distanceKm} km · ~${opt.deliveryMin} min',
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                              ),
-                              if (opt.insuranceMatch)
-                                const Text(
-                                  'RSSB insurance match',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF1E9E68),
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: isBest
+                                  ? const Color(0xFF1E9E68)
+                                  : const Color(0xFFF1F5F9),
+                              child: Text(
+                                opt.codename,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isBest ? Colors.white : const Color(0xFF64748B),
                                 ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          '${opt.priceEstimate.toStringAsFixed(0)} RWF',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E9E68),
-                          ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Pharmacy ${opt.codename}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                      if (isBest) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Color(0xFF1E9E68),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: const Text(
+                                            'Best Match',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  Text(
+                                    '${opt.availableCount}/${opt.totalCount} items'
+                                    '${opt.distanceKm > 0 ? ' · ${opt.distanceKm.toStringAsFixed(1)} km' : ''}'
+                                    ' · ~${opt.estimatedDeliveryMin} min',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                  ),
+                                  if (opt.insuranceMatch)
+                                    const Text(
+                                      'RSSB accepted',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF1E9E68),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '${cardTotal.round()} RWF',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E9E68),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -458,11 +595,15 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           }),
           const SizedBox(height: 8),
           ElevatedButton(
-            onPressed: _selectedPharmacyIndex != null
+            onPressed: _selectedPharmacy != null
                 ? () => setState(() => _step = CheckoutStep.details)
                 : null,
             style: _primaryBtn,
-            child: const Text('Continue to Delivery Details'),
+            child: Text(
+              _selectedPharmacy != null
+                  ? 'Continue with Pharmacy ${_selectedPharmacy!.codename}'
+                  : 'Continue with Pharmacy …',
+            ),
           ),
         ],
       ],
@@ -470,7 +611,8 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   }
 
   Widget _buildDetailsStep(List<CartItem> items) {
-    final subtotal = StateService().totalAmount;
+    final medicines = _medicinesTotal(items);
+    final deliveryFee = _deliveryFeeFor(items);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -528,7 +670,51 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        _SummaryCard(subtotal: subtotal, deliveryFee: _deliveryFee),
+        if (_selectedPharmacy != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: const Color(0xFF1E9E68),
+                  child: Text(
+                    _selectedPharmacy!.codename,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pharmacy ${_selectedPharmacy!.codename}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const Text(
+                        'Address revealed after payment',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        _SummaryCard(
+          subtotalMin: medicines,
+          subtotalMax: medicines,
+          deliveryFee: deliveryFee,
+          subtotalLabel: 'Medicines',
+          totalLabel: 'Total (est.)',
+        ),
         const SizedBox(height: 20),
         ElevatedButton(
           onPressed: _neighborhoodController.text.trim().isEmpty
@@ -542,7 +728,9 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   }
 
   Widget _buildPaymentStep(List<CartItem> items) {
-    final total = StateService().totalAmount + _deliveryFee;
+    final medicines = _medicinesTotal(items);
+    final deliveryFee = _deliveryFeeFor(items);
+    final total = medicines + deliveryFee;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -603,8 +791,16 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           ),
         ),
         const SizedBox(height: 16),
+        if (_selectedPharmacy != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Pharmacy ${_selectedPharmacy!.codename} · name revealed after payment',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
+          ),
         Text(
-          'Total: ${total.toStringAsFixed(0)} RWF',
+          'Total: ${total.round()} RWF',
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 20),
@@ -643,7 +839,9 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           ),
         const SizedBox(height: 8),
         Text(
-          'Payment received. Your pharmacy is preparing your order.',
+          _selectedPharmacy != null
+              ? 'Payment received. ${ _selectedPharmacy!.pharmacy.name } is preparing your order.'
+              : 'Payment received. Your pharmacy is preparing your order.',
           style: TextStyle(color: Colors.grey.shade600),
           textAlign: TextAlign.center,
         ),
@@ -803,12 +1001,28 @@ class _CartLineCard extends StatelessWidget {
                   )
                 else
                   Text('Qty: ${item.quantity}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                const SizedBox(height: 4),
+                Builder(builder: (context) {
+                  final unit = cartLineUnitPrice(item.medicine, item.sellMode);
+                  final maxUnit = item.sellMode == SellMode.pack &&
+                          item.medicine.maxPrice != null &&
+                          item.medicine.maxPrice! > item.medicine.price
+                      ? item.medicine.maxPrice!
+                      : unit;
+                  final label = maxUnit > unit + 0.5
+                      ? '${unit.round()} – ${maxUnit.round()} RWF'
+                      : '${unit.round()} RWF';
+                  return Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1E9E68),
+                    ),
+                  );
+                }),
               ],
             ),
-          ),
-          Text(
-            '${item.total.toStringAsFixed(0)} RWF',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E9E68)),
           ),
         ],
       ),
@@ -817,13 +1031,29 @@ class _CartLineCard extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.subtotal, required this.deliveryFee});
+  const _SummaryCard({
+    required this.subtotalMin,
+    required this.subtotalMax,
+    required this.deliveryFee,
+    this.subtotalLabel = 'Subtotal (est.)',
+    this.totalLabel = 'Total (est.)',
+  });
 
-  final double subtotal;
+  final double subtotalMin;
+  final double subtotalMax;
   final double deliveryFee;
+  final String subtotalLabel;
+  final String totalLabel;
+
+  String _range(double min, double max) {
+    if (max > min + 0.5) return '${min.round()} – ${max.round()} RWF';
+    return '${min.round()} RWF';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final totalMin = subtotalMin + deliveryFee;
+    final totalMax = subtotalMax + deliveryFee;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -833,16 +1063,16 @@ class _SummaryCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _row('Subtotal', subtotal),
-          _row('Delivery', deliveryFee),
+          _row(subtotalLabel, _range(subtotalMin, subtotalMax)),
+          _row('Delivery', deliveryFee == 0 ? 'Free' : '${deliveryFee.round()} RWF'),
           const Divider(),
-          _row('Total', subtotal + deliveryFee, bold: true),
+          _row(totalLabel, _range(totalMin, totalMax), bold: true),
         ],
       ),
     );
   }
 
-  Widget _row(String label, double amount, {bool bold = false}) {
+  Widget _row(String label, String amount, {bool bold = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -850,7 +1080,7 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Text(label, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
           Text(
-            '${amount.toStringAsFixed(0)} RWF',
+            amount,
             style: TextStyle(
               fontWeight: bold ? FontWeight.bold : FontWeight.w600,
               color: bold ? const Color(0xFF1E9E68) : null,
@@ -868,26 +1098,3 @@ class _WizardStep {
   final IconData icon;
 }
 
-class _PharmacyOption {
-  const _PharmacyOption({
-    required this.codename,
-    required this.name,
-    required this.rank,
-    required this.distanceKm,
-    required this.availableCount,
-    required this.totalCount,
-    required this.priceEstimate,
-    required this.deliveryMin,
-    required this.insuranceMatch,
-  });
-
-  final String codename;
-  final String name;
-  final int rank;
-  final double distanceKm;
-  final int availableCount;
-  final int totalCount;
-  final double priceEstimate;
-  final int deliveryMin;
-  final bool insuranceMatch;
-}

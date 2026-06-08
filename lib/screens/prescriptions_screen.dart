@@ -12,14 +12,16 @@ import 'order_detail_screen.dart';
 enum _RxTab { active, cancelled, upload }
 
 class PrescriptionsScreen extends StatefulWidget {
-  const PrescriptionsScreen({super.key});
+  const PrescriptionsScreen({super.key, this.openUploadTab = false});
+
+  final bool openUploadTab;
 
   @override
   State<PrescriptionsScreen> createState() => _PrescriptionsScreenState();
 }
 
 class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
-  _RxTab _tab = _RxTab.active;
+  late _RxTab _tab;
   List<PatientPrescription> _all = [];
   bool _loading = true;
   bool _refreshing = false;
@@ -34,6 +36,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
   @override
   void initState() {
     super.initState();
+    _tab = widget.openUploadTab ? _RxTab.upload : _RxTab.active;
     _load();
   }
 

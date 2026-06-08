@@ -15,6 +15,28 @@ class StateService extends ChangeNotifier {
   // Callback to trigger filter modal from different screens
   VoidCallback? onShowFilterModal;
 
+  /// Home shell: switch tab (0=store, 4=prescriptions, 5=settings, etc.)
+  int? pendingHomeTabIndex;
+  bool _openPrescriptionUploadTab = false;
+
+  void requestHomeTab(int index, {bool prescriptionUpload = false}) {
+    pendingHomeTabIndex = index;
+    if (prescriptionUpload) _openPrescriptionUploadTab = true;
+    notifyListeners();
+  }
+
+  int? consumePendingHomeTab() {
+    final tab = pendingHomeTabIndex;
+    pendingHomeTabIndex = null;
+    return tab;
+  }
+
+  bool consumePrescriptionUploadTab() {
+    final v = _openPrescriptionUploadTab;
+    _openPrescriptionUploadTab = false;
+    return v;
+  }
+
   void setSearchQuery(String query) {
     _searchQuery = query;
     notifyListeners();

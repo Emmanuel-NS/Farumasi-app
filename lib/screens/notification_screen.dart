@@ -240,7 +240,20 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
 
     return Scaffold(
       backgroundColor: PortalColors.pageBg,
-      body: SafeArea(child: body),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: PortalColors.slate900,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+        title: const Text(
+          'Notifications',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
+      ),
+      body: body,
     );
   }
 

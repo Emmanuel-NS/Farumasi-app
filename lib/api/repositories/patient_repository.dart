@@ -190,10 +190,12 @@ class PatientRepository {
     double? deliveryLongitude,
     required String patientAccessCode,
     bool deferDeliveryFee = false,
+    String? pharmacyId,
+    String? partnerCompanyId,
   }) async {
     final lineListings = <String, BackendListing>{};
-    String? pharmacyId;
-    String? partnerCompanyId;
+    var sellerPharmacyId = pharmacyId;
+    var sellerPartnerId = partnerCompanyId;
 
     for (final item in cartItems) {
       final listings = await fetchListings(productId: item.medicine.id);
@@ -202,25 +204,29 @@ class PatientRepository {
       }
 
       BackendListing chosen;
-      if (pharmacyId != null) {
+      if (sellerPharmacyId != null) {
         chosen = listings.firstWhere(
-          (l) => l.pharmacyId == pharmacyId,
-          orElse: () => listings.first,
+          (l) => l.pharmacyId == sellerPharmacyId,
+          orElse: () => throw Exception(
+            '${item.medicine.name} is not available at the selected pharmacy',
+          ),
         );
-      } else if (partnerCompanyId != null) {
+      } else if (sellerPartnerId != null) {
         chosen = listings.firstWhere(
-          (l) => l.partnerCompanyId == partnerCompanyId,
-          orElse: () => listings.first,
+          (l) => l.partnerCompanyId == sellerPartnerId,
+          orElse: () => throw Exception(
+            '${item.medicine.name} is not available at the selected seller',
+          ),
         );
       } else {
         chosen = listings.first;
-        pharmacyId = chosen.pharmacyId;
-        partnerCompanyId = chosen.partnerCompanyId;
+        sellerPharmacyId = chosen.pharmacyId;
+        sellerPartnerId = chosen.partnerCompanyId;
       }
 
       lineListings[item.medicine.id] = chosen;
-      pharmacyId ??= chosen.pharmacyId;
-      partnerCompanyId ??= chosen.partnerCompanyId;
+      sellerPharmacyId ??= chosen.pharmacyId;
+      sellerPartnerId ??= chosen.partnerCompanyId;
     }
 
     final items = cartItems.map((item) {
@@ -239,9 +245,9 @@ class PatientRepository {
       'defer_delivery_fee': deferDeliveryFee,
       'items': items,
     };
-    if (pharmacyId != null) payload['pharmacy_id'] = pharmacyId;
-    if (partnerCompanyId != null) {
-      payload['partner_company_id'] = partnerCompanyId;
+    if (sellerPharmacyId != null) payload['pharmacy_id'] = sellerPharmacyId;
+    if (sellerPartnerId != null) {
+      payload['partner_company_id'] = sellerPartnerId;
     }
     if (deliveryLatitude != null) {
       payload['delivery_latitude'] = deliveryLatitude;
@@ -985,6 +991,8 @@ class BackendListing {
   final String availabilityStatus;
   final String? sellerName;
   final String? sellerImageUrl;
+  final int? fulfillmentTimeMinutes;
+  final DateTime? expiryDate;
 
   BackendListing({
     required this.id,
@@ -996,6 +1004,8 @@ class BackendListing {
     this.availabilityStatus = 'available',
     this.sellerName,
     this.sellerImageUrl,
+    this.fulfillmentTimeMinutes,
+    this.expiryDate,
   });
 
   factory BackendListing.fromJson(Map<String, dynamic> json) {
@@ -1005,6 +1015,7 @@ class BackendListing {
     final rawImage = pharmacy?['image_url'] as String? ??
         partner?['logo_url'] as String? ??
         partner?['image_url'] as String?;
+    final expiryRaw = json['expiry_date'] as String?;
     return BackendListing(
       id: json['id'] as String,
       pharmacyId: json['pharmacy_id'] as String?,
@@ -1016,6 +1027,10 @@ class BackendListing {
       sellerName: sellerName,
       sellerImageUrl: rawImage != null && rawImage.isNotEmpty
           ? PatientRepository.resolveMediaUrl(rawImage)
+          : null,
+      fulfillmentTimeMinutes: (json['fulfillment_time_minutes'] as num?)?.toInt(),
+      expiryDate: expiryRaw != null && expiryRaw.isNotEmpty
+          ? DateTime.tryParse(expiryRaw)
           : null,
     );
   }

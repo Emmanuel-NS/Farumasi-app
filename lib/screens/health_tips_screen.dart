@@ -717,7 +717,10 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Row(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 GestureDetector(
                   onTap: () {
@@ -754,7 +757,6 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
                 _TypeFilterDropdown(
                   value: _typeFilter,
                   onChanged: (v) {
@@ -762,7 +764,6 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
                     _reloadFromApi();
                   },
                 ),
-                const Spacer(),
                 _SortDropdown(
                   value: _sortBy,
                   onChanged: (v) {
@@ -839,7 +840,8 @@ class _SortDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      constraints: const BoxConstraints(maxWidth: 148),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(999),
@@ -849,13 +851,14 @@ class _SortDropdown extends StatelessWidget {
         child: DropdownButton<String>(
           value: _options.containsKey(value) ? value : 'newest',
           isDense: true,
+          isExpanded: true,
           style: const TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
             color: PortalColors.slate700,
           ),
           items: _options.entries
-              .map((e) => DropdownMenuItem(value: e.key, child: Text('Sort: ${e.value}')))
+              .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis)))
               .toList(),
           onChanged: (v) {
             if (v != null) onChanged(v);

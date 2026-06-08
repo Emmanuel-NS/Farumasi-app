@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../api/repositories/patient_repository.dart';
+import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/portal/portal_ui.dart';
 
@@ -264,11 +265,11 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
             Center(
               child: CircleAvatar(
                 radius: 36,
-                backgroundImage: ph.imageUrl.isNotEmpty ? NetworkImage(ph.imageUrl) : null,
                 backgroundColor: PortalColors.greenLight,
-                child: ph.imageUrl.isEmpty
-                    ? Text(ph.name[0].toUpperCase(), style: const TextStyle(fontSize: 24, color: PortalColors.green))
-                    : null,
+                child: Text(
+                  ph.name.isNotEmpty ? ph.name[0].toUpperCase() : 'P',
+                  style: const TextStyle(fontSize: 24, color: PortalColors.green),
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -311,6 +312,28 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
       }
+    }
+  }
+
+  Future<void> _pickProduct() async {
+    setState(() => _attachMenuOpen = false);
+    final picked = await showModalBottomSheet<Medicine>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ConsultProductPicker(
+        onPick: (m) => Navigator.pop(ctx, m),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final url = PatientRepository.resolveMediaUrl(picked.imageUrl);
+    setState(() {
+      _pendingAttachmentUrl = url.isNotEmpty ? url : null;
+      _pendingAttachmentName = picked.name;
+      _pendingAttachmentType = 'product';
+    });
+    if (_input.text.isEmpty) {
+      _input.text = 'Product: ${picked.name}';
     }
   }
 
@@ -536,20 +559,15 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                                     CircleAvatar(
                                       radius: 24,
                                       backgroundColor: PortalColors.greenLight,
-                                      backgroundImage: ph.imageUrl.isNotEmpty
-                                          ? NetworkImage(ph.imageUrl)
-                                          : null,
-                                      child: ph.imageUrl.isEmpty
-                                          ? Text(
-                                              ph.name.isNotEmpty
-                                                  ? ph.name[0].toUpperCase()
-                                                  : 'P',
-                                              style: const TextStyle(
-                                                color: PortalColors.green,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            )
-                                          : null,
+                                      child: Text(
+                                        ph.name.isNotEmpty
+                                            ? ph.name[0].toUpperCase()
+                                            : 'P',
+                                        style: const TextStyle(
+                                          color: PortalColors.green,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                     Positioned(
                                       right: 0,
@@ -755,13 +773,10 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                 child: CircleAvatar(
                   radius: 18,
                   backgroundColor: Colors.white24,
-                  backgroundImage: ph.imageUrl.isNotEmpty ? NetworkImage(ph.imageUrl) : null,
-                  child: ph.imageUrl.isEmpty
-                      ? Text(
-                          ph.name.isNotEmpty ? ph.name[0].toUpperCase() : 'P',
-                          style: const TextStyle(color: Colors.white),
-                        )
-                      : null,
+                  child: Text(
+                    ph.name.isNotEmpty ? ph.name[0].toUpperCase() : 'P',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -892,6 +907,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                     children: [
                       TextButton.icon(onPressed: _pickImage, icon: const Icon(Icons.photo, size: 18), label: const Text('Photo')),
                       TextButton.icon(onPressed: _pickDocument, icon: const Icon(Icons.description_outlined, size: 18), label: const Text('Document')),
+                      TextButton.icon(onPressed: _pickProduct, icon: const Icon(Icons.medication_outlined, size: 18), label: const Text('Product')),
                     ],
                   ),
                 ),
@@ -996,6 +1012,32 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                   Flexible(child: Text(msg.attachmentName ?? 'Attachment', style: const TextStyle(fontSize: 13))),
                 ],
               ),
+            if (msg.attachmentType == 'product')
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (msg.attachmentUrl != null && msg.attachmentUrl!.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.network(
+                        PatientRepository.resolveMediaUrl(msg.attachmentUrl),
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.medication_outlined, size: 20),
+                      ),
+                    )
+                  else
+                    const Icon(Icons.medication_outlined, size: 20, color: PortalColors.green),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      msg.attachmentName ?? 'Product',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
             if (msg.content.isNotEmpty)
               Text(msg.content, style: const TextStyle(fontSize: 14, color: PortalColors.slate900)),
             const SizedBox(height: 4),
@@ -1024,6 +1066,117 @@ class _ConsultRailEntry {
   final PatientPharmacist pharmacist;
   final bool isAnonymous;
   final PatientConsultation? consultation;
+}
+
+class _ConsultProductPicker extends StatefulWidget {
+  const _ConsultProductPicker({required this.onPick});
+
+  final ValueChanged<Medicine> onPick;
+
+  @override
+  State<_ConsultProductPicker> createState() => _ConsultProductPickerState();
+}
+
+class _ConsultProductPickerState extends State<_ConsultProductPicker> {
+  final _search = TextEditingController();
+  List<Medicine> _results = [];
+  bool _loading = false;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _runSearch('');
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _runSearch(String q) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () async {
+      setState(() => _loading = true);
+      try {
+        final items = await PatientRepository.instance.fetchProducts(search: q, limit: 30);
+        if (!mounted) return;
+        setState(() {
+          _results = items;
+          _loading = false;
+        });
+      } catch (_) {
+        if (mounted) setState(() => _loading = false);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height * 0.72;
+    return Container(
+      height: height,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.medication_outlined, color: PortalColors.green),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('Attach a product', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: _search,
+              decoration: InputDecoration(
+                hintText: 'Search products…',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                filled: true,
+                fillColor: PortalColors.slate100,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+              onChanged: _runSearch,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: PortalColors.green))
+                : _results.isEmpty
+                    ? const Center(child: Text('No products found'))
+                    : ListView.builder(
+                        itemCount: _results.length,
+                        itemBuilder: (context, i) {
+                          final p = _results[i];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: PortalColors.greenLight,
+                              child: const Icon(Icons.medication, color: PortalColors.green, size: 18),
+                            ),
+                            title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(p.category, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            onTap: () => widget.onPick(p),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 extension on List<PatientConsultMessage> {

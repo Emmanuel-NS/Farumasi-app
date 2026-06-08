@@ -18,7 +18,6 @@ import 'package:farumasi_app/screens/settings_screen.dart';
 import 'package:farumasi_app/screens/orders_screen.dart';
 import 'package:farumasi_app/providers/auth_provider.dart';
 import 'package:farumasi_app/widgets/gated_navigation.dart';
-import 'pharmacy_detail_screen.dart'; // Import Pharmacy Detail Screen
 import 'cart_screen.dart';
 import '../utils/product_cart_flow.dart';
 import '../models/product_category.dart';
@@ -28,8 +27,13 @@ import 'prescriptions_screen.dart';
 
 class MedicineStoreScreen extends StatefulWidget {
   final bool embeddedInHomeShell;
+  final VoidCallback? onUploadPrescription;
 
-  const MedicineStoreScreen({super.key, this.embeddedInHomeShell = false});
+  const MedicineStoreScreen({
+    super.key,
+    this.embeddedInHomeShell = false,
+    this.onUploadPrescription,
+  });
 
   @override
   State<MedicineStoreScreen> createState() => _MedicineStoreScreenState();
@@ -50,6 +54,11 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   bool _sellersLoading = false;
   bool _sellersError = false;
   bool _sellersRequested = false;
+  String? _selectedPharmacyId;
+  String? _selectedPharmacyName;
+  String? _selectedSellerKind;
+  Map<String, double> _pharmacyListingPrices = {};
+  bool _pharmacyListingsLoading = false;
 
   Future<void> _loadStoreSellers() async {
     setState(() {
@@ -130,31 +139,68 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     );
   }
 
+  Future<void> _togglePharmacyFilter(Pharmacy pharmacy) async {
+    if (_selectedPharmacyId == pharmacy.id) {
+      setState(() {
+        _selectedPharmacyId = null;
+        _selectedPharmacyName = null;
+        _selectedSellerKind = null;
+        _pharmacyListingPrices = {};
+      });
+      return;
+    }
+    setState(() {
+      _selectedPharmacyId = pharmacy.id;
+      _selectedPharmacyName = pharmacy.name;
+      _selectedSellerKind = pharmacy.sellerKind;
+      _pharmacyListingsLoading = true;
+      _pharmacyListingPrices = {};
+    });
+    try {
+      final listings = await PatientRepository.instance.fetchListingsForSeller(
+        pharmacy.id,
+        kind: pharmacy.sellerKind,
+      );
+      if (!mounted) return;
+      setState(() {
+        _pharmacyListingPrices = {
+          for (final l in listings)
+            if (l.productId != null && l.productId!.isNotEmpty) l.productId!: l.price,
+        };
+        _pharmacyListingsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _pharmacyListingsLoading = false);
+    }
+  }
+
   Widget _buildSellerCarouselCard(Pharmacy pharmacy) {
+    final isSelected = _selectedPharmacyId == pharmacy.id;
+    final listedCount = isSelected ? _pharmacyListingPrices.length : null;
     return Container(
       width: 250,
+      height: 106,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE6EAEE)),
-        boxShadow: const [
+        border: Border.all(
+          color: isSelected ? const Color(0xFF1E9E68) : const Color(0xFFE6EAEE),
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x120F172A),
-            blurRadius: 10,
-            offset: Offset(0, 5),
+            color: isSelected
+                ? const Color(0x401E9E68)
+                : const Color(0x120F172A),
+            blurRadius: isSelected ? 12 : 10,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PharmacyDetailScreen(pharmacy: pharmacy),
-            ),
-          );
-        },
+        onTap: () => _togglePharmacyFilter(pharmacy),
         child: Row(
           children: [
             ClipRRect(
@@ -163,9 +209,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
               ),
               child: pharmacy.imageUrl.isNotEmpty
                   ? Image.network(
-                      pharmacy.imageUrl,
+                      PatientRepository.resolveMediaUrl(pharmacy.imageUrl),
                       width: 96,
-                      height: double.infinity,
+                      height: 106,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _sellerPlaceholder(pharmacy.name),
                     )
@@ -182,17 +228,19 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                       pharmacy.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
+                        color: isSelected
+                            ? const Color(0xFF1E9E68)
+                            : const Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       pharmacy.sellerKind == 'partner'
-                          ? 'Company · ${pharmacy.district}'
-                          : pharmacy.district,
+                          ? 'Healthcare company'
+                          : (pharmacy.isOpen ? 'Open now' : 'Closed'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -200,6 +248,26 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                         color: Colors.grey.shade600,
                       ),
                     ),
+                    if (isSelected) ...[
+                      const SizedBox(height: 4),
+                      if (_pharmacyListingsLoading)
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        Text(
+                          listedCount != null
+                              ? '$listedCount products listed'
+                              : 'Viewing inventory',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E9E68),
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),
@@ -536,12 +604,28 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
       final matchesRating = m.rating >= _minRating;
 
+      final matchesPharmacy = _selectedPharmacyId == null ||
+          _pharmacyListingPrices.isEmpty ||
+          _pharmacyListingPrices.containsKey(m.id);
+
       return matches &&
           matchesCategory &&
           matchesSubCategory &&
           matchesPrice &&
-          matchesRating;
+          matchesRating &&
+          matchesPharmacy;
     }).toList();
+  }
+
+  String get _medicinesSectionTitle {
+    if (_selectedPharmacyName != null) {
+      return 'At ${_selectedPharmacyName!}';
+    }
+    if (_searchQuery.isNotEmpty) return 'Search Results';
+    if (_selectedCategories.isNotEmpty || _selectedSubCategory != null) {
+      return 'Filtered Results';
+    }
+    return 'Explore Medicines';
   }
 
   // New Helper: Find best match for "Did you mean"
@@ -1307,13 +1391,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           ),
                           const SizedBox(width: 8),
                           _desktopHeroIconButton(
-                            icon: Icons.notifications_none,
-                            tooltip: 'Notifications',
+                            icon: Icons.settings_outlined,
+                            tooltip: 'Settings',
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const NotificationScreen(),
+                                  builder: (_) => const SettingsScreen(),
                                 ),
                               );
                             },
@@ -1597,17 +1681,16 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                         child: Row(
                           children: [
                             Text(
-                              _searchQuery.isNotEmpty
-                                  ? 'Search Results'
-                                  : (_selectedCategories.isNotEmpty ||
-                                            _selectedSubCategory != null
-                                        ? 'Filtered Results'
-                                        : 'Explore Medicines'),
+                              _medicinesSectionTitle,
                               style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF0F172A),
                               ),
+                            ),
+                            Text(
+                              '${_sortedMedicines.length} medicine${_sortedMedicines.length == 1 ? '' : 's'}',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                             ),
                             const Spacer(),
                             if (_searchQuery.isNotEmpty ||
@@ -1821,14 +1904,14 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           padding: const EdgeInsets.only(right: 8.0),
                           child: IconButton(
                             icon: const Icon(
-                              Icons.settings,
+                              Icons.notifications_none,
                               color: Colors.white,
                             ),
                             onPressed: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const SettingsScreen(),
+                                  builder: (context) => const NotificationScreen(),
                                 ),
                               );
                             },
@@ -1926,7 +2009,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                           context,
                                           MaterialPageRoute(
                                             builder: (context) =>
-                                                const NotificationScreen(),
+                                                const SettingsScreen(),
                                           ),
                                         );
                                       },
@@ -1939,17 +2022,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                               shape: BoxShape.circle,
                                             ),
                                             child: const Icon(
-                                              Icons.notifications,
+                                              Icons.settings_outlined,
                                               color: Colors.white,
                                               size: 28,
-                                            ),
-                                          ),
-                                          const Positioned(
-                                            right: 8,
-                                            top: 8,
-                                            child: CircleAvatar(
-                                              radius: 4,
-                                              backgroundColor: Colors.red,
                                             ),
                                           ),
                                         ],
@@ -2368,16 +2443,15 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _searchQuery.isNotEmpty
-                            ? 'Search Results'
-                            : (_selectedCategories.isNotEmpty ||
-                                      _selectedSubCategory != null
-                                  ? 'Filtered Results'
-                                  : 'Explore Medicines'),
+                        _medicinesSectionTitle,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      Text(
+                        '${_sortedMedicines.length} medicine${_sortedMedicines.length == 1 ? '' : 's'}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                       ),
                       if (_searchQuery.isNotEmpty ||
                           _selectedCategories.isNotEmpty ||
@@ -2477,12 +2551,11 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                             );
                             return;
                           }
-                          pushGatedRoute(
-                            context,
-                            feature: 'prescriptions',
-                            requirePin: true,
-                            child: const PrescriptionsScreen(),
-                          );
+                          if (widget.onUploadPrescription != null) {
+                            widget.onUploadPrescription!();
+                          } else {
+                            StateService().requestHomeTab(4, prescriptionUpload: true);
+                          }
                         },
                         tooltip: 'Upload Prescription',
                         child: const Icon(
