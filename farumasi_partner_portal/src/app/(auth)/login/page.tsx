@@ -13,7 +13,7 @@ import { useAuthStore } from "@/lib/store/auth";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
 
-const ALLOWED_ROLES = new Set(["partner_company_admin", "super_admin"]);
+const ALLOWED_ROLES = new Set(["partner_company_admin", "pharmacy_admin", "super_admin"]);
 
 export default function LoginPage() {
   const router = useRouter();

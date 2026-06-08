@@ -8,17 +8,22 @@ class AuthRepository {
     required String password,
   }) async {
     final response = await _client.dio.post('/auth/login', data: {
-      'emailOrPhone': emailOrPhone,
+      'email': emailOrPhone.trim(),
       'password': password,
     });
 
     final data = response.data as Map<String, dynamic>;
     await _client.saveTokens(
-      accessToken: data['accessToken'],
-      refreshToken: data['refreshToken'],
+      accessToken: data['access_token'] as String,
+      refreshToken: data['refresh_token'] as String,
     );
 
-    return AuthResult.fromJson(data);
+    final user = await getMe();
+    return AuthResult(
+      accessToken: data['access_token'] as String,
+      refreshToken: data['refresh_token'] as String,
+      user: user,
+    );
   }
 
   Future<AuthResult> register({
@@ -26,38 +31,28 @@ class AuthRepository {
     required String password,
     String? email,
     String? phone,
-    String role = 'PATIENT',
+    String role = 'patient',
   }) async {
     final response = await _client.dio.post('/auth/register', data: {
-      'name': name,
+      'full_name': name,
       'email': email,
       'phone': phone,
       'password': password,
-      'role': role,
+      'role': role.toLowerCase(),
     });
 
     final data = response.data as Map<String, dynamic>;
     await _client.saveTokens(
-      accessToken: data['accessToken'],
-      refreshToken: data['refreshToken'],
+      accessToken: data['access_token'] as String,
+      refreshToken: data['refresh_token'] as String,
     );
 
-    return AuthResult.fromJson(data);
-  }
-
-  /// Exchanges a Supabase token (from phone OTP, etc.) for our API JWT
-  Future<AuthResult> syncSupabaseToken(String supabaseToken) async {
-    final response = await _client.dio.post('/auth/sync', data: {
-      'supabaseToken': supabaseToken,
-    });
-
-    final data = response.data as Map<String, dynamic>;
-    await _client.saveTokens(
-      accessToken: data['accessToken'],
-      refreshToken: data['refreshToken'],
+    final user = await getMe();
+    return AuthResult(
+      accessToken: data['access_token'] as String,
+      refreshToken: data['refresh_token'] as String,
+      user: user,
     );
-
-    return AuthResult.fromJson(data);
   }
 
   Future<void> logout() async {
@@ -71,12 +66,62 @@ class AuthRepository {
 
   Future<AuthUser?> getMe() async {
     try {
-      final response = await _client.dio.get('/auth/me');
+      final response = await _client.dio.get('/users/me');
       final data = response.data as Map<String, dynamic>;
-      return AuthUser.fromJson(data['user']);
-    } catch (e) {
+      return AuthUser(
+        id: data['id'] as String,
+        name: data['full_name'] as String? ?? 'User',
+        email: data['email'] as String?,
+        phone: data['phone'] as String?,
+        role: (data['role'] as String? ?? 'patient').toUpperCase(),
+      );
+    } catch (_) {
       return null;
     }
+  }
+
+  Future<AuthUser> updateMe({
+    String? fullName,
+    String? email,
+    String? phone,
+  }) async {
+    final response = await _client.dio.put('/users/me', data: {
+      if (fullName != null) 'full_name': fullName,
+      if (email != null) 'email': email,
+      if (phone != null) 'phone': phone,
+    });
+    final data = response.data as Map<String, dynamic>;
+    return AuthUser(
+      id: data['id'] as String,
+      name: data['full_name'] as String? ?? 'User',
+      email: data['email'] as String?,
+      phone: data['phone'] as String?,
+      role: (data['role'] as String? ?? 'patient').toUpperCase(),
+    );
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _client.dio.post('/auth/change-password', data: {
+      'current_password': currentPassword,
+      'new_password': newPassword,
+    });
+  }
+
+  Future<void> logoutEverywhere() async {
+    await _client.dio.post('/auth/logout-everywhere');
+    await _client.clearTokens();
+  }
+
+  Future<void> requestDataExport() async {
+    await _client.dio.post('/users/me/export-data');
+  }
+
+  Future<void> deleteAccount({required String password}) async {
+    await _client.dio.delete('/users/me', data: {'password': password});
+    await _client.clearTokens();
   }
 }
 
@@ -90,16 +135,6 @@ class AuthResult {
     required this.refreshToken,
     this.user,
   });
-
-  factory AuthResult.fromJson(Map<String, dynamic> json) {
-    return AuthResult(
-      accessToken: json['accessToken'] as String,
-      refreshToken: json['refreshToken'] as String,
-      user: json['user'] != null
-          ? AuthUser.fromJson(json['user'] as Map<String, dynamic>)
-          : null,
-    );
-  }
 }
 
 class AuthUser {
@@ -108,7 +143,6 @@ class AuthUser {
   final String? email;
   final String? phone;
   final String role;
-  final String? avatarUrl;
 
   const AuthUser({
     required this.id,
@@ -116,17 +150,5 @@ class AuthUser {
     this.email,
     this.phone,
     required this.role,
-    this.avatarUrl,
   });
-
-  factory AuthUser.fromJson(Map<String, dynamic> json) {
-    return AuthUser(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      email: json['email'] as String?,
-      phone: json['phone'] as String?,
-      role: json['role'] as String,
-      avatarUrl: json['avatarUrl'] as String?,
-    );
-  }
 }

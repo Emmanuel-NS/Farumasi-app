@@ -1,30 +1,72 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:farumasi_app/widgets/responsive_web_wrapper.dart';
+import 'package:farumasi_app/api/repositories/patient_repository.dart';
+import 'package:farumasi_app/models/health_article.dart';
+import 'package:farumasi_app/screens/health_article_detail_screen.dart';
+import 'package:farumasi_app/widgets/sponsored_carousel.dart';
+import 'package:farumasi_app/widgets/portal/portal_ui.dart';
 
-// --- Data Models ---
+String _compactNumber(int n) {
+  if (n < 1000) return '$n';
+  if (n < 1000000) {
+    final v = n / 1000;
+    return n < 10000 ? '${v.toStringAsFixed(1)}k' : '${v.round()}k';
+  }
+  return '${(n / 1000000).toStringAsFixed(1)}M';
+}
 
-class HealthArticle {
-  final String id;
-  final String title;
-  final String subtitle;
-  final String summary;
-  final String fullContent;
-  final String imageUrl;
-  final String source;
-  final String category;
-  final int readTimeMin;
+String _timeAgo(DateTime? d) {
+  if (d == null) return '';
+  final s = DateTime.now().difference(d).inSeconds;
+  if (s < 60) return '${s < 1 ? 1 : s}s';
+  final m = s ~/ 60;
+  if (m < 60) return '${m}m';
+  final h = m ~/ 60;
+  if (h < 24) return '${h}h';
+  final days = h ~/ 24;
+  if (days < 30) return '${days}d';
+  final months = days ~/ 30;
+  if (months < 12) return '${months}mo';
+  return '${months ~/ 12}y';
+}
 
-  const HealthArticle({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.summary,
-    required this.fullContent,
-    required this.imageUrl,
-    required this.source,
-    required this.category,
-    this.readTimeMin = 5,
-  });
+Widget _articleEngagementRow(HealthArticle article, {double iconSize = 14, double fontSize = 11}) {
+  return Row(
+    children: [
+      Icon(
+        article.isLiked ? Icons.favorite : Icons.favorite_border,
+        size: iconSize,
+        color: article.isLiked ? const Color(0xFFF87171) : Colors.white70,
+      ),
+      const SizedBox(width: 3),
+      Text(_compactNumber(article.likeCount), style: TextStyle(fontSize: fontSize, color: Colors.white70, fontWeight: FontWeight.w600)),
+      const SizedBox(width: 10),
+      Icon(Icons.chat_bubble_outline, size: iconSize, color: Colors.white70),
+      const SizedBox(width: 3),
+      Text(_compactNumber(article.commentCount), style: TextStyle(fontSize: fontSize, color: Colors.white70, fontWeight: FontWeight.w600)),
+      const SizedBox(width: 10),
+      Icon(Icons.visibility_outlined, size: iconSize, color: Colors.white70),
+      const SizedBox(width: 3),
+      Text(_compactNumber(article.viewCount), style: TextStyle(fontSize: fontSize, color: Colors.white70, fontWeight: FontWeight.w600)),
+      const SizedBox(width: 10),
+      Icon(Icons.share_outlined, size: iconSize, color: Colors.white70),
+      const SizedBox(width: 3),
+      Text(_compactNumber(article.shareCount), style: TextStyle(fontSize: fontSize, color: Colors.white70, fontWeight: FontWeight.w600)),
+    ],
+  );
+}
+
+void _openArticleDetail(BuildContext context, HealthArticle article) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => HealthArticleDetailScreen(
+        articleId: article.slug.isNotEmpty ? article.slug : article.id,
+        initialArticle: article,
+      ),
+    ),
+  );
 }
 
 // --- Content Data (Mock) ---
@@ -282,6 +324,50 @@ Let crushed garlic sit for 10 minutes before cooking. This allows the enzymatic 
 
 // --- Main Screen ---
 
+const _healthTabs = [
+  'All',
+  'General Health',
+  'Sexual Health',
+  'Mother & Babies',
+  "Women's Health",
+  "Men's Health",
+  'Nutrition',
+  'Child Wellness',
+  'Chronic Diseases',
+  'Mental Health',
+  'Others',
+];
+
+const _categoryMap = {
+  'General Health': ['General Health'],
+  'Wellness': ['General Health'],
+  'First Aid': ['General Health'],
+  'SRH': ['Sexual Health'],
+  'Sexual Health': ['Sexual Health'],
+  'Mother & Babies': ['Mother & Babies'],
+  'Pediatrics': ['Mother & Babies', 'Child Wellness'],
+  "Women's Health": ["Women's Health"],
+  "Men's Health": ["Men's Health"],
+  'Nutrition': ['Nutrition'],
+  'Child Wellness': ['Child Wellness'],
+  'Chronic Disease': ['Chronic Diseases'],
+  'Chronic Care': ['Chronic Diseases'],
+  'Cardiovascular': ['Chronic Diseases'],
+  'Respiratory': ['Chronic Diseases'],
+  'Digestive Health': ['Chronic Diseases'],
+  'Infectious Diseases': ['Chronic Diseases'],
+  'Skin Health': ['Chronic Diseases'],
+  'Eye Health': ['Chronic Diseases'],
+  'Oral Health': ['Chronic Diseases'],
+  'Viral Infection': ['Chronic Diseases'],
+  'Mental Health': ['Mental Health'],
+  'Did You Know?': ['Others'],
+};
+
+bool _categoryMatchesTab(String category, String tab) {
+  return (_categoryMap[category] ?? []).contains(tab);
+}
+
 class HealthTipsScreen extends StatefulWidget {
   const HealthTipsScreen({super.key});
 
@@ -289,400 +375,728 @@ class HealthTipsScreen extends StatefulWidget {
   State<HealthTipsScreen> createState() => _HealthTipsScreenState();
 }
 
-class _HealthTipsScreenState extends State<HealthTipsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _HealthTipsScreenState extends State<HealthTipsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String _activeTab = 'All';
+  bool _savedOnly = false;
+  String _sortBy = 'newest';
+  String _typeFilter = 'all';
+  bool _loading = true;
+  bool _apiLoaded = false;
+  List<HealthArticle> _liveArticles = const [];
+  final Set<String> _savedIds = {};
+  List<HealthArticle>? _cachedAllArticles;
+  List<HealthArticle>? _cachedFilteredArticles;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _loadArticlesFromApi();
+  }
+
+  Future<void> _loadArticlesFromApi() async {
+    setState(() => _loading = true);
+    try {
+      final apiArticles = await PatientRepository.instance.fetchArticles(
+        sortBy: _sortBy,
+        articleType: _typeFilter == 'all' ? null : _typeFilter,
+        savedOnly: _savedOnly,
+        limit: 100,
+      );
+      if (!mounted) return;
+      setState(() {
+        _liveArticles = apiArticles.map(HealthArticle.fromPatientArticle).toList();
+        _apiLoaded = true;
+        _loading = false;
+        _invalidateArticleCache();
+        for (final a in _liveArticles.where((a) => a.isSaved)) {
+          _savedIds.add(a.id);
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _liveArticles = _articles;
+        _apiLoaded = false;
+        _loading = false;
+        _invalidateArticleCache();
+      });
+    }
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  // Filter a specific list based on search query
-  List<HealthArticle> _filterArticles(List<HealthArticle> list) {
-    if (_searchQuery.isEmpty) return list;
-    final query = _searchQuery.toLowerCase();
-    return list.where((item) {
-      return item.title.toLowerCase().contains(query) ||
-          item.summary.toLowerCase().contains(query) ||
-          item.category.toLowerCase().contains(query);
-    }).toList();
+  void _invalidateArticleCache() {
+    _cachedAllArticles = null;
+    _cachedFilteredArticles = null;
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _searchQuery = value;
+        _cachedFilteredArticles = null;
+      });
+    });
+  }
+
+  List<HealthArticle> get _allArticles {
+    _cachedAllArticles ??= () {
+      final seen = <String>{};
+      final out = <HealthArticle>[];
+      final source = _apiLoaded
+          ? _liveArticles
+          : [
+              ..._liveArticles,
+              ..._remedies,
+              ..._srh,
+              ..._mentalHealth,
+              ..._nutrition,
+              ..._motherAndBabies,
+              ..._facts,
+            ];
+      for (final a in source) {
+        if (seen.add(a.id)) out.add(a);
+      }
+      return out;
+    }();
+    return _cachedAllArticles!;
+  }
+
+  List<HealthArticle> get _filteredArticles {
+    if (_cachedFilteredArticles != null) return _cachedFilteredArticles!;
+    var list = _allArticles;
+    if (_activeTab == 'Others') {
+      list = list.where((a) => !(_categoryMap.containsKey(a.category))).toList();
+    } else if (_activeTab != 'All') {
+      list = list.where((a) => _categoryMatchesTab(a.category, _activeTab)).toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((a) {
+        return a.title.toLowerCase().contains(q) ||
+            a.summary.toLowerCase().contains(q) ||
+            a.category.toLowerCase().contains(q) ||
+            a.subtitle.toLowerCase().contains(q) ||
+            a.categories.any((c) => c.toLowerCase().contains(q));
+      }).toList();
+    }
+    if (_savedOnly && !_apiLoaded) {
+      list = list.where((a) => _savedIds.contains(a.id) || a.isSaved).toList();
+    }
+    _cachedFilteredArticles = list;
+    return list;
+  }
+
+  void _reloadFromApi() {
+    _invalidateArticleCache();
+    _loadArticlesFromApi();
+  }
+
+  void _setFilter(VoidCallback update) {
+    setState(() {
+      update();
+      _cachedFilteredArticles = null;
+    });
+  }
+
+  void _toggleSaved(String id) {
+    _setFilter(() {
+      if (_savedIds.contains(id)) {
+        _savedIds.remove(id);
+      } else {
+        _savedIds.add(id);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final articles = _filteredArticles;
+    final featured = articles.take(4).toList();
+    final width = MediaQuery.sizeOf(context).width;
+    final crossCount = width > 900 ? 3 : width > 600 ? 2 : 1;
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
-      child: ResponsiveWebWrapper(
-        child: Scaffold(
-          backgroundColor: Colors.grey.shade50,
-          body: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              expandedHeight: 180, // Increased height for search bar
-              floating: true,
-              pinned: true,
-              elevation: 0,
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF1E9E68),
-              flexibleSpace: FlexibleSpaceBar(
-                titlePadding: EdgeInsets.only(left: 16, bottom: 120),
-                title: Text(
-                  "Discover Wellness",
-                  style: TextStyle(
-                    color: const Color(0xFF1E9E68),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                  ),
+      child: ColoredBox(
+        color: PortalColors.pageBgAlt,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(articles.length),
+            if (!_apiLoaded && !_loading)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: const Color(0xFFFFF7ED),
+                child: const Text(
+                  'Showing offline sample articles — connect to the API for live content.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF9A3412)),
                 ),
-                background: Stack(
-                  children: [
-                    Positioned(
-                      right: -30,
-                      top: -30,
-                      child: Opacity(
-                        opacity: 0.1,
-                        child: Icon(Icons.spa, size: 180, color: const Color(0xFF1E9E68)),
+              ),
+            Expanded(
+              child: _loading
+                  ? const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(color: PortalColors.green),
+                          SizedBox(height: 12),
+                          Text('Loading articles…', style: TextStyle(color: PortalColors.slate500)),
+                        ],
                       ),
-                    ),
-                    // Search Bar
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: 70, // Positioned above the tab bar
-                      child: Container(
-                        height: 45,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: 'Search tips, remedies, facts...',
-                            prefixIcon: Icon(Icons.search, color: Colors.grey),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: Icon(Icons.clear, color: Colors.grey),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() => _searchQuery = '');
-                                    },
-                                  )
-                                : null,
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(vertical: 10),
+                    )
+                  : articles.isEmpty
+                  ? PortalEmptyState(
+                      icon: Icons.search_off,
+                      message: _savedOnly ? 'No saved articles yet' : 'No articles found',
+                    )
+                  : CustomScrollView(
+                      slivers: [
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                          sliver: SliverList(
+                            delegate: SliverChildListDelegate([
+                              if (!_savedOnly) const SponsoredCarousel(),
+                              if (featured.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                _FeaturedRail(
+                                  articles: featured,
+                                  savedIds: _savedIds,
+                                  onToggleSaved: _toggleSaved,
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+                              Row(
+                                children: [
+                                  const Text(
+                                    'More to read',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: PortalColors.slate900,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '${articles.length} articles',
+                                    style: const TextStyle(fontSize: 11, color: PortalColors.slate400),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                            ]),
                           ),
-                          onChanged: (value) {
-                            setState(() => _searchQuery = value);
-                          },
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              bottom: PreferredSize(
-                preferredSize: Size.fromHeight(60),
-                child: Container(
-                  height: 60,
-                  alignment: Alignment.centerLeft,
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    labelColor: Colors.white,
-                    unselectedLabelColor: const Color(0xFF1E9E68),
-                    indicator: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                      color: const Color(0xFF1E9E68),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF1E9E68).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                          sliver: SliverGrid(
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossCount,
+                              mainAxisSpacing: 16,
+                              crossAxisSpacing: 16,
+                              childAspectRatio: 0.8,
+                            ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final article = articles[index];
+                                return _ModernArticleCard(
+                                  article: article,
+                                  isSaved: _savedIds.contains(article.id),
+                                  onToggleSaved: () => _toggleSaved(article.id),
+                                );
+                              },
+                              childCount: articles.length,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    indicatorSize: TabBarIndicatorSize.label,
-                    padding: EdgeInsets.zero,
-                    labelPadding: EdgeInsets.symmetric(horizontal: 8),
-                    tabs: [
-                        _buildTab("General Tips"),
-                        _buildTab("Remedies"),
-                        _buildTab("SRH"),
-                        _buildTab("Mental Health"),
-                        _buildTab("Nutrition"),
-                        _buildTab("Mother & Babies"),
-                        _buildTab("Did You Know?"),
-                      ],
-                  ),
-                ),
-              ),
             ),
-          ];
-        },
-        body: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildArticleList(_filterArticles(_articles)),
-              _buildArticleList(_filterArticles(_remedies)),
-              _buildArticleList(_filterArticles(_srh)),
-              _buildArticleList(_filterArticles(_mentalHealth)),
-              _buildArticleList(_filterArticles(_nutrition)),
-              _buildArticleList(_filterArticles(_motherAndBabies)),
-              _buildArticleList(_filterArticles(_facts), isFact: true),
-            ],
-          ),
-      ),
-    ),
-    ),
-    );
-  }
-
-  Widget _buildTab(String text) {
-    return Tab(
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: const Color(0xFF1E9E68)),
+          ],
         ),
-        child: Text(text, style: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
 
-  Widget _buildArticleList(List<HealthArticle> items, {bool isFact = false}) {
-    if (items.isEmpty) {
-       return Center(
-         child: Column(
-           mainAxisAlignment: MainAxisAlignment.center,
-           children: [
-             Icon(Icons.search_off, size: 64, color: Colors.grey.shade300),
-             SizedBox(height: 16),
-             Text(
-               "No results found",
-               style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
-             ),
-           ],
-         ),
-       );
-    }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (isFact) {
-          final isWide = constraints.maxWidth > 700;
-          return ListView.separated(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.symmetric(
-              vertical: 20,
-              horizontal: isWide ? (constraints.maxWidth - 600) / 2 : 20,
-            ),
-            itemCount: items.length,
-            separatorBuilder: (c, i) => const SizedBox(height: 20),
-            itemBuilder: (context, index) {
-              return _DidYouKnowCard(article: items[index]);
-            },
-          );
-        }
-
-        if (constraints.maxWidth > 700) {
-          return GridView.builder(
-            padding: EdgeInsets.all(20),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 450,
-              mainAxisSpacing: 20,
-              crossAxisSpacing: 20,
-              childAspectRatio: 1.1,
-            ),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              return _ModernArticleCard(article: items[index]);
-            },
-          );
-        }
-
-        return ListView.separated(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.all(20),
-          itemCount: items.length,
-          separatorBuilder: (c, i) => const SizedBox(height: 20),
-          itemBuilder: (context, index) {
-            return _ModernArticleCard(article: items[index]);
-          },
-        );
-      },
-    );
-  }
-}
-
-// --- Detail Screen ---
-
-class ArticleDetailScreen extends StatelessWidget {
-  final HealthArticle article;
-  const ArticleDetailScreen({super.key, required this.article});
-
-  @override
-  Widget build(BuildContext context) {
-    return ResponsiveWebWrapper(
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-            pinned: true,
-            expandedHeight: 300,
-            leading: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: CircleAvatar(
-                backgroundColor: Colors.white.withOpacity(0.9),
-                child: IconButton(
-                  icon: Icon(Icons.arrow_back, color: const Color(0xFF1E9E68)),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Hero(
-                tag: 'img-${article.id}',
-                child: Image.network(
-                  article.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (c, e, s) => Container(
-                    color: const Color(0xFF1E9E68),
-                    child: Icon(
-                      Icons.broken_image,
-                      size: 50,
-                      color: const Color(0xFF1E9E68),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+  Widget _buildHeader(int count) {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E9E68),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          article.category.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1E9E68),
-                            letterSpacing: 1,
-                          ),
+                      Text(
+                        'Health Tips',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: PortalColors.green,
                         ),
                       ),
-                      Spacer(),
-                      Icon(Icons.access_time, size: 16, color: Colors.grey),
-                      SizedBox(width: 4),
+                      SizedBox(height: 4),
                       Text(
-                        "${article.readTimeMin} min read",
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                        'Trusted health articles for Rwanda',
+                        style: TextStyle(fontSize: 12, color: PortalColors.slate500),
                       ),
                     ],
                   ),
-                  SizedBox(height: 20),
-                  Text(
-                    article.title,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
-                      color: Colors.black87,
-                    ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: PortalColors.greenLight,
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    article.subtitle,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey.shade600,
-                      height: 1.5,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, size: 12, color: PortalColors.green),
+                      SizedBox(width: 4),
+                      Text(
+                        '$count articles',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: PortalColors.green,
+                        ),
+                      ),
+                    ],
                   ),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24.0),
-                    child: Divider(thickness: 1, color: Colors.grey.shade200),
-                  ),
-
-                  Text(
-                    article.fullContent,
-                    style: TextStyle(
-                      fontSize: 17,
-                      height: 1.8,
-                      color: Colors.grey.shade800,
-                    ),
-                  ),
-
-                  SizedBox(height: 40),
-                  Container(
-                    padding: EdgeInsets.all(16),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Container(
+              height: 45,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: PortalColors.slate200),
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search articles, tips, guides…',
+                  hintStyle: TextStyle(fontSize: 14, color: PortalColors.slate400),
+                  prefixIcon: Icon(Icons.search, size: 18, color: PortalColors.slate400),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.close, size: 18, color: PortalColors.slate400),
+                          onPressed: () {
+                            _searchController.clear();
+                            _setFilter(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                ),
+                onChanged: _onSearchChanged,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    _setFilter(() => _savedOnly = !_savedOnly);
+                    _reloadFromApi();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      color: _savedOnly ? const Color(0xFFF59E0B) : Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: _savedOnly ? const Color(0xFFF59E0B) : PortalColors.slate200,
+                      ),
                     ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.menu_book, color: const Color(0xFF1E9E68)),
-                        SizedBox(width: 12),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Source",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              Text(
-                                article.source,
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                        Icon(
+                          _savedOnly ? Icons.bookmark : Icons.bookmark_border,
+                          size: 14,
+                          color: _savedOnly ? Colors.white : PortalColors.slate700,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _savedOnly ? 'Saved only' : 'Saved',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _savedOnly ? Colors.white : PortalColors.slate700,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  SizedBox(height: 50),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                _TypeFilterDropdown(
+                  value: _typeFilter,
+                  onChanged: (v) {
+                    _setFilter(() => _typeFilter = v);
+                    _reloadFromApi();
+                  },
+                ),
+                const Spacer(),
+                _SortDropdown(
+                  value: _sortBy,
+                  onChanged: (v) {
+                    _setFilter(() => _sortBy = v);
+                    _reloadFromApi();
+                  },
+                ),
+              ],
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: Row(
+              children: _healthTabs.map((tab) {
+                final selected = _activeTab == tab;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => _setFilter(() => _activeTab = tab),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: selected ? PortalColors.green : Colors.white,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: selected ? PortalColors.green : PortalColors.slate200,
+                        ),
+                        boxShadow: selected
+                            ? [
+                                BoxShadow(
+                                  color: PortalColors.green.withValues(alpha: 0.25),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 4),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Text(
+                        tab,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: selected ? Colors.white : PortalColors.green,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SortDropdown extends StatelessWidget {
+  const _SortDropdown({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  static const _options = {
+    'newest': 'Newest',
+    'oldest': 'Oldest',
+    'likes': 'Most Liked',
+    'views': 'Most Viewed',
+    'shares': 'Most Shared',
+    'comments': 'Most Commented',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: PortalColors.slate200),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _options.containsKey(value) ? value : 'newest',
+          isDense: true,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: PortalColors.slate700,
+          ),
+          items: _options.entries
+              .map((e) => DropdownMenuItem(value: e.key, child: Text('Sort: ${e.value}')))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _TypeFilterDropdown extends StatelessWidget {
+  const _TypeFilterDropdown({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  static const _options = {
+    'all': 'All Types',
+    'article': 'Article',
+    'tip': 'Tip',
+    'guide': 'Guide',
+    'news': 'News',
+    'did_you_know': 'Did You Know',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: PortalColors.slate200),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _options.containsKey(value) ? value : 'all',
+          isDense: true,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: PortalColors.slate700,
+          ),
+          items: _options.entries
+              .map((e) => DropdownMenuItem(value: e.key, child: Text('Type: ${e.value}')))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _FeaturedRail extends StatelessWidget {
+  const _FeaturedRail({
+    required this.articles,
+    required this.savedIds,
+    required this.onToggleSaved,
+  });
+
+  final List<HealthArticle> articles;
+  final Set<String> savedIds;
+  final ValueChanged<String> onToggleSaved;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.auto_awesome, size: 12, color: Colors.white),
+                  SizedBox(width: 4),
+                  Text(
+                    'FEATURED',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${articles.length} highlights',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: PortalColors.slate900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: articles.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, i) => _FeaturedCard(
+              article: articles[i],
+              isSaved: savedIds.contains(articles[i].id),
+              onToggleSaved: () => onToggleSaved(articles[i].id),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FeaturedCard extends StatelessWidget {
+  const _FeaturedCard({
+    required this.article,
+    required this.isSaved,
+    required this.onToggleSaved,
+  });
+
+  final HealthArticle article;
+  final bool isSaved;
+  final VoidCallback onToggleSaved;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _openArticleDetail(context, article),
+      child: Container(
+        width: 160,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: PortalColors.slate900,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              article.imageUrl,
+              fit: BoxFit.cover,
+              cacheWidth: 480,
+              errorBuilder: (_, __, ___) => Container(color: PortalColors.green),
+            ),
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xEB000000), Colors.transparent],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 8,
+              right: 8,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Colors.white30),
+                      ),
+                      child: Text(
+                        article.category,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onToggleSaved,
+                    icon: Icon(
+                      isSaved ? Icons.bookmark : Icons.bookmark_border,
+                      size: 16,
+                      color: isSaved ? Color(0xFFFCD34D) : Colors.white70,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 10,
+              right: 10,
+              bottom: 10,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    article.title,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      _articleEngagementRow(article, iconSize: 10, fontSize: 9),
+                      const Spacer(),
+                      Text(
+                        _timeAgo(article.publishedAt).isNotEmpty
+                            ? _timeAgo(article.publishedAt)
+                            : '${article.readTimeMin}m',
+                        style: const TextStyle(fontSize: 9, color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -691,228 +1105,144 @@ class ArticleDetailScreen extends StatelessWidget {
 // --- Cards ---
 
 class _ModernArticleCard extends StatelessWidget {
+  const _ModernArticleCard({
+    required this.article,
+    this.isSaved = false,
+    this.onToggleSaved,
+  });
+
   final HealthArticle article;
-  const _ModernArticleCard({required this.article});
+  final bool isSaved;
+  final VoidCallback? onToggleSaved;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ArticleDetailScreen(article: article),
-        ),
-      ),
-      child: Container(
-        height: 260,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 15,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Hero(
-                  tag: 'img-${article.id}',
-                  child: Image.network(
-                    article.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => Container(
-                      color: Colors.grey.shade200,
-                      child: Icon(
-                        Icons.image_not_supported,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.black.withOpacity(0.85),
-                        Colors.transparent,
-                      ],
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      stops: [0.0, 0.6],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 20,
-                left: 20,
-                right: 20,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        article.category,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      article.title,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      article.subtitle,
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DidYouKnowCard extends StatelessWidget {
-  final HealthArticle article;
-  const _DidYouKnowCard({required this.article});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ArticleDetailScreen(article: article),
-        ),
-      ),
+      onTap: () => _openArticleDetail(context, article),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.orange.shade100),
+          color: PortalColors.slate900,
           boxShadow: [
             BoxShadow(
-              color: Colors.orange.shade50,
-              blurRadius: 10,
-              offset: Offset(0, 6),
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: Column(
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Container(
-              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-              color: Colors.orange.shade50,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.lightbulb, color: Colors.orange, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        "DID YOU KNOW?",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
-                          color: Colors.orange.shade800,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 12,
-                    color: Colors.orange.shade300,
-                  ),
-                ],
+            Hero(
+              tag: 'img-${article.id}',
+              child: Image.network(
+                article.imageUrl,
+                fit: BoxFit.cover,
+                cacheWidth: 640,
+                errorBuilder: (_, __, ___) => Container(color: PortalColors.slate200),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.all(16),
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xEB000000), Color(0x40000000), Colors.transparent],
+                  stops: [0.0, 0.5, 0.85],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              left: 12,
+              right: 12,
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          article.title,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Colors.white30),
+                      ),
+                      child: Text(
+                        article.category,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
                         ),
-                        SizedBox(height: 8),
+                      ),
+                    ),
+                  ),
+                  if (onToggleSaved != null)
+                    IconButton(
+                      onPressed: onToggleSaved,
+                      icon: Icon(
+                        isSaved ? Icons.bookmark : Icons.bookmark_border,
+                        color: isSaved ? Color(0xFFFCD34D) : Colors.white70,
+                        size: 18,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black38,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.schedule, size: 12, color: Colors.white70),
+                        const SizedBox(width: 4),
                         Text(
-                          article.summary,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.black54,
-                            height: 1.5,
+                          '${article.readTimeMin}m',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  SizedBox(width: 16),
-                  Hero(
-                    tag: 'img-${article.id}',
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        article.imageUrl,
-                        width: 90,
-                        height: 90,
-                        fit: BoxFit.cover,
-                        errorBuilder: (c, e, s) => Container(
-                          width: 90,
-                          height: 90,
-                          color: Colors.orange.shade100,
-                          child: Icon(Icons.broken_image, color: Colors.orange),
-                        ),
-                      ),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 14,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    article.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    article.summary,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  _articleEngagementRow(article),
                 ],
               ),
             ),
@@ -922,5 +1252,4 @@ class _DidYouKnowCard extends StatelessWidget {
     );
   }
 }
-
 

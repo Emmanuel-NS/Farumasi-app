@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { pharmaciesService, BackendPharmacy, BackendListing, sellerImageSrc } from "@/lib/services/pharmacies.service";
 import { partnersService, partnerAsStoreSeller } from "@/lib/services/partners.service";
 import { ordersService } from "@/lib/services/orders.service";
+import { paymentsService } from "@/lib/services/payments.service";
 import {
   prescriptionsService,
   type BackendPrescription,
@@ -343,6 +344,7 @@ export default function CartPage() {
   const [momoPhone, setMomoPhone]             = useState("");
   const [accessCode, setAccessCode]           = useState("");
   const [isPlacingOrder, setIsPlacingOrder]   = useState(false);
+  const [paymentStepLabel, setPaymentStepLabel] = useState("");
   const [confirmedOrderCode, setConfirmedOrderCode] = useState<string>("");
   const [pharmacyList, setPharmacyList]       = useState<Pharmacy[]>([]);
   const [listingsMap, setListingsMap]         = useState<ListingsMap>(new Map());
@@ -1499,16 +1501,19 @@ export default function CartPage() {
                 Icon: Smartphone,
                 iconColor: "text-red-500",
                 label: t.cart_airtel,
-                desc: "Push notification to your Airtel number",
+                desc: "Coming soon — use MTN MoMo for now",
               },
             ] as const
           ).map(({ key, Icon, iconColor, label, desc }) => (
             <button
               key={key}
-              onClick={() => setPayMethod(key)}
+              type="button"
+              onClick={() => key === "momo" && setPayMethod(key)}
+              disabled={key === "airtel"}
               className={cn(
                 "w-full flex items-center gap-4 p-4 rounded-3xl border-2 text-left transition-all",
-                payMethod === key
+                key === "airtel" && "opacity-50 cursor-not-allowed",
+                payMethod === key && key === "momo"
                   ? "border-farumasi-500 bg-farumasi-50"
                   : "border-slate-100 bg-white hover:border-farumasi-200"
               )}
@@ -1660,21 +1665,19 @@ export default function CartPage() {
           onClick={async () => {
             if (!canPlace || isPlacingOrder) return;
             setIsPlacingOrder(true);
+            setPaymentStepLabel("Creating order…");
             try {
               const deliveryAddr = fulfillment === "delivery"
                 ? `${street}, ${district}`
                 : undefined;
 
-              // Build order items from enriched (works for both normal and prescription carts)
               const orderItems = enriched.map((e: CartEntry) => {
-                // Look up listing in the map — may be keyed by pharmacy_id or partner_company_id
                 const sellerId = selectedOption?.pharmacy.id;
                 const listingEntry = sellerId
                   ? listingsMap.get(sellerId)?.get(e.medicine.id)
                   : undefined;
 
                 if (listingEntry?.listingId) {
-                  // Preferred path — let the server re-derive price from the listing
                   return {
                     product_listing_id: listingEntry.listingId,
                     quantity: e.qty,
@@ -1682,7 +1685,6 @@ export default function CartPage() {
                   };
                 }
 
-                // Fallback (legacy) path — no matched listing; send client price
                 const unitPrice = cartLineUnitPrice(e.medicine, e.sellMode, listingEntry ?? undefined);
                 return {
                   product_name: e.medicine.name,
@@ -1694,7 +1696,7 @@ export default function CartPage() {
               const seller = selectedOption?.pharmacy;
               const isPartnerSeller = seller?.sellerKind === "partner";
               const result = await ordersService.createOrder({
-                prescription_id: rxId ?? undefined,  // links order to prescription when locked
+                prescription_id: rxId ?? undefined,
                 pharmacy_id: isPartnerSeller ? undefined : seller?.id,
                 partner_company_id: isPartnerSeller ? seller?.id : undefined,
                 delivery_method: fulfillment,
@@ -1708,9 +1710,23 @@ export default function CartPage() {
                 notes: notes || undefined,
                 items: orderItems,
                 patient_access_code: accessCode.trim() || undefined,
+                defer_delivery_fee: deferDeliveryFee,
               });
-              setConfirmedOrderCode(result.order_code ?? result.id ?? ORDER_NUM);
-              if (!isLocked) clear();  // don't clear cart items that don't exist in the store
+
+              const orderId = result.id;
+              const orderCode = result.order_code ?? result.id ?? ORDER_NUM;
+
+              if (amountDueNow > 0) {
+                setPaymentStepLabel("Starting MTN MoMo payment…");
+                const init = await paymentsService.initiateMomo(orderId, momoPhone);
+                if (init.payment_status !== "paid") {
+                  setPaymentStepLabel("Waiting for MoMo approval on your phone…");
+                  await paymentsService.waitUntilPaid(orderId);
+                }
+              }
+
+              setConfirmedOrderCode(orderCode);
+              if (!isLocked) clear();
               setStep("confirmed");
             } catch (err) {
               const detail =
@@ -1719,10 +1735,13 @@ export default function CartPage() {
               toast.error(
                 typeof detail === "string"
                   ? detail
-                  : "Could not place order. Please try again."
+                  : err instanceof Error
+                  ? err.message
+                  : "Could not complete checkout. Please try again."
               );
             } finally {
               setIsPlacingOrder(false);
+              setPaymentStepLabel("");
             }
           }}
           className={cn(
@@ -1732,8 +1751,15 @@ export default function CartPage() {
               : "bg-slate-200 cursor-not-allowed text-slate-400"
           )}
         >
-          {isPlacingOrder ? "Placing Order…" : `${t.cart_place_order} · ${formatPrice(amountDueNow)}`}
+          {isPlacingOrder
+            ? paymentStepLabel || "Processing…"
+            : `${t.cart_place_order} · ${formatPrice(amountDueNow)}`}
         </button>
+        {isPlacingOrder && amountDueNow > 0 && (
+          <p className="text-center text-xs text-slate-500 mt-2">
+            Approve the MTN MoMo request on {momoPhone.trim()} to continue.
+          </p>
+        )}
       </div>
     );
   }

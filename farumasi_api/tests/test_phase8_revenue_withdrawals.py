@@ -26,18 +26,37 @@ def _h(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
-def _withdrawal_json(
-    amount: float,
+def _withdrawal_json(amount: float) -> dict:
+    return {"amount": amount}
+
+
+async def _seed_payout_credentials(
+    client: AsyncClient,
+    admin_tokens: dict,
     *,
     method: str = "mobile_money",
     account: str = "+250788000000",
-    name: str = "Test Partner",
-) -> dict:
-    return {
-        "amount": amount,
-        "payout_method": method,
-        "payout_details": {"account": account, "account_name": name},
-    }
+    name: str = "Test Owner",
+) -> None:
+    r = await client.put(
+        "/api/v1/sellers/me/payout-credentials",
+        headers=_h(admin_tokens),
+        json={
+            "payout_method": method,
+            "payout_details": {"account": account, "account_name": name},
+        },
+    )
+    assert r.status_code == 200, r.text
+
+
+async def _pay_order_sandbox(client: AsyncClient, patient: dict, order_id: str, phone: str = "0788000000") -> None:
+    r = await client.post(
+        f"/api/v1/patients/me/orders/{order_id}/payments/momo/initiate",
+        headers=_h(patient),
+        json={"phone": phone},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["payment_status"] == "paid", r.text
 
 
 async def _register(client: AsyncClient, role: str) -> dict:
@@ -188,7 +207,9 @@ async def _setup_pharmacy_with_revenue(
     order_id = await _create_listing_order(
         client, patient, listing_id, quantity=quantity
     )
+    await _pay_order_sandbox(client, patient, order_id)
     await _complete_order(client, admin, order_id)
+    await _seed_payout_credentials(client, admin)
     return admin, pharmacy_id, order_id
 
 
@@ -209,7 +230,11 @@ async def _setup_partner_with_revenue(
     order_id = await _create_listing_order(
         client, patient, listing_id, quantity=quantity
     )
+    await _pay_order_sandbox(client, patient, order_id)
     await _complete_order(client, admin, order_id, kind="partner")
+    await _seed_payout_credentials(
+        client, admin, method="bank_transfer", account="0001234567890", name="Test Partner"
+    )
     return admin, partner_id, order_id
 
 
@@ -365,7 +390,7 @@ async def test_partner_admin_requests_withdrawal(client: AsyncClient):
     r = await client.post(
         "/api/v1/partners/me/withdrawals",
         headers=_h(admin),
-        json=_withdrawal_json(100.0, method="bank_transfer"),
+        json=_withdrawal_json(100.0),
     )
     assert r.status_code == 201, r.text
     body = r.json()
@@ -397,7 +422,37 @@ async def test_withdrawal_amount_must_be_positive(client: AsyncClient):
     assert r.status_code == 422, r.text
 
 
-# 14. Patient cannot request a withdrawal.
+# 14. Withdrawal requires registered payout credentials.
+async def test_withdrawal_requires_payout_credentials(client: AsyncClient):
+    sa = await _register(client, "super_admin")
+    admin = await _register(client, "pharmacy_admin")
+    pharmacy_id = await _create_pharmacy(client, admin)
+    product_id = await _create_product(client, sa)
+    listing_id = await _add_pharmacy_listing(client, admin, product_id)
+    patient = await _register(client, "patient")
+    order_id = await _create_listing_order(client, patient, listing_id)
+    await _pay_order_sandbox(client, patient, order_id)
+    await _complete_order(client, admin, order_id)
+
+    r = await client.post(
+        "/api/v1/pharmacies/me/withdrawals",
+        headers=_h(admin),
+        json=_withdrawal_json(100.0),
+    )
+    assert r.status_code == 400, r.text
+    assert "payout credentials" in r.text.lower()
+
+    await _seed_payout_credentials(client, admin)
+    r2 = await client.post(
+        "/api/v1/pharmacies/me/withdrawals",
+        headers=_h(admin),
+        json=_withdrawal_json(100.0),
+    )
+    assert r2.status_code == 201, r2.text
+    assert r2.json()["pharmacy_id"] == pharmacy_id
+
+
+# 15. Patient cannot request a withdrawal.
 async def test_patient_cannot_request_withdrawal(client: AsyncClient):
     patient = await _register(client, "patient")
     r = await client.post(

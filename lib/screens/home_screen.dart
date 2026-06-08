@@ -8,7 +8,9 @@ import 'package:farumasi_app/screens/medicine_store_screen.dart'
     as store_screen;
 import 'package:farumasi_app/screens/consult_chat_screen.dart'; // Direct consultation
 import 'package:farumasi_app/screens/orders_screen.dart';
-import 'package:farumasi_app/screens/prescription_upload_screen.dart';
+import 'package:farumasi_app/screens/prescriptions_screen.dart';
+import 'package:farumasi_app/widgets/guest_gate.dart';
+import 'package:farumasi_app/widgets/pin_gate.dart';
 import 'package:farumasi_app/screens/help_screen.dart';
 import 'package:farumasi_app/screens/notification_screen.dart';
 import 'package:farumasi_app/screens/cart_screen.dart';
@@ -31,6 +33,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   static const Color _shellGreenDark = Color(0xFF167B51); // Darker variant
 
   int _currentIndex = 0;
+  late final List<Widget> _pages;
+  late final List<Widget> _pagesWide;
   late final AnimationController _hideBottomBarController;
   bool _isBottomBarVisible = true;
   bool _isSidebarCollapsed = false;
@@ -98,16 +102,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  void _goToStoreTab() => setState(() => _currentIndex = 0);
+
   List<Widget> _buildPages(bool embedStoreInShell) {
     return [
       store_screen.MedicineStoreScreen(
         key: ValueKey('store-shell-$embedStoreInShell'),
         embeddedInHomeShell: embedStoreInShell,
       ),
-      HealthTipsScreen(),
-      ConsultChatScreen(), // Replaced CartScreen with PharmacistList
-      OrdersScreen(),
-      const PrescriptionUploadScreen(),
+      const HealthTipsScreen(),
+      GuestGate(
+        feature: 'Consult',
+        onBrowseStore: _goToStoreTab,
+        child: const ConsultChatScreen(),
+      ),
+      GuestGate(
+        feature: 'orders',
+        onBrowseStore: _goToStoreTab,
+        child: PinGate(
+          feature: 'orders',
+          child: OrdersScreen(onBrowseStore: () => setState(() => _currentIndex = 0)),
+        ),
+      ),
+      GuestGate(
+        feature: 'prescriptions',
+        onBrowseStore: _goToStoreTab,
+        child: const PinGate(
+          feature: 'prescriptions',
+          child: PrescriptionsScreen(),
+        ),
+      ),
       const SettingsScreen(),
     ];
   }
@@ -115,6 +139,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
+    _pages = _buildPages(false);
+    _pagesWide = _buildPages(true);
     _hideBottomBarController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -185,11 +211,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-    final isLoggedIn = authState.status == AuthStatus.authenticated;
     final isWideScreen = MediaQuery.of(context).size.width >= 600;
     final showDesktopShellHeader = isWideScreen;
-    final pages = _buildPages(isWideScreen);
+    final pages = isWideScreen ? _pagesWide : _pages;
 
     return PopScope(
       canPop: _currentIndex == 0,
@@ -202,7 +226,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       },
       child: Scaffold(
         drawer: null,
-        // Wrap body in NotificationListener to detect scrolling
         body: NotificationListener<UserScrollNotification>(
           onNotification: (notification) {
             if (notification.direction == ScrollDirection.reverse) {
@@ -218,8 +241,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 _isBottomBarVisible = true;
               }
             }
-            return true; // Allow bubble up? Actually we can return true to maybe stop bubbling or false. Usually false.
-            // But here, returning true might stop refresher. Let's return false to be safe.
+            return false;
           },
           child: isWideScreen
               ? Column(
@@ -322,7 +344,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                             ),
                                             child: Container(
                                               color: const Color(0xFFF6F8FB),
-                                              child: pages[_currentIndex],
+                                              child: IndexedStack(
+                                                index: _currentIndex,
+                                                children: pages,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -351,7 +376,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   ],
                 )
-              : pages[_currentIndex],
+              : IndexedStack(
+                  index: _currentIndex,
+                  children: pages,
+                ),
         ),
         floatingActionButton: isWideScreen
             ? null
@@ -361,44 +389,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   height: 70,
                   width: 70,
                   child: FloatingActionButton(
-                    backgroundColor: isLoggedIn
-                        ? Colors.white
-                        : Colors.grey[300],
+                    backgroundColor: Colors.white,
                     elevation: 4,
                     shape: const CircleBorder(),
-                    onPressed: () {
-                      if (!isLoggedIn) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text(
-                              "Please log in to upload a prescription.",
-                            ),
-                            action: SnackBarAction(
-                              label: "Login",
-                              onPressed: () => context.go(AppRoutes.auth),
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-                      setState(() => _currentIndex = 4);
-                    },
+                    onPressed: () => setState(() => _currentIndex = 4),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.document_scanner_outlined,
-                          color: isLoggedIn
-                              ? const Color(0xFF1E9E68)
-                              : Colors.grey,
+                          color: Color(0xFF1E9E68),
                           size: 28,
                         ),
-                        Text(
+                        const Text(
                           "Upload Rx",
                           style: TextStyle(
-                            color: isLoggedIn
-                                ? const Color(0xFF1E9E68)
-                                : Colors.grey,
+                            color: Color(0xFF1E9E68),
                             fontWeight: FontWeight.bold,
                             fontSize: 8,
                           ),
@@ -450,15 +456,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool isCart = false,
   }) {
     final isLoggedIn = ref.read(authProvider).status == AuthStatus.authenticated;
-    // Index 2 is Consult/Chat, Index 3 is Orders
-    final isRestricted = (index == 2 || index == 3) && !isLoggedIn;
+    final isRestricted =
+        (index == 2 || index == 3) && !isLoggedIn;
 
     final isSelected = _currentIndex == index;
-    // If restricted, show as semi-transparent/greyed out
-    final color = isRestricted
-        ? Colors
-              .white30 // Darker/muted on green background specific for disabled
-        : (isSelected ? Colors.white : Colors.white70);
+    final color = isSelected ? Colors.white : Colors.white70;
 
     Widget iconWidget = Icon(icon, color: color, size: 28);
 
@@ -479,23 +481,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       onTap: () {
         if (index == _currentIndex) return;
 
-        if (isRestricted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                index == 2
-                    ? "Please log in to consult a pharmacist."
-                    : "Please log in to view your orders.",
-              ),
-              action: SnackBarAction(
-                label: "Login",
-                onPressed: () => context.go(AppRoutes.auth),
-              ),
-            ),
-          );
-          return;
-        }
-
         setState(() {
           _currentIndex = index;
         });
@@ -505,11 +490,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            iconWidget,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                iconWidget,
+                if (isRestricted)
+                  const Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Icon(
+                      Icons.lock,
+                      size: 10,
+                      color: Colors.white70,
+                    ),
+                  ),
+              ],
+            ),
             Text(
               label,
               style: TextStyle(
-                color: color,
+                color: isRestricted ? Colors.white54 : color,
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
@@ -550,11 +550,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 Navigator.pop(context);
               }
               if (restricted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(restrictedMessage ?? 'Please log in first.'),
-                  ),
-                );
                 return;
               }
               if (onTapOverride != null) {
@@ -570,15 +565,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 vertical: 9,
               ),
               decoration: BoxDecoration(
-                color: selected ? const Color(0x3347D196) : Colors.transparent,
+                color: restricted
+                    ? Colors.transparent
+                    : (selected ? const Color(0x3347D196) : Colors.transparent),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: selected
-                      ? const Color(0x6647D196)
-                      : const Color(0x00000000),
+                  color: restricted
+                      ? Colors.transparent
+                      : (selected
+                            ? const Color(0x6647D196)
+                            : const Color(0x00000000)),
                 ),
               ),
-              child: Row(
+              child: Opacity(
+                opacity: restricted ? 0.4 : 1,
+                child: Row(
                 mainAxisAlignment: collapsed
                     ? MainAxisAlignment.center
                     : MainAxisAlignment.start,
@@ -635,6 +636,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -757,12 +759,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           _buildDrawerItem(
             context,
-            Icons.upload_file,
-            'Upload Prescription',
+            Icons.description_outlined,
+            'Prescriptions',
             4,
             restricted: !isLoggedIn,
-            restrictedMessage: 'Please log in to upload a prescription.',
-            closeDrawerOnTap: true,
+            closeDrawerOnTap: false,
             collapsed: _isSidebarCollapsed,
           ),
           const Spacer(),
@@ -790,6 +791,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const SnackBar(content: Text('Logged out successfully')),
                 );
               },
+            )
+          else
+            _buildDrawerItem(
+              context,
+              Icons.login,
+              'Sign In',
+              6,
+              restricted: false,
+              closeDrawerOnTap: false,
+              collapsed: _isSidebarCollapsed,
+              onTapOverride: () => context.go(AppRoutes.auth),
             ),
           if (!_isSidebarCollapsed)
             Padding(

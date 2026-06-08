@@ -2,21 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'dart:async'; // For Typewriter animation timer
 import '../models/models.dart';
-import '../data/dummy_data.dart';
 import '../widgets/medicine_item.dart';
 import 'medicine_detail_screen.dart';
 import '../services/state_service.dart';
+import '../services/patient_catalog_service.dart';
+import '../api/repositories/patient_repository.dart';
 import 'auth_screen.dart';
 
 import 'notification_screen.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:farumasi_app/screens/help_screen.dart';
 import 'package:farumasi_app/screens/profile_screen.dart';
 import 'package:farumasi_app/screens/settings_screen.dart';
 import 'package:farumasi_app/screens/orders_screen.dart';
+import 'package:farumasi_app/providers/auth_provider.dart';
+import 'package:farumasi_app/widgets/gated_navigation.dart';
 import 'pharmacy_detail_screen.dart'; // Import Pharmacy Detail Screen
 import 'cart_screen.dart';
-import 'prescription_upload_screen.dart'; // Add this import
+import '../utils/product_cart_flow.dart';
+import '../models/product_category.dart';
+import '../widgets/store_category_scroller.dart';
+import '../widgets/sponsored_carousel.dart';
+import 'prescriptions_screen.dart';
 
 class MedicineStoreScreen extends StatefulWidget {
   final bool embeddedInHomeShell;
@@ -37,13 +45,302 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   double _lastScrollOffset = 0.0;
   bool _showFloatingActions = true; // Default to visible
 
+  List<Medicine> get _catalogMedicines => PatientCatalogService().medicines;
+  List<Pharmacy> _pharmacies = const [];
+  bool _sellersLoading = false;
+  bool _sellersError = false;
+  bool _sellersRequested = false;
+
+  Future<void> _loadStoreSellers() async {
+    setState(() {
+      _sellersLoading = true;
+      _sellersError = false;
+    });
+    try {
+      final result = await PatientRepository.instance.fetchStoreSellers();
+      if (!mounted) return;
+      setState(() {
+        if (result.sellers.isNotEmpty) {
+          _pharmacies = result.sellers;
+        }
+        _sellersError = result.hadError && result.sellers.isEmpty;
+        _sellersLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _sellersError = true;
+        _sellersLoading = false;
+      });
+    }
+  }
+
+  List<ProductCategory> get _backendCategories =>
+      PatientCatalogService().categoryDefinitions;
+
+  void _toggleCategory(ProductCategory cat) {
+    setState(() {
+      if (cat.name == 'All') {
+        _selectedCategories.clear();
+        _selectedSubCategory = null;
+        return;
+      }
+      final norm = cat.name.toLowerCase();
+      if (_selectedCategories.contains(norm)) {
+        _selectedCategories.remove(norm);
+      } else {
+        _selectedCategories.add(norm);
+        _selectedSubCategory = null;
+      }
+    });
+  }
+
+  String _categoryLabel(String key) {
+    for (final c in _backendCategories) {
+      if (c.name.toLowerCase() == key) return c.name;
+    }
+    if (key.isEmpty) return key;
+    return key[0].toUpperCase() + key.substring(1);
+  }
+
+  void _scrollCategoriesBy(int delta) {
+    if (!_categoryScrollController.hasClients) return;
+    _categoryScrollController.animateTo(
+      (_categoryScrollController.offset + delta).clamp(
+        0.0,
+        _categoryScrollController.position.maxScrollExtent,
+      ),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Widget _buildCategoryRow({bool showArrows = false, double height = 96}) {
+    return StoreCategoryScroller(
+      categories: _backendCategories,
+      selectedCategoryKeys: _selectedCategories,
+      onToggle: _toggleCategory,
+      scrollController: _categoryScrollController,
+      showScrollArrows: showArrows,
+      canScrollLeft: _canScrollLeft,
+      canScrollRight: _canScrollRight,
+      onScrollLeft: () => _scrollCategoriesBy(-400),
+      onScrollRight: () => _scrollCategoriesBy(400),
+      height: height,
+    );
+  }
+
+  Widget _buildSellerCarouselCard(Pharmacy pharmacy) {
+    return Container(
+      width: 250,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE6EAEE)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x120F172A),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PharmacyDetailScreen(pharmacy: pharmacy),
+            ),
+          );
+        },
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(14),
+              ),
+              child: pharmacy.imageUrl.isNotEmpty
+                  ? Image.network(
+                      pharmacy.imageUrl,
+                      width: 96,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _sellerPlaceholder(pharmacy.name),
+                    )
+                  : _sellerPlaceholder(pharmacy.name, width: 96),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      pharmacy.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      pharmacy.sellerKind == 'partner'
+                          ? 'Company · ${pharmacy.district}'
+                          : pharmacy.district,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sellerPlaceholder(String name, {double width = 96}) {
+    final initials = name.trim().isNotEmpty
+        ? name.trim().split(' ').take(2).map((w) => w[0]).join().toUpperCase()
+        : '?';
+    return Container(
+      width: width,
+      color: const Color(0xFFEDFDF6),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF1E9E68),
+          fontSize: 18,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCatalogStatusBanner() {
+    final catalog = PatientCatalogService();
+    if (catalog.isLoading && catalog.medicines.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: const Color(0xFFEFF6FF),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E9E68)),
+            ),
+            SizedBox(width: 10),
+            Text('Loading medicines from server…', style: TextStyle(fontSize: 13, color: Color(0xFF475569))),
+          ],
+        ),
+      );
+    }
+    if (!catalog.loadedFromApi && catalog.error != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: const Color(0xFFFFF7ED),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_off, size: 16, color: Color(0xFF9A3412)),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Could not reach the API — showing offline sample products.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF9A3412)),
+              ),
+            ),
+            TextButton(
+              onPressed: () => PatientCatalogService().refresh(immediate: true),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  void _requestStoreSellers() {
+    if (_sellersRequested) return;
+    _sellersRequested = true;
+    _loadStoreSellers();
+  }
+
+  Widget _buildSellersCarousel({EdgeInsets? padding}) {
+    final pad = padding ?? const EdgeInsets.symmetric(horizontal: 16);
+    if (_sellersLoading && _pharmacies.isEmpty) {
+      return SizedBox(
+        height: 106,
+        child: Padding(
+          padding: pad,
+          child: const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Loading partners…',
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+            ),
+          ),
+        ),
+      );
+    }
+    if (_pharmacies.isEmpty) {
+      return SizedBox(
+        height: 106,
+        child: Padding(
+          padding: pad,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _sellersError
+                  ? 'Could not load sellers. Check your connection and try again.'
+                  : 'No pharmacies or companies with stock right now.',
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+            ),
+          ),
+        ),
+      );
+    }
+    return SizedBox(
+      height: 106,
+      child: ListView.separated(
+        padding: pad,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: _pharmacies.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (context, index) =>
+            _buildSellerCarouselCard(_pharmacies[index]),
+      ),
+    );
+  }
+
   void _onGlobalSearchChanged() {
     if (_searchQuery != StateService().searchQuery) {
       setState(() {
         _searchQuery = StateService().searchQuery;
         _searchController.text = _searchQuery;
       });
+      PatientCatalogService().refresh(search: _searchQuery);
     }
+  }
+
+  void _onCatalogChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -58,6 +355,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     });
 
     StateService().addListener(_onGlobalSearchChanged);
+    PatientCatalogService().addListener(_onCatalogChanged);
+    PatientCatalogService().refresh(immediate: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _requestStoreSellers();
+      });
+    });
     _searchController = TextEditingController(); // Initialize
     _scrollController = ScrollController();
     _scrollController.addListener(() {
@@ -95,6 +399,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   void dispose() {
     StateService().onShowFilterModal = null;
     StateService().removeListener(_onGlobalSearchChanged);
+    PatientCatalogService().removeListener(_onCatalogChanged);
     _categoryScrollController.removeListener(_updateCategoryScrollState);
     _categoryScrollController.dispose();
     _scrollController.dispose();
@@ -170,7 +475,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
   // 1b. Helper to get results for a specific string query
   List<Medicine> _getMedicinesForQuery(String queryText) {
-    return dummyMedicines.where((m) {
+    return _catalogMedicines.where((m) {
       // Clean the query
       final cleanQuery = queryText.toLowerCase().trim();
       List<String> queryWords = cleanQuery
@@ -209,7 +514,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
       // Category Match
       final matchesCategory =
           _selectedCategories.isEmpty ||
-          _selectedCategories.contains(m.category);
+          m.allCategories.any((c) => _selectedCategories.contains(c.toLowerCase()));
 
       // SubCategory Match (if any selected, must match)
       final matchesSubCategory =
@@ -246,7 +551,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
     // 1. Collect candidate terms from known medicines
     final Set<String> candidates = {};
-    for (var m in dummyMedicines) {
+    for (var m in _catalogMedicines) {
       candidates.add(m.name.toLowerCase());
       // Add category as candidate
       candidates.add(m.category.toLowerCase());
@@ -371,20 +676,16 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   }
 
   List<String> get _categories {
-    final cats = dummyMedicines.map((e) => e.category).toSet().toList();
-    if (cats.contains('Others')) {
-      cats.remove('Others');
-      cats.add('Others'); // Force 'Others' to be the last element
-    }
-    return cats;
+    return _backendCategories.map((c) => c.name).toList();
   }
 
   List<String> get _currentSubCategories {
     if (_selectedCategories.isEmpty) return [];
-    return dummyMedicines
+    return _catalogMedicines
         .where(
           (m) =>
-              _selectedCategories.contains(m.category) && m.subCategory != null,
+              m.allCategories.any((c) => _selectedCategories.contains(c.toLowerCase())) &&
+              m.subCategory != null,
         )
         .map((m) => m.subCategory!)
         .toSet()
@@ -639,14 +940,15 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
                           if (selected != null) {
                             setModalState(() {
-                              _selectedCategories = selected.toSet();
-                              // Clear subcat if not valid anymore (optional but safer)
+                              _selectedCategories =
+                                  selected.map((s) => s.toLowerCase()).toSet();
                               if (_selectedSubCategory != null) {
-                                // Check if the selected sub belongs to ANY of the new categories
-                                bool isValid = dummyMedicines.any(
+                                bool isValid = _catalogMedicines.any(
                                   (m) =>
-                                      _selectedCategories.contains(
-                                        m.category,
+                                      m.allCategories.any(
+                                        (c) => _selectedCategories.contains(
+                                          c.toLowerCase(),
+                                        ),
                                       ) &&
                                       m.subCategory == _selectedSubCategory,
                                 );
@@ -706,7 +1008,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               .map(
                                 (cat) => Chip(
                                   label: Text(
-                                    cat,
+                                    _categoryLabel(cat),
                                     style: const TextStyle(fontSize: 12),
                                   ),
                                   deleteIcon: const Icon(Icons.close, size: 16),
@@ -1184,7 +1486,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                       delegate: _StickyHeaderDelegate(
                         height: _hideDesktopCategories
                             ? 64
-                            : 154, // Collapse height vs Expanded
+                            : 168,
                         child: Container(
                           color: const Color(0xFFF6F8FB),
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -1261,261 +1563,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                 const SizedBox(height: 10),
                               if (!_hideDesktopCategories)
                                 Expanded(
-                                  child: ScrollConfiguration(
-                                    behavior: ScrollConfiguration.of(context)
-                                        .copyWith(
-                                          dragDevices: {
-                                            PointerDeviceKind.touch,
-                                            PointerDeviceKind.mouse,
-                                            PointerDeviceKind.trackpad,
-                                          },
-                                        ),
-                                    child: Stack(
-                                      children: [
-                                        MouseRegion(
-                                          cursor: SystemMouseCursors.click,
-                                          child: ListView(
-                                            controller:
-                                                _categoryScrollController,
-                                            scrollDirection: Axis.horizontal,
-                                            physics:
-                                                const BouncingScrollPhysics(),
-                                            children: _categories
-                                                .map(
-                                                  (cat) => Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          right: 16,
-                                                        ),
-                                                    child: GestureDetector(
-                                                      onTap: () {
-                                                        setState(() {
-                                                          if (_selectedCategories
-                                                              .contains(cat)) {
-                                                            _selectedCategories
-                                                                .remove(cat);
-                                                          } else {
-                                                            _selectedCategories
-                                                                .add(cat);
-                                                            _selectedSubCategory =
-                                                                null;
-                                                          }
-                                                        });
-                                                      },
-                                                      child: Column(
-                                                        children: [
-                                                          AnimatedContainer(
-                                                            duration:
-                                                                const Duration(
-                                                                  milliseconds:
-                                                                      180,
-                                                                ),
-                                                            padding:
-                                                                const EdgeInsets.all(
-                                                                  12,
-                                                                ),
-                                                            decoration: BoxDecoration(
-                                                              color:
-                                                                  _selectedCategories
-                                                                      .contains(
-                                                                        cat,
-                                                                      )
-                                                                  ? const Color(
-                                                                      0xFF1E9E68,
-                                                                    )
-                                                                  : const Color(
-                                                                      0xFFF1F5F9,
-                                                                    ),
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                              border: Border.all(
-                                                                color:
-                                                                    _selectedCategories
-                                                                        .contains(
-                                                                          cat,
-                                                                        )
-                                                                    ? const Color(
-                                                                        0xFF1E9E68,
-                                                                      )
-                                                                    : const Color(
-                                                                        0xFFD8E1EA,
-                                                                      ),
-                                                              ),
-                                                              boxShadow:
-                                                                  _selectedCategories
-                                                                      .contains(
-                                                                        cat,
-                                                                      )
-                                                                  ? const [
-                                                                      BoxShadow(
-                                                                        color: Color(
-                                                                          0x3322A36F,
-                                                                        ),
-                                                                        blurRadius:
-                                                                            12,
-                                                                        offset:
-                                                                            Offset(
-                                                                              0,
-                                                                              4,
-                                                                            ),
-                                                                      ),
-                                                                    ]
-                                                                  : null,
-                                                            ),
-                                                            child: Icon(
-                                                              _getCategoryIcon(
-                                                                cat,
-                                                              ),
-                                                              color:
-                                                                  _selectedCategories
-                                                                      .contains(
-                                                                        cat,
-                                                                      )
-                                                                  ? Colors.white
-                                                                  : const Color(
-                                                                      0xFF1E9E68,
-                                                                    ),
-                                                              size: 26,
-                                                            ),
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 8,
-                                                          ),
-                                                          SizedBox(
-                                                            width: 92,
-                                                            child: Text(
-                                                              cat,
-                                                              textAlign:
-                                                                  TextAlign
-                                                                      .center,
-                                                              maxLines: 1,
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
-                                                              style: TextStyle(
-                                                                fontSize: 12,
-                                                                color:
-                                                                    _selectedCategories
-                                                                        .contains(
-                                                                          cat,
-                                                                        )
-                                                                    ? const Color(
-                                                                        0xFF0F172A,
-                                                                      )
-                                                                    : const Color(
-                                                                        0xFF334155,
-                                                                      ),
-                                                                fontWeight:
-                                                                    _selectedCategories
-                                                                        .contains(
-                                                                          cat,
-                                                                        )
-                                                                    ? FontWeight
-                                                                          .w700
-                                                                    : FontWeight
-                                                                          .w500,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                )
-                                                .toList(),
-                                          ),
-                                        ),
-                                        if (_canScrollLeft)
-                                          Positioned(
-                                            left: 0,
-                                            top: 6,
-                                            bottom: 46,
-                                            child: Center(
-                                              child: Material(
-                                                elevation: 4,
-                                                shape: const CircleBorder(),
-                                                shadowColor: Colors.black26,
-                                                child: CircleAvatar(
-                                                  backgroundColor: Colors.white,
-                                                  radius: 20,
-                                                  child: IconButton(
-                                                    padding: EdgeInsets.zero,
-                                                    icon: const Icon(
-                                                      Icons.arrow_back_ios_new,
-                                                      color: Color(0xFF1E9E68),
-                                                      size: 20,
-                                                    ),
-                                                    tooltip: 'Scroll left',
-                                                    onPressed: () {
-                                                      if (_categoryScrollController
-                                                          .hasClients) {
-                                                        _categoryScrollController
-                                                            .animateTo(
-                                                              _categoryScrollController
-                                                                      .offset -
-                                                                  400,
-                                                              duration:
-                                                                  const Duration(
-                                                                    milliseconds:
-                                                                        250,
-                                                                  ),
-                                                              curve: Curves
-                                                                  .easeOutCubic,
-                                                            );
-                                                      }
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        if (_canScrollRight)
-                                          Positioned(
-                                            right: 0,
-                                            top: 6,
-                                            bottom: 46,
-                                            child: Center(
-                                              child: Material(
-                                                elevation: 4,
-                                                shape: const CircleBorder(),
-                                                shadowColor: Colors.black26,
-                                                child: CircleAvatar(
-                                                  backgroundColor: Colors.white,
-                                                  radius: 20,
-                                                  child: IconButton(
-                                                    padding: EdgeInsets.zero,
-                                                    icon: const Icon(
-                                                      Icons.arrow_forward_ios,
-                                                      color: Color(0xFF1E9E68),
-                                                      size: 20,
-                                                    ),
-                                                    tooltip: 'Scroll right',
-                                                    onPressed: () {
-                                                      if (_categoryScrollController
-                                                          .hasClients) {
-                                                        _categoryScrollController
-                                                            .animateTo(
-                                                              _categoryScrollController
-                                                                      .offset +
-                                                                  400,
-                                                              duration:
-                                                                  const Duration(
-                                                                    milliseconds:
-                                                                        250,
-                                                                  ),
-                                                              curve: Curves
-                                                                  .easeOutCubic,
-                                                            );
-                                                      }
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
+                                  child: _buildCategoryRow(showArrows: true),
                                 ),
                             ],
                           ),
@@ -1524,11 +1572,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                     ),
                     if (_searchQuery.isEmpty &&
                         _selectedCategories.isEmpty) ...[
+                      const SliverToBoxAdapter(child: SponsoredCarousel()),
+                      SliverToBoxAdapter(child: _buildCatalogStatusBanner()),
                       SliverToBoxAdapter(
                         child: const Padding(
                           padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
                           child: Text(
-                            'Pharmacies we work with',
+                            'Pharmacies & Companies',
                             style: TextStyle(
                               fontSize: 21,
                               fontWeight: FontWeight.w700,
@@ -1538,123 +1588,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                         ),
                       ),
                       SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: 106,
-                          child: ScrollConfiguration(
-                            behavior: ScrollConfiguration.of(context).copyWith(
-                              dragDevices: {
-                                PointerDeviceKind.touch,
-                                PointerDeviceKind.mouse,
-                                PointerDeviceKind.trackpad,
-                              },
-                            ),
-                            child: MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: ListView.separated(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                scrollDirection: Axis.horizontal,
-                                physics: const BouncingScrollPhysics(),
-                                itemCount: dummyPharmacies.length,
-                                separatorBuilder: (context, index) =>
-                                    const SizedBox(width: 14),
-                                itemBuilder: (context, index) {
-                                  final pharmacy = dummyPharmacies[index];
-                                  return Container(
-                                    width: 250,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: const Color(0xFFE6EAEE),
-                                      ),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x120F172A),
-                                          blurRadius: 10,
-                                          offset: Offset(0, 5),
-                                        ),
-                                      ],
-                                    ),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(14),
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                PharmacyDetailScreen(
-                                                  pharmacy: pharmacy,
-                                                ),
-                                          ),
-                                        );
-                                      },
-                                      child: Row(
-                                        children: [
-                                          ClipRRect(
-                                            borderRadius:
-                                                const BorderRadius.horizontal(
-                                                  left: Radius.circular(14),
-                                                ),
-                                            child: Image.network(
-                                              pharmacy.imageUrl,
-                                              width: 96,
-                                              height: double.infinity,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) =>
-                                                  Container(
-                                                    width: 96,
-                                                    color: Colors.grey.shade200,
-                                                    child: const Icon(
-                                                      Icons.store,
-                                                      color: Colors.grey,
-                                                    ),
-                                                  ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(10),
-                                              child: Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    pharmacy.name,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    '${pharmacy.province}, ${pharmacy.district}',
-                                                    style: TextStyle(
-                                                      color:
-                                                          Colors.grey.shade700,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
+                        child: _buildSellersCarousel(),
                       ),
                     ],
                     SliverToBoxAdapter(
@@ -1712,54 +1646,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           final med = _sortedMedicines[index];
                           return MedicineItem(
                             medicine: med,
-                            onTap: () {
-                              if (med.requiresPrescription) {
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Prescription Required. Please consult a pharmacist.',
-                                    ),
-                                    backgroundColor: Colors.orange,
-                                  ),
-                                );
-                                return;
-                              }
-                              final isAdded = StateService().cartItems.any(
-                                (item) => item.medicine.id == med.id,
-                              );
-                              if (isAdded) {
-                                StateService().removeFromCart(med.id);
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '${med.name} removed from cart',
-                                    ),
-                                    duration: const Duration(seconds: 1),
-                                    behavior: SnackBarBehavior.floating,
-                                    backgroundColor: Colors.black87,
-                                  ),
-                                );
-                              } else {
-                                StateService().addToCart(med, 1);
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('${med.name} added to cart!'),
-                                    duration: const Duration(seconds: 1),
-                                    behavior: SnackBarBehavior.floating,
-                                    backgroundColor: const Color(0xFF1E9E68),
-                                  ),
-                                );
-                              }
-                            },
+                            onTap: () => handleProductCartTap(context, med),
                             onAboutTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -2085,11 +1972,12 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                             ),
                                           );
                                         } else if (value == 'orders') {
-                                          Navigator.push(
+                                          pushGatedRoute(
                                             context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  const OrdersScreen(),
+                                            feature: 'orders',
+                                            requirePin: true,
+                                            child: OrdersScreen(
+                                              onBrowseStore: () => Navigator.pop(context),
                                             ),
                                           );
                                         } else if (value == 'settings') {
@@ -2101,7 +1989,8 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                             ),
                                           );
                                         } else if (value == 'logout') {
-                                          StateService().logout();
+                                          final container = ProviderScope.containerOf(context);
+                                          container.read(authProvider.notifier).logout();
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
@@ -2371,191 +2260,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                       // Categories List (Conditionally Visible)
                       if (_showCategories)
                         Container(
-                          height: isDesktop ? 110 : 130,
+                          height: 104,
                           color: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: isDesktop
-                              ? SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  child: Row(
-                                    children: _categories
-                                        .map(
-                                          (cat) => Padding(
-                                            padding: const EdgeInsets.only(
-                                              right: 16.0,
-                                            ),
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                setState(() {
-                                                  if (_selectedCategories
-                                                      .contains(cat)) {
-                                                    _selectedCategories.remove(
-                                                      cat,
-                                                    );
-                                                  } else {
-                                                    _selectedCategories.add(
-                                                      cat,
-                                                    );
-                                                    _selectedSubCategory = null;
-                                                  }
-                                                });
-                                              },
-                                              child: Column(
-                                                children: [
-                                                  AnimatedContainer(
-                                                    duration: const Duration(
-                                                      milliseconds: 200,
-                                                    ),
-                                                    padding:
-                                                        const EdgeInsets.all(
-                                                          12,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color:
-                                                          _selectedCategories
-                                                              .contains(cat)
-                                                          ? const Color(
-                                                              0xFF1E9E68,
-                                                            )
-                                                          : Colors
-                                                                .grey
-                                                                .shade100,
-                                                      shape: BoxShape.circle,
-                                                      border: Border.all(
-                                                        color:
-                                                            _selectedCategories
-                                                                .contains(cat)
-                                                            ? const Color(
-                                                                0xFF1E9E68,
-                                                              )
-                                                            : Colors
-                                                                  .grey
-                                                                  .shade300,
-                                                      ),
-                                                    ),
-                                                    child: Icon(
-                                                      _getCategoryIcon(cat),
-                                                      color:
-                                                          _selectedCategories
-                                                              .contains(cat)
-                                                          ? Colors.white
-                                                          : const Color(
-                                                              0xFF1E9E68,
-                                                            ),
-                                                      size: 28,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Text(
-                                                    cat,
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          _selectedCategories
-                                                              .contains(cat)
-                                                          ? FontWeight.bold
-                                                          : FontWeight.w500,
-                                                      color: Colors.black87,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                )
-                              : ListView(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  children: _categories
-                                      .map(
-                                        (cat) => Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 16.0,
-                                          ),
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              setState(() {
-                                                if (_selectedCategories
-                                                    .contains(cat)) {
-                                                  _selectedCategories.remove(
-                                                    cat,
-                                                  );
-                                                } else {
-                                                  _selectedCategories.add(cat);
-                                                  _selectedSubCategory = null;
-                                                }
-                                              });
-                                            },
-                                            child: Column(
-                                              children: [
-                                                AnimatedContainer(
-                                                  duration: const Duration(
-                                                    milliseconds: 200,
-                                                  ),
-                                                  padding: const EdgeInsets.all(
-                                                    12,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        _selectedCategories
-                                                            .contains(cat)
-                                                        ? const Color(
-                                                            0xFF1E9E68,
-                                                          )
-                                                        : Colors.grey.shade100,
-                                                    shape: BoxShape.circle,
-                                                    border: Border.all(
-                                                      color:
-                                                          _selectedCategories
-                                                              .contains(cat)
-                                                          ? const Color(
-                                                              0xFF1E9E68,
-                                                            )
-                                                          : Colors
-                                                                .grey
-                                                                .shade300,
-                                                    ),
-                                                  ),
-                                                  child: Icon(
-                                                    _getCategoryIcon(cat),
-                                                    color:
-                                                        _selectedCategories
-                                                            .contains(cat)
-                                                        ? Colors.white
-                                                        : const Color(
-                                                            0xFF1E9E68,
-                                                          ),
-                                                    size: 28,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  cat,
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight:
-                                                        _selectedCategories
-                                                            .contains(cat)
-                                                        ? FontWeight.bold
-                                                        : FontWeight.w500,
-                                                    color: Colors.black87,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: _buildCategoryRow(
+                            height: 96,
+                            showArrows: true,
+                          ),
                         ),
                     ],
                   ),
@@ -2564,6 +2275,8 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
               // Partner Pharmacies Section (Replaces Popular Today)
               if (_searchQuery.isEmpty && _selectedCategories.isEmpty) ...[
+                const SliverToBoxAdapter(child: SponsoredCarousel()),
+                SliverToBoxAdapter(child: _buildCatalogStatusBanner()),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
@@ -2571,7 +2284,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Pharmacies we work with',
+                          'Pharmacies & Companies',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -2581,196 +2294,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                     ),
                   ),
                 ),
-                if (isDesktop)
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 320,
-                            mainAxisExtent: 190,
-                            crossAxisSpacing: 14,
-                            mainAxisSpacing: 14,
-                          ),
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        final pharmacy = dummyPharmacies[index];
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    PharmacyDetailScreen(pharmacy: pharmacy),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.shade100,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                              border: Border.all(color: Colors.grey.shade100),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(
-                                    pharmacy.imageUrl,
-                                    height: 90,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: Colors.grey.shade200,
-                                      height: 90,
-                                      child: const Icon(
-                                        Icons.store,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  pharmacy.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.location_on,
-                                      size: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        " ${pharmacy.province}, ${pharmacy.district}, ${pharmacy.sector}, ${pharmacy.cell}",
-                                        style: TextStyle(
-                                          color: Colors.grey.shade600,
-                                          fontSize: 12,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }, childCount: dummyPharmacies.length),
-                    ),
-                  )
-                else
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 180,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        itemCount: dummyPharmacies.length,
-                        itemBuilder: (context, index) {
-                          final pharmacy = dummyPharmacies[index];
-                          return GestureDetector(
-                            onTap: () {
-                              // Navigate to pharmacy detail
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      PharmacyDetailScreen(pharmacy: pharmacy),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              width: 240,
-                              margin: const EdgeInsets.only(right: 16),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.grey.shade100,
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                                border: Border.all(color: Colors.grey.shade100),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.network(
-                                      pharmacy.imageUrl,
-                                      height: 100,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        color: Colors.grey.shade200,
-                                        height: 100,
-                                        child: Icon(
-                                          Icons.store,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    pharmacy.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.location_on,
-                                        size: 14,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                                          " ${pharmacy.province}, ${pharmacy.district}, ${pharmacy.sector}, ${pharmacy.cell}",
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 12,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-              ],
+                SliverToBoxAdapter(
+                  child: _buildSellersCarousel(),
+                ),              ],
 
               // "Did you mean?" Suggestion Header
               if (_searchQuery.isNotEmpty &&
@@ -2903,46 +2429,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                     final med = _sortedMedicines[index];
                     return MedicineItem(
                       medicine: med,
-                      onTap: () {
-                        if (med.requiresPrescription) {
-                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Prescription Required. Please consult a pharmacist.',
-                              ),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
-                          return;
-                        }
-                        final isAdded = StateService().cartItems.any(
-                          (item) => item.medicine.id == med.id,
-                        );
-                        if (isAdded) {
-                          StateService().removeFromCart(med.id);
-                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${med.name} removed from cart'),
-                              duration: Duration(seconds: 1),
-                              behavior: SnackBarBehavior.floating,
-                              backgroundColor: Colors.black87,
-                            ),
-                          );
-                        } else {
-                          StateService().addToCart(med, 1);
-                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${med.name} added to cart!'),
-                              duration: Duration(seconds: 1),
-                              behavior: SnackBarBehavior.floating,
-                              backgroundColor: const Color(0xFF1E9E68),
-                            ),
-                          );
-                        }
-                      },
+                      onTap: () => handleProductCartTap(context, med),
                       onAboutTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -2990,11 +2477,11 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                             );
                             return;
                           }
-                          Navigator.push(
+                          pushGatedRoute(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) => const PrescriptionUploadScreen(),
-                            ),
+                            feature: 'prescriptions',
+                            requirePin: true,
+                            child: const PrescriptionsScreen(),
                           );
                         },
                         tooltip: 'Upload Prescription',

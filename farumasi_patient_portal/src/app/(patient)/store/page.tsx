@@ -463,7 +463,10 @@ function StorePageInner() {
               </div>
             )}
             {!recLoading && !recError && recommendations.map((rec) => {
-              const matchPct = Math.round(rec.totalScore * 100);
+              const matchPct =
+                rec.totalScore <= 1
+                  ? Math.round(rec.totalScore * 100)
+                  : Math.round(rec.totalScore);
               const isOrdering = orderingRecId === rec.id;
               return (
                 <div

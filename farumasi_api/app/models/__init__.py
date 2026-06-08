@@ -24,6 +24,9 @@ from app.models.notification import Notification
 from app.models.audit import AuditLog
 from app.models.consultation import Consultation, ChatMessage
 from app.models.seller_change_request import SellerChangeRequest
+from app.models.owner_payout_profile import OwnerPayoutProfile
+from app.models.payment_transaction import PaymentTransaction
+from app.models.email_verification_challenge import EmailVerificationChallenge
 
 __all__ = [
     "Base",

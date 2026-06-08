@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+import secrets
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.core.exceptions import AuthorizationError, ValidationError
+from app.core.security import hash_password, verify_password
+from app.models.email_verification_challenge import EmailVerificationChallenge
+from app.models.user import User
+from app.services.email_delivery_service import send_owner_verification_email
+
+PURPOSE_PAYOUT_CREDENTIALS = "payout_credentials_update"
+
+
+class EmailVerificationService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def send_code(
+        self,
+        user: User,
+        *,
+        purpose: str,
+        purpose_label: str,
+    ) -> int:
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES
+        )
+
+        await self.db.execute(
+            update(EmailVerificationChallenge)
+            .where(
+                EmailVerificationChallenge.user_id == user.id,
+                EmailVerificationChallenge.purpose == purpose,
+                EmailVerificationChallenge.consumed_at.is_(None),
+            )
+            .values(consumed_at=datetime.now(timezone.utc))
+        )
+
+        self.db.add(
+            EmailVerificationChallenge(
+                user_id=user.id,
+                purpose=purpose,
+                code_hash=hash_password(code),
+                expires_at=expires_at,
+            )
+        )
+        await self.db.flush()
+
+        sent = send_owner_verification_email(
+            to_email=user.email,
+            full_name=user.full_name,
+            code=code,
+            purpose_label=purpose_label,
+        )
+        if not sent and (settings.ENVIRONMENT or "").lower() != "development":
+            raise ValidationError(
+                "Email could not be sent. Configure SMTP before requesting verification codes."
+            )
+        return settings.EMAIL_VERIFICATION_EXPIRE_MINUTES
+
+    async def verify_code(self, user: User, *, purpose: str, code: str) -> None:
+        if not code or len(code.strip()) < 4:
+            raise ValidationError("Verification code is required")
+
+        now = datetime.now(timezone.utc)
+        result = await self.db.execute(
+            select(EmailVerificationChallenge)
+            .where(
+                EmailVerificationChallenge.user_id == user.id,
+                EmailVerificationChallenge.purpose == purpose,
+                EmailVerificationChallenge.consumed_at.is_(None),
+            )
+            .order_by(EmailVerificationChallenge.created_at.desc())
+            .limit(1)
+        )
+        challenge = result.scalar_one_or_none()
+        if not challenge:
+            raise ValidationError("No active verification code. Request a new one.")
+        if challenge.expires_at < now:
+            raise ValidationError("Verification code expired. Request a new one.")
+        if not verify_password(code.strip(), challenge.code_hash):
+            raise AuthorizationError("Invalid verification code")
+
+        challenge.consumed_at = now
+        await self.db.flush()

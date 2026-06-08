@@ -1,8 +1,9 @@
 // lib/providers/rider_provider.dart
-// Riverpod state management for the FARUMASI Rider interface.
-// Uses mock data; structured for easy backend swap-in.
+// Riverpod state for FARUMASI Rider — live API with mock fallback.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../api/repositories/auth_repository.dart';
+import '../api/repositories/rider_repository.dart';
 import '../models/rider_models.dart';
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -316,22 +317,112 @@ List<RiderNotificationItem> _buildMockNotifications() => [
 
 class RiderNotifier extends StateNotifier<RiderState> {
   RiderNotifier()
-      : super(() {
-          final hist = _buildMockHistory();
-          return RiderState(
+      : _repo = RiderRepository(),
+        _authRepo = AuthRepository(),
+        super(
+          RiderState(
             isOnline: false,
-            profile: _mockProfile,
-            activeDelivery: null,
-            pendingRequests: _buildMockRequests(),
-            history: hist,
-            earnings: _buildMockEarnings(hist),
-            notifications: _buildMockNotifications(),
-          );
-        }());
+            profile: const RiderProfile(
+              id: '',
+              name: 'Rider',
+              phone: '',
+              riderType: RiderType.perTrip,
+              vehicleType: '',
+              vehiclePlate: '',
+              availability: RiderAvailability.offline,
+              assignedArea: '',
+              isVerified: false,
+              payoutMethod: '',
+            ),
+            pendingRequests: const [],
+            history: const [],
+            earnings: const RiderEarnings(
+              todayEarnings: 0,
+              weeklyEarnings: 0,
+              monthlyEarnings: 0,
+              todayTrips: 0,
+              weeklyTrips: 0,
+              pendingPayout: 0,
+              paymentPeriodLabel: '',
+              paymentStatus: '',
+              recentEntries: [],
+            ),
+            notifications: const [],
+          ),
+        );
+
+  final RiderRepository _repo;
+  final AuthRepository _authRepo;
+  bool _useApi = false;
+
+  Future<void> refreshFromApi() async {
+    final loggedIn = await _authRepo.isLoggedIn;
+    if (!loggedIn) {
+      _useApi = false;
+      return;
+    }
+    final me = await _authRepo.getMe();
+    if (me == null || me.role != 'RIDER') {
+      _useApi = false;
+      return;
+    }
+
+    _useApi = true;
+    state = state.copyWith(isLoading: true);
+    try {
+      final profile = await _repo.fetchProfile();
+      final all = await _repo.listDeliveries();
+      final activeList = await _repo.listActiveDeliveries();
+      final earnings = await _repo.fetchEarnings();
+
+      RiderDeliveryOrder? active;
+      if (activeList.isNotEmpty) {
+        active = activeList.first;
+      }
+
+      final pending = all
+          .where((d) => d.status == RiderDeliveryStatus.pending)
+          .toList();
+      final history = all
+          .where((d) =>
+              d.status == RiderDeliveryStatus.delivered ||
+              d.status == RiderDeliveryStatus.rejected ||
+              d.status == RiderDeliveryStatus.cancelled)
+          .toList();
+
+      state = state.copyWith(
+        isLoading: false,
+        isOnline: profile.availability == RiderAvailability.online,
+        profile: profile,
+        activeDelivery: active,
+        pendingRequests: pending,
+        history: history,
+        earnings: earnings,
+      );
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        pendingRequests: const [],
+        history: const [],
+        activeDelivery: null,
+      );
+    }
+  }
 
   // ── Online / Offline ────────────────────────────────────────────────────────
 
-  void setOnline(bool value) {
+  Future<void> setOnline(bool value) async {
+    if (_useApi) {
+      try {
+        await _repo.setAvailability(
+          value ? RiderAvailability.online : RiderAvailability.offline,
+        );
+        await refreshFromApi();
+        return;
+      } catch (_) {
+        rethrow;
+      }
+    }
     state = state.copyWith(
       isOnline: value,
       profile: state.profile.copyWith(
@@ -351,7 +442,16 @@ class RiderNotifier extends StateNotifier<RiderState> {
 
   // ── Accept a delivery ───────────────────────────────────────────────────────
 
-  void acceptDelivery(RiderDeliveryOrder order) {
+  Future<void> acceptDelivery(RiderDeliveryOrder order) async {
+    if (_useApi) {
+      try {
+        await _repo.acceptDelivery(order.id);
+        await refreshFromApi();
+        return;
+      } catch (_) {
+        rethrow;
+      }
+    }
     final accepted = order.copyWith(
       status: RiderDeliveryStatus.accepted,
       activeStep: DeliveryStep.goToPickup,
@@ -369,7 +469,16 @@ class RiderNotifier extends StateNotifier<RiderState> {
 
   // ── Reject a delivery ───────────────────────────────────────────────────────
 
-  void rejectDelivery(String orderId, String reason, {String? customReason}) {
+  Future<void> rejectDelivery(String orderId, String reason, {String? customReason}) async {
+    if (_useApi) {
+      try {
+        await _repo.rejectDelivery(orderId, customReason ?? reason);
+        await refreshFromApi();
+        return;
+      } catch (_) {
+        rethrow;
+      }
+    }
     final updated = state.pendingRequests.map((o) {
       if (o.id == orderId) {
         return o.copyWith(status: RiderDeliveryStatus.rejected);
@@ -389,9 +498,23 @@ class RiderNotifier extends StateNotifier<RiderState> {
 
   // ── Advance delivery step ───────────────────────────────────────────────────
 
-  void advanceStep() {
+  Future<void> advanceStep() async {
     final active = state.activeDelivery;
     if (active == null) return;
+
+    if (_useApi) {
+      try {
+        final currentStatus = _apiStatusFromOrder(active);
+        final next = RiderRepository.nextStatusAfterAdvance(currentStatus);
+        if (next != null) {
+          await _repo.updateDeliveryStatus(active.id, next);
+        }
+        await refreshFromApi();
+        return;
+      } catch (_) {
+        rethrow;
+      }
+    }
 
     final now = DateTime.now();
     RiderDeliveryOrder updated;
@@ -428,15 +551,52 @@ class RiderNotifier extends StateNotifier<RiderState> {
     state = state.copyWith(activeDelivery: updated);
   }
 
+  String _apiStatusFromOrder(RiderDeliveryOrder order) {
+    switch (order.status) {
+      case RiderDeliveryStatus.accepted:
+        return 'accepted';
+      case RiderDeliveryStatus.goingToPickup:
+        return 'going_to_pickup';
+      case RiderDeliveryStatus.arrivedAtPickup:
+        return 'arrived_at_pickup';
+      case RiderDeliveryStatus.pickedUp:
+        return 'picked_up';
+      case RiderDeliveryStatus.outForDelivery:
+        return 'out_for_delivery';
+      case RiderDeliveryStatus.arrivedAtDestination:
+        return 'arrived_at_destination';
+      case RiderDeliveryStatus.qrVerificationPending:
+        return 'qr_pending';
+      default:
+        return 'accepted';
+    }
+  }
+
   // ── QR confirmation ─────────────────────────────────────────────────────────
 
-  QRConfirmationResult confirmQR(String scannedCode) {
+  Future<QRConfirmationResult> confirmQR(String scannedCode) async {
     final active = state.activeDelivery;
     if (active == null) {
       return const QRConfirmationResult(
         success: false,
         message: 'No active delivery found.',
       );
+    }
+
+    if (_useApi) {
+      try {
+        await _repo.confirmQr(active.id, scannedCode.trim());
+        await refreshFromApi();
+        return const QRConfirmationResult(
+          success: true,
+          message: 'Delivery confirmed! Great job.',
+        );
+      } catch (_) {
+        return const QRConfirmationResult(
+          success: false,
+          message: 'Invalid QR code. Ask the patient to show their delivery QR.',
+        );
+      }
     }
 
     if (scannedCode.trim() != active.qrCode.trim()) {

@@ -134,6 +134,7 @@ class OrderService:
             net_partner_amount=net_partner,
             patient_access_code=data.patient_access_code or None,
             notes=data.notes or None,
+            defer_delivery_fee=bool(data.defer_delivery_fee),
         )
         self.db.add(order)
         await self.db.flush()
@@ -161,15 +162,15 @@ class OrderService:
         # Pre-existing behavior (kept untouched in Phase 6): if delivery method,
         # create a Delivery row so downstream phases can attach a rider.
         if data.delivery_method == DeliveryMethod.DELIVERY:
-            self.db.add(
-                Delivery(
-                    order_id=order.id,
-                    destination_address=data.delivery_address,
-                    destination_latitude=data.delivery_latitude,
-                    destination_longitude=data.delivery_longitude,
-                    delivery_fee=delivery_fee,
-                )
+            delivery = Delivery(
+                order_id=order.id,
+                destination_address=data.delivery_address,
+                destination_latitude=data.delivery_latitude,
+                destination_longitude=data.delivery_longitude,
+                delivery_fee=delivery_fee,
             )
+            await self._populate_delivery_pickup(order, delivery)
+            self.db.add(delivery)
             await self.db.flush()
 
         # Notify pharmacy/partner staff. For pharmacies we fan out to every
@@ -346,6 +347,7 @@ class OrderService:
             raise NotFoundError("Order", order_id)
 
         await self._assert_can_change_status(order, actor, data.order_status)
+        await self._assert_paid_before_fulfilment(order, data.order_status, actor)
 
         old_status = normalize_order_status(order.order_status)
         if order.order_status != old_status:
@@ -765,24 +767,59 @@ class OrderService:
             raise AuthorizationError("Not allowed to change this order's status")
         raise AuthorizationError("Not allowed to change this order's status")
 
+    async def _assert_paid_before_fulfilment(
+        self, order: Order, new_status: str, actor: User
+    ) -> None:
+        """Block partner fulfilment until patient MoMo payment is confirmed."""
+        if actor.role == UserRole.SUPER_ADMIN:
+            return
+        no_payment_needed = {
+            OrderStatus.PENDING,
+            OrderStatus.CANCELLED,
+            OrderStatus.REJECTED,
+            OrderStatus.FAILED,
+        }
+        if new_status in no_payment_needed:
+            return
+        if order.payment_status != PaymentStatus.PAID:
+            raise BusinessRuleError(
+                "Payment must be confirmed before fulfilment. "
+                "The patient must complete mobile money payment first."
+            )
+
+    async def _populate_delivery_pickup(self, order: Order, delivery: Delivery) -> None:
+        if order.pharmacy_id:
+            ph = (
+                await self.db.execute(
+                    select(Pharmacy).where(Pharmacy.id == order.pharmacy_id)
+                )
+            ).scalar_one_or_none()
+            if ph:
+                delivery.pickup_address = ", ".join(
+                    p for p in (ph.address, ph.district, ph.city) if p
+                ) or ph.name
+                delivery.pickup_latitude = ph.latitude
+                delivery.pickup_longitude = ph.longitude
+        elif order.partner_company_id:
+            partner = (
+                await self.db.execute(
+                    select(PartnerCompany).where(PartnerCompany.id == order.partner_company_id)
+                )
+            ).scalar_one_or_none()
+            if partner:
+                delivery.pickup_address = ", ".join(
+                    p for p in (partner.address, partner.city) if p
+                ) or partner.name
+                delivery.pickup_latitude = partner.latitude
+                delivery.pickup_longitude = partner.longitude
+
     async def _assert_can_update_payment(self, order: Order, actor: User) -> None:
         role = actor.role
         if role in (UserRole.SUPER_ADMIN, UserRole.FINANCE_ADMIN):
             return
-        if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
-            pharmacy = await self._get_owned_pharmacy(actor)
-            if not pharmacy and role == UserRole.PHARMACIST:
-                from app.services.pharmacy_access import resolve_user_pharmacy
-
-                pharmacy = await resolve_user_pharmacy(self.db, actor)
-            if pharmacy and order.pharmacy_id == pharmacy.id:
-                return
-        if role == UserRole.PARTNER_COMPANY_ADMIN:
-            if order.partner_company_id and await self._owns_partner(
-                actor, order.partner_company_id
-            ):
-                return
-        raise AuthorizationError("Not allowed to update payment status")
+        raise AuthorizationError(
+            "Payment status can only be updated by finance after provider reconciliation"
+        )
 
     async def _assert_can_verify_access_code(self, order: Order, actor: User) -> None:
         role = actor.role
@@ -980,6 +1017,9 @@ class OrderService:
         Gross = product subtotal (order revenue). Commission is deducted once;
         net_amount is the partner's full earning. Withdrawals draw from net only.
         """
+        if order.payment_status != PaymentStatus.PAID:
+            return
+
         existing = await self.db.execute(
             select(RevenueRecord).where(RevenueRecord.order_id == order.id)
         )

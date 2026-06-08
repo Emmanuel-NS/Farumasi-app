@@ -10,7 +10,7 @@ from app.dependencies.roles import require_finance, require_roles
 from app.models.user import User
 from app.models.revenue import WithdrawalRequest
 from app.schemas.revenue import (
-    WithdrawalCreate,
+    WithdrawalAmountRequest,
     WithdrawalOut,
     WithdrawalAdminOut,
     WithdrawalActionInput,
@@ -40,11 +40,14 @@ _REQUESTER_ROLES = (
     dependencies=[Depends(require_roles(*_REQUESTER_ROLES))],
 )
 async def request_withdrawal(
-    data: WithdrawalCreate,
+    data: WithdrawalAmountRequest,
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    """Request payout against combined wallet (pharmacy + partner entities)."""
+    """Request payout against combined wallet (pharmacy + partner entities).
+
+    Payout destination is always taken from the owner's registered profile.
+    """
     return await RevenueService(db).request_withdrawal_for_owner(data=data, actor=actor)
 
 

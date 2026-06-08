@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../core/sell_mode.dart';
 import '../services/state_service.dart';
 import '../models/models.dart';
-import 'checkout_screen.dart';
-import 'prescription_upload_screen.dart';
+import '../providers/auth_provider.dart';
+import '../core/router.dart';
+import 'checkout_wizard_screen.dart';
+import '../widgets/gated_navigation.dart';
+import 'prescriptions_screen.dart';
 
-class CartScreen extends StatelessWidget { final bool isEmbedded;
+class CartScreen extends ConsumerWidget {
+  final bool isEmbedded;
   const CartScreen({super.key, this.isEmbedded = false});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isLoggedIn = ref.watch(authProvider).status == AuthStatus.authenticated;
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: isEmbedded ? null : AppBar(
@@ -39,7 +47,7 @@ class CartScreen extends StatelessWidget { final bool isEmbedded;
               final total = StateService().totalAmount;
 
               if (cartItems.isEmpty) {
-                return _buildEmptyState(context);
+                return _buildEmptyState(context, ref, isLoggedIn);
               }
 
               return Column(
@@ -54,7 +62,7 @@ class CartScreen extends StatelessWidget { final bool isEmbedded;
                       },
                     ),
                   ),
-                  _buildSummarySection(context, total),
+                  _buildSummarySection(context, ref, total, isLoggedIn),
                 ],
               );
             },
@@ -64,7 +72,11 @@ class CartScreen extends StatelessWidget { final bool isEmbedded;
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(
+    BuildContext context,
+    WidgetRef ref,
+    bool isLoggedIn,
+  ) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -75,10 +87,10 @@ class CartScreen extends StatelessWidget { final bool isEmbedded;
               color: const Color(0xFF1E9E68),
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.shopping_cart_outlined,
               size: 64,
-              color: const Color(0xFF1E9E68),
+              color: Colors.white,
             ),
           ),
           SizedBox(height: 24),
@@ -103,20 +115,19 @@ class CartScreen extends StatelessWidget { final bool isEmbedded;
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    if (!StateService().isLoggedIn) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Please login to upload a prescription.")),
-                      );
+                    if (!isLoggedIn) {
+                      context.go(AppRoutes.auth);
                       return;
                     }
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const PrescriptionUploadScreen(),
-                      ),
+                    pushGatedRoute(
+                      context,
+                      feature: 'prescriptions',
+                      requirePin: true,
+                      child: const PrescriptionsScreen(),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: StateService().isLoggedIn ? const Color(0xFF1E9E68) : Colors.grey,
+                    backgroundColor: const Color(0xFF1E9E68),
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -133,7 +144,12 @@ class CartScreen extends StatelessWidget { final bool isEmbedded;
     );
   }
 
-  Widget _buildSummarySection(BuildContext context, double subtotal) {
+  Widget _buildSummarySection(
+    BuildContext context,
+    WidgetRef ref,
+    double subtotal,
+    bool isLoggedIn,
+  ) {
     const double deliveryFee = 1500;
     final double total = subtotal + deliveryFee;
 
@@ -157,6 +173,11 @@ class CartScreen extends StatelessWidget { final bool isEmbedded;
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildSummaryRow("Subtotal", subtotal),
+          if (StateService().partialSubtotal > 0)
+            _buildSummaryRow("Partial items", StateService().partialSubtotal),
+          if (StateService().packSubtotal > 0 &&
+              StateService().partialSubtotal > 0)
+            _buildSummaryRow("Pack items", StateService().packSubtotal),
           SizedBox(height: 12),
           _buildSummaryRow("Delivery Fee", deliveryFee),
           Padding(
@@ -185,29 +206,29 @@ class CartScreen extends StatelessWidget { final bool isEmbedded;
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                if (!StateService().isLoggedIn) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Please login to proceed.")),
-                  );
+                if (!isLoggedIn) {
+                  context.go(AppRoutes.auth);
                   return;
                 }
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => CheckoutScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const CheckoutWizardScreen(),
+                  ),
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: StateService().isLoggedIn ? const Color(0xFF1E9E68) : Colors.grey,
+                backgroundColor: const Color(0xFF1E9E68),
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 4,
-                shadowColor: StateService().isLoggedIn ? const Color(0xFF1E9E68).withOpacity(0.4) : Colors.transparent,
+                shadowColor: const Color(0xFF1E9E68).withOpacity(0.4),
               ),
               child: Text(
-                StateService().isLoggedIn ? "Proceed to Checkout" : "Login to Checkout",
+                isLoggedIn ? "Proceed to Checkout" : "Sign In to Checkout",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
@@ -309,14 +330,39 @@ class _CartItemCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: Text(
-                        item.medicine.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.medicine.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (item.sellMode == SellMode.partial)
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEDE9FE),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                'Partial · ${item.medicine.partialUnitName ?? 'unit'}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF6D28D9),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     InkWell(
@@ -334,21 +380,19 @@ class _CartItemCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      "${item.medicine.price.toStringAsFixed(0)} RWF",
-                      style: TextStyle(
-                        color: const Color(0xFF1E9E68),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
+                Text(
+                  "${item.unitPrice.toStringAsFixed(0)} RWF",
+                  style: TextStyle(
+                    color: const Color(0xFF1E9E68),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
                     Row(
                       children: [
                         _buildQtyBtn(
                           Icons.remove,
-                          () => StateService().decrementQuantity(
-                            item.medicine.id,
-                          ),
+                          () => StateService().decrementQuantity(item.lineKey),
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -359,9 +403,7 @@ class _CartItemCard extends StatelessWidget {
                         ),
                         _buildQtyBtn(
                           Icons.add,
-                          () => StateService().incrementQuantity(
-                            item.medicine.id,
-                          ),
+                          () => StateService().incrementQuantity(item.lineKey),
                         ),
                       ],
                     ),
@@ -402,7 +444,7 @@ class _CartItemCard extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              StateService().removeFromCart(item.medicine.id);
+              StateService().removeFromCart(item.lineKey);
               Navigator.pop(context);
             },
             child: Text("Remove", style: TextStyle(color: Colors.red)),

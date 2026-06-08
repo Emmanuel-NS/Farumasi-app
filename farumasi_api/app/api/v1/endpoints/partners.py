@@ -306,7 +306,7 @@ async def update_my_partner_order_status(
 from app.schemas.revenue import (
     RevenueRecordOut,
     RevenueSummary,
-    WithdrawalCreate,
+    WithdrawalAmountRequest,
     WithdrawalOut,
 )
 from app.services.revenue_service import RevenueService
@@ -355,7 +355,7 @@ async def list_my_partner_withdrawals(
 
 @router.post("/me/withdrawals", response_model=WithdrawalOut, status_code=201)
 async def create_my_partner_withdrawal(
-    data: WithdrawalCreate,
+    data: WithdrawalAmountRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
 ):

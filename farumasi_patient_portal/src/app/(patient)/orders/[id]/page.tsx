@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ordersService } from "@/lib/services/orders.service";
@@ -82,15 +82,37 @@ export default function OrderDetailPage() {
       .finally(() => setQrLoading(false));
   }, [id, order?.status, order?.deliveryMethod]);
 
+  const trackableStatuses = useMemo(
+    () => new Set(["out_for_delivery", "delivered", "completed"]),
+    [],
+  );
+
   useEffect(() => {
-    if (!id || !order || order.status !== "out_for_delivery") {
+    if (!id || !order || order.deliveryMethod !== "delivery") {
       setDelivery(null);
       return;
     }
-    deliveryService.getDeliveryForOrder(id)
-      .then(setDelivery)
-      .catch(() => setDelivery(null));
-  }, [id, order?.status]);
+    if (!trackableStatuses.has(order.status)) {
+      setDelivery(null);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchDelivery = () => {
+      deliveryService.getDeliveryForOrder(id)
+        .then((d) => { if (!cancelled) setDelivery(d); })
+        .catch(() => { if (!cancelled) setDelivery(null); });
+    };
+
+    fetchDelivery();
+    if (order.status !== "out_for_delivery") return;
+
+    const interval = window.setInterval(fetchDelivery, 12_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [id, order?.status, order?.deliveryMethod, trackableStatuses]);
 
   const handleCancel = async () => {
     if (!order) return;

@@ -1,3 +1,6 @@
+import '../core/cart_pricing.dart';
+import '../core/sell_mode.dart';
+
 enum AgeRange {
   infantToddler,
   toddler,
@@ -65,6 +68,23 @@ class Medicine {
   final List<AgeDosage> ageDosages;
   final List<MarketingPharmacy> marketingPharmacies;
 
+  // Partial selling — matches patient portal Medicine type
+  final String? packagingClass;
+  final bool allowsPartialSelling;
+  final int? minPartialQuantity;
+  final int? unitsPerPack;
+  final String? partialUnitName;
+  final double? unitPriceFrom;
+
+  // Rich content parsed from API description JSON (portal parity)
+  final String? overviewDescription;
+  final String? dosageSummary;
+  final String? dosageDetails;
+  final String? safetyInfo;
+  final String? composition;
+  final String? storage;
+  final String? warnings;
+
   List<String> get allCategories => {category, ...additionalCategories}.toList();
   List<String> get allSubCategories => {(subCategory ?? ""), ...additionalSubCategories}.where((s) => s.isNotEmpty).toList();
 
@@ -91,6 +111,33 @@ class Medicine {
     this.doseTimeInterval,
     this.ageDosages = const [],
     this.marketingPharmacies = const [],
+    this.packagingClass,
+    this.allowsPartialSelling = false,
+    this.minPartialQuantity,
+    this.unitsPerPack,
+    this.partialUnitName,
+    this.unitPriceFrom,
+    this.overviewDescription,
+    this.dosageSummary,
+    this.dosageDetails,
+    this.safetyInfo,
+    this.composition,
+    this.storage,
+    this.warnings,
+  });
+}
+
+class SponsoredArticle {
+  final String id;
+  final String title;
+  final String summary;
+  final String imageUrl;
+
+  const SponsoredArticle({
+    required this.id,
+    required this.title,
+    required this.summary,
+    required this.imageUrl,
   });
 }
 
@@ -110,11 +157,27 @@ class HealthTip {
 
 class CartItem {
   final Medicine medicine;
+  final SellMode sellMode;
   int quantity;
 
-  CartItem({required this.medicine, this.quantity = 1});
+  CartItem({
+    required this.medicine,
+    this.sellMode = SellMode.pack,
+    this.quantity = 1,
+  });
 
-  double get total => medicine.price * quantity;
+  String get lineKey => cartLineKey(medicine.id, sellMode);
+
+  double get unitPrice => cartLineUnitPrice(medicine, sellMode);
+
+  double get total => cartLineTotal(medicine, sellMode, quantity);
+
+  String get sellModeLabel {
+    if (sellMode == SellMode.partial) {
+      return 'Partial · ${medicine.partialUnitName ?? 'unit'}';
+    }
+    return 'Pack';
+  }
 }
 
 // --- New Models for Pharmacist Dashboard ---
@@ -234,6 +297,7 @@ class Pharmacy {
   final String district;
   final String sector;
   final String cell;
+  final String sellerKind;
 
   Pharmacy({
     required this.id,
@@ -242,11 +306,12 @@ class Pharmacy {
     required this.coordinates,
     required this.supportedInsurances,
     this.isOpen = true,
-    this.imageUrl = 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?q=80&w=2938&auto=format&fit=crop', // Default image
+    this.imageUrl = 'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?q=80&w=2938&auto=format&fit=crop',
     this.province = 'Kigali City',
     this.district = 'Nyarugenge',
     this.sector = 'Nyarugenge',
     this.cell = 'Kiyovu',
+    this.sellerKind = 'pharmacy',
   });
 }
 

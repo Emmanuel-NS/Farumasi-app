@@ -39,12 +39,13 @@ class _RiderQRScannerScreenState
     _processQR(code);
   }
 
-  void _processQR(String code) {
+  Future<void> _processQR(String code) async {
     if (_hasScanned || _isProcessing) return;
     setState(() => _isProcessing = true);
     _ctrl.stop();
 
-    final result = ref.read(riderProvider.notifier).confirmQR(code);
+    final result = await ref.read(riderProvider.notifier).confirmQR(code);
+    if (!mounted) return;
     setState(() => _hasScanned = true);
 
     if (result.success) {

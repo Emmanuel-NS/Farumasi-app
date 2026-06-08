@@ -1,196 +1,160 @@
+import 'package:flutter/foundation.dart' show kIsWeb, ChangeNotifier;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io';
 
-class NotificationService {
+import '../api/repositories/patient_repository.dart';
+
+class NotificationService extends ChangeNotifier {
   static final NotificationService _instance = NotificationService._internal();
-
-  factory NotificationService() {
-    return _instance;
-  }
-
+  factory NotificationService() => _instance;
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+  final List<Map<String, dynamic>> notifications = [];
+  final List<Map<String, dynamic>> trash = [];
+  bool _loading = false;
+  String? _error;
+  bool _usesApi = false;
+
+  bool get isLoading => _loading;
+  String? get error => _error;
+  bool get usesApi => _usesApi;
+
   Future<void> init() async {
     if (kIsWeb) return;
 
-    // Android Initialization
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    // iOS Initialization (darwin)
-    final DarwinInitializationSettings initializationSettingsDarwin =
-        DarwinInitializationSettings(
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-
-    final InitializationSettings initializationSettings =
-        InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsDarwin,
-      // macOS: initializationSettingsDarwin, // Add this if you support macOS
-    );
-
     await flutterLocalNotificationsPlugin.initialize(
-      settings: initializationSettings,
-      onDidReceiveNotificationResponse:
-          (NotificationResponse notificationResponse) async {
-        // Handle notification tap
-      },
+      settings: const InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      ),
     );
-
-    // Request permissions
     await _requestPermissions();
   }
 
   Future<void> _requestPermissions() async {
     if (kIsWeb) return;
-    if (Platform.isAndroid) {
-      final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
-          flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+    final android = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await android?.requestNotificationsPermission();
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
+  }
 
-      if (androidImplementation != null) {
-        await androidImplementation.requestNotificationsPermission();
+  Future<void> refreshFromApi({bool authenticated = true}) async {
+    if (!authenticated) {
+      notifications.clear();
+      _usesApi = false;
+      _error = null;
+      notifyListeners();
+      return;
+    }
+
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final items = await PatientRepository.instance.fetchNotifications();
+      notifications
+        ..clear()
+        ..addAll(items.map(_mapNotification));
+      _usesApi = true;
+      _error = null;
+    } catch (e) {
+      _error = 'Could not load notifications';
+      if (notifications.isEmpty) {
+        _loadFallbackNotifications();
+        _usesApi = false;
       }
-    } else if (Platform.isIOS) {
-       await flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(
-            alert: true,
-            badge: true,
-            sound: true,
-          );
+    } finally {
+      _loading = false;
+      notifyListeners();
     }
   }
 
-  final List<Map<String, dynamic>> notifications = [];
-  final List<Map<String, dynamic>> trash = []; // Trash bin
-
-  void clearNotifications() {
-    // Move all to trash instead of permanent delete
-    trash.addAll(notifications);
-    notifications.clear();
+  Map<String, dynamic> _mapNotification(PatientNotification n) {
+    return {
+      'id': n.id,
+      'title': n.title,
+      'body': n.message,
+      'time': n.createdAt,
+      'category': n.category,
+      'isRead': n.isRead,
+      'orderId': n.orderId,
+      'actionUrl': n.actionUrl,
+    };
   }
 
-  void deleteNotification(int id) {
+  void _loadFallbackNotifications() {
+    if (notifications.isNotEmpty) return;
+    notifications.addAll([
+      {
+        'id': 'local-1',
+        'title': 'Welcome to FARUMASI',
+        'body': 'Sign in to receive order and prescription updates.',
+        'time': DateTime.now(),
+        'category': 'general',
+        'isRead': false,
+      },
+    ]);
+  }
+
+  void clearNotifications() {
+    trash.addAll(notifications);
+    notifications.clear();
+    notifyListeners();
+  }
+
+  void deleteNotification(dynamic id) {
     final index = notifications.indexWhere((n) => n['id'] == id);
     if (index != -1) {
       trash.add(notifications[index]);
       notifications.removeAt(index);
+      notifyListeners();
     }
   }
 
-  void restoreNotification(int id) {
+  void restoreNotification(dynamic id) {
     final index = trash.indexWhere((n) => n['id'] == id);
     if (index != -1) {
       notifications.add(trash[index]);
-      // Sort by time to put it back in correct place
-      notifications.sort((a, b) => b['time'].compareTo(a['time']));
+      notifications.sort((a, b) => (b['time'] as DateTime).compareTo(a['time'] as DateTime));
       trash.removeAt(index);
+      notifyListeners();
     }
   }
-  
-  void markAsRead(int id) {
+
+  Future<void> markAsRead(dynamic id) async {
     final index = notifications.indexWhere((n) => n['id'] == id);
-    if (index != -1) {
-      notifications[index]['isRead'] = true;
+    if (index == -1) return;
+    notifications[index]['isRead'] = true;
+    if (_usesApi && id is String && !id.startsWith('local-')) {
+      try {
+        await PatientRepository.instance.markNotificationRead(id);
+      } catch (_) {}
     }
+    notifyListeners();
   }
 
-  void loadDummyNotifications() {
-    if (notifications.isNotEmpty) return;
-    
-    final dummyData = [
-      {
-        'id': 101,
-        'title': 'Order Confirmed',
-        'body': 'Your order #ORD-2024-001 has been confirmed and is being processed.',
-        'time': DateTime.now().subtract(const Duration(days: 5, hours: 2)),
-        'category': 'order',
-        'isRead': true,
-      },
-      {
-        'id': 102,
-        'title': 'Did You Know?',
-        'body': 'Drinking water before meals can help you feel fuller and aid in weight management.',
-        'time': DateTime.now().subtract(const Duration(days: 4, hours: 9)),
-        'category': 'health_tip',
-        'isRead': true,
-      },
-      {
-        'id': 103,
-        'title': 'Prescription Refill',
-        'body': 'Reminder: Your prescription for Amoxicillin is due for a refill in 3 days.',
-        'time': DateTime.now().subtract(const Duration(days: 3, hours: 1)),
-        'category': 'reminder',
-        'isRead': false,
-      },
-      {
-        'id': 104,
-        'title': 'Order Shipped',
-        'body': 'Great news! Your order #ORD-2024-001 has been shipped. Track it now.',
-        'time': DateTime.now().subtract(const Duration(days: 2, hours: 5)),
-        'category': 'order_shipped',
-        'isRead': false,
-      },
-      {
-        'id': 105,
-        'title': 'Health Tip: Sleep',
-        'body': 'Adults needs 7-9 hours of sleep. A good night\'s rest improves memory and mood.',
-        'time': DateTime.now().subtract(const Duration(days: 1, hours: 14)),
-        'category': 'health_tip',
-        'isRead': false,
-      },
-      {
-        'id': 106,
-        'title': 'Flash Sale Alert! ⚡',
-        'body': 'Get 20% off all Vitamin C supplements this weekend only. Shop now!',
-        'time': DateTime.now().subtract(const Duration(hours: 22)),
-        'category': 'promo',
-        'isRead': false,
-      },
-      {
-        'id': 107,
-        'title': 'Order Delivered',
-        'body': 'Package Delivered! Your order #ORD-2024-001 has arrived at your doorstep.',
-        'time': DateTime.now().subtract(const Duration(hours: 5)),
-        'category': 'order',
-        'isRead': false,
-      },
-      {
-        'id': 108,
-        'title': 'Flu Season Reminder',
-        'body': 'Flu season is here. Book your vaccination appointment at a nearby clinic through Farumasi.',
-        'time': DateTime.now().subtract(const Duration(hours: 2)),
-        'category': 'reminder',
-        'isRead': false,
-      },
-      {
-        'id': 109,
-        'title': 'Appointment Reminder',
-        'body': 'You have a tele-consultation with Dr. Amani starting in 15 minutes.',
-        'time': DateTime.now().subtract(const Duration(minutes: 45)),
-        'category': 'reminder',
-        'isRead': false,
-      },
-      {
-        'id': 110,
-        'title': 'We value your feedback',
-        'body': 'How was your recent experience with Farumasi? Rate your order.',
-        'time': DateTime.now().subtract(const Duration(minutes: 5)),
-        'category': 'general',
-        'isRead': false,
-      },
-    ];
-
-    notifications.addAll(dummyData);
+  Future<void> markAllRead() async {
+    for (final n in notifications) {
+      n['isRead'] = true;
+    }
+    if (_usesApi) {
+      try {
+        await PatientRepository.instance.markAllNotificationsRead();
+      } catch (_) {}
+    }
+    notifyListeners();
   }
 
   Future<void> showNotification({
@@ -199,35 +163,31 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    // Add to local history list
-    notifications.insert(0, { // Add to top
-      'id': id,
+    notifications.insert(0, {
+      'id': 'local-$id',
       'title': title,
       'body': body,
       'payload': payload,
       'time': DateTime.now(),
-      'category': 'general', // Default category
+      'category': 'general',
       'isRead': false,
     });
+    notifyListeners();
 
-    const AndroidNotificationDetails androidNotificationDetails =
-        AndroidNotificationDetails(
+    if (kIsWeb) return;
+
+    const androidDetails = AndroidNotificationDetails(
       'farumasi_channel_id',
       'FARUMASI Notifications',
       channelDescription: 'Main channel for Farumasi app notifications',
       importance: Importance.max,
       priority: Priority.high,
-      ticker: 'ticker',
     );
-
-    const NotificationDetails notificationDetails =
-        NotificationDetails(android: androidNotificationDetails);
-
     await flutterLocalNotificationsPlugin.show(
       id: id,
       title: title,
       body: body,
-      notificationDetails: notificationDetails,
+      notificationDetails: const NotificationDetails(android: androidDetails),
       payload: payload,
     );
   }

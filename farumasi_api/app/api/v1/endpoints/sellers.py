@@ -9,8 +9,14 @@ from app.dependencies.roles import require_roles
 from app.models.user import User
 from app.schemas.seller import SellerOpenStatusOut, SetSellerOpenRequest
 from app.schemas.seller_change_request import SellerChangeRequestOut, SellerChangeRequestPartnerAction
+from app.schemas.seller_payout import (
+    PayoutCredentialsIn,
+    PayoutCredentialsOut,
+    PayoutVerificationSentOut,
+)
 from app.services.seller_profile_service import SellerProfileService
 from app.services.seller_change_request_service import SellerChangeRequestService
+from app.services.payout_credentials_service import PayoutCredentialsService
 
 router = APIRouter()
 
@@ -103,3 +109,44 @@ async def reject_my_change_request(
         request_id, actor, partner_note=data.partner_note
     )
     return await SellerChangeRequestService(db)._to_out(req)
+
+
+@router.get(
+    "/me/payout-credentials",
+    response_model=PayoutCredentialsOut,
+    dependencies=[Depends(require_roles(*_SELLER_ROLES))],
+)
+async def get_my_payout_credentials(
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    return await PayoutCredentialsService(db).get_for_owner(actor.id)
+
+
+@router.post(
+    "/me/payout-credentials/send-verification",
+    response_model=PayoutVerificationSentOut,
+    dependencies=[Depends(require_roles(*_SELLER_ROLES))],
+)
+async def send_payout_credentials_verification(
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    minutes = await PayoutCredentialsService(db).send_update_verification(actor)
+    return PayoutVerificationSentOut(
+        message=f"Verification code sent to {actor.email}",
+        expires_in_minutes=minutes,
+    )
+
+
+@router.put(
+    "/me/payout-credentials",
+    response_model=PayoutCredentialsOut,
+    dependencies=[Depends(require_roles(*_SELLER_ROLES))],
+)
+async def set_my_payout_credentials(
+    data: PayoutCredentialsIn,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    return await PayoutCredentialsService(db).set_credentials(actor, data)

@@ -51,8 +51,6 @@ export interface BackendWithdrawal {
 
 export interface WithdrawalCreatePayload {
   amount: number;
-  payout_method: string;
-  payout_details?: Record<string, unknown> | null;
 }
 
 export const revenueService = {

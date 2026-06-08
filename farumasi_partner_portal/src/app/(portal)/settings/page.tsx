@@ -19,6 +19,7 @@ import {
 import { PageHeader } from "@/components/shared/page-header";
 import { PendingChangeRequestsCard } from "@/components/shared/pending-change-requests";
 import { BusinessProfileCommissionCard } from "@/components/settings/business-profile-commission-card";
+import { PayoutCredentialsEditor } from "@/components/settings/payout-credentials-editor";
 import { StoreOpenToggle } from "@/components/shared/store-open-toggle";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -247,6 +248,8 @@ export default function SettingsPage() {
             profile={commissionProfile}
             pendingRateChange={pendingCommissionChange}
           />
+
+          <PayoutCredentialsEditor />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>

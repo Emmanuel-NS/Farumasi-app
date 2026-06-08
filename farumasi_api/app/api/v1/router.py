@@ -21,6 +21,7 @@ from app.api.v1.endpoints import (
     deliveries,
     revenue,
     withdrawals,
+    webhooks,
     articles,
     notifications,
     analytics,
@@ -61,6 +62,7 @@ api_router.include_router(orders.router, prefix="/orders", tags=[f"Orders ({_EXP
 api_router.include_router(deliveries.router, prefix="/deliveries", tags=[f"Deliveries ({_EXP})"])
 api_router.include_router(revenue.router, prefix="/revenue", tags=[f"Revenue ({_EXP})"])
 api_router.include_router(withdrawals.router, prefix="/withdrawals", tags=[f"Withdrawals ({_EXP})"])
+api_router.include_router(webhooks.router, prefix="/webhooks", tags=[f"Webhooks ({_EXP})"])
 api_router.include_router(articles.router, prefix="/articles", tags=[f"Articles ({_EXP})"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=[f"Notifications ({_EXP})"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=[f"Analytics ({_EXP})"])

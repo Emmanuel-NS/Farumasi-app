@@ -16,7 +16,11 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
 from app.services.audit_service import AuditService
 
-_PUBLIC_REGISTER_ROLES = frozenset({UserRole.PATIENT})
+_PUBLIC_REGISTER_ROLES = frozenset({
+    UserRole.PATIENT,
+    UserRole.PARTNER_COMPANY_ADMIN,
+    UserRole.PHARMACY_ADMIN,
+})
 
 
 class AuthService:
@@ -27,8 +31,8 @@ class AuthService:
     async def register(self, data: RegisterRequest, ip_address: str | None = None) -> TokenResponse:
         if data.role not in _PUBLIC_REGISTER_ROLES:
             raise ValidationError(
-                "Public registration is only available for patient accounts. "
-                "Staff accounts must be created by an administrator."
+                "Registration is only available for patient and seller business accounts. "
+                "Other staff accounts must be created by an administrator."
             )
         if await self.user_repo.email_exists(data.email):
             raise ConflictError(f"Email '{data.email}' is already registered")
@@ -139,6 +143,18 @@ class AuthService:
                 PartnerCompany(
                     owner_user_id=user.id,
                     name=f"{user.full_name}'s Company",
+                    email=user.email,
+                    phone=user.phone,
+                    status=EntityStatus.PENDING,
+                )
+            )
+        elif user.role == UserRole.PHARMACY_ADMIN:
+            from app.models.pharmacy import Pharmacy
+
+            self.db.add(
+                Pharmacy(
+                    owner_user_id=user.id,
+                    name=f"{user.full_name}'s Pharmacy",
                     email=user.email,
                     phone=user.phone,
                     status=EntityStatus.PENDING,

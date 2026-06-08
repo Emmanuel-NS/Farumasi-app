@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useMemo } from "react";
 import { formatRWF, cn, timeAgo } from "@/lib/utils";

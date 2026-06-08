@@ -6,8 +6,10 @@ export const ridersApi = {
   updateMe: (payload: Partial<RiderProfileOut>) =>
     getClient().put<RiderProfileOut>("/riders/me", payload),
 
-  setAvailability: (is_available: boolean) =>
-    getClient().patch<RiderProfileOut>("/riders/me/availability", { is_available }),
+  setAvailability: (availability_status: string) =>
+    getClient().patch<RiderProfileOut>("/riders/me/availability", {
+      availability_status,
+    }),
 
   listDeliveries: () => getClient().get<DeliveryOut[]>("/riders/me/deliveries"),
   listActiveDeliveries: () => getClient().get<DeliveryOut[]>("/riders/me/deliveries/active"),
@@ -18,8 +20,10 @@ export const ridersApi = {
     getClient().patch<DeliveryOut>(`/riders/me/deliveries/${deliveryId}/reject`, { reason }),
   setStatus: (deliveryId: string, status: string) =>
     getClient().patch<DeliveryOut>(`/riders/me/deliveries/${deliveryId}/status`, { status }),
-  confirmQr: (deliveryId: string, qr_code: string) =>
-    getClient().post<DeliveryOut>(`/riders/me/deliveries/${deliveryId}/confirm-qr`, { qr_code }),
+  confirmQr: (deliveryId: string, qr_token: string) =>
+    getClient().post<DeliveryOut>(`/riders/me/deliveries/${deliveryId}/confirm-qr`, {
+      qr_token,
+    }),
 
   earnings: () => getClient().get<RiderEarningsOut>("/riders/me/earnings"),
 };

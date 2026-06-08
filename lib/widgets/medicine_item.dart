@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/state_service.dart';
+import '../utils/product_cart_flow.dart';
+import '../widgets/portal/portal_ui.dart';
 
 class MedicineItem extends StatelessWidget {
   final Medicine medicine;
@@ -19,9 +21,7 @@ class MedicineItem extends StatelessWidget {
     return AnimatedBuilder(
       animation: StateService(),
       builder: (context, child) {
-        final isInCart = StateService().cartItems.any(
-          (item) => item.medicine.id == medicine.id,
-        );
+        final isInCart = isProductInCart(medicine.id);
 
         return Card(
           elevation: 2,
@@ -178,7 +178,7 @@ class MedicineItem extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             SizedBox(height: 4),
-                            FittedBox( // Adapts price text if too long
+                            FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
                               child: Text(
@@ -192,6 +192,17 @@ class MedicineItem extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            if (medicine.allowsPartialSelling &&
+                                medicine.unitPriceFrom != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'or ${medicine.unitPriceFrom!.toStringAsFixed(0)} RWF/${medicine.partialUnitName ?? 'unit'}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
                             SizedBox(height: 4),
                           // New Info: Expiry and Dosage removed from grid view to increase image size
                           // These details are available in the "Read More" dialog.
@@ -228,100 +239,7 @@ class MedicineItem extends StatelessWidget {
                     LayoutBuilder(
                       builder: (context, constraints) {
                         return InkWell(
-                          onTap: () {
-                             showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: Text(medicine.name, style: TextStyle(fontWeight: FontWeight.bold)),
-                                content: SingleChildScrollView(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min, 
-                                    children: [
-                                      // Price & Expiry
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            medicine.maxPrice != null && medicine.maxPrice! > medicine.price
-                                                ? '${medicine.price.toStringAsFixed(0)} - ${medicine.maxPrice!.toStringAsFixed(0)} RWF'
-                                                : '${medicine.price.toStringAsFixed(0)} RWF',
-                                            style: TextStyle(color: const Color(0xFF1E9E68), fontWeight: FontWeight.bold),
-                                          ),
-                                          if (medicine.expiryDate != null)
-                                            Container(
-                                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
-                                              child: Text('Exp: ${medicine.expiryDate}', style: TextStyle(fontSize: 12, color: Colors.red.shade700)),
-                                            ),
-                                        ],
-                                      ),
-                                      const Divider(),
-                                      
-                                      // Description
-                                      Text("Description:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                      Text(medicine.description, style: const TextStyle(fontSize: 14)),
-                                      const SizedBox(height: 12),
-                                      
-                                      // Structured Dosage Logic
-                                      if (medicine.doseMorning != null || medicine.doseAfternoon != null || medicine.doseEvening != null) ...[
-                                        Text("Recommended Dosage:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                        SizedBox(height: 4),
-                                        Container(
-                                          padding: EdgeInsets.all(8),
-                                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-                                          child: Column(
-                                            children: [
-                                              if (medicine.doseMorning != null)
-                                                _buildDoseRow(Icons.wb_sunny_outlined, "Morning", medicine.doseMorning!),
-                                              if (medicine.doseAfternoon != null)
-                                                _buildDoseRow(Icons.wb_sunny, "Afternoon", medicine.doseAfternoon!),
-                                              if (medicine.doseEvening != null)
-                                                _buildDoseRow(Icons.nights_stay_outlined, "Evening", medicine.doseEvening!),
-                                              if (medicine.doseTimeInterval != null)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(top: 8.0),
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(Icons.schedule, size: 14, color: Colors.blue),
-                                                      SizedBox(width: 8),
-                                                      Text("Interval: ${medicine.doseTimeInterval}", style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
-                                                    ],
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                        SizedBox(height: 12),
-                                      ] else ...[
-                                        Text("Dosage:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                        Text(medicine.dosage, style: const TextStyle(fontSize: 13)),
-                                        SizedBox(height: 12),
-                                      ],
-                                      
-                                      Text(
-                                        "Click 'Full Details' for more info regarding side effects.",
-                                        style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(ctx).pop(),
-                                    child: const Text("Close"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(ctx).pop();
-                                      onAboutTap();
-                                    },
-                                    child: const Text("Full Details"),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+                          onTap: () => _showQuickView(context),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -330,24 +248,24 @@ class MedicineItem extends StatelessWidget {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 11, 
+                                  fontSize: 11,
                                   color: Colors.grey[600],
                                   height: 1.2,
                                 ),
                               ),
                               const SizedBox(height: 2),
                               const Text(
-                                "Read more...",
+                                'Read more...',
                                 style: TextStyle(
-                                  fontSize: 10, 
-                                  color: Colors.blue, 
-                                  fontWeight: FontWeight.bold
+                                  fontSize: 10,
+                                  color: PortalColors.green,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
                           ),
                         );
-                      }
+                      },
                     ),
 
                     const SizedBox(height: 8),
@@ -384,39 +302,7 @@ class MedicineItem extends StatelessWidget {
                                     : const Color(0xFF1E9E68)),
                           borderRadius: BorderRadius.circular(4),
                           child: InkWell(
-                            onTap: () {
-                              if (medicine.requiresPrescription) {
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Prescription required for this item.',
-                                    ),
-                                    duration: Duration(seconds: 2),
-                                    behavior: SnackBarBehavior.floating,
-                                    backgroundColor: Colors.amber,
-                                  ),
-                                );
-                                return;
-                              }
-
-                              StateService().addToCart(medicine, 1);
-                              ScaffoldMessenger.of(
-                                context,
-                              ).hideCurrentSnackBar();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '${medicine.name} added to cart!',
-                                  ),
-                                  duration: Duration(seconds: 1),
-                                  behavior: SnackBarBehavior.floating,
-                                  backgroundColor: const Color(0xFF1E9E68),
-                                ),
-                              );
-                            },
+                            onTap: () => handleProductCartTap(context, medicine),
                             borderRadius: BorderRadius.circular(4),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
@@ -440,6 +326,97 @@ class MedicineItem extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showQuickView(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.72,
+        minChildSize: 0.45,
+        maxChildSize: 0.92,
+        builder: (_, scroll) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: scroll,
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: PortalColors.slate200,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              Text(medicine.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: PortalColors.slate900)),
+              const SizedBox(height: 8),
+              Text(
+                medicine.maxPrice != null && medicine.maxPrice! > medicine.price
+                    ? '${medicine.price.toStringAsFixed(0)} – ${medicine.maxPrice!.toStringAsFixed(0)} RWF'
+                    : '${medicine.price.toStringAsFixed(0)} RWF',
+                style: const TextStyle(fontWeight: FontWeight.w800, color: PortalColors.green),
+              ),
+              const SizedBox(height: 16),
+              const Text('Patient Overview', style: TextStyle(fontWeight: FontWeight.w700, color: PortalColors.slate900)),
+              const SizedBox(height: 6),
+              Text(medicine.overviewDescription ?? medicine.description, style: const TextStyle(color: PortalColors.slate600, height: 1.5)),
+              if (medicine.dosageSummary != null || medicine.dosage.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: PortalColors.greenLight,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    medicine.dosageSummary ?? medicine.dosage,
+                    style: const TextStyle(fontSize: 13, color: PortalColors.slate700, height: 1.4),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        onAboutTap();
+                      },
+                      child: const Text('Full Details →'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        handleProductCartTap(context, medicine);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: PortalColors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Add to Cart'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

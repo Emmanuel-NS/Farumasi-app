@@ -66,6 +66,50 @@ async def lifespan(app: FastAPI):
                         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """,
+                    """
+                    CREATE TABLE IF NOT EXISTS owner_payout_profiles (
+                        id VARCHAR(36) PRIMARY KEY,
+                        owner_user_id VARCHAR(36) NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                        payout_method VARCHAR(50) NOT NULL,
+                        payout_details JSONB NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """,
+                    """
+                    CREATE TABLE IF NOT EXISTS email_verification_challenges (
+                        id VARCHAR(36) PRIMARY KEY,
+                        user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        purpose VARCHAR(80) NOT NULL,
+                        code_hash VARCHAR(255) NOT NULL,
+                        expires_at TIMESTAMPTZ NOT NULL,
+                        consumed_at TIMESTAMPTZ,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """,
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)",
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_phone VARCHAR(20)",
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS defer_delivery_fee BOOLEAN NOT NULL DEFAULT false",
+                    """
+                    CREATE TABLE IF NOT EXISTS payment_transactions (
+                        id VARCHAR(36) PRIMARY KEY,
+                        order_id VARCHAR(36) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                        amount NUMERIC(12,2) NOT NULL,
+                        currency VARCHAR(3) NOT NULL DEFAULT 'RWF',
+                        provider VARCHAR(50) NOT NULL,
+                        method VARCHAR(50) NOT NULL,
+                        phone VARCHAR(20) NOT NULL,
+                        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+                        external_id VARCHAR(255),
+                        idempotency_key VARCHAR(120) NOT NULL UNIQUE,
+                        provider_reference VARCHAR(255),
+                        failure_reason TEXT,
+                        paid_at TIMESTAMPTZ,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """,
                 ):
                     await conn.execute(text(stmt))
             logger.info("Optional DB columns ensured")
@@ -102,6 +146,7 @@ def create_application() -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
+        allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

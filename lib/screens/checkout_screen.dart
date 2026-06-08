@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../api/repositories/patient_repository.dart';
+import '../providers/auth_provider.dart';
 import '../services/state_service.dart';
+import '../models/models.dart';
 import 'auth_screen.dart';
 
-class CheckoutScreen extends StatefulWidget {
+class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
 
   @override
-  State<CheckoutScreen> createState() => _CheckoutScreenState();
+  ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
-class _CheckoutScreenState extends State<CheckoutScreen> {
+class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   // Address Fields
   String _selectedCity = 'Kigali';
   late TextEditingController _neighborhoodController;
   late TextEditingController _descriptionController;
   late TextEditingController _phoneController;
+  late TextEditingController _accessCodeController;
   bool _addressError = false;
-  
+  bool _isSubmitting = false;
 
   final List<String> _cities = ['Kigali', 'Musanze', 'Rubavu', 'Huye', 'Rusizi', 'Other'];
   
@@ -31,7 +36,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _neighborhoodController = TextEditingController();
     _descriptionController = TextEditingController();
     _phoneController = TextEditingController();
-    
+    _accessCodeController = TextEditingController();
     // Pre-fill logic if needed
     // In a real app, you might reverse geocode StateService().userCoordinates here
     // For now, we assume Kigali default.
@@ -42,6 +47,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _neighborhoodController.dispose();
     _descriptionController.dispose();
     _phoneController.dispose();
+    _accessCodeController.dispose();
     super.dispose();
   }
 
@@ -193,8 +199,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  void _placeOrder() {
-    if (!StateService().isLoggedIn) {
+  Future<void> _placeOrder() async {
+    final isLoggedIn = ref.read(authProvider).status == AuthStatus.authenticated;
+    if (!isLoggedIn) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -225,6 +232,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_neighborhoodController.text.isEmpty) missingFields.add("Neighborhood");
     if (_descriptionController.text.isEmpty) missingFields.add("Exact Location");
     if (_phoneController.text.isEmpty) missingFields.add("Phone Number");
+    if (_accessCodeController.text.trim().length < 4) {
+      missingFields.add("Access code (min 4 characters)");
+    }
 
     if (missingFields.isNotEmpty) {
       setState(() {
@@ -245,60 +255,82 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _addressError = false;
     });
 
-    final fullAddress = "$_selectedCity, ${_neighborhoodController.text}, ${_descriptionController.text}\nPhone: ${_phoneController.text}";
+    final fullAddress =
+        "$_selectedCity, ${_neighborhoodController.text}, ${_descriptionController.text}\nPhone: ${_phoneController.text}";
 
-    StateService().clearCart();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Column(
-          children: [
-            Icon(Icons.payment, size: 50, color: Colors.blue),
-            SizedBox(height: 8),
-            Text("Proceed to Payment"),
+    double? lat;
+    double? lon;
+    final coords = StateService().userCoordinates;
+    if (coords != null) {
+      final parts = coords.split(',');
+      if (parts.length == 2) {
+        lat = double.tryParse(parts[0].trim());
+        lon = double.tryParse(parts[1].trim());
+      }
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      final cartItems = List<CartItem>.from(StateService().cartItems);
+      if (cartItems.isEmpty) {
+        throw Exception('Your cart is empty');
+      }
+
+      final build = await PatientRepository.instance.buildOrderPayload(
+        cartItems: cartItems,
+        deliveryMethod: 'delivery',
+        deliveryAddress: fullAddress,
+        deliveryLatitude: lat,
+        deliveryLongitude: lon,
+        patientAccessCode: _accessCodeController.text.trim(),
+      );
+
+      final order = await PatientRepository.instance.createOrder(build.payload);
+      await PatientRepository.instance.initiateMomo(
+        order.id,
+        _phoneController.text.trim(),
+      );
+      await PatientRepository.instance.waitUntilPaid(order.id);
+
+      if (!mounted) return;
+      StateService().clearCart();
+      showDialog(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Column(
+            children: [
+              Icon(Icons.check_circle, size: 50, color: Color(0xFF1E9E68)),
+              SizedBox(height: 8),
+              Text('Payment Successful'),
+            ],
+          ),
+          content: Text(
+            'Order ${order.orderCode ?? order.id} is confirmed.\n\n'
+            'Access code: ${_accessCodeController.text.trim()}\n\n'
+            'Delivering to:\n$fullAddress',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(c);
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+              child: const Text('Done'),
+            ),
           ],
         ),
-        content: Text(
-          "You are now being redirected to the secure payment gateway to complete your purchase of ${StateService().totalAmount} RWF.",
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-             child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              // Simulate success after "payment"
-              showDialog(
-                context: context,
-                builder: (c) => AlertDialog(
-                  title: const Column(
-                    children: [
-                     Icon(Icons.check_circle, size: 50, color: Color(0xFF1E9E68)),
-                     SizedBox(height: 8),
-                     Text("Payment Successful"),
-                    ],
-                  ),
-                  content: Text("Your order has been placed successfully!\n\nDelivering to:\n$fullAddress"),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(c);
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                      },
-                      child: const Text("Done"),
-                    )
-                  ],
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E9E68), foregroundColor: Colors.white),
-            child: const Text('Pay Now'),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -422,7 +454,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
 
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _accessCodeController,
+              decoration: InputDecoration(
+                labelText: 'Patient access code (min 4 characters)',
+                hintText: 'Secret word for delivery verification',
+                prefixIcon: Icon(Icons.lock_outline, color: Colors.grey.shade600),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 24),
             Container(
               padding: EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -434,10 +476,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 listenable: StateService(),
                 builder: (context, _) {
                   final total = StateService().totalAmount;
-                  final discount = total * 0.12; // 12% Reduction logic
-                  final discountedTotal = total - discount;
                   final deliveryFee = 1500.0;
-                  final grandTotal = discountedTotal + deliveryFee;
+                  final grandTotal = total + deliveryFee;
                   
                   return Column(
                     children: [
@@ -487,7 +527,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _placeOrder,
+                onPressed: _isSubmitting ? null : _placeOrder,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1E9E68),
                   foregroundColor: Colors.white,
@@ -497,7 +537,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   elevation: 4,
                 ),
-                child: Text(
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
                   'PROCEED TO PAYMENT',
                   style: TextStyle(
                     fontSize: 16,
@@ -507,7 +556,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
             ),
-            if (!StateService().isLoggedIn)
+            if (ref.watch(authProvider).status != AuthStatus.authenticated)
               Padding(
                 padding: const EdgeInsets.only(top: 12.0),
                 child: Center(

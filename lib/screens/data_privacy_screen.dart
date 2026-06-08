@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../services/pin_service.dart';
+
 class DataPrivacyScreen extends StatefulWidget {
   const DataPrivacyScreen({super.key});
 
@@ -8,10 +10,27 @@ class DataPrivacyScreen extends StatefulWidget {
 }
 
 class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
-  // Privacy Settings State
-  bool _requirePasscodeForOrders = false;
   bool _hideSensitiveConditions = true;
   bool _shareAnonymousAnalytics = true;
+
+  @override
+  void initState() {
+    super.initState();
+    PinService.instance.hydrate();
+    PinService.instance.addListener(_onPinChanged);
+  }
+
+  @override
+  void dispose() {
+    PinService.instance.removeListener(_onPinChanged);
+    super.dispose();
+  }
+
+  void _onPinChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _requirePasscodeForOrders => PinService.instance.hasPin;
 
   @override
   Widget build(BuildContext context) {
@@ -39,11 +58,11 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
                 secondary: const Icon(Icons.lock_outline, color: Colors.indigo),
                 value: _requirePasscodeForOrders,
                 activeThumbColor: const Color(0xFF1E9E68),
-                onChanged: (val) {
+                onChanged: (val) async {
                   if (val) {
                     _showSetupPasscodeDialog();
                   } else {
-                    setState(() => _requirePasscodeForOrders = false);
+                    _showClearPasscodeDialog();
                   }
                 },
               ),
@@ -208,19 +227,75 @@ class _DataPrivacyScreenState extends State<DataPrivacyScreen> {
             child: const Text("Cancel"),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (controller.text.length == 4) {
-                setState(() => _requirePasscodeForOrders = true);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Passcode set successfully!")),
-                );
+            onPressed: () async {
+              if (controller.text.length >= 4) {
+                await PinService.instance.setPin(controller.text);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Passcode set successfully!')),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1E9E68),
             ),
             child: const Text("Set PIN"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClearPasscodeDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Passcode'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your current passcode to disable order history lock.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 8,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: '••••',
+                counterText: '',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final ok = await PinService.instance.clearPin(controller.text);
+              if (!context.mounted) return;
+              if (ok) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Passcode removed')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Incorrect passcode')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E9E68),
+            ),
+            child: const Text('Remove'),
           ),
         ],
       ),

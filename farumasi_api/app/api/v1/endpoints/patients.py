@@ -161,6 +161,35 @@ async def create_my_order(
     return await OrderService(db).create_order(data, current_user)
 
 
+from app.schemas.payment import MomoPaymentInitiate, PaymentInitiateOut, PaymentStatusOut  # noqa: E402
+from app.services.payments.payment_service import PaymentService  # noqa: E402
+
+
+@router.post(
+    "/me/orders/{order_id}/payments/momo/initiate",
+    response_model=PaymentInitiateOut,
+)
+async def initiate_my_order_momo_payment(
+    order_id: str,
+    data: MomoPaymentInitiate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await PaymentService(db).initiate_momo(order_id, current_user, data.phone)
+
+
+@router.get(
+    "/me/orders/{order_id}/payments/status",
+    response_model=PaymentStatusOut,
+)
+async def get_my_order_payment_status(
+    order_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await PaymentService(db).get_status(order_id, current_user)
+
+
 # -- Phase 7: delivery QR for patient --------------------------------------
 from app.schemas.delivery import DeliveryQRForPatient  # noqa: E402
 from app.services.delivery_service import DeliveryService  # noqa: E402

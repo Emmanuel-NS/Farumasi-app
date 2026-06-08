@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
+import '../core/router.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -11,7 +14,7 @@ class AuthScreen extends ConsumerStatefulWidget {
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _isLogin = true;
-  String _selectedRole = 'User'; // 'User', 'Pharmacist', or 'Rider'
+  String _selectedRole = 'User'; // 'User' or 'Rider'
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -21,23 +24,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   @override
   void initState() {
     super.initState();
-    // Default fill for User
-    _emailController.text = 'test@farumasi.rw';
-    _passwordController.text = 'Test1234!';
+    if (kDebugMode) {
+      _emailController.text = 'patient@farumasi.com';
+      _passwordController.text = 'Patient@12345';
+    }
   }
 
   void _switchRole(String role) {
     setState(() {
       _selectedRole = role;
-      if (role == 'Pharmacist') {
-        _emailController.text = 'pharmacist@farumasi.rw';
-        _passwordController.text = 'Admin1234!';
-      } else if (role == 'Rider') {
-        _emailController.text = 'rider@farumasi.rw';
-        _passwordController.text = 'Rider1234!';
-      } else {
-        _emailController.text = 'test@farumasi.rw';
-        _passwordController.text = 'Test1234!';
+      if (kDebugMode) {
+        if (role == 'Rider') {
+          _emailController.text = 'rider@farumasi.com';
+          _passwordController.text = 'Rider@12345';
+        } else {
+          _emailController.text = 'patient@farumasi.com';
+          _passwordController.text = 'Patient@12345';
+        }
       }
     });
   }
@@ -54,7 +57,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               name: _nameController.text,
               email: _emailController.text,
               password: _passwordController.text,
-              role: _selectedRole.toUpperCase(),
+              role: _selectedRole == 'Rider' ? 'RIDER' : 'PATIENT',
             );
       }
 
@@ -150,31 +153,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                           fontWeight: FontWeight.bold,
                                           fontSize: 13,
                                           color: _selectedRole == 'User' ? Colors.white : Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => _switchRole('Pharmacist'),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      decoration: BoxDecoration(
-                                        color: _selectedRole == 'Pharmacist' ? const Color(0xFF1E9E68) : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(8),
-                                        boxShadow: _selectedRole == 'Pharmacist' 
-                                          ? [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
-                                          : [],
-                                      ),
-                                      child: Text(
-                                        "Pharmacist",
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: _selectedRole == 'Pharmacist' ? Colors.white : Colors.grey.shade600,
                                         ),
                                       ),
                                     ),
@@ -349,14 +327,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                     ),
                             ),
                           ),
-                          SizedBox(height: 16),
+                          const SizedBox(height: 16),
                           TextButton(
                             onPressed: () {
                               setState(() => _isLogin = !_isLogin);
                               _formKey.currentState?.reset();
                             },
                             child: Text.rich(
-                              // Changed from RichText to Text.rich for better constraint handling
                               TextSpan(
                                 text: _isLogin
                                     ? "Don't have an account? "
@@ -364,7 +341,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                 style: TextStyle(
                                   color: Colors.grey.shade600,
                                   fontSize: 13,
-                                ), // Reduced size slightly
+                                ),
                                 children: [
                                   TextSpan(
                                     text: _isLogin ? 'Sign Up' : 'Login',
@@ -379,6 +356,27 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             ),
                           ),
                           if (_isLogin) ...[
+                            TextButton(
+                              onPressed: () => context.go(AppRoutes.home),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.storefront_outlined,
+                                    size: 18,
+                                    color: const Color(0xFF1E9E68),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Browse store without an account',
+                                    style: TextStyle(
+                                      color: const Color(0xFF1E9E68),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             TextButton(
                               onPressed: () {},
                               child: Text(

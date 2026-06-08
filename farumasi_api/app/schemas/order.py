@@ -77,6 +77,7 @@ class OrderCreate(FarumasiBaseModel):
     # Secret word the patient sets at checkout; required to verify pickup/delivery
     patient_access_code: Optional[str] = None
     notes: Optional[str] = None
+    defer_delivery_fee: bool = False
 
     @model_validator(mode="after")
     def _require_one_path(self) -> "OrderCreate":
@@ -163,6 +164,9 @@ class OrderOut(FarumasiBaseModel):
     total_amount: float
     net_partner_amount: float
     payment_reference: Optional[str] = None
+    payment_method: Optional[str] = None
+    payment_phone: Optional[str] = None
+    defer_delivery_fee: bool = False
     items: List[OrderItemOut] = []
     # Nested relationship data — populated when relationships are loaded
     patient: Optional[OrderPatientBrief] = None

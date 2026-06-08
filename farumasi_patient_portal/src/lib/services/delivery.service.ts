@@ -27,8 +27,9 @@ const STATUS_PROGRESS: Record<string, number> = {
   going_to_pickup: 0.25,
   arrived_at_pickup: 0.35,
   picked_up: 0.45,
-  delivery_started: 0.6,
-  destination_arrived: 0.85,
+  out_for_delivery: 0.6,
+  arrived_at_destination: 0.85,
+  qr_pending: 0.92,
   delivered: 1,
 };
 

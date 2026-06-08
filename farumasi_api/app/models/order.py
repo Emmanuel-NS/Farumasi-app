@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.models.product import ProductListing, ProductCatalogueItem
     from app.models.delivery import Delivery
     from app.models.revenue import RevenueRecord
+    from app.models.payment_transaction import PaymentTransaction
 
 
 class Order(Base, UUIDMixin, TimestampMixin):
@@ -55,6 +56,9 @@ class Order(Base, UUIDMixin, TimestampMixin):
 
     # Payment reference (MoMo transaction ID, etc.)
     payment_reference: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    payment_method: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    payment_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    defer_delivery_fee: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     # Access codes
     patient_access_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -77,6 +81,9 @@ class Order(Base, UUIDMixin, TimestampMixin):
     delivery: Mapped[Optional["Delivery"]] = relationship("Delivery", back_populates="order", uselist=False)
     revenue_record: Mapped[Optional["RevenueRecord"]] = relationship(
         "RevenueRecord", back_populates="order", uselist=False
+    )
+    payment_transactions: Mapped[List["PaymentTransaction"]] = relationship(
+        "PaymentTransaction", back_populates="order", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

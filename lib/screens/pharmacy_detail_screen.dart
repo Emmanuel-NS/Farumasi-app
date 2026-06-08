@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
-import '../data/dummy_data.dart';
 import '../widgets/medicine_item.dart';
 import 'medicine_detail_screen.dart';
 import '../services/state_service.dart';
-import 'pharmacist_list_screen.dart';
+import '../api/repositories/patient_repository.dart';
+import 'consult_chat_screen.dart';
+import '../widgets/gated_navigation.dart';
 import 'cart_screen.dart';
-import 'prescription_upload_screen.dart';
+import 'prescriptions_screen.dart';
 
 class PharmacyDetailScreen extends StatefulWidget {
   final Pharmacy pharmacy;
@@ -20,6 +21,51 @@ class PharmacyDetailScreen extends StatefulWidget {
 class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  List<Medicine> _medicines = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSellerInventory();
+  }
+
+  Future<void> _loadSellerInventory() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final kind = widget.pharmacy.sellerKind == 'partner' ? 'partner' : 'pharmacy';
+      final listings = await PatientRepository.instance.fetchListingsForSeller(
+        widget.pharmacy.id,
+        kind: kind,
+      );
+      final productIds = listings
+          .map((l) => l.productId)
+          .whereType<String>()
+          .toSet()
+          .toList();
+      final meds = <Medicine>[];
+      for (final id in productIds) {
+        try {
+          meds.add(await PatientRepository.instance.fetchProductById(id));
+        } catch (_) {}
+      }
+      if (!mounted) return;
+      setState(() {
+        _medicines = meds;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load pharmacy inventory';
+        _loading = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -45,11 +91,11 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
               );
               return;
             }
-            Navigator.push(
+            pushGatedRoute(
               context,
-              MaterialPageRoute(
-                builder: (_) => const PrescriptionUploadScreen(),
-              ),
+              feature: 'prescriptions',
+              requirePin: true,
+              child: const PrescriptionsScreen(),
             );
           },
           tooltip: 'Upload Prescription',
@@ -113,9 +159,14 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Simulate pharmacy-specific stock
-    // In a real app, we'd fetch medicines for this pharmacy ID.
-    final allPharmacyMedicines = dummyMedicines;
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.pharmacy.name)),
+        body: const Center(child: CircularProgressIndicator(color: Color(0xFF1E9E68))),
+      );
+    }
+
+    final allPharmacyMedicines = _medicines;
 
     // Filter medicines based on search query
     final filteredMedicines = allPharmacyMedicines.where((med) {
@@ -269,25 +320,23 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
                     // Pharmacist Link
                     InkWell(
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                PharmacistListScreen(pharmacy: widget.pharmacy),
-                          ),
-                        );
+                            pushGatedRoute(
+                              context,
+                              feature: 'Consult',
+                              child: const ConsultChatScreen(),
+                            );
                       },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Row(
                           children: [
                             Icon(
-                              Icons.people_outline,
+                              Icons.chat_bubble_outline,
                               color: Theme.of(context).primaryColor,
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              "View our Pharmacists",
+                              "Consult a Pharmacist",
                               style: TextStyle(
                                 color: Theme.of(context).primaryColor,
                                 fontWeight: FontWeight.bold,
@@ -447,7 +496,7 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
                             );
 
                             if (isInCart) {
-                              StateService().removeFromCart(med.id);
+                              StateService().removeFromCartByProductId(med.id);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(

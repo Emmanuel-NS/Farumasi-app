@@ -113,6 +113,21 @@ class WithdrawalCreate(FarumasiBaseModel):
         return self
 
 
+class WithdrawalAmountRequest(FarumasiBaseModel):
+    """Seller withdrawal — payout destination comes from registered owner profile."""
+
+    amount: float
+
+    @field_validator("amount")
+    @classmethod
+    def amount_valid(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("Withdrawal amount must be greater than zero")
+        if v != int(v):
+            raise ValueError("Withdrawal amount must be a whole number of RWF")
+        return float(int(v))
+
+
 class WithdrawalOut(FarumasiBaseModel):
     id: str
     requester_user_id: str

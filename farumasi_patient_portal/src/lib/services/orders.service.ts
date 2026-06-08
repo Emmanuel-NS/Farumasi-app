@@ -23,6 +23,7 @@ export interface CreateOrderPayload {
   delivery_longitude?: number;
   notes?: string;
   patient_access_code?: string;
+  defer_delivery_fee?: boolean;
   items?: {
     product_listing_id?: string;
     product_name?: string;

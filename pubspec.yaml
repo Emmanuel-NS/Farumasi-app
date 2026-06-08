@@ -53,6 +53,7 @@ dependencies:
   # ── NEW: API layer ──────────────────────────────────────────
   dio: ^5.7.0                        # HTTP client
   shared_preferences: ^2.3.3         # Token storage (web + mobile + desktop)
+  crypto: ^3.0.6                     # PIN hashing (matches patient portal)
   flutter_riverpod: ^2.6.1           # State management
   riverpod_annotation: ^2.3.5        # Riverpod code-gen annotations
   go_router: ^14.6.1                 # Named routing + deep links

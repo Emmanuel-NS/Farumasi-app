@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils";
 const faqs = [
   { q: "How do I request a new product to be added?", a: "Open Requests in the sidebar, stay on the Submitted tab, and click 'New product request'. Our team reviews submissions within 3–5 business days." },
   { q: "Where do I approve commission or agreement changes?", a: "FARUMASI sends those to Requests → Inbox. Confirm or decline there before changes apply to your account." },
-  { q: "When are withdrawal funds disbursed?", a: "Submit a request from Revenue & Wallet. FARUMASI reviews it, then pays you manually via bank transfer or mobile money (no payment gateway). Your balance updates once the payout is marked paid — usually within 1–2 business days after approval." },
+  { q: "When are withdrawal funds disbursed?", a: "Submit a request from Revenue & Wallet. FARUMASI reviews it, then pays you manually to your registered payout account (bank or mobile money). Your balance updates once the payout is marked paid — usually within 1–2 business days after approval." },
+  { q: "How do I register or change my payout account?", a: "You register bank or MoMo details during partner signup. All withdrawals go only to that account. To change it later, open Business Profile → Registered payout account, request an email verification code on your owner login, and confirm the new details with the code." },
   { q: "How is the commission calculated?", a: "FARUMASI deducts your agreed commission rate once from each order's product revenue (subtotal). What remains is your net earning — withdrawals come from that net balance with no extra commission or fees." },
   { q: "What documents are required for compliance?", a: "You need a valid Business Registration Certificate, Tax Clearance Certificate, Pharmacy Operating License, and RFDA Dispensing License." },
 ];

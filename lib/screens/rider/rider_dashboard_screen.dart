@@ -28,6 +28,12 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
   int _tabIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(riderProvider.notifier).refreshFromApi());
+  }
+
+  @override
   Widget build(BuildContext context) {
     final unread = ref.watch(riderProvider).unreadNotificationCount;
 

@@ -5,65 +5,55 @@ import '../providers/auth_provider.dart';
 import '../screens/splash_screen.dart';
 import '../screens/auth_screen.dart';
 import '../screens/home_screen.dart';
-import '../screens/pharmacist/pharmacist_dashboard_screen.dart';
 import '../screens/rider/rider_dashboard_screen.dart';
-
-// ─── Route names ──────────────────────────────────────────────────────────────
 
 abstract class AppRoutes {
   static const splash = '/';
   static const auth = '/auth';
   static const home = '/home';
-  static const pharmacistDashboard = '/pharmacist';
   static const riderDashboard = '/rider';
 }
-
-// ─── Router notifier — created once, reads auth state at redirect time ────────
 
 class _RouterNotifier extends ChangeNotifier {
   final Ref _ref;
 
   _RouterNotifier(this._ref) {
-    // Whenever auth state changes, tell GoRouter to re-evaluate redirect.
     _ref.listen<AuthState>(authProvider, (__, _) => notifyListeners());
   }
 
   String? redirect(BuildContext context, GoRouterState state) {
-    // Always read the current value — never watch (that would cause loops).
     final authState = _ref.read(authProvider);
     final status = authState.status;
     final location = state.matchedLocation;
 
-    // Still initializing — stay on splash
     if (status == AuthStatus.unknown) {
       return location == AppRoutes.splash ? null : AppRoutes.splash;
     }
 
-    // Authenticated — leave privileged screens alone; bounce splash/auth to role home
     if (status == AuthStatus.authenticated) {
+      final role = authState.user?.role;
+      if (role == 'RIDER' && location == AppRoutes.home) {
+        return AppRoutes.riderDashboard;
+      }
       if (location == AppRoutes.splash || location == AppRoutes.auth) {
-        return _homeForRole(authState.user?.role);
+        return _homeForRole(role);
       }
       return null;
     }
 
-    // Unauthenticated — send splash/protected routes → home (guest)
     if (location == AppRoutes.splash) return AppRoutes.home;
-    if (location == AppRoutes.pharmacistDashboard ||
-        location == AppRoutes.riderDashboard) {
+    if (location == AppRoutes.riderDashboard) {
       return AppRoutes.home;
     }
 
-    return null; // /home and /auth are freely accessible
+    return null;
   }
 }
-
-// ─── Router provider — GoRouter instance is created ONCE ─────────────────────
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _RouterNotifier(ref);
   return GoRouter(
-    initialLocation: AppRoutes.splash,
+    initialLocation: AppRoutes.home,
     refreshListenable: notifier,
     redirect: notifier.redirect,
     routes: [
@@ -80,10 +70,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const HomeScreen(),
       ),
       GoRoute(
-        path: AppRoutes.pharmacistDashboard,
-        builder: (_, __) => const PharmacistDashboardScreen(),
-      ),
-      GoRoute(
         path: AppRoutes.riderDashboard,
         builder: (_, __) => const RiderDashboardScreen(),
       ),
@@ -96,9 +82,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 String _homeForRole(String? role) {
   switch (role) {
-    case 'PHARMACIST':
-    case 'PHARMACY_ADMIN':
-      return AppRoutes.pharmacistDashboard;
     case 'RIDER':
       return AppRoutes.riderDashboard;
     default:

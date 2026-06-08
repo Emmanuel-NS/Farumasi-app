@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     # Use the `cors_origins` property everywhere a List[str] is needed.
     CORS_ORIGINS: str = (
         "http://localhost:3000,http://localhost:3001,http://localhost:3002,"
-        "http://localhost:3003,http://localhost:3004,http://localhost:3005"
+        "http://localhost:3003,http://localhost:3004,http://localhost:3005,"
+        "http://localhost:8080,http://127.0.0.1:8080"
     )
 
     # ── Redis ─────────────────────────────────────────────────────────────
@@ -40,6 +41,26 @@ class Settings(BaseSettings):
     # ── Business Logic ────────────────────────────────────────────────────
     PLATFORM_COMMISSION_RATE: float = 0.10  # 10% platform fee (fallback when seller has no rate)
     MIN_WITHDRAWAL_AMOUNT: float = 1000.0  # whole RWF
+
+    # ── Email (owner verification for sensitive changes) ───────────────────
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_USE_TLS: bool = True
+    EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 10
+
+    # ── Patient payments (MTN MoMo Collection) ────────────────────────────
+    # sandbox = auto-confirm for local/dev E2E; live = real MoMo API
+    PAYMENT_MODE: str = "sandbox"
+    MTN_MOMO_SUBSCRIPTION_KEY: str = ""
+    MTN_MOMO_API_USER: str = ""
+    MTN_MOMO_API_KEY: str = ""
+    MTN_MOMO_ENV: str = "sandbox"
+    MTN_MOMO_CALLBACK_URL: str = ""
+    MTN_MOMO_CURRENCY: str = "RWF"
+    MTN_MOMO_TARGET_ENVIRONMENT: str = "sandbox"
 
     # ── File Storage ──────────────────────────────────────────────────────
     STORAGE_BACKEND: str = "local"  # local | s3 | cloudinary
@@ -75,6 +96,10 @@ class Settings(BaseSettings):
                 "FARUMASI: SECRET_KEY must be set to a strong, unique value "
                 f"when ENVIRONMENT='{self.ENVIRONMENT}'. Refusing to start "
                 "with the default development secret."
+            )
+        if env != "development" and self.PAYMENT_MODE == "sandbox":
+            raise ValueError(
+                "FARUMASI: PAYMENT_MODE must be 'live' when ENVIRONMENT is not development."
             )
         return self
 

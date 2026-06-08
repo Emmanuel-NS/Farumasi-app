@@ -4,17 +4,19 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ArrowRight, ArrowLeft, Building2, User, MapPin, FileText } from "lucide-react";
+import { ArrowRight, ArrowLeft, Building2, User, MapPin, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authService } from "@/lib/services/auth.service";
 import { partnerService } from "@/lib/services/partner.service";
+import { payoutCredentialsService } from "@/lib/services/payout-credentials.service";
+import { PAYOUT_METHODS, selectedPayoutMethod } from "@/lib/payout-methods";
 import { useAuthStore } from "@/lib/store/auth";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
 
-const STEPS = ["Business Info", "Contact & Location", "Documents", "Account"];
+const STEPS = ["Business Info", "Contact & Location", "Payout Account", "Account"];
 
 export default function RegisterPage() {
   const [step, setStep] = useState(0);
@@ -25,6 +27,9 @@ export default function RegisterPage() {
   const [address, setAddress] = useState("");
   const [businessPhone, setBusinessPhone] = useState("");
   const [businessEmail, setBusinessEmail] = useState("");
+  const [payoutMethod, setPayoutMethod] = useState(PAYOUT_METHODS[0].value);
+  const [payoutAccount, setPayoutAccount] = useState("");
+  const [payoutAccountName, setPayoutAccountName] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,6 +42,10 @@ export default function RegisterPage() {
     if (submitting) return;
     if (!businessName.trim()) {
       toast.error("Please enter your business name.");
+      return;
+    }
+    if (!payoutAccount.trim() || !payoutAccountName.trim()) {
+      toast.error("Please complete payout account details.");
       return;
     }
     if (!fullName.trim() || !email.trim() || !password) {
@@ -73,9 +82,18 @@ export default function RegisterPage() {
         district: district.trim() || undefined,
         business_registration_number: registrationNumber.trim() || undefined,
       });
+      const accountValue = payoutAccount.trim();
+      await payoutCredentialsService.set({
+        payout_method: payoutMethod,
+        payout_details: {
+          account: accountValue,
+          account_name: payoutAccountName.trim(),
+          ...(payoutMethod === "momo_code" ? { momo_code: accountValue } : {}),
+        },
+      });
       const me = await authService.getMe();
       setSession(tokens, me);
-      toast.success("Application submitted. Welcome to FARUMASI.");
+      toast.success("Application submitted. Payout account registered.");
       router.push("/dashboard");
     } catch (err: unknown) {
       toast.error(getApiError(err, "Registration failed. Please try again."));
@@ -89,6 +107,16 @@ export default function RegisterPage() {
       toast.error("Please enter your business name.");
       return;
     }
+    if (step === 2) {
+      if (!payoutAccount.trim()) {
+        toast.error("Enter your payout account or phone number.");
+        return;
+      }
+      if (!payoutAccountName.trim()) {
+        toast.error("Enter the legal name on this payout account.");
+        return;
+      }
+    }
     if (step < STEPS.length - 1) {
       setStep((s) => s + 1);
     } else {
@@ -97,7 +125,7 @@ export default function RegisterPage() {
   };
   const back = () => step > 0 && setStep((s) => s - 1);
 
-  const stepIcons = [Building2, MapPin, FileText, User];
+  const stepIcons = [Building2, MapPin, Wallet, User];
   const StepIcon = stepIcons[step];
 
   return (
@@ -191,15 +219,37 @@ export default function RegisterPage() {
 
           {step === 2 && (
             <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">Upload your compliance documents after registration via the Compliance page.</p>
-              {["Business Registration Certificate", "Operating License", "RFDA Approval", "Tax Clearance Certificate"].map(doc => (
-                <div key={doc} className="flex items-center justify-between border border-dashed border-border rounded-lg px-4 py-3 opacity-60">
-                  <div>
-                    <p className="text-xs font-medium">{doc}</p>
-                    <p className="text-[11px] text-muted-foreground">Available after account setup</p>
-                  </div>
-                </div>
-              ))}
+              <p className="text-xs text-muted-foreground rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-emerald-900">
+                Withdrawals are paid only to this account. You can change it later in Business Profile with email verification.
+              </p>
+              <div className="space-y-1.5">
+                <Label>Payout method <span className="text-red-500">*</span></Label>
+                <select
+                  value={payoutMethod}
+                  onChange={(e) => setPayoutMethod(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {PAYOUT_METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>{selectedPayoutMethod(payoutMethod).accountLabel} <span className="text-red-500">*</span></Label>
+                <Input
+                  placeholder={selectedPayoutMethod(payoutMethod).accountPlaceholder}
+                  value={payoutAccount}
+                  onChange={(e) => setPayoutAccount(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Name on account <span className="text-red-500">*</span></Label>
+                <Input
+                  placeholder="Legal name registered with bank / MoMo"
+                  value={payoutAccountName}
+                  onChange={(e) => setPayoutAccountName(e.target.value)}
+                />
+              </div>
             </div>
           )}
 

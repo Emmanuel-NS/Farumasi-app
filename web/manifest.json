@@ -1,11 +1,11 @@
 {
-    "name": "Farumasi",
-    "short_name": "Farumasi",
+    "name": "farumasi_app",
+    "short_name": "farumasi_app",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0b7a4b",
-    "theme_color": "#0b7a4b",
-    "description": "Farumasi digital pharmacy app.",
+    "background_color": "#0175C2",
+    "theme_color": "#0175C2",
+    "description": "A new Flutter project.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

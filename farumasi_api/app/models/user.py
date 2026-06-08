@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.models.hospital_admin import HospitalAdminProfile
     from app.models.pharmacy import Pharmacy
     from app.models.partner import PartnerCompany
+    from app.models.owner_payout_profile import OwnerPayoutProfile
     from app.models.notification import Notification
     from app.models.audit import AuditLog
     from app.models.consultation import Consultation
@@ -81,6 +82,9 @@ class User(Base, UUIDMixin, TimestampMixin):
     )
     consultations_as_pharmacist: Mapped[List["Consultation"]] = relationship(
         "Consultation", back_populates="pharmacist", foreign_keys="Consultation.pharmacist_id"
+    )
+    payout_profile: Mapped[Optional["OwnerPayoutProfile"]] = relationship(
+        "OwnerPayoutProfile", back_populates="owner", uselist=False
     )
 
     def __repr__(self) -> str:

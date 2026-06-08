@@ -34,33 +34,11 @@ import {
   validateWithdrawAmount,
 } from "@/lib/revenue-utils";
 import { downloadCsv } from "@/lib/export-csv";
-
-const PAYOUT_METHODS = [
-  {
-    value: "bank_transfer",
-    label: "Bank Transfer",
-    accountLabel: "Bank account number",
-    accountPlaceholder: "e.g. 1234567890",
-  },
-  {
-    value: "mobile_money",
-    label: "MTN Mobile Money",
-    accountLabel: "MTN MoMo phone number",
-    accountPlaceholder: "+250 7XX XXX XXX",
-  },
-  {
-    value: "momo_code",
-    label: "MTN MoMo Code",
-    accountLabel: "MoMo Pay / merchant code",
-    accountPlaceholder: "e.g. *182*8*1*CODE# or merchant ID",
-  },
-  {
-    value: "airtel_money",
-    label: "Airtel Money",
-    accountLabel: "Airtel Money phone number",
-    accountPlaceholder: "+250 7XX XXX XXX",
-  },
-] as const;
+import { payoutMethodLabel } from "@/lib/payout-methods";
+import {
+  payoutCredentialsService,
+  type PayoutCredentials,
+} from "@/lib/services/payout-credentials.service";
 
 const MIN_WITHDRAWAL = MIN_WITHDRAWAL_AMOUNT;
 
@@ -91,37 +69,33 @@ function payoutAccountNameFromDetails(details: BackendWithdrawal["payout_details
   return null;
 }
 
-function selectedPayoutMethod(value: string) {
-  return PAYOUT_METHODS.find((m) => m.value === value) ?? PAYOUT_METHODS[0];
-}
-
 export default function RevenuePage() {
   const [range, setRange] = useState<DateRangeValue>("month");
   const [summary, setSummary] = useState<BackendRevenueSummary | null>(null);
   const [transactions, setTransactions] = useState<BackendRevenueRecord[]>([]);
   const [withdrawals, setWithdrawals] = useState<BackendWithdrawal[]>([]);
+  const [payoutProfile, setPayoutProfile] = useState<PayoutCredentials | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [amountTouched, setAmountTouched] = useState(false);
-  const [payoutMethod, setPayoutMethod] = useState(PAYOUT_METHODS[0].value);
-  const [payoutAccount, setPayoutAccount] = useState("");
-  const [payoutAccountName, setPayoutAccountName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const [s, txs, ws] = await Promise.all([
+      const [s, txs, ws, payout] = await Promise.all([
         revenueService.getSummary(),
         revenueService.listTransactions(),
         revenueService.listWithdrawals(),
+        payoutCredentialsService.get().catch(() => ({ configured: false } as PayoutCredentials)),
       ]);
       setSummary(s);
       setTransactions(txs);
       setWithdrawals(ws);
+      setPayoutProfile(payout);
       syncWalletToLayout(s);
     } catch (err: unknown) {
       const message = getApiError(err, "Failed to load revenue");
@@ -175,42 +149,23 @@ export default function RevenuePage() {
 
   const handleWithdraw = async () => {
     setAmountTouched(true);
+    if (!payoutProfile?.configured) {
+      toast.error("Register your payout account in Business Profile first");
+      return;
+    }
     const validationError = validateWithdrawAmount(withdrawAmount, available);
     if (validationError) {
       toast.error(validationError);
       return;
     }
     const amount = Math.floor(Number(withdrawAmount));
-    if (!payoutAccount.trim()) {
-      toast.error(
-        payoutMethod === "momo_code"
-          ? "Enter your MoMo code"
-          : "Enter your payout account or phone number",
-      );
-      return;
-    }
-    if (!payoutAccountName.trim()) {
-      toast.error("Enter the name registered on this account");
-      return;
-    }
     setSubmitting(true);
     try {
-      const accountValue = payoutAccount.trim();
-      await revenueService.requestWithdrawal({
-        amount,
-        payout_method: payoutMethod,
-        payout_details: {
-          account: accountValue,
-          account_name: payoutAccountName.trim(),
-          ...(payoutMethod === "momo_code" ? { momo_code: accountValue } : {}),
-        },
-      });
+      await revenueService.requestWithdrawal({ amount });
       toast.success("Withdrawal requested");
       setShowWithdrawModal(false);
       setWithdrawAmount("");
       setAmountTouched(false);
-      setPayoutAccount("");
-      setPayoutAccountName("");
       await load();
     } catch (err: unknown) {
       toast.error(getApiError(err, "Failed to request withdrawal"));
@@ -342,10 +297,17 @@ export default function RevenuePage() {
                 setAmountTouched(false);
                 setWithdrawAmount("");
               }}
-              disabled={available < MIN_WITHDRAWAL}
+              disabled={available < MIN_WITHDRAWAL || !payoutProfile?.configured}
             >
               <ArrowDownToLine className="w-4 h-4" /> Request Withdrawal
             </Button>
+            {!payoutProfile?.configured && (
+              <p className="text-[10px] text-amber-700 text-center">
+                Register payout account in{" "}
+                <Link href="/settings" className="font-semibold underline">Business Profile</Link>{" "}
+                first.
+              </p>
+            )}
             {available > 0 && available < MIN_WITHDRAWAL && (
               <p className="text-[10px] text-muted-foreground text-center">
                 Minimum withdrawal is {formatRWF(MIN_WITHDRAWAL)}
@@ -617,36 +579,24 @@ export default function RevenuePage() {
                 </p>
               )}
             </div>
-            <div className="space-y-1.5">
-              <Label>Payout Method</Label>
-              <select
-                value={payoutMethod}
-                onChange={(e) => setPayoutMethod(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                {PAYOUT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>{selectedPayoutMethod(payoutMethod).accountLabel}</Label>
-              <Input
-                placeholder={selectedPayoutMethod(payoutMethod).accountPlaceholder}
-                value={payoutAccount}
-                onChange={(e) => setPayoutAccount(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Name on account</Label>
-              <Input
-                placeholder="Full name as registered with bank / MoMo"
-                value={payoutAccountName}
-                onChange={(e) => setPayoutAccountName(e.target.value)}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Must match the name on your bank account or mobile money wallet
-              </p>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-xs space-y-1">
+              <p className="font-semibold text-emerald-900">Payout to registered account</p>
+              {payoutProfile?.configured ? (
+                <>
+                  <p className="text-emerald-800">{payoutMethodLabel(payoutProfile.payout_method ?? "")}</p>
+                  <p className="font-mono text-emerald-900">{payoutProfile.payout_account_masked}</p>
+                  <p className="text-emerald-800">{payoutProfile.payout_account_name}</p>
+                  <Link href="/settings" className="text-farumasi-700 font-medium hover:underline inline-block mt-1">
+                    Change in Business Profile (email verification required)
+                  </Link>
+                </>
+              ) : (
+                <p className="text-red-700">
+                  No payout account registered.{" "}
+                  <Link href="/settings" className="font-semibold underline">Add one in Business Profile</Link>{" "}
+                  before withdrawing.
+                </p>
+              )}
             </div>
             <div className="flex gap-3">
               <Button
@@ -657,7 +607,11 @@ export default function RevenuePage() {
               >
                 Cancel
               </Button>
-              <Button className="flex-1 gap-1.5" onClick={() => void handleWithdraw()} disabled={submitting || !!amountError}>
+              <Button
+                className="flex-1 gap-1.5"
+                onClick={() => void handleWithdraw()}
+                disabled={submitting || !!amountError || !payoutProfile?.configured}
+              >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowDownToLine className="w-4 h-4" />}
                 Confirm
               </Button>

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import '../core/sell_mode.dart';
 import '../models/models.dart';
 
 class StateService extends ChangeNotifier {
@@ -134,27 +135,39 @@ class StateService extends ChangeNotifier {
   final List<CartItem> _cartItems = [];
   List<CartItem> get cartItems => _cartItems;
 
-  void addToCart(Medicine medicine, int quantity) {
-    var existingIndex = _cartItems.indexWhere(
-      (item) => item.medicine.id == medicine.id,
-    );
+  void addToCart(
+    Medicine medicine,
+    int quantity, {
+    SellMode sellMode = SellMode.pack,
+  }) {
+    final key = cartLineKey(medicine.id, sellMode);
+    final existingIndex = _cartItems.indexWhere((item) => item.lineKey == key);
     if (existingIndex >= 0) {
       _cartItems[existingIndex].quantity += quantity;
     } else {
-      _cartItems.add(CartItem(medicine: medicine, quantity: quantity));
+      _cartItems.add(
+        CartItem(medicine: medicine, quantity: quantity, sellMode: sellMode),
+      );
     }
     notifyListeners();
   }
 
-  void removeFromCart(String medicineId) {
-    _cartItems.removeWhere((item) => item.medicine.id == medicineId);
+  bool isProductInCart(String productId) {
+    return _cartItems.any((item) => item.medicine.id == productId);
+  }
+
+  void removeProductLines(String productId) {
+    _cartItems.removeWhere((item) => item.medicine.id == productId);
     notifyListeners();
   }
 
-  void decrementQuantity(String medicineId) {
-    var existingIndex = _cartItems.indexWhere(
-      (item) => item.medicine.id == medicineId,
-    );
+  void removeFromCart(String lineKey) {
+    _cartItems.removeWhere((item) => item.lineKey == lineKey);
+    notifyListeners();
+  }
+
+  void decrementQuantity(String lineKey) {
+    final existingIndex = _cartItems.indexWhere((item) => item.lineKey == lineKey);
     if (existingIndex >= 0) {
       if (_cartItems[existingIndex].quantity > 1) {
         _cartItems[existingIndex].quantity--;
@@ -165,13 +178,32 @@ class StateService extends ChangeNotifier {
     }
   }
 
-  void incrementQuantity(String medicineId) {
-    var existingIndex = _cartItems.indexWhere(
-      (item) => item.medicine.id == medicineId,
-    );
+  void incrementQuantity(String lineKey) {
+    final existingIndex = _cartItems.indexWhere((item) => item.lineKey == lineKey);
     if (existingIndex >= 0) {
       _cartItems[existingIndex].quantity++;
       notifyListeners();
+    }
+  }
+
+  /// Legacy id-based remove — clears all sell modes for a product.
+  void removeFromCartByProductId(String medicineId) {
+    removeProductLines(medicineId);
+  }
+
+  void decrementQuantityByProductId(String medicineId) {
+    final index = _cartItems.indexWhere((i) => i.medicine.id == medicineId);
+    if (index >= 0) {
+      decrementQuantity(_cartItems[index].lineKey);
+    }
+  }
+
+  void incrementQuantityByProductId(String medicineId) {
+    final existingIndex = _cartItems.indexWhere(
+      (item) => item.medicine.id == medicineId,
+    );
+    if (existingIndex >= 0) {
+      incrementQuantity(_cartItems[existingIndex].lineKey);
     }
   }
 
@@ -182,6 +214,18 @@ class StateService extends ChangeNotifier {
 
   double get totalAmount {
     return _cartItems.fold(0.0, (sum, item) => sum + item.total);
+  }
+
+  double get packSubtotal {
+    return _cartItems
+        .where((i) => i.sellMode == SellMode.pack)
+        .fold(0.0, (sum, item) => sum + item.total);
+  }
+
+  double get partialSubtotal {
+    return _cartItems
+        .where((i) => i.sellMode == SellMode.partial)
+        .fold(0.0, (sum, item) => sum + item.total);
   }
 
   // Pharmacy Preferences

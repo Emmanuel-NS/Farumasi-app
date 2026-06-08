@@ -2,11 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 
-/// Central Dio HTTP client for FARUMASI API
+/// Central Dio HTTP client for FARUMASI API.
 ///
-/// Token storage: shared_preferences (works on web, mobile, desktop)
-/// Base URL: defaults to localhost:8000 for web/desktop,
-///           override via --dart-define=API_BASE_URL=...
+/// Override base URL via --dart-define=API_BASE_URL=...
 class FarumasiApiClient {
   static FarumasiApiClient? _instance;
   static FarumasiApiClient get instance => _instance ??= FarumasiApiClient._();
@@ -16,20 +14,24 @@ class FarumasiApiClient {
   static const String _accessTokenKey = 'farumasi_access_token';
   static const String _refreshTokenKey = 'farumasi_refresh_token';
 
-  // On web/desktop default to localhost; Android emulator users pass --dart-define
   static final String baseUrl = const String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: '',
   ).isNotEmpty
       ? const String.fromEnvironment('API_BASE_URL')
-      : kIsWeb
-          ? 'http://localhost:8000/api/v1'
-          : 'http://10.0.2.2:8000/api/v1'; // Android emulator
+      : _defaultBaseUrl;
+
+  static String get _defaultBaseUrl {
+    if (kIsWeb) return 'http://127.0.0.1:8000/api/v1';
+    return defaultTargetPlatform == TargetPlatform.android
+        ? 'http://10.0.2.2:8000/api/v1'
+        : 'http://127.0.0.1:8000/api/v1';
+  }
 
   FarumasiApiClient._() {
     dio = Dio(BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(seconds: 30),
       headers: {
         'Content-Type': 'application/json',
@@ -39,14 +41,20 @@ class FarumasiApiClient {
 
     dio.interceptors.add(_AuthInterceptor(dio));
 
+    // Full body logging on web debug freezes the UI when responses are large.
     if (kDebugMode) {
       dio.interceptors.add(LogInterceptor(
-        requestBody: true,
-        responseBody: true,
+        requestHeader: false,
+        requestBody: false,
+        responseHeader: false,
+        responseBody: false,
         error: true,
       ));
     }
   }
+
+  String? _memoryAccessToken;
+  static void Function()? onSessionExpired;
 
   // ─── Token management ─────────────────────────────────────────────────────
 
@@ -54,20 +62,28 @@ class FarumasiApiClient {
     required String accessToken,
     required String refreshToken,
   }) async {
+    _memoryAccessToken = accessToken;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_accessTokenKey, accessToken);
     await prefs.setString(_refreshTokenKey, refreshToken);
   }
 
   Future<String?> getAccessToken() async {
+    if (_memoryAccessToken != null) return _memoryAccessToken;
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_accessTokenKey);
+    _memoryAccessToken = prefs.getString(_accessTokenKey);
+    return _memoryAccessToken;
   }
 
   Future<void> clearTokens() async {
+    _memoryAccessToken = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_accessTokenKey);
     await prefs.remove(_refreshTokenKey);
+  }
+
+  void updateMemoryAccessToken(String? token) {
+    _memoryAccessToken = token;
   }
 }
 
@@ -89,8 +105,7 @@ class _AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_accessTokenKey);
+    final token = await FarumasiApiClient.instance.getAccessToken();
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
@@ -124,6 +139,7 @@ class _AuthInterceptor extends Interceptor {
 
         await prefs.setString(_accessTokenKey, newAccessToken);
         await prefs.setString(_refreshTokenKey, newRefreshToken);
+        FarumasiApiClient.instance.updateMemoryAccessToken(newAccessToken);
 
         err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
         final retryResponse = await _dio.fetch(err.requestOptions);
@@ -132,6 +148,8 @@ class _AuthInterceptor extends Interceptor {
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove(_accessTokenKey);
         await prefs.remove(_refreshTokenKey);
+        FarumasiApiClient.instance.updateMemoryAccessToken(null);
+        FarumasiApiClient.onSessionExpired?.call();
         handler.next(err);
       } finally {
         _isRefreshing = false;

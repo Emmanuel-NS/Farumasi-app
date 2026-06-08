@@ -13,7 +13,7 @@ from app.models.order import Order
 from app.models.partner import PartnerCompany
 from app.models.pharmacy import Pharmacy
 from app.models.revenue import RevenueRecord, WithdrawalRequest
-from app.schemas.revenue import WithdrawalCreate, RevenueSummary
+from app.schemas.revenue import WithdrawalCreate, WithdrawalAmountRequest, RevenueSummary
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.models.user import User
@@ -361,14 +361,18 @@ class RevenueService:
         return list((await self.db.execute(q)).scalars().all())
 
     async def request_withdrawal_for_owner(
-        self, data: WithdrawalCreate, actor: User
+        self, data: WithdrawalAmountRequest, actor: User
     ) -> WithdrawalRequest:
         """Request a withdrawal against the combined wallet of all owned seller entities."""
+        from app.services.payout_credentials_service import PayoutCredentialsService
+
         pharmacy_ids, partner_ids = await self._owner_entity_ids(actor.id)
         if not pharmacy_ids and not partner_ids:
             raise BusinessRuleError(
                 "Withdrawal requires ownership of a pharmacy or partner company"
             )
+
+        profile = await PayoutCredentialsService(self.db).get_required_profile(actor.id)
 
         summary = await self.get_summary_for_owner(actor.id)
         whole_amount = _validate_withdrawal_amount(data.amount, summary.available_balance)
@@ -376,7 +380,11 @@ class RevenueService:
         partner_company_id = partner_ids[0] if partner_ids else None
         pharmacy_id = pharmacy_ids[0] if pharmacy_ids and not partner_company_id else None
 
-        payload = data.model_copy(update={"amount": float(whole_amount)})
+        payload = WithdrawalCreate(
+            amount=float(whole_amount),
+            payout_method=profile.payout_method,
+            payout_details=profile.payout_details,
+        )
         return await self._create_withdrawal(
             payload,
             actor,
@@ -433,11 +441,13 @@ class RevenueService:
 
     async def request_withdrawal(
         self,
-        data: WithdrawalCreate,
+        data: WithdrawalAmountRequest,
         actor: User,
         pharmacy_id: Optional[str] = None,
         partner_company_id: Optional[str] = None,
     ) -> WithdrawalRequest:
+        from app.services.payout_credentials_service import PayoutCredentialsService
+
         # Exactly one of pharmacy_id / partner_company_id must be set.
         if not pharmacy_id and not partner_company_id:
             raise BusinessRuleError(
@@ -448,12 +458,18 @@ class RevenueService:
                 "Withdrawal cannot target both a pharmacy and a partner company"
             )
 
+        profile = await PayoutCredentialsService(self.db).get_required_profile(actor.id)
+
         summary = await self.get_summary(
             pharmacy_id=pharmacy_id, partner_company_id=partner_company_id
         )
         whole_amount = _validate_withdrawal_amount(data.amount, summary.available_balance)
 
-        payload = data.model_copy(update={"amount": float(whole_amount)})
+        payload = WithdrawalCreate(
+            amount=float(whole_amount),
+            payout_method=profile.payout_method,
+            payout_details=profile.payout_details,
+        )
         return await self._create_withdrawal(
             payload,
             actor,

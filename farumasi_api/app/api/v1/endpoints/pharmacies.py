@@ -1,4 +1,4 @@
-﻿from typing import Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -249,7 +249,7 @@ async def update_my_pharmacy_order_status(
 from app.schemas.revenue import (
     RevenueRecordOut,
     RevenueSummary,
-    WithdrawalCreate,
+    WithdrawalAmountRequest,
     WithdrawalOut,
 )
 from app.services.revenue_service import RevenueService
@@ -284,7 +284,7 @@ async def list_my_pharmacy_withdrawals(
 
 @router.post("/me/withdrawals", response_model=WithdrawalOut, status_code=201)
 async def create_my_pharmacy_withdrawal(
-    data: WithdrawalCreate,
+    data: WithdrawalAmountRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
