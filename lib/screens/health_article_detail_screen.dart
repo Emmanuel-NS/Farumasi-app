@@ -791,55 +791,43 @@ class _MetaRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: const BoxDecoration(
         border: Border.symmetric(horizontal: BorderSide(color: PortalColors.slate100)),
       ),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(color: PortalColors.greenLight, shape: BoxShape.circle),
-                child: const Icon(Icons.menu_book_outlined, size: 14, color: PortalColors.green),
-              ),
-              const SizedBox(width: 8),
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(text: article.source, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: PortalColors.slate600)),
-                  ],
-                ),
-              ),
-            ],
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(color: PortalColors.greenLight, shape: BoxShape.circle),
+            child: const Icon(Icons.menu_book_outlined, size: 14, color: PortalColors.green),
           ),
-          Text('|', style: TextStyle(color: PortalColors.slate200, fontSize: 13)),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.access_time, size: 14, color: PortalColors.slate400),
-              const SizedBox(width: 6),
-              Text('${article.readTimeMin} min read', style: const TextStyle(fontSize: 13, color: PortalColors.slate400)),
-            ],
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              article.source,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: PortalColors.slate600),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          Wrap(
-            spacing: 12,
-            children: [
-              _Stat(icon: Icons.visibility_outlined, value: compactNumber(article.viewCount)),
-              _Stat(
-                icon: Icons.favorite,
-                value: compactNumber(article.likeCount),
-                iconColor: article.isLiked ? Colors.red : PortalColors.slate400,
-              ),
-              _Stat(icon: Icons.chat_bubble_outline, value: compactNumber(article.commentCount)),
-              _Stat(icon: Icons.share_outlined, value: compactNumber(article.shareCount)),
-            ],
+          Text(' | ', style: TextStyle(color: PortalColors.slate200, fontSize: 13)),
+          const Icon(Icons.access_time, size: 14, color: PortalColors.slate400),
+          const SizedBox(width: 4),
+          Text('${article.readTimeMin} min', style: const TextStyle(fontSize: 13, color: PortalColors.slate400)),
+          const Spacer(),
+          _Stat(icon: Icons.visibility_outlined, value: compactNumber(article.viewCount)),
+          const SizedBox(width: 12),
+          _Stat(
+            icon: Icons.favorite,
+            value: compactNumber(article.likeCount),
+            iconColor: article.isLiked ? Colors.red : PortalColors.slate400,
           ),
+          const SizedBox(width: 12),
+          _Stat(icon: Icons.chat_bubble_outline, value: compactNumber(article.commentCount)),
+          const SizedBox(width: 12),
+          _Stat(icon: Icons.share_outlined, value: compactNumber(article.shareCount)),
         ],
       ),
     );

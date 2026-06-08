@@ -2845,7 +2845,7 @@ class _TypewriterSloganState extends State<TypewriterSlogan> {
               child: Container(
                 width: 3,
                 height: 24,
-                color: const Color(0xFF1E9E68), // Match text color
+                color: Colors.white,
                 margin: const EdgeInsets.only(left: 2),
               ),
               alignment: PlaceholderAlignment.middle,
@@ -2853,10 +2853,14 @@ class _TypewriterSloganState extends State<TypewriterSlogan> {
         ],
       ),
       style: const TextStyle(
-        color: Color(0xFF1E9E68),
-        fontSize: 22,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1.0,
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.6,
+        shadows: [
+          Shadow(blurRadius: 6, color: Colors.black54, offset: Offset(0, 1)),
+          Shadow(blurRadius: 2, color: Colors.black38, offset: Offset(0, 1)),
+        ],
       ),
       overflow: TextOverflow.ellipsis,
       maxLines: 2,

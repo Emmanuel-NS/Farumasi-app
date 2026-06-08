@@ -526,87 +526,92 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
     final width = MediaQuery.sizeOf(context).width;
     final crossCount = width > 900 ? 3 : width > 600 ? 2 : 1;
 
+    final gridAspect = crossCount == 1 ? 1.38 : (crossCount == 2 ? 1.08 : 0.95);
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: ColoredBox(
         color: PortalColors.pageBgAlt,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(articles.length),
-            if (!_apiLoaded && !_loading)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: const Color(0xFFFFF7ED),
-                child: const Text(
-                  'Showing offline sample articles — connect to the API for live content.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF9A3412)),
+        child: _loading
+            ? const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: PortalColors.green),
+                    SizedBox(height: 12),
+                    Text('Loading articles…', style: TextStyle(color: PortalColors.slate500)),
+                  ],
                 ),
-              ),
-            Expanded(
-              child: _loading
-                  ? const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(color: PortalColors.green),
-                          SizedBox(height: 12),
-                          Text('Loading articles…', style: TextStyle(color: PortalColors.slate500)),
-                        ],
+              )
+            : articles.isEmpty
+                ? Column(
+                    children: [
+                      _buildHeader(articles.length),
+                      Expanded(
+                        child: PortalEmptyState(
+                          icon: Icons.search_off,
+                          message: _savedOnly ? 'No saved articles yet' : 'No articles found',
+                        ),
                       ),
-                    )
-                  : articles.isEmpty
-                  ? PortalEmptyState(
-                      icon: Icons.search_off,
-                      message: _savedOnly ? 'No saved articles yet' : 'No articles found',
-                    )
-                  : CustomScrollView(
-                      slivers: [
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                          sliver: SliverList(
-                            delegate: SliverChildListDelegate([
-                              if (!_savedOnly) const SponsoredCarousel(),
-                              if (featured.isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                _FeaturedRail(
-                                  articles: featured,
-                                  savedIds: _savedIds,
-                                  onToggleSaved: _toggleSaved,
-                                ),
-                                const SizedBox(height: 20),
-                              ],
-                              Row(
-                                children: [
-                                  const Text(
-                                    'More to read',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: PortalColors.slate900,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    '${articles.length} articles',
-                                    style: const TextStyle(fontSize: 11, color: PortalColors.slate400),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                            ]),
+                    ],
+                  )
+                : CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(child: _buildHeader(articles.length)),
+                      if (!_apiLoaded && !_loading)
+                        const SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: Text(
+                              'Showing offline sample articles — connect to the API for live content.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF9A3412)),
+                            ),
                           ),
                         ),
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                          sliver: SliverGrid(
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossCount,
-                              mainAxisSpacing: 16,
-                              crossAxisSpacing: 16,
-                              childAspectRatio: 0.8,
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            if (!_savedOnly) const SponsoredCarousel(),
+                            if (featured.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              _FeaturedRail(
+                                articles: featured,
+                                savedIds: _savedIds,
+                                onToggleSaved: _toggleSaved,
+                              ),
+                              const SizedBox(height: 20),
+                            ],
+                            Row(
+                              children: [
+                                const Text(
+                                  'More to read',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: PortalColors.slate900,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${articles.length} articles',
+                                  style: const TextStyle(fontSize: 11, color: PortalColors.slate400),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 12),
+                          ]),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                        sliver: SliverGrid(
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossCount,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: gridAspect,
+                          ),
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
                                 final article = articles[index];
@@ -620,11 +625,8 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
                             ),
                           ),
                         ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
+                    ],
+                  ),
       ),
     );
   }
@@ -717,10 +719,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            child: Row(
               children: [
                 GestureDetector(
                   onTap: () {
@@ -728,7 +727,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
                     _reloadFromApi();
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: _savedOnly ? const Color(0xFFF59E0B) : Colors.white,
                       borderRadius: BorderRadius.circular(999),
@@ -746,9 +745,9 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          _savedOnly ? 'Saved only' : 'Saved',
+                          _savedOnly ? 'Saved' : 'Saved',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: _savedOnly ? Colors.white : PortalColors.slate700,
                           ),
@@ -757,19 +756,25 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
                     ),
                   ),
                 ),
-                _TypeFilterDropdown(
-                  value: _typeFilter,
-                  onChanged: (v) {
-                    _setFilter(() => _typeFilter = v);
-                    _reloadFromApi();
-                  },
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _TypeFilterDropdown(
+                    value: _typeFilter,
+                    onChanged: (v) {
+                      _setFilter(() => _typeFilter = v);
+                      _reloadFromApi();
+                    },
+                  ),
                 ),
-                _SortDropdown(
-                  value: _sortBy,
-                  onChanged: (v) {
-                    _setFilter(() => _sortBy = v);
-                    _reloadFromApi();
-                  },
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SortDropdown(
+                    value: _sortBy,
+                    onChanged: (v) {
+                      _setFilter(() => _sortBy = v);
+                      _reloadFromApi();
+                    },
+                  ),
                 ),
               ],
             ),
@@ -840,7 +845,6 @@ class _SortDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 148),
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,

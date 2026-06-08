@@ -67,7 +67,8 @@ class MedicineItem extends StatelessWidget {
                             borderRadius: BorderRadius.vertical(
                               top: Radius.circular(12),
                             ),
-                            child: Image.network(
+                            child: medicine.imageUrl.isNotEmpty
+                                ? Image.network(
                               medicine.imageUrl,
                               fit: BoxFit.cover,
                               width: double.infinity,
@@ -101,7 +102,15 @@ class MedicineItem extends StatelessWidget {
                                   ),
                                 );
                               },
-                            ),
+                            )
+                                : Container(
+                                    color: const Color(0xFFEDFDF6),
+                                    child: const Icon(
+                                      Icons.medication_outlined,
+                                      size: 36,
+                                      color: Color(0xFF1E9E68),
+                                    ),
+                                  ),
                           ),
                         ),
                       ),

@@ -12,18 +12,32 @@ class PatientRepository {
 
   final _client = FarumasiApiClient.instance;
 
+  static String get apiOrigin =>
+      FarumasiApiClient.baseUrl.replaceAll(RegExp(r'/api/v\d+/?$'), '');
+
   static String resolveMediaUrl(String? url) {
-    if (url == null || url.isEmpty) {
-      return 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=80';
+    if (url == null || url.trim().isEmpty) return '';
+    final trimmed = url.trim();
+    if (RegExp(r'^(https?:|data:|blob:)', caseSensitive: false).hasMatch(trimmed)) {
+      return trimmed;
     }
-    if (url.startsWith('http')) return url;
-    final base = FarumasiApiClient.baseUrl.replaceAll('/api/v1', '');
-    return '$base${url.startsWith('/') ? url : '/$url'}';
+    if (trimmed.startsWith('/')) return '$apiOrigin$trimmed';
+    return '$apiOrigin/$trimmed';
   }
 
   static String _optionalMediaUrl(String? url) {
     if (url == null || url.trim().isEmpty) return '';
     return resolveMediaUrl(url);
+  }
+
+  static String _productImageUrl(Map<String, dynamic> json) {
+    for (final key in ['image_url', 'thumbnail_url', 'cover_image_url']) {
+      final raw = json[key] as String?;
+      if (raw != null && raw.trim().isNotEmpty) {
+        return resolveMediaUrl(raw);
+      }
+    }
+    return '';
   }
 
   Future<Medicine> fetchProductById(String id) async {
@@ -710,17 +724,42 @@ class PatientRepository {
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
     });
-    final upload = await _client.dio.post('/uploads/image', data: form);
-    final url = (upload.data as Map<String, dynamic>)['url'] as String?;
-    if (url == null || url.isEmpty) throw Exception('Upload returned no URL');
-    return resolveMediaUrl(url);
+    return _uploadConsultFile(form, '/uploads/image');
+  }
+
+  Future<String> uploadConsultImageBytes(List<int> bytes, String filename) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    return _uploadConsultFile(form, '/uploads/image');
   }
 
   Future<String> uploadConsultDocument(String filePath) async {
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
     });
-    final upload = await _client.dio.post('/uploads/document', data: form);
+    return _uploadConsultFile(form, '/uploads/document');
+  }
+
+  Future<String> uploadConsultDocumentBytes(List<int> bytes, String filename) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    return _uploadConsultFile(form, '/uploads/document');
+  }
+
+  Future<String> _uploadConsultFile(FormData form, String endpoint) async {
+    const maxBytes = 8 * 1024 * 1024;
+    final file = form.files.firstWhere((e) => e.key == 'file');
+    final size = file.value.length;
+    if (size > maxBytes) {
+      throw Exception('File too large (max 8 MB)');
+    }
+    final upload = await _client.dio.post(
+      endpoint,
+      data: form,
+      options: Options(contentType: 'multipart/form-data'),
+    );
     final url = (upload.data as Map<String, dynamic>)['url'] as String?;
     if (url == null || url.isEmpty) throw Exception('Upload returned no URL');
     return resolveMediaUrl(url);
@@ -951,7 +990,7 @@ class PatientRepository {
       description: shortDesc,
       price: displayPrice.roundToDouble(),
       maxPrice: (priceTo ?? displayPrice).roundToDouble(),
-      imageUrl: resolveMediaUrl(json['image_url'] as String?),
+      imageUrl: _productImageUrl(json),
       category: (json['category'] as String?) ?? 'General',
       subCategory: dosageForm,
       requiresPrescription: json['prescription_required'] as bool? ?? false,

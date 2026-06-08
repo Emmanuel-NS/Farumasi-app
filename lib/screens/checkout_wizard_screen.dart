@@ -14,6 +14,15 @@ import 'auth_screen.dart';
 
 enum CheckoutStep { cart, pharmacy, details, payment, confirmed }
 
+const _rwandaDistricts = [
+  'Bugesera', 'Burera', 'Gakenke', 'Gasabo', 'Gatsibo', 'Gicumbi',
+  'Gisagara', 'Huye', 'Kamonyi', 'Karongi', 'Kayonza', 'Kicukiro',
+  'Kirehe', 'Muhanga', 'Musanze', 'Ngoma', 'Ngororero', 'Nyabihu',
+  'Nyagatare', 'Nyamagabe', 'Nyamasheke', 'Nyanza', 'Nyarugenge',
+  'Nyaruguru', 'Rubavu', 'Ruhango', 'Rulindo', 'Rusizi', 'Rutsiro',
+  'Rwamagana',
+];
+
 /// Portal-style 5-step checkout wizard (frontend parity; API wiring later).
 class CheckoutWizardScreen extends ConsumerStatefulWidget {
   const CheckoutWizardScreen({super.key});
@@ -33,7 +42,10 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   bool _pharmaReady = false;
   Timer? _aiTimer;
 
-  String _selectedCity = 'Kigali';
+  String _fulfillment = 'delivery';
+  bool _deferDeliveryFee = false;
+  String _selectedDistrict = 'Gasabo';
+  final _nameController = TextEditingController();
   final _neighborhoodController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -45,6 +57,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   @override
   void initState() {
     super.initState();
+    _nameController.text = StateService().userName ?? '';
     _phoneController.text = '0780000000';
     _momoPhone = '0780000000';
   }
@@ -52,6 +65,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   @override
   void dispose() {
     _aiTimer?.cancel();
+    _nameController.dispose();
     _neighborhoodController.dispose();
     _descriptionController.dispose();
     _phoneController.dispose();
@@ -124,7 +138,8 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         cartLines: items,
         pharmacies: pharmacies,
         listingsMap: map,
-        patientDistrict: _selectedCity,
+        isPickup: _fulfillment == 'pickup',
+        patientDistrict: _selectedDistrict,
         patientLocation: patientLocation,
       );
 
@@ -153,8 +168,20 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     return _catalogueSubtotalMin(items);
   }
 
-  double _deliveryFeeFor(List<CartItem> items) =>
-      deliveryFeeForMedicinesSubtotal(_medicinesTotal(items));
+  double _deliveryFeeFor(List<CartItem> items) => deliveryFeeForMedicinesSubtotal(
+        _medicinesTotal(items),
+        isPickup: _fulfillment == 'pickup',
+      );
+
+  double _amountDueNow(List<CartItem> items) {
+    final medicines = _medicinesTotal(items);
+    final delivery = _deliveryFeeFor(items);
+    final total = medicines + delivery;
+    if (_deferDeliveryFee && delivery > 0 && _fulfillment == 'delivery') {
+      return total - delivery;
+    }
+    return total;
+  }
 
   int get _stepIndex {
     switch (_step) {
@@ -187,9 +214,12 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     }
 
     final missing = <String>[];
-    if (_neighborhoodController.text.trim().isEmpty) missing.add('Neighborhood');
-    if (_descriptionController.text.trim().isEmpty) missing.add('Delivery instructions');
+    if (_nameController.text.trim().isEmpty) missing.add('Full name');
     if (_phoneController.text.trim().isEmpty) missing.add('Contact phone');
+    if (_fulfillment == 'delivery') {
+      if (_neighborhoodController.text.trim().isEmpty) missing.add('Street / area');
+      if (_descriptionController.text.trim().isEmpty) missing.add('Delivery notes');
+    }
     if (_accessCodeController.text.trim().length < 4) missing.add('Access code (min 4 characters)');
     if (_momoPhone.trim().length < 9) missing.add('MoMo phone number');
 
@@ -201,8 +231,9 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
       return;
     }
 
-    final fullAddress =
-        '$_selectedCity, ${_neighborhoodController.text.trim()}, ${_descriptionController.text.trim()}\nPhone: ${_phoneController.text.trim()}';
+    final fullAddress = _fulfillment == 'pickup'
+        ? 'Pickup · $_selectedDistrict · ${_nameController.text.trim()} · ${_phoneController.text.trim()}'
+        : '${_neighborhoodController.text.trim()}, $_selectedDistrict\n${_descriptionController.text.trim()}\n${_nameController.text.trim()} · ${_phoneController.text.trim()}';
 
     double? lat;
     double? lon;
@@ -222,11 +253,12 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
 
       final build = await PatientRepository.instance.buildOrderPayload(
         cartItems: cartItems,
-        deliveryMethod: 'delivery',
+        deliveryMethod: _fulfillment,
         deliveryAddress: fullAddress,
         deliveryLatitude: lat,
         deliveryLongitude: lon,
         patientAccessCode: _accessCodeController.text.trim(),
+        deferDeliveryFee: _deferDeliveryFee && _fulfillment == 'delivery',
         pharmacyId: _selectedPharmacy?.pharmacy.sellerKind == 'pharmacy'
             ? _selectedPharmacy!.pharmacy.id
             : null,
@@ -387,7 +419,21 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           style: TextStyle(color: Colors.grey.shade600),
         ),
         const SizedBox(height: 16),
-        ...items.map((item) => _CartLineCard(item: item)),
+        ...items.map((item) => _CartLineCard(
+              item: item,
+              onDecrement: () {
+                StateService().decrementQuantity(item.lineKey);
+                setState(() {});
+              },
+              onIncrement: () {
+                StateService().incrementQuantity(item.lineKey);
+                setState(() {});
+              },
+              onRemove: () {
+                StateService().removeFromCart(item.lineKey);
+                setState(() {});
+              },
+            )),
         const SizedBox(height: 16),
         _SummaryCard(
           subtotalMin: range.min,
@@ -418,6 +464,44 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _FulfillmentChip(
+                  label: 'Delivery',
+                  icon: Icons.delivery_dining_outlined,
+                  selected: _fulfillment == 'delivery',
+                  onTap: () => setState(() {
+                    _fulfillment = 'delivery';
+                    _selectedPharmacy = null;
+                    _pharmaReady = false;
+                    _startAiAnimation();
+                  }),
+                ),
+              ),
+              Expanded(
+                child: _FulfillmentChip(
+                  label: 'Pickup',
+                  icon: Icons.store_outlined,
+                  selected: _fulfillment == 'pickup',
+                  onTap: () => setState(() {
+                    _fulfillment = 'pickup';
+                    _selectedPharmacy = null;
+                    _pharmaReady = false;
+                    _startAiAnimation();
+                  }),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         if (!_pharmaReady)
           Container(
             padding: const EdgeInsets.all(20),
@@ -613,51 +697,78 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   Widget _buildDetailsStep(List<CartItem> items) {
     final medicines = _medicinesTotal(items);
     final deliveryFee = _deliveryFeeFor(items);
+    final isPickup = _fulfillment == 'pickup';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DropdownButtonFormField<String>(
-          initialValue: _selectedCity,
-          decoration: const InputDecoration(
-            labelText: 'City',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.location_city),
-          ),
-          items: ['Kigali', 'Musanze', 'Rubavu', 'Huye']
-              .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-              .toList(),
-          onChanged: (v) => setState(() => _selectedCity = v ?? 'Kigali'),
+        Text(
+          isPickup ? 'Pickup Details' : 'Delivery Details',
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
+        Text(
+          isPickup
+              ? 'No delivery fee. Pharmacy address revealed after payment.'
+              : 'Where should we deliver your order?',
+          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+        ),
+        const SizedBox(height: 16),
         TextField(
-          controller: _neighborhoodController,
+          controller: _nameController,
           onChanged: (_) => setState(() {}),
           decoration: const InputDecoration(
-            labelText: 'Neighborhood / Area',
+            labelText: 'Full name',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.map_outlined),
+            prefixIcon: Icon(Icons.person_outline),
           ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _descriptionController,
-          decoration: const InputDecoration(
-            labelText: 'Delivery instructions',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.notes_outlined),
-          ),
-          maxLines: 2,
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _phoneController,
           keyboardType: TextInputType.phone,
+          onChanged: (_) => setState(() {}),
           decoration: const InputDecoration(
             labelText: 'Contact phone',
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.phone_outlined),
           ),
         ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedDistrict,
+          decoration: const InputDecoration(
+            labelText: 'District',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.location_city),
+          ),
+          items: _rwandaDistricts
+              .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+              .toList(),
+          onChanged: (v) => setState(() => _selectedDistrict = v ?? 'Gasabo'),
+        ),
+        if (!isPickup) ...[
+          const SizedBox(height: 12),
+          TextField(
+            controller: _neighborhoodController,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Street / area',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.map_outlined),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _descriptionController,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Delivery instructions',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.notes_outlined),
+            ),
+            maxLines: 2,
+          ),
+        ],
         const SizedBox(height: 12),
         TextField(
           controller: _accessCodeController,
@@ -717,7 +828,10 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         ),
         const SizedBox(height: 20),
         ElevatedButton(
-          onPressed: _neighborhoodController.text.trim().isEmpty
+          onPressed: _nameController.text.trim().isEmpty ||
+                  _phoneController.text.trim().isEmpty ||
+                  _accessCodeController.text.trim().length < 4 ||
+                  (!isPickup && _neighborhoodController.text.trim().isEmpty)
               ? null
               : () => setState(() => _step = CheckoutStep.payment),
           style: _primaryBtn,
@@ -731,6 +845,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     final medicines = _medicinesTotal(items);
     final deliveryFee = _deliveryFeeFor(items);
     final total = medicines + deliveryFee;
+    final dueNow = _amountDueNow(items);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -790,6 +905,37 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
             prefixIcon: Icon(Icons.lock_outline),
           ),
         ),
+        if (_fulfillment == 'delivery' && deliveryFee > 0) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Delivery fee', style: TextStyle(fontWeight: FontWeight.w600)),
+                RadioListTile<bool>(
+                  value: false,
+                  groupValue: _deferDeliveryFee,
+                  onChanged: (v) => setState(() => _deferDeliveryFee = v ?? false),
+                  title: Text('Pay now (${deliveryFee.round()} RWF)'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                RadioListTile<bool>(
+                  value: true,
+                  groupValue: _deferDeliveryFee,
+                  onChanged: (v) => setState(() => _deferDeliveryFee = true),
+                  title: const Text('Pay after delivery'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         if (_selectedPharmacy != null)
           Padding(
@@ -801,8 +947,18 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           ),
         Text(
           'Total: ${total.round()} RWF',
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
+        if (dueNow < total - 0.5)
+          Text(
+            'Due now: ${dueNow.round()} RWF',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1E9E68)),
+          )
+        else
+          Text(
+            'Due now: ${dueNow.round()} RWF',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
         const SizedBox(height: 20),
         ElevatedButton(
           onPressed: _isSubmitting ? null : () => _submitPayment(items),
@@ -956,10 +1112,70 @@ class _StepDot extends StatelessWidget {
   }
 }
 
+Widget _productThumbPlaceholder(double size) {
+  return Container(
+    width: size,
+    height: size,
+    color: const Color(0xFFEDFDF6),
+    child: const Icon(Icons.medication, color: Color(0xFF1E9E68)),
+  );
+}
+
+class _FulfillmentChip extends StatelessWidget {
+  const _FulfillmentChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? Colors.white : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: selected ? const Color(0xFF1E9E68) : const Color(0xFF64748B)),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: selected ? const Color(0xFF1E9E68) : const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CartLineCard extends StatelessWidget {
-  const _CartLineCard({required this.item});
+  const _CartLineCard({
+    required this.item,
+    required this.onDecrement,
+    required this.onIncrement,
+    required this.onRemove,
+  });
 
   final CartItem item;
+  final VoidCallback onDecrement;
+  final VoidCallback onIncrement;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -975,18 +1191,15 @@ class _CartLineCard extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              item.medicine.imageUrl,
-              width: 56,
-              height: 56,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                width: 56,
-                height: 56,
-                color: const Color(0xFFEDFDF6),
-                child: const Icon(Icons.medication, color: Color(0xFF1E9E68)),
-              ),
-            ),
+            child: item.medicine.imageUrl.isNotEmpty
+                ? Image.network(
+                    item.medicine.imageUrl,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _productThumbPlaceholder(56),
+                  )
+                : _productThumbPlaceholder(56),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1000,7 +1213,32 @@ class _CartLineCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 11, color: Color(0xFF6D28D9)),
                   )
                 else
-                  Text('Qty: ${item.quantity}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: onDecrement,
+                        icon: const Icon(Icons.remove_circle_outline, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      IconButton(
+                        onPressed: onIncrement,
+                        icon: const Icon(Icons.add_circle_outline, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      IconButton(
+                        onPressed: onRemove,
+                        icon: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade400),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 4),
                 Builder(builder: (context) {
                   final unit = cartLineUnitPrice(item.medicine, item.sellMode);

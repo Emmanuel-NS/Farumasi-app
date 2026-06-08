@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,7 +16,9 @@ import 'help_screen.dart';
 import 'terms_conditions_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.onBack});
+
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -23,6 +27,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _openSection;
   String _language = 'en';
+  Timer? _saveTimer;
+  bool _savingPrefs = false;
 
   final Map<String, bool> _channels = {
     'push': true,
@@ -46,6 +52,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPreferences());
   }
 
+  @override
+  void dispose() {
+    _saveTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadPreferences() async {
     if (!_isLoggedIn) return;
     try {
@@ -58,15 +70,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (_) {}
   }
 
+  void _schedulePrefsSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 450), _savePreferences);
+  }
+
   Future<void> _savePreferences() async {
     if (!_isLoggedIn) return;
+    setState(() => _savingPrefs = true);
     try {
       await PatientRepository.instance.updateNotificationPreferences(
         NotificationPreferences(channels: Map.of(_channels), events: Map.of(_events)),
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notification preferences saved')),
+          const SnackBar(content: Text('Notification preferences saved'), duration: Duration(seconds: 2)),
         );
       }
     } catch (_) {
@@ -75,6 +93,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SnackBar(content: Text('Could not save preferences')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _savingPrefs = false);
     }
   }
 
@@ -94,14 +114,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: PortalColors.pageBg,
       body: PortalPageShell(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const PortalPageHeader(
-              title: 'Settings',
-              subtitle: 'Manage notifications, security, and preferences.',
-            ),
-            const SizedBox(height: 20),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 96),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 672),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (widget.onBack != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            onPressed: widget.onBack,
+                            icon: const Icon(Icons.arrow_back),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: PortalColors.slate700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const PortalPageHeader(
+                    title: 'Settings',
+                    subtitle: 'Manage notifications, security, and preferences.',
+                  ),
+                  if (_savingPrefs)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: PortalColors.green)),
+                          SizedBox(width: 8),
+                          Text('Saving…', style: TextStyle(fontSize: 12, color: PortalColors.slate500)),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 20),
             PortalAccordionSection(
               icon: Icons.notifications_outlined,
               title: 'Notifications',
@@ -133,28 +185,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: _isLoggedIn ? _savePreferences : null,
-                      child: const Text(
-                        'Save preferences',
-                        style: TextStyle(
-                          color: PortalColors.green,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => setState(() {
-                        for (final k in _channels.keys) {
-                          _channels[k] = true;
-                        }
-                        for (final k in _events.keys) {
-                          _events[k] = k != 'promotions';
-                        }
-                      }),
+                      onPressed: () {
+                        setState(() {
+                          for (final k in _channels.keys) {
+                            _channels[k] = true;
+                          }
+                          for (final k in _events.keys) {
+                            _events[k] = k != 'promotions';
+                          }
+                        });
+                        _schedulePrefsSave();
+                      },
                       child: const Text(
                         'Reset to defaults',
                         style: TextStyle(
@@ -365,7 +406,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: const Text('Sign in to your account'),
               ),
             ],
-          ],
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -385,7 +429,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           PortalToggle(
             value: map[key] ?? false,
-            onChanged: (v) => setState(() => map[key] = v),
+            onChanged: (v) {
+              setState(() => map[key] = v);
+              _schedulePrefsSave();
+            },
           ),
         ],
       ),

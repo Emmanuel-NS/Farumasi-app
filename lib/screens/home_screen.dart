@@ -103,7 +103,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  void _goToStoreTab() => setState(() => _currentIndex = 0);
+  void _goToStoreTab() => _selectTab(0);
+
+  void _selectTab(int index) {
+    setState(() {
+      _currentIndex = index;
+      if (index == 2 || index == 4) {
+        if (!_isBottomBarVisible) {
+          _hideBottomBarController.forward();
+          _isBottomBarVisible = true;
+        }
+      }
+    });
+  }
 
   void _rebuildPages({bool embedStoreWide = false}) {
     _pages = _buildPages(false);
@@ -150,7 +162,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: PrescriptionsScreen(openUploadTab: _openPrescriptionUpload),
         ),
       ),
-      const SettingsScreen(),
+      SettingsScreen(onBack: () => _selectTab(0)),
     ];
   }
 
@@ -264,6 +276,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         drawer: null,
         body: NotificationListener<UserScrollNotification>(
           onNotification: (notification) {
+            if (_currentIndex == 2 || _currentIndex == 4) return false;
             if (notification.direction == ScrollDirection.reverse) {
               // User is scrolling down (content moving up) -> Hide BAR
               if (_isBottomBarVisible) {
@@ -517,9 +530,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       onTap: () {
         if (index == _currentIndex) return;
 
-        setState(() {
-          _currentIndex = index;
-        });
+        _selectTab(index);
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),

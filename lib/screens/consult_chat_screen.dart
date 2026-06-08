@@ -9,6 +9,7 @@ import '../api/repositories/patient_repository.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/portal/portal_ui.dart';
+import 'medicine_detail_screen.dart';
 
 class ConsultChatScreen extends ConsumerStatefulWidget {
   const ConsultChatScreen({super.key});
@@ -302,7 +303,9 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
     final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (file == null) return;
     try {
-      final url = await PatientRepository.instance.uploadConsultImage(file.path);
+      final bytes = await file.readAsBytes();
+      final url = await PatientRepository.instance.uploadConsultImageBytes(bytes, file.name);
+      if (!mounted) return;
       setState(() {
         _pendingAttachmentUrl = url;
         _pendingAttachmentName = file.name;
@@ -310,7 +313,9 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: ${e.toString().replaceFirst('Exception: ', '')}')),
+        );
       }
     }
   }
@@ -326,9 +331,8 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
       ),
     );
     if (picked == null || !mounted) return;
-    final url = PatientRepository.resolveMediaUrl(picked.imageUrl);
     setState(() {
-      _pendingAttachmentUrl = url.isNotEmpty ? url : null;
+      _pendingAttachmentUrl = '/store/${picked.id}';
       _pendingAttachmentName = picked.name;
       _pendingAttachmentType = 'product';
     });
@@ -339,12 +343,23 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
 
   Future<void> _pickDocument() async {
     setState(() => _attachMenuOpen = false);
-    final result = await FilePicker.platform.pickFiles(withData: false);
+    final result = await FilePicker.platform.pickFiles(
+      withData: true,
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'doc', 'docx', 'txt', 'png', 'jpg', 'jpeg', 'webp', 'heic'],
+    );
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
-    if (file.path == null) return;
     try {
-      final url = await PatientRepository.instance.uploadConsultDocument(file.path!);
+      late final String url;
+      if (file.bytes != null) {
+        url = await PatientRepository.instance.uploadConsultDocumentBytes(file.bytes!, file.name);
+      } else if (file.path != null) {
+        url = await PatientRepository.instance.uploadConsultDocument(file.path!);
+      } else {
+        throw Exception('Could not read file');
+      }
+      if (!mounted) return;
       setState(() {
         _pendingAttachmentUrl = url;
         _pendingAttachmentName = file.name;
@@ -352,7 +367,9 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: ${e.toString().replaceFirst('Exception: ', '')}')),
+        );
       }
     }
   }
@@ -1013,31 +1030,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                 ],
               ),
             if (msg.attachmentType == 'product')
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (msg.attachmentUrl != null && msg.attachmentUrl!.isNotEmpty)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.network(
-                        PatientRepository.resolveMediaUrl(msg.attachmentUrl),
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(Icons.medication_outlined, size: 20),
-                      ),
-                    )
-                  else
-                    const Icon(Icons.medication_outlined, size: 20, color: PortalColors.green),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      msg.attachmentName ?? 'Product',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
+              _ConsultProductAttachmentCard(message: msg),
             if (msg.content.isNotEmpty)
               Text(msg.content, style: const TextStyle(fontSize: 14, color: PortalColors.slate900)),
             const SizedBox(height: 4),
@@ -1162,10 +1155,24 @@ class _ConsultProductPickerState extends State<_ConsultProductPicker> {
                         itemBuilder: (context, i) {
                           final p = _results[i];
                           return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: PortalColors.greenLight,
-                              child: const Icon(Icons.medication, color: PortalColors.green, size: 18),
-                            ),
+                            leading: p.imageUrl.isNotEmpty
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      p.imageUrl,
+                                      width: 40,
+                                      height: 40,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const CircleAvatar(
+                                        backgroundColor: PortalColors.greenLight,
+                                        child: Icon(Icons.medication, color: PortalColors.green, size: 18),
+                                      ),
+                                    ),
+                                  )
+                                : const CircleAvatar(
+                                    backgroundColor: PortalColors.greenLight,
+                                    child: Icon(Icons.medication, color: PortalColors.green, size: 18),
+                                  ),
                             title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                             subtitle: Text(p.category, maxLines: 1, overflow: TextOverflow.ellipsis),
                             onTap: () => widget.onPick(p),
@@ -1174,6 +1181,118 @@ class _ConsultProductPickerState extends State<_ConsultProductPicker> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+String? _productIdFromAttachmentUrl(String? url) {
+  if (url == null || url.isEmpty) return null;
+  final m = RegExp(r'/store/([^/?#]+)').firstMatch(url);
+  return m?.group(1);
+}
+
+class _ConsultProductAttachmentCard extends StatefulWidget {
+  const _ConsultProductAttachmentCard({required this.message});
+
+  final PatientConsultMessage message;
+
+  @override
+  State<_ConsultProductAttachmentCard> createState() => _ConsultProductAttachmentCardState();
+}
+
+class _ConsultProductAttachmentCardState extends State<_ConsultProductAttachmentCard> {
+  Medicine? _product;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProduct();
+  }
+
+  Future<void> _loadProduct() async {
+    final id = _productIdFromAttachmentUrl(widget.message.attachmentUrl);
+    if (id == null) return;
+    setState(() => _loading = true);
+    try {
+      final product = await PatientRepository.instance.fetchProductById(id);
+      if (mounted) setState(() => _product = product);
+    } catch (_) {
+      // keep name-only fallback
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _openProduct() {
+    final product = _product;
+    if (product == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MedicineDetailScreen(medicine: product)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = widget.message.attachmentName ?? _product?.name ?? 'Product';
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _product != null ? _openProduct : null,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: PortalColors.slate200),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_loading)
+                const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Padding(
+                    padding: EdgeInsets.all(10),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: PortalColors.green),
+                  ),
+                )
+              else if (_product != null && _product!.imageUrl.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    _product!.imageUrl,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.medication_outlined, color: PortalColors.green),
+                  ),
+                )
+              else
+                const Icon(Icons.medication_outlined, size: 28, color: PortalColors.green),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                    Text(
+                      _product != null
+                          ? '${_product!.price.round()} RWF · View product'
+                          : 'Tap to view when loaded',
+                      style: const TextStyle(fontSize: 11, color: PortalColors.slate500),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.open_in_new, size: 14, color: PortalColors.slate400),
+            ],
+          ),
+        ),
       ),
     );
   }
