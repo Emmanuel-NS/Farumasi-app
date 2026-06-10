@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'delivery_pricing.dart';
 import '../api/repositories/patient_repository.dart';
 import '../core/sell_mode.dart';
 import '../models/models.dart';
@@ -234,7 +235,14 @@ List<ScoredPharmacyOption> scorePharmacies({
   ];
 }
 
-double deliveryFeeForMedicinesSubtotal(double medicinesSubtotal, {bool isPickup = false}) {
+double deliveryFeeForMedicinesSubtotal(double medicinesSubtotal, {bool isPickup = false, double straightLineKm = 0}) {
+  if (straightLineKm > 0) {
+    return deliveryFeeForRoadKm(straightLineKm, isPickup: isPickup);
+  }
+  return deliveryFeeForMedicinesSubtotalLegacy(medicinesSubtotal, isPickup: isPickup);
+}
+
+double deliveryFeeForMedicinesSubtotalLegacy(double medicinesSubtotal, {bool isPickup = false}) {
   if (isPickup) return 0;
   return medicinesSubtotal >= 10000 ? 0 : 1500;
 }

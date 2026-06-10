@@ -1,8 +1,86 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent, PageHeader, Badge } from "@/components/ui";
-import { Settings, Globe, Lock, Bell, Server, Info } from "lucide-react";
+import { Settings, Globe, Lock, Bell, Server, Info, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { authService, getApiError } from "@/lib/services/auth.service";
+
+function toast(msg: string, type: "success" | "error" = "success") {
+  // simple banner via alert fallback — replace with a real toast if available
+  if (type === "error") console.error(msg);
+  else console.info(msg);
+}
+
+function ChangePasswordSection() {
+  const [form, setForm] = useState({ current: "", next: "", confirm: "" });
+  const [show, setShow] = useState({ current: false, next: false });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; error: boolean } | null>(null);
+
+  const handle = async () => {
+    if (!form.current || !form.next || !form.confirm) { setMsg({ text: "Fill all fields.", error: true }); return; }
+    if (form.next.length < 8) { setMsg({ text: "New password must be at least 8 characters.", error: true }); return; }
+    if (form.next !== form.confirm) { setMsg({ text: "Passwords don't match.", error: true }); return; }
+    setSaving(true); setMsg(null);
+    try {
+      await authService.changePassword(form.current, form.next);
+      setMsg({ text: "Password changed successfully.", error: false });
+      setForm({ current: "", next: "", confirm: "" });
+    } catch (err) {
+      setMsg({ text: getApiError(err, "Failed to change password"), error: true });
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="space-y-3">
+      {msg && (
+        <p className={`text-xs rounded-lg px-3 py-2 ${msg.error ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+          {msg.text}
+        </p>
+      )}
+      <div className="relative">
+        <input
+          type={show.current ? "text" : "password"}
+          placeholder="Current password"
+          value={form.current}
+          onChange={(e) => setForm({ ...form, current: e.target.value })}
+          className="w-full border rounded-lg px-3 py-2 pr-10 text-sm outline-none focus:ring-1 focus:ring-farumasi-500"
+        />
+        <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setShow(s => ({ ...s, current: !s.current }))}>
+          {show.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      </div>
+      <div className="relative">
+        <input
+          type={show.next ? "text" : "password"}
+          placeholder="New password (min 8 chars)"
+          value={form.next}
+          onChange={(e) => setForm({ ...form, next: e.target.value })}
+          className="w-full border rounded-lg px-3 py-2 pr-10 text-sm outline-none focus:ring-1 focus:ring-farumasi-500"
+        />
+        <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" onClick={() => setShow(s => ({ ...s, next: !s.next }))}>
+          {show.next ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      </div>
+      <input
+        type="password"
+        placeholder="Confirm new password"
+        value={form.confirm}
+        onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+        className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-farumasi-500"
+      />
+      <button
+        onClick={handle}
+        disabled={saving}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-farumasi-600 text-white text-sm font-medium hover:bg-farumasi-700 disabled:opacity-60 transition-colors"
+      >
+        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+        Update Password
+      </button>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   return (
@@ -50,13 +128,13 @@ export default function SettingsPage() {
         <CardHeader>
           <div className="flex items-center gap-2"><Lock className="w-4 h-4 text-farumasi-600" /><CardTitle>Security Settings</CardTitle></div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
               { label: "Session Timeout", value: "30 minutes" },
               { label: "Max Login Attempts", value: "5" },
               { label: "Two-Factor Auth", value: "Planned", badge: "planned" },
-              { label: "Password Policy", value: "Min 12 chars, uppercase, symbol" },
+              { label: "Password Policy", value: "Min 8 chars" },
               { label: "IP Whitelist", value: "Disabled" },
               { label: "Audit Logging", value: "All actions", badge: "active" },
             ].map((s) => (
@@ -72,6 +150,12 @@ export default function SettingsPage() {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="border-t pt-4">
+            <p className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-1.5">
+              <KeyRound className="w-3.5 h-3.5 text-farumasi-600" /> Change Admin Password
+            </p>
+            <ChangePasswordSection />
           </div>
         </CardContent>
       </Card>

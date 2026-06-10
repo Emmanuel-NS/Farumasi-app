@@ -1,12 +1,13 @@
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/repositories/patient_repository.dart';
+import '../services/state_service.dart';
+import '../utils/media_pick_helper.dart';
 import 'order_detail_screen.dart';
 
 enum _RxTab { active, cancelled, upload }
@@ -29,6 +30,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
   bool _cancelling = false;
 
   String? _pickedPath;
+  List<int>? _pickedBytes;
   String? _pickedName;
   bool _isPdf = false;
   bool _uploading = false;
@@ -78,28 +80,24 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     }
 
     final top = recs.first;
-    final confirm = await showDialog<bool>(
+    final options = await showDialog<_RxOrderOptions>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirm order'),
-        content: Text(
-          'Place order via ${top.sellerName}?'
-          '${top.estimatedTotalPrice != null ? '\nEst. ${top.estimatedTotalPrice!.toStringAsFixed(0)} RWF' : ''}',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
-        ],
+      builder: (ctx) => _RxOrderConfirmDialog(
+        sellerName: top.sellerName,
+        estimatedTotal: top.estimatedTotalPrice,
+        defaultAddress: StateService().userAddress,
       ),
     );
-    if (confirm != true || !mounted) return;
+    if (options == null || !mounted) return;
 
     try {
       final orderId = await PatientRepository.instance.confirmOrderViaRecommendation(
         prescriptionId: rx.id,
         recommendationId: top.id,
-        deliveryMethod: 'delivery',
-        deliveryAddress: 'Kigali, Rwanda',
+        deliveryMethod: options.deliveryMethod,
+        deliveryAddress: options.deliveryAddress,
+        patientAccessCode: options.accessCode,
+        deferDeliveryFee: options.deferDeliveryFee,
       );
       if (!mounted) return;
       Navigator.push(
@@ -127,10 +125,23 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
       .toList();
 
   Future<void> _pickImage(ImageSource source) async {
+    if (source == ImageSource.gallery) {
+      final picked = await pickImageBytes();
+      if (picked == null || !mounted) return;
+      setState(() {
+        _pickedBytes = picked.bytes;
+        _pickedPath = null;
+        _pickedName = picked.name;
+        _isPdf = false;
+      });
+      return;
+    }
     final picker = ImagePicker();
     final file = await picker.pickImage(source: source, imageQuality: 85);
     if (file == null || !mounted) return;
+    final bytes = await file.readAsBytes();
     setState(() {
+      _pickedBytes = bytes;
       _pickedPath = file.path;
       _pickedName = file.name;
       _isPdf = false;
@@ -138,36 +149,32 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
   }
 
   Future<void> _pickDocument() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
-    );
-    if (result == null || !mounted) return;
-    final f = result.files.single;
+    final picked = await pickDocumentBytes();
+    if (picked == null || !mounted) return;
     setState(() {
-      _pickedPath = f.path;
-      _pickedName = f.name;
-      _isPdf = f.extension?.toLowerCase() == 'pdf';
+      _pickedBytes = picked.bytes;
+      _pickedPath = null;
+      _pickedName = picked.name;
+      _isPdf = picked.isPdf;
     });
   }
 
   Future<void> _submitUpload() async {
-    final path = _pickedPath;
-    if (path == null || _uploading) return;
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Prescription upload works best on mobile/desktop app.'),
-        ),
-      );
-      return;
-    }
+    if ((_pickedBytes == null && _pickedPath == null) || _uploading) return;
     setState(() => _uploading = true);
     try {
-      await PatientRepository.instance.uploadPrescriptionFile(path);
+      if (_pickedBytes != null && _pickedName != null) {
+        await PatientRepository.instance.uploadPrescriptionBytes(
+          _pickedBytes!,
+          _pickedName!,
+        );
+      } else if (_pickedPath != null) {
+        await PatientRepository.instance.uploadPrescriptionFile(_pickedPath!);
+      }
       if (!mounted) return;
       setState(() {
         _pickedPath = null;
+        _pickedBytes = null;
         _pickedName = null;
         _tab = _RxTab.active;
       });
@@ -617,7 +624,17 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           ),
           const SizedBox(height: 20),
-          if (_pickedPath != null && !_isPdf && !kIsWeb)
+          if (_pickedBytes != null && !_isPdf)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.memory(
+                Uint8List.fromList(_pickedBytes!),
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            )
+          else if (_pickedPath != null && !_isPdf && !kIsWeb)
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.file(
@@ -689,7 +706,9 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
           ),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: _pickedPath == null || _uploading ? null : _submitUpload,
+            onPressed: (_pickedBytes == null && _pickedPath == null) || _uploading
+                ? null
+                : _submitUpload,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1E9E68),
               foregroundColor: Colors.white,
@@ -780,5 +799,146 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     if (diff == 1) return 'Yesterday';
     if (diff < 7) return '$diff days ago';
     return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+class _RxOrderOptions {
+  final String deliveryMethod;
+  final String? deliveryAddress;
+  final String? accessCode;
+  final bool deferDeliveryFee;
+
+  const _RxOrderOptions({
+    required this.deliveryMethod,
+    this.deliveryAddress,
+    this.accessCode,
+    this.deferDeliveryFee = false,
+  });
+}
+
+class _RxOrderConfirmDialog extends StatefulWidget {
+  const _RxOrderConfirmDialog({
+    required this.sellerName,
+    this.estimatedTotal,
+    this.defaultAddress,
+  });
+
+  final String sellerName;
+  final double? estimatedTotal;
+  final String? defaultAddress;
+
+  @override
+  State<_RxOrderConfirmDialog> createState() => _RxOrderConfirmDialogState();
+}
+
+class _RxOrderConfirmDialogState extends State<_RxOrderConfirmDialog> {
+  String _method = 'delivery';
+  bool _deferFee = false;
+  late final TextEditingController _addressController;
+  late final TextEditingController _accessCodeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _addressController = TextEditingController(text: widget.defaultAddress ?? '');
+    _accessCodeController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    _accessCodeController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final access = _accessCodeController.text.trim();
+    if (access.isNotEmpty && access.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Access code must be at least 4 characters.')),
+      );
+      return;
+    }
+    if (_method == 'delivery' && _addressController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a delivery address.')),
+      );
+      return;
+    }
+    Navigator.pop(
+      context,
+      _RxOrderOptions(
+        deliveryMethod: _method,
+        deliveryAddress: _method == 'delivery' ? _addressController.text.trim() : null,
+        accessCode: access.isEmpty ? null : access,
+        deferDeliveryFee: _deferFee && _method == 'delivery',
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final est = widget.estimatedTotal;
+    return AlertDialog(
+      title: const Text('Confirm order'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Place order via ${widget.sellerName}?'),
+            if (est != null) ...[
+              const SizedBox(height: 4),
+              Text('Est. ${est.toStringAsFixed(0)} RWF', style: const TextStyle(fontWeight: FontWeight.w600)),
+            ],
+            const SizedBox(height: 16),
+            const Text('Fulfillment', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            RadioListTile<String>(
+              title: const Text('Delivery'),
+              value: 'delivery',
+              groupValue: _method,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (v) => setState(() => _method = v ?? 'delivery'),
+            ),
+            RadioListTile<String>(
+              title: const Text('Pickup at pharmacy'),
+              value: 'pickup',
+              groupValue: _method,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (v) => setState(() => _method = v ?? 'pickup'),
+            ),
+            if (_method == 'delivery') ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: _addressController,
+                decoration: const InputDecoration(
+                  labelText: 'Delivery address',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Pay delivery fee to rider on arrival'),
+                value: _deferFee,
+                onChanged: (v) => setState(() => _deferFee = v ?? false),
+              ),
+            ],
+            const SizedBox(height: 8),
+            TextField(
+              controller: _accessCodeController,
+              decoration: const InputDecoration(
+                labelText: 'Access code (optional, min 4 chars)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(onPressed: _submit, child: const Text('Confirm')),
+      ],
+    );
   }
 }

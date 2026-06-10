@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getInitials, formatDate } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import type { T } from "@/lib/translations";
-import { Edit2, Save, X, Calendar, MapPin, Clock, CheckCircle } from "lucide-react";
+import { Edit2, Save, X, Calendar, MapPin, Clock, CheckCircle, MessageCircle } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { authService } from "@/lib/services/auth.service";
 import { toast } from "sonner";
+import api from "@/lib/api";
 
 function getBookingStatusLabel(status: string, t: T): string {
   const key = `status_${status.toLowerCase()}` as keyof T;
@@ -25,7 +26,13 @@ export default function ProfilePage() {
     phone: user?.phone ?? "+250 788 000 000",
   });
   const [saved, setSaved] = useState(false);
-  const mockBookings: { id: string; pharmacistName: string; date: string; time: string; status: string }[] = [];
+  const [consultations, setConsultations] = useState<{ id: string; pharmacist_name: string; created_at: string; status: string }[]>([]);
+
+  useEffect(() => {
+    api.get<{ items: { id: string; pharmacist_name: string; created_at: string; status: string }[] }>(
+      "/consultations/", { params: { limit: 5 } }
+    ).then(({ data }) => setConsultations(data.items ?? [])).catch(() => {});
+  }, []);
 
   const handleSave = async () => {
     try {
@@ -106,30 +113,30 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Appointments */}
+      {/* Recent Consultations */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 mb-5">
         <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-farumasi-600" />
+          <MessageCircle className="w-5 h-5 text-farumasi-600" />
           {t.profile_appointments}
         </h3>
-        {mockBookings.length === 0 ? (
+        {consultations.length === 0 ? (
           <p className="text-sm text-slate-500">{t.profile_no_appts}</p>
         ) : (
           <div className="space-y-3">
-            {mockBookings.map((b) => (
-              <div key={b.id} className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-2xl">
+            {consultations.map((c) => (
+              <div key={c.id} className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-2xl">
                 <div className="w-10 h-10 rounded-full bg-farumasi-100 flex items-center justify-center font-bold text-farumasi-700 text-sm shrink-0">
-                  {b.pharmacistName.split(" ").map(n => n[0]).join("")}
+                  {(c.pharmacist_name || "P").split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900">{b.pharmacistName}</p>
+                  <p className="text-sm font-semibold text-slate-900">{c.pharmacist_name || "Pharmacist"}</p>
                   <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                     <Clock className="w-3 h-3" />
-                    {new Date(b.date).toLocaleDateString()} at {b.time}
+                    {formatDate(c.created_at)}
                   </p>
                 </div>
                 <span className="text-xs font-bold text-farumasi-700 bg-farumasi-100 px-2 py-0.5 rounded-full shrink-0">
-                  {getBookingStatusLabel(b.status, t)}
+                  {getBookingStatusLabel(c.status, t)}
                 </span>
               </div>
             ))}

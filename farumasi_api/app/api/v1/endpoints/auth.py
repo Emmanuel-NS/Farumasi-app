@@ -13,10 +13,13 @@ from app.schemas.auth import (
     LoginRequest,
     TokenResponse,
     RefreshRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
 )
 from app.schemas.user import ChangePasswordRequest
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
+from app.services.password_reset_service import PasswordResetService
 
 router = APIRouter()
 
@@ -77,4 +80,16 @@ async def logout_everywhere(
         entity_id=current_user.id,
     )
     return {"status": "ok", "message": "All other sessions have been signed out."}
+
+
+@router.post("/forgot-password", status_code=200)
+async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    return await PasswordResetService(db).request_reset(data.email)
+
+
+@router.post("/reset-password", status_code=200)
+async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    return await PasswordResetService(db).reset_password(
+        data.email, data.code, data.new_password
+    )
 

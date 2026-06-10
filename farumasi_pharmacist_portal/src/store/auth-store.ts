@@ -13,6 +13,7 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
+  // Keep SSR and the first client paint identical — hydrate() loads localStorage after mount.
   user: null,
   token: null,
   isLoading: true,

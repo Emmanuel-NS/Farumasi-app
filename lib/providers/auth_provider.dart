@@ -105,8 +105,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (user != null) {
 
       StateService().login(user.email ?? user.phone ?? 'user', name: user.name);
-      PinService.instance.hydrate().then((_) {
+      PinService.instance.hydrate().then((_) async {
         PinService.instance.setActiveUser(user.id);
+        await PinService.instance.syncFromServer();
       });
 
     } else {

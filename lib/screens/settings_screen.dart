@@ -8,6 +8,7 @@ import '../api/repositories/auth_repository.dart';
 import '../api/repositories/patient_repository.dart';
 import '../core/router.dart';
 import '../providers/auth_provider.dart';
+import '../services/language_service.dart';
 import '../services/pin_service.dart';
 import '../services/state_service.dart';
 import '../widgets/portal/portal_ui.dart';
@@ -49,6 +50,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.initState();
     _openSection = 'notifications';
     PinService.instance.hydrate();
+    LanguageService.instance.hydrate().then((_) {
+      if (mounted) setState(() => _language = LanguageService.instance.code);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPreferences());
   }
 
@@ -113,6 +117,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       backgroundColor: PortalColors.pageBg,
+      appBar: widget.onBack != null
+          ? AppBar(
+              backgroundColor: PortalColors.pageBg,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: widget.onBack,
+              ),
+              title: const Text(
+                'Settings',
+                style: TextStyle(fontWeight: FontWeight.bold, color: PortalColors.slate900),
+              ),
+            )
+          : null,
       body: PortalPageShell(
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 96),
@@ -122,26 +141,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (widget.onBack != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            onPressed: widget.onBack,
-                            icon: const Icon(Icons.arrow_back),
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: PortalColors.slate700,
-                            ),
-                          ),
-                        ],
+                  if (widget.onBack == null)
+                    const PortalPageHeader(
+                      title: 'Settings',
+                      subtitle: 'Manage notifications, security, and preferences.',
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(4, 0, 4, 4),
+                      child: Text(
+                        'Manage notifications, security, and preferences.',
+                        style: TextStyle(fontSize: 13, color: PortalColors.slate500),
                       ),
                     ),
-                  const PortalPageHeader(
-                    title: 'Settings',
-                    subtitle: 'Manage notifications, security, and preferences.',
-                  ),
                   if (_savingPrefs)
                     const Padding(
                       padding: EdgeInsets.only(top: 8),
@@ -442,7 +454,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _langTile(String code, String label) {
     final selected = _language == code;
     return GestureDetector(
-      onTap: () => setState(() => _language = code),
+      onTap: () async {
+        setState(() => _language = code);
+        final lang = AppLanguage.values.firstWhere(
+          (l) => l.name == code,
+          orElse: () => AppLanguage.en,
+        );
+        await LanguageService.instance.setLanguage(lang);
+        if (_isLoggedIn) {
+          try {
+            await AuthRepository().updateMe(preferredLanguage: code);
+          } catch (_) {}
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(

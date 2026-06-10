@@ -760,7 +760,19 @@ class DeliveryService:
         cnt_week, earn_week = await _stats(start_week)
         cnt_month, earn_month = await _stats(start_month)
 
+        from app.core.constants import WithdrawalStatus
+        from app.models.revenue import WithdrawalRequest
+
+        pending_res = await self.db.execute(
+            select(func.coalesce(func.sum(WithdrawalRequest.amount), 0)).where(
+                WithdrawalRequest.requester_user_id == rider.user_id,
+                WithdrawalRequest.status == WithdrawalStatus.PENDING,
+            )
+        )
+        pending_withdrawals = float(pending_res.scalar_one() or 0)
+
         if rider.rider_type == RiderType.PER_TRIP:
+            available = max(0.0, earn_week - pending_withdrawals)
             return {
                 "rider_type": rider.rider_type,
                 "completed_deliveries_today": cnt_today,
@@ -769,7 +781,7 @@ class DeliveryService:
                 "estimated_earnings_today": earn_today,
                 "estimated_earnings_week": earn_week,
                 "estimated_earnings_month": earn_month,
-                "pending_payout": earn_week,
+                "pending_payout": available,
             }
 
         return {

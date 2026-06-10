@@ -65,6 +65,36 @@ class RiderRepository {
     });
   }
 
+  Future<List<RiderNotificationItem>> fetchNotifications() async {
+    final response = await _client.dio.get('/notifications/', queryParameters: {
+      'limit': 30,
+      'offset': 0,
+    });
+    final data = response.data;
+    final List<dynamic> items = data is Map ? (data['items'] as List<dynamic>? ?? []) : (data as List<dynamic>);
+    return items.map((e) => _mapNotification(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    await _client.dio.patch('/notifications/$notificationId/read');
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _client.dio.post('/notifications/mark-all-read');
+  }
+
+  Future<void> requestPayout({
+    required double amount,
+    required String mobileNumber,
+    required String paymentMethod,
+  }) async {
+    await _client.dio.post('/riders/me/payout-request', data: {
+      'amount': amount,
+      'mobile_number': mobileNumber,
+      'payment_method': paymentMethod,
+    });
+  }
+
   /// Next API status when rider taps "Continue" on active delivery.
   static String? nextStatusAfterAdvance(String currentStatus) {
     switch (currentStatus) {
@@ -94,7 +124,7 @@ class RiderRepository {
       phone: user?['phone'] as String? ?? '',
       riderType: _mapRiderType(json['rider_type'] as String?),
       vehicleType: json['vehicle_type'] as String? ?? 'Motorcycle',
-      vehiclePlate: '',
+      vehiclePlate: json['vehicle_plate'] as String? ?? '',
       availability: _mapAvailability(availability),
       assignedArea: json['assigned_area'] as String? ?? 'Kigali',
       isVerified: (json['verification_status'] as String? ?? '') == 'verified',
@@ -109,21 +139,39 @@ class RiderRepository {
     final destLat = _toDouble(json['destination_latitude']);
     final destLng = _toDouble(json['destination_longitude']);
 
+    // Try to extract pharmacy name and patient info from nested order if backend includes it
+    final order = json['order'] as Map<String, dynamic>?;
+    final pharmacy = order?['pharmacy'] as Map<String, dynamic>?;
+    final patient = order?['patient'] as Map<String, dynamic>?;
+    final patientUser = patient?['user'] as Map<String, dynamic>?;
+
+    final orderIdRaw = json['order_id'] as String? ?? '';
+    final shortCode = orderIdRaw.length >= 8
+        ? '#${orderIdRaw.substring(orderIdRaw.length - 8).toUpperCase()}'
+        : '#${orderIdRaw.toUpperCase()}';
+
+    String maskName(String? full) {
+      if (full == null || full.isEmpty) return 'Patient';
+      final parts = full.trim().split(RegExp(r'\s+'));
+      if (parts.length == 1) return '${parts[0][0]}***';
+      return '${parts[0]} ${parts[1][0]}.';
+    }
+
     return RiderDeliveryOrder(
       id: json['id'] as String,
-      orderCode: (json['order_id'] as String).substring(0, 8).toUpperCase(),
-      pickupName: 'Pickup',
-      pickupAddress: json['pickup_address'] as String? ?? 'Pharmacy pickup',
+      orderCode: order?['order_code'] as String? ?? shortCode,
+      pickupName: pharmacy?['name'] as String? ?? 'Pharmacy',
+      pickupAddress: json['pickup_address'] as String? ?? pharmacy?['address'] as String? ?? 'Pharmacy pickup',
       pickupCoordinates: [pickupLat ?? -1.9441, pickupLng ?? 30.0619],
       destinationAddress: json['destination_address'] as String? ?? 'Patient address',
       destinationCoordinates: [destLat ?? -1.9441, destLng ?? 30.0619],
-      customerNameMasked: 'Patient',
-      customerPhoneMasked: '—',
-      estimatedDistanceKm: 4.0,
-      estimatedTimeMinutes: 20,
+      customerNameMasked: maskName(patientUser?['full_name'] as String?),
+      customerPhoneMasked: patientUser != null ? '—' : '—',
+      estimatedDistanceKm: _toDouble(json['estimated_distance_km']) ?? 4.0,
+      estimatedTimeMinutes: json['estimated_time_minutes'] as int? ?? 20,
       deliveryFee: _toDouble(json['delivery_fee']) ?? 0,
       riderEarning: _toDouble(json['rider_earning']) ?? 0,
-      qrCode: json['qr_token'] as String? ?? '',
+      qrCode: json['qr_token'] as String? ?? json['qr_code'] as String? ?? '',
       status: _mapDeliveryStatus(status),
       activeStep: _mapActiveStep(status),
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
@@ -133,6 +181,17 @@ class RiderRepository {
       deliveryStartedAt: DateTime.tryParse(json['delivery_started_at'] as String? ?? ''),
       destinationArrivedAt: DateTime.tryParse(json['destination_arrived_at'] as String? ?? ''),
       deliveredAt: DateTime.tryParse(json['delivered_at'] as String? ?? ''),
+    );
+  }
+
+  RiderNotificationItem _mapNotification(Map<String, dynamic> json) {
+    return RiderNotificationItem(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? 'Notification',
+      message: json['message'] as String? ?? json['body'] as String? ?? '',
+      type: json['category'] as String? ?? 'system',
+      isRead: json['read_status'] as bool? ?? false,
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
     );
   }
 

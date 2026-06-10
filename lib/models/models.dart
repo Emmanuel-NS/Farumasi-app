@@ -84,6 +84,7 @@ class Medicine {
   final String? composition;
   final String? storage;
   final String? warnings;
+  final String productType;
 
   List<String> get allCategories => {category, ...additionalCategories}.toList();
   List<String> get allSubCategories => {(subCategory ?? ""), ...additionalSubCategories}.where((s) => s.isNotEmpty).toList();
@@ -124,6 +125,7 @@ class Medicine {
     this.composition,
     this.storage,
     this.warnings,
+    this.productType = 'medicine',
   });
 }
 

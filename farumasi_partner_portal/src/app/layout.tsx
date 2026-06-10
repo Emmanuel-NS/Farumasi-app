@@ -7,8 +7,21 @@ import NextTopLoader from "nextjs-toploader";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "FARUMASI Partner Portal",
+  title: {
+    template: "%s | FARUMASI Partner",
+    default: "FARUMASI Partner Portal",
+  },
   description: "Pharmacy and partner companies management portal — FARUMASI Rwanda",
+  manifest: "/manifest.json",
+  themeColor: "#1E9E68",
+  appleWebApp: {
+    capable: true,
+    title: "FARUMASI Partner",
+  },
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

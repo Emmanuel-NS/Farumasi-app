@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/repositories/patient_repository.dart';
 import '../core/cart_pharmacy_scoring.dart';
 import '../core/cart_pricing.dart';
+import '../core/delivery_pricing.dart';
 import '../core/sell_mode.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../services/state_service.dart';
 import 'auth_screen.dart';
+import 'order_detail_screen.dart';
 
 enum CheckoutStep { cart, pharmacy, details, payment, confirmed }
 
@@ -53,6 +55,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   String _momoPhone = '';
   bool _isSubmitting = false;
   String? _confirmedOrderCode;
+  String? _confirmedOrderId;
 
   @override
   void initState() {
@@ -168,10 +171,34 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     return _catalogueSubtotalMin(items);
   }
 
-  double _deliveryFeeFor(List<CartItem> items) => deliveryFeeForMedicinesSubtotal(
-        _medicinesTotal(items),
-        isPickup: _fulfillment == 'pickup',
-      );
+  double _deliveryFeeFor(List<CartItem> items) {
+    if (_fulfillment == 'pickup') return 0;
+    final straightKm = _selectedPharmacy?.distanceKm ?? 0;
+    return deliveryFeeForRoadKm(straightKm, isPickup: false);
+  }
+
+  bool get _deliveryTooFar {
+    if (_fulfillment != 'delivery' || _selectedPharmacy == null) return false;
+    final roadKm = roadDistanceKm(_selectedPharmacy!.distanceKm);
+    if (roadKm <= maxDeliveryKm) return false;
+    const kigaliDistricts = {'Gasabo', 'Kicukiro', 'Nyarugenge'};
+    return !kigaliDistricts.contains(_selectedDistrict);
+  }
+
+  void _enforcePickupIfTooFar() {
+    if (_deliveryTooFar && _fulfillment == 'delivery') {
+      setState(() => _fulfillment = 'pickup');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Delivery is not available beyond 20 km outside Kigali. Switched to pickup.',
+            ),
+          ),
+        );
+      }
+    }
+  }
 
   double _amountDueNow(List<CartItem> items) {
     final medicines = _medicinesTotal(items);
@@ -274,6 +301,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
       if (!mounted) return;
       StateService().clearCart();
       setState(() {
+        _confirmedOrderId = order.id;
         _confirmedOrderCode = order.orderCode ?? order.id;
         _isSubmitting = false;
         _step = CheckoutStep.confirmed;
@@ -410,7 +438,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
 
   Widget _buildCartStep(List<CartItem> items) {
     final range = _cartSubtotalRange(items);
-    final deliveryFee = deliveryFeeForMedicinesSubtotal(range.min);
+    final deliveryFee = 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -572,9 +600,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           ...options.map((opt) {
             final selected = _selectedPharmacy?.codename == opt.codename;
             final isBest = opt.rank == 1;
-            final cardDelivery = deliveryFeeForMedicinesSubtotal(
-              opt.priceEstimate - opt.insuranceSaving,
-            );
+            final cardDelivery = deliveryFeeForRoadKm(opt.distanceKm);
             final cardTotal = opt.priceEstimate - opt.insuranceSaving + cardDelivery;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -744,7 +770,10 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           items: _rwandaDistricts
               .map((c) => DropdownMenuItem(value: c, child: Text(c)))
               .toList(),
-          onChanged: (v) => setState(() => _selectedDistrict = v ?? 'Gasabo'),
+          onChanged: (v) => setState(() {
+            _selectedDistrict = v ?? 'Gasabo';
+            _enforcePickupIfTooFar();
+          }),
         ),
         if (!isPickup) ...[
           const SizedBox(height: 12),
@@ -1002,6 +1031,22 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
+        if (_confirmedOrderId != null)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                final orderId = _confirmedOrderId!;
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: orderId)),
+                );
+              },
+              style: _primaryBtn,
+              child: const Text('Track order'),
+            ),
+          ),
+        const SizedBox(height: 12),
         OutlinedButton(
           onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
           child: const Text('Back to Store'),

@@ -39,8 +39,7 @@ export interface PaginatedProducts {
   limit: number;
 }
 
-const PLACEHOLDER_IMAGE =
-  "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=80";
+const PLACEHOLDER_IMAGE = "/pill-placeholder.svg";
 
 interface ParsedDesc {
   short?: string;

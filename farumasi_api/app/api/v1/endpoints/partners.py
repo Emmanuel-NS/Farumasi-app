@@ -283,11 +283,19 @@ async def list_my_partner_orders(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     status: str = Query(None),
+    from_date: str = Query(None, description="ISO-8601 date to filter orders created on or after this date"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
 ):
+    from datetime import datetime, timezone
+    parsed_from = None
+    if from_date:
+        try:
+            parsed_from = datetime.fromisoformat(from_date.replace("Z", "+00:00"))
+        except ValueError:
+            pass
     items, total = await OrderService(db).list_partner_orders(
-        current_user, offset=offset, limit=limit, status=status
+        current_user, offset=offset, limit=limit, status=status, from_date=parsed_from
     )
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 

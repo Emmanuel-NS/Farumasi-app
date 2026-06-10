@@ -77,16 +77,20 @@ function adaptItem(item: BackendPrescriptionItem): DigitalPrescriptionItem {
 export function adaptPrescription(p: BackendPrescription): DigitalPrescription {
   const status = (STATUS_MAP[p.status] ?? "active") as DigitalPrescriptionStatus;
   const isUploaded = p.prescription_type === "uploaded" || !!p.uploaded_file_url;
+  // Expiry: backend has no expires_at field — derive as 30 days after issue date
+  const issuedMs = p.created_at ? new Date(p.created_at).getTime() : Date.now();
+  const expiresAt = new Date(issuedMs + 30 * 86400000).toISOString();
   return {
     id: p.id,
     patientId: p.patient_id,
     prescriptionType: isUploaded ? "uploaded" : "digital",
-    doctorName: p.doctor_id ? `Doctor #${p.doctor_id.slice(0, 6)}` : "Uploaded by patient",
-    hospitalName: isUploaded ? undefined : "FARUMASI Healthcare",
+    doctorName: p.doctor_id ? `Dr. #${p.doctor_id.slice(-6)}` : "Uploaded by patient",
+    // hospitalName not returned by backend — only set if a hospital relation is available
+    hospitalName: undefined,
     diagnosis: p.diagnosis_notes ?? undefined,
     notes: p.notes ?? undefined,
     issuedAt: p.created_at,
-    expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+    expiresAt,
     status,
     qrCode: p.qr_code ?? undefined,
     uploadedFileUrl: p.uploaded_file_url ?? undefined,

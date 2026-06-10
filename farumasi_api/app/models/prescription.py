@@ -42,6 +42,7 @@ class DigitalPrescription(Base, UUIDMixin, TimestampMixin):
     # Insurance coverage added by pharmacist during prescription review
     insurance_provider: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     insurance_discount_pct: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    valid_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────
     patient: Mapped["PatientProfile"] = relationship(

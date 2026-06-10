@@ -51,6 +51,11 @@ from app.schemas.order import (
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.utils.packaging import resolve_order_line
+from app.utils.distance import road_distance_km, is_outside_kigali
+from app.services.platform_settings_service import (
+    PlatformSettingsService,
+    calculate_delivery_fee_from_config,
+)
 
 
 _OWNER_MANAGE_STATUSES = {
@@ -106,8 +111,12 @@ class OrderService:
 
         subtotal = sum(it["unit_price"] * it["quantity"] for it in items)
         delivery_fee = 0.0
+        _delivery_distance_km: Optional[float] = None
         if data.delivery_method == DeliveryMethod.DELIVERY:
-            delivery_fee = 0.0 if subtotal >= 10_000 else 1_500.0
+            # Calculate distance-based fee using real road distance (returns fee, distance)
+            delivery_fee, _delivery_distance_km = await self._calculate_order_delivery_fee(
+                data, pharmacy_id, partner_id
+            )
 
         commission_rate = await self._resolve_commission_rate(pharmacy_id, partner_id)
         commission = round(subtotal * commission_rate, 2)
@@ -168,6 +177,7 @@ class OrderService:
                 destination_latitude=data.delivery_latitude,
                 destination_longitude=data.delivery_longitude,
                 delivery_fee=delivery_fee,
+                estimated_distance_km=_delivery_distance_km,
             )
             await self._populate_delivery_pickup(order, delivery)
             self.db.add(delivery)
@@ -232,6 +242,7 @@ class OrderService:
         offset: int,
         limit: int,
         status: Optional[str] = None,
+        from_date: Optional[datetime] = None,
     ) -> Tuple[List[Order], int]:
         pharmacy = await self._get_owned_pharmacy(actor)
         # Farumasi internal pharmacists (no pharmacy affiliation) see ALL orders
@@ -240,12 +251,16 @@ class OrderService:
             conds: list = []
             if status:
                 conds.append(Order.order_status == status)
+            if from_date:
+                conds.append(Order.created_at >= from_date)
             return await self._paginate(*conds, offset=offset, limit=limit)
         if not pharmacy:
             raise NotFoundError("Pharmacy")
         conds = [Order.pharmacy_id == pharmacy.id]
         if status:
             conds.append(Order.order_status == status)
+        if from_date:
+            conds.append(Order.created_at >= from_date)
         return await self._paginate(*conds, offset=offset, limit=limit)
 
     async def list_partner_orders(
@@ -255,10 +270,11 @@ class OrderService:
         offset: int,
         limit: int,
         status: Optional[str] = None,
+        from_date: Optional[datetime] = None,
     ) -> Tuple[List[Order], int]:
         """All orders for pharmacies and partner companies owned by this user."""
         return await self.list_orders_for_owner(
-            actor, offset=offset, limit=limit, status=status
+            actor, offset=offset, limit=limit, status=status, from_date=from_date
         )
 
     async def list_orders_for_owner(
@@ -268,6 +284,7 @@ class OrderService:
         offset: int,
         limit: int,
         status: Optional[str] = None,
+        from_date: Optional[datetime] = None,
     ) -> Tuple[List[Order], int]:
         from sqlalchemy import or_
 
@@ -298,6 +315,8 @@ class OrderService:
         conds = [or_(*scope)]
         if status:
             conds.append(Order.order_status == status)
+        if from_date:
+            conds.append(Order.created_at >= from_date)
         return await self._paginate(*conds, offset=offset, limit=limit)
 
     async def list_all_orders(
@@ -366,6 +385,11 @@ class OrderService:
             and old_status not in _RELEASE_STATUSES
         ):
             await self._release_stock_for_order(order)
+            if (
+                data.order_status == OrderStatus.CANCELLED
+                and order.payment_status == PaymentStatus.PAID
+            ):
+                await self._queue_refund(order, actor)
 
         if data.order_status in (OrderStatus.COMPLETED, OrderStatus.DELIVERED):
             await self._create_revenue(order)
@@ -787,6 +811,65 @@ class OrderService:
                 "The patient must complete mobile money payment first."
             )
 
+    async def _calculate_order_delivery_fee(
+        self,
+        data: "OrderCreate",
+        pharmacy_id: Optional[str],
+        partner_id: Optional[str],
+    ) -> Tuple[float, Optional[float]]:
+        """
+        Compute delivery fee + road distance using OSRM with Haversine fallback.
+        Returns (fee_rwf, distance_km).
+        Raises ValidationError if distance > 20 km from outside Kigali (pickup-only zone).
+        """
+        dest_lat = data.delivery_latitude
+        dest_lon = data.delivery_longitude
+        if dest_lat is None or dest_lon is None:
+            cfg = await PlatformSettingsService(self.db).get_delivery_config()
+            tiers = cfg.get("tiers") or []
+            default_fee = float(tiers[0]["fee_rwf"]) if tiers else 1500.0
+            return default_fee, None
+
+        seller_lat: Optional[float] = None
+        seller_lon: Optional[float] = None
+
+        if pharmacy_id:
+            ph_res = await self.db.execute(
+                select(Pharmacy.latitude, Pharmacy.longitude).where(Pharmacy.id == pharmacy_id)
+            )
+            row = ph_res.one_or_none()
+            if row:
+                seller_lat, seller_lon = row
+        elif partner_id:
+            pt_res = await self.db.execute(
+                select(PartnerCompany.latitude, PartnerCompany.longitude).where(
+                    PartnerCompany.id == partner_id
+                )
+            )
+            row = pt_res.one_or_none()
+            if row:
+                seller_lat, seller_lon = row
+
+        if seller_lat is None or seller_lon is None:
+            cfg = await PlatformSettingsService(self.db).get_delivery_config()
+            tiers = cfg.get("tiers") or []
+            default_fee = float(tiers[0]["fee_rwf"]) if tiers else 1500.0
+            return default_fee, None
+
+        cfg = await PlatformSettingsService(self.db).get_delivery_config()
+        max_km = float(cfg.get("max_delivery_km", 20))
+        dist = await road_distance_km(float(seller_lat), float(seller_lon), dest_lat, dest_lon)
+
+        if dist > max_km and is_outside_kigali(dest_lat, dest_lon):
+            raise ValidationError(
+                f"Delivery is not available for your location "
+                f"({dist:.1f} km from the pharmacy, outside Kigali). "
+                "Please choose pickup."
+            )
+
+        fee = calculate_delivery_fee_from_config(dist, cfg)
+        return fee, dist
+
     async def _populate_delivery_pickup(self, order: Order, delivery: Delivery) -> None:
         if order.pharmacy_id:
             ph = (
@@ -1086,6 +1169,70 @@ class OrderService:
             )
         await self._adjust_stock_for_items(items, sign=+1)
 
+    async def _queue_refund(self, order: Order, actor: User) -> None:
+        from app.models.refund_request import RefundRequest
+
+        patient_user_id = await self._patient_user_id(order.patient_id)
+        if not patient_user_id:
+            return
+
+        existing = await self.db.execute(
+            select(RefundRequest).where(
+                RefundRequest.order_id == order.id,
+                RefundRequest.status == "pending",
+            )
+        )
+        if existing.scalar_one_or_none():
+            return
+
+        refund = RefundRequest(
+            order_id=order.id,
+            patient_user_id=patient_user_id,
+            amount=float(order.total_amount or 0),
+            reason=f"Order {order.order_code or order.id} cancelled",
+            status="pending",
+        )
+        self.db.add(refund)
+        await self.db.flush()
+
+        notif = NotificationService(self.db)
+        from app.core.constants import UserRole
+        from app.models.user import User as UserModel
+
+        finance_res = await self.db.execute(
+            select(UserModel).where(
+                UserModel.role.in_([UserRole.FINANCE_ADMIN, UserRole.SUPER_ADMIN])
+            )
+        )
+        for fu in finance_res.scalars():
+            await notif.send(
+                user_id=fu.id,
+                title="Refund required",
+                message=(
+                    f"Order {order.order_code or order.id[-8:]} was cancelled after payment. "
+                    f"Refund {refund.amount:.0f} RWF to patient."
+                ),
+                category="payment",
+            )
+        if patient_user_id:
+            await notif.send(
+                user_id=patient_user_id,
+                title="Refund processing",
+                message=(
+                    f"Your order was cancelled. A refund of {refund.amount:.0f} RWF "
+                    "has been queued and will be processed within 3–5 business days."
+                ),
+                category="payment",
+            )
+
+        await AuditService(self.db).log(
+            actor_user_id=actor.id,
+            action="order.refund.queued",
+            entity_type="RefundRequest",
+            entity_id=refund.id,
+            new_value={"order_id": order.id, "amount": refund.amount},
+        )
+
     async def _assert_prescription_for_items(
         self,
         items: List[dict],
@@ -1131,4 +1278,12 @@ class OrderService:
             raise BusinessRuleError(
                 "Prescription must be reviewed by a pharmacist before ordering"
             )
+        if rx.valid_until:
+            expires = rx.valid_until
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if expires <= _now():
+                raise BusinessRuleError(
+                    "This prescription has expired. Upload a new prescription or contact your pharmacist."
+                )
 

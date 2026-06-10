@@ -12,6 +12,8 @@ const ALLOWED_PREFIXES = [
   "/audit",
   "/settings",
   "/login",
+  "/forgot-password",
+  "/reset-password",
 ];
 
 /** Old URLs → canonical MVP paths */
@@ -41,7 +43,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(alias, request.url));
   }
 
-  if (pathname.startsWith("/login")) {
+  if (pathname.startsWith("/login") || pathname.startsWith("/forgot-password") || pathname.startsWith("/reset-password")) {
     return NextResponse.next();
   }
 

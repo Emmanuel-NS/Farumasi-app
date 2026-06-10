@@ -293,3 +293,17 @@ async def prescriptions_admin_summary(db: AsyncSession = Depends(get_db)):
 )
 async def orders_admin_summary(db: AsyncSession = Depends(get_db)):
     return await AdminManagementService(db).orders_admin_summary()
+
+
+@router.post(
+    "/users/{user_id}/force-password-reset",
+    dependencies=[Depends(require_super_admin())],
+)
+async def admin_force_password_reset(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    from app.services.password_reset_service import PasswordResetService
+
+    return await PasswordResetService(db).admin_force_reset(user_id, actor)

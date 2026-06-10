@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
-import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 import { PresenceToggle } from "@/components/layout/presence-toggle";
 import { notificationsService } from "@/lib/services/notifications.service";
 import { startVisibleInterval } from "@/lib/polling";
@@ -68,9 +68,11 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
 
       {/* Logo + Brand */}
       <Link href="/overview" className="flex items-center gap-2.5 shrink-0">
-        <FarumasiLogo size={26} onDark />
-        <span className="text-white font-semibold text-[22px] tracking-[0.05em] hidden sm:block">
-          Farumasi
+        <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0">
+          <Image src="/logo.png" alt="FARUMASI" width={28} height={28} className="object-contain" />
+        </div>
+        <span className="text-white font-extrabold text-[16px] tracking-wide hidden sm:block">
+          FARUMASI
         </span>
         <span className="hidden sm:block text-white/70 text-xs font-medium border border-white/25 rounded-full px-2 py-0.5 ml-1">
           Pharmacist

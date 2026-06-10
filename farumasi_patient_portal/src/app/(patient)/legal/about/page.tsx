@@ -1,7 +1,7 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ChevronLeft, Heart, MapPin, Shield } from "lucide-react";
 
-export const metadata = { title: "About Farumasi · Farumasi" };
+export const metadata = { title: "About Farumasi Â· Farumasi" };
 
 export default function AboutPage() {
   return (
@@ -22,16 +22,16 @@ export default function AboutPage() {
         <p>
           Farumasi was built to remove the friction between people and the medicine they need. We
           partner with verified pharmacies, employ licensed pharmacists for clinical review, and
-          coordinate riders to get medicine to your door — often within an hour.
+          coordinate riders to get medicine to your door â€” often within an hour.
         </p>
         <p>
           We&apos;re a small team based in Kigali. If you have feedback, an idea, or a hard day at
-          the pharmacy you wish we&apos;d fix — write to us at{" "}
+          the pharmacy you wish we&apos;d fix â€” write to us at{" "}
           <a className="text-farumasi-600 font-semibold" href="mailto:hello@farumasi.com">hello@farumasi.com</a>.
         </p>
       </section>
 
-      <p className="text-xs text-slate-400 mt-10">App version 1.0.0 · © {new Date().getFullYear()} Farumasi</p>
+      <p className="text-xs text-slate-400 mt-10">App version 1.0.0 Â· Â© {new Date().getFullYear()} Farumasi</p>
     </article>
   );
 }

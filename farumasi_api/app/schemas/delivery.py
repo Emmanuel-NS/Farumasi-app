@@ -27,6 +27,7 @@ class DeliveryOut(FarumasiBaseModel):
 
     delivery_fee: float
     rider_earning: float
+    estimated_distance_km: Optional[float] = None
 
     accepted_at: Optional[datetime] = None
     pickup_arrived_at: Optional[datetime] = None

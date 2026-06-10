@@ -51,6 +51,14 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = True
     EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 10
 
+    # ── SMS (verification / password reset fallback) ───────────────────────
+    # Providers: africas_talking | http | (empty = disabled)
+    SMS_PROVIDER: str = ""
+    AFRICAS_TALKING_USERNAME: str = ""
+    AFRICAS_TALKING_API_KEY: str = ""
+    SMS_SENDER_ID: str = "FARUMASI"
+    SMS_HTTP_URL: str = ""
+
     # ── Patient payments (MTN MoMo Collection) ────────────────────────────
     # sandbox = auto-confirm for local/dev E2E; live = real MoMo API
     PAYMENT_MODE: str = "sandbox"

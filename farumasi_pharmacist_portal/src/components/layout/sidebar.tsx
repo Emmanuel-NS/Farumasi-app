@@ -50,6 +50,9 @@ export function Sidebar({ collapsed }: SidebarProps) {
       )}
     >
       <nav className="flex-1 overflow-y-auto scrollbar-hide pt-2.5 pb-1 px-2 space-y-0.5">
+        {!collapsed && (
+          <p className="px-2.5 pb-2 text-[12px] font-semibold text-[#D2E8DE]">Navigation</p>
+        )}
         {navItems.map((item) => (
           <SidebarItem
             key={item.href}

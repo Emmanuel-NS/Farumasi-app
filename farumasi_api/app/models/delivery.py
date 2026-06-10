@@ -40,6 +40,7 @@ class Delivery(Base, UUIDMixin, TimestampMixin):
 
     delivery_fee: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     rider_earning: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    estimated_distance_km: Mapped[Optional[float]] = mapped_column(Numeric(8, 2), nullable=True)
 
     # ── Timeline ──────────────────────────────────────────────────────────
     accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

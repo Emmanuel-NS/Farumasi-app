@@ -1,7 +1,7 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
-export const metadata = { title: "Privacy Policy · Farumasi" };
+export const metadata = { title: "Privacy Policy Â· Farumasi" };
 
 export default function PrivacyPage() {
   return (
@@ -31,7 +31,7 @@ export default function PrivacyPage() {
         </section>
         <section>
           <h2 className="text-base font-bold text-slate-900">Your rights</h2>
-          <p>You can export a copy of your data or request account deletion from Settings → Data & Privacy. We retain records required by healthcare law even after deletion of your account.</p>
+          <p>You can export a copy of your data or request account deletion from Settings â†’ Data & Privacy. We retain records required by healthcare law even after deletion of your account.</p>
         </section>
         <section>
           <h2 className="text-base font-bold text-slate-900">Security</h2>

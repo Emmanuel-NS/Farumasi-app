@@ -158,6 +158,96 @@ export type T = {
   cart_confirmed_title: string;
   cart_confirmed_subtitle: string;
   cart_continue_shopping: string;
+  cart_step_pharmacy: string;
+  cart_step_details: string;
+  cart_step_pay_short: string;
+  cart_back_store: string;
+  cart_back_rx: string;
+  cart_edit_cart: string;
+  cart_prices_note: string;
+  cart_find_pharmacy: string;
+  cart_fulfillment_delivery: string;
+  cart_fulfillment_pickup: string;
+  cart_ai_title: string;
+  cart_ai_finding: string;
+  cart_rx_finding: string;
+  cart_ai_phase1: string;
+  cart_ai_phase1_sub: string;
+  cart_ai_phase2: string;
+  cart_ai_phase2_items: string;
+  cart_ai_phase3: string;
+  cart_ai_phase3_gps: string;
+  cart_ai_phase3_district: string;
+  cart_ai_phase4: string;
+  cart_ai_phase4_sub: string;
+  cart_names_hidden: string;
+  cart_names_hidden_sub: string;
+  cart_no_match: string;
+  cart_no_match_sub: string;
+  cart_no_match_tip_title: string;
+  cart_no_match_tip1: string;
+  cart_no_match_tip2: string;
+  cart_no_match_tip3: string;
+  cart_pharmacy_label: string;
+  cart_best_match: string;
+  cart_best_value: string;
+  cart_fastest: string;
+  cart_full_stock: string;
+  cart_nearest: string;
+  cart_view_details: string;
+  cart_match_score: string;
+  cart_products_prices: string;
+  cart_why_recommended: string;
+  cart_not_available: string;
+  cart_close_details: string;
+  cart_delivery_unavailable: string;
+  cart_continue_pharmacy: string;
+  cart_continue_pharmacy_empty: string;
+  cart_pickup_details: string;
+  cart_delivery_details: string;
+  cart_details_subtitle: string;
+  cart_pickup_banner: string;
+  cart_contact_details: string;
+  cart_delivery_address: string;
+  cart_select_district: string;
+  cart_access_title: string;
+  cart_access_pickup: string;
+  cart_access_delivery: string;
+  cart_access_min: string;
+  cart_access_label: string;
+  cart_payment_subtitle: string;
+  cart_momo_push: string;
+  cart_airtel_soon: string;
+  cart_pay_now: string;
+  cart_pay_after: string;
+  cart_pay_after_sub: string;
+  cart_estimated_fee: string;
+  cart_free_pickup_label: string;
+  cart_due_now: string;
+  cart_processing: string;
+  cart_creating: string;
+  cart_momo_start: string;
+  cart_momo_wait: string;
+  cart_checkout_error: string;
+  cart_your_access: string;
+  cart_give_rider: string;
+  cart_your_pharmacy: string;
+  cart_delivery_in: string;
+  cart_road_distance: string;
+  cart_enable_location: string;
+  cart_deliver_to: string;
+  cart_payment_label: string;
+  cart_insurance_savings: string;
+  cart_charged_now: string;
+  cart_total_charged: string;
+  cart_delivery_after: string;
+  cart_defer_banner: string;
+  cart_partial: string;
+  cart_whole_pack: string;
+  cart_rx_category: string;
+  cart_calculating: string;
+  cart_delivery_too_far: string;
+  cart_items_count: string;
   // Orders list
   orders_title: string;
   orders_active: string;
@@ -455,6 +545,96 @@ const translations: Record<LangCode, T> = {
     cart_confirmed_title: "Order Confirmed!",
     cart_confirmed_subtitle: "Your order has been placed successfully.",
     cart_continue_shopping: "Continue Shopping",
+    cart_step_pharmacy: "Pharmacy",
+    cart_step_details: "Details",
+    cart_step_pay_short: "Pay",
+    cart_back_store: "Back to store",
+    cart_back_rx: "Back to prescriptions",
+    cart_edit_cart: "Edit Cart",
+    cart_prices_note: "Final prices are confirmed when you choose a pharmacy.",
+    cart_find_pharmacy: "Find Best Pharmacy",
+    cart_fulfillment_delivery: "Delivery",
+    cart_fulfillment_pickup: "Pickup",
+    cart_ai_title: "Farumasi AI",
+    cart_ai_finding: "Finding your best match…",
+    cart_rx_finding: "Finding best pharmacies for your prescription…",
+    cart_ai_phase1: "Scanning partner pharmacies",
+    cart_ai_phase1_sub: "Checking network availability",
+    cart_ai_phase2: "Verifying stock for your items",
+    cart_ai_phase2_items: "Your cart items",
+    cart_ai_phase3: "Calculating proximity & delivery times",
+    cart_ai_phase3_gps: "GPS location detected",
+    cart_ai_phase3_district: "District-based estimate",
+    cart_ai_phase4: "Ranking by compatibility score",
+    cart_ai_phase4_sub: "Availability · price · speed · proximity",
+    cart_names_hidden: "Pharmacy names are hidden",
+    cart_names_hidden_sub: "until you complete payment — ensuring fair pricing and stock availability across our network.",
+    cart_no_match: "No matching pharmacies found",
+    cart_no_match_sub: "None of our partner pharmacies currently have all your cart items in stock.",
+    cart_no_match_tip_title: "What you can do:",
+    cart_no_match_tip1: "Remove items one by one and retry — partial matches may appear",
+    cart_no_match_tip2: "Check back later — pharmacy stock is updated regularly",
+    cart_no_match_tip3: "Contact support if an item is urgently needed",
+    cart_pharmacy_label: "Pharmacy",
+    cart_best_match: "Best Match",
+    cart_best_value: "Best Value",
+    cart_fastest: "Fastest",
+    cart_full_stock: "Full stock",
+    cart_nearest: "Nearest to you",
+    cart_view_details: "View match details",
+    cart_match_score: "Match score",
+    cart_products_prices: "Medicines & prices",
+    cart_why_recommended: "Why this pharmacy?",
+    cart_not_available: "Not available",
+    cart_close_details: "Close",
+    cart_delivery_unavailable: "Delivery unavailable (>20 km)",
+    cart_continue_pharmacy: "Continue with Pharmacy",
+    cart_continue_pharmacy_empty: "Continue with Pharmacy …",
+    cart_pickup_details: "Pickup Details",
+    cart_delivery_details: "Delivery Details",
+    cart_details_subtitle: "How would you like to receive your order?",
+    cart_pickup_banner: "Pickup selected — no delivery fee. The pharmacy address will be revealed after payment.",
+    cart_contact_details: "Contact Details",
+    cart_delivery_address: "Delivery Address",
+    cart_select_district: "Select district…",
+    cart_access_title: "Order Access Code",
+    cart_access_pickup: "Show this code at the pharmacy counter to collect your medicines.",
+    cart_access_delivery: "Give this code to the rider at the door to confirm delivery.",
+    cart_access_min: "Minimum 4 characters.",
+    cart_access_label: "Access Code",
+    cart_payment_subtitle: "Choose how you want to pay",
+    cart_momo_push: "Push notification to your MTN number",
+    cart_airtel_soon: "Coming soon — use MTN MoMo for now",
+    cart_pay_now: "Pay now",
+    cart_pay_after: "Pay after delivery arrives",
+    cart_pay_after_sub: "Charged to your mobile money when delivered — no cash",
+    cart_estimated_fee: "Estimated delivery fee",
+    cart_free_pickup_label: "Free (Pickup)",
+    cart_due_now: "Due now",
+    cart_processing: "Processing…",
+    cart_creating: "Creating order…",
+    cart_momo_start: "Starting MTN MoMo payment…",
+    cart_momo_wait: "Waiting for MoMo approval on your phone…",
+    cart_checkout_error: "Could not complete checkout. Please try again.",
+    cart_your_access: "Your Access Code",
+    cart_give_rider: "Give this to the rider when they arrive",
+    cart_your_pharmacy: "Your Pharmacy",
+    cart_delivery_in: "Delivery in ~{min} min",
+    cart_road_distance: "{km} km from you",
+    cart_enable_location: "Enable location to see road distance and delivery fee",
+    cart_deliver_to: "Deliver to",
+    cart_payment_label: "Payment",
+    cart_insurance_savings: "Insurance savings",
+    cart_charged_now: "Charged now",
+    cart_total_charged: "Total charged",
+    cart_delivery_after: "Delivery fee (after delivery)",
+    cart_defer_banner: "Delivery fee billed after arrival.",
+    cart_partial: "Partial",
+    cart_whole_pack: "Whole pack",
+    cart_rx_category: "Prescription",
+    cart_calculating: "Calculating delivery times…",
+    cart_delivery_too_far: "Delivery not available beyond 20 km outside Kigali. Switched to pickup.",
+    cart_items_count: "{n} item(s) in cart",
     orders_title: "My Orders",
     orders_active: "Active Orders",
     orders_past: "Past Orders",
@@ -739,6 +919,96 @@ const translations: Record<LangCode, T> = {
     cart_confirmed_title: "Itumba Ryemejwe!",
     cart_confirmed_subtitle: "Itumba ryawe ryatanzwe neza.",
     cart_continue_shopping: "Komeza Kugura",
+    cart_step_pharmacy: "Farumasi",
+    cart_step_details: "Amakuru",
+    cart_step_pay_short: "Kwishyura",
+    cart_back_store: "Subira mu iduka",
+    cart_back_rx: "Subira ku mategeko",
+    cart_edit_cart: "Hindura Aguriro",
+    cart_prices_note: "Igiciro cyemewe kimaze guhitamo farumasi.",
+    cart_find_pharmacy: "Shaka Farumasi Nziza",
+    cart_fulfillment_delivery: "Gutanga",
+    cart_fulfillment_pickup: "Kwikura",
+    cart_ai_title: "Farumasi AI",
+    cart_ai_finding: "Turimo gushaka ibyagutera…",
+    cart_rx_finding: "Turimo gushaka farumasi nziza ku mategeko yawe…",
+    cart_ai_phase1: "Gusuzuma farumasi z'abafatanyabikorwa",
+    cart_ai_phase1_sub: "Kureba ububiko mu murongo",
+    cart_ai_phase2: "Kugenzura ububiko bw'ibicuruzwa byawe",
+    cart_ai_phase2_items: "Ibicuruzwa mu guriro",
+    cart_ai_phase3: "Gubara intera n'igihe cyo gutanga",
+    cart_ai_phase3_gps: "Aho uri hwemerewe (GPS)",
+    cart_ai_phase3_district: "Gushingira ku karere",
+    cart_ai_phase4: "Gutondekanya ukubona neza",
+    cart_ai_phase4_sub: "Ububiko · igiciro · vitesi · intera",
+    cart_names_hidden: "Amazina ya farumasi yihishe",
+    cart_names_hidden_sub: "kugeza kwishyura — kugira ngo igiciro n'ububiko bibe aderere.",
+    cart_no_match: "Nta farumasi ihura",
+    cart_no_match_sub: "Nta farumasi ifite ibicuruzwa byose mu guriro byawe.",
+    cart_no_match_tip_title: "Ushobora gukora:",
+    cart_no_match_tip1: "Kuraho ibintu kimwe kimwe ugerageze — ushobora kubona ibihura",
+    cart_no_match_tip2: "Subira nyuma — ububiko buravugururwa",
+    cart_no_match_tip3: "Vugana n'ubufasha niba bikenewe byihuse",
+    cart_pharmacy_label: "Farumasi",
+    cart_best_match: "Ihura Cyane",
+    cart_best_value: "Igiciro Cyiza",
+    cart_fastest: "Yihuta",
+    cart_full_stock: "Ububiko bwuzuye",
+    cart_nearest: "Iri hafi yawe",
+    cart_view_details: "Reba ibisobanuro byuzuye",
+    cart_match_score: "Amanota y'ihura",
+    cart_products_prices: "Imiti n'ibiciro",
+    cart_why_recommended: "Impamvu iyi farumasi?",
+    cart_not_available: "Ntiboneka",
+    cart_close_details: "Funga",
+    cart_delivery_unavailable: "Gutanga ntibishoboka (>20 km)",
+    cart_continue_pharmacy: "Komeza na Farumasi",
+    cart_continue_pharmacy_empty: "Komeza na Farumasi …",
+    cart_pickup_details: "Amakuru yo Kwikura",
+    cart_delivery_details: "Amakuru yo Gutanga",
+    cart_details_subtitle: "Ushaka kwakira itegeko ryawe gute?",
+    cart_pickup_banner: "Wahisemo kwikura — nta fee yo gutanga. Aderesi izagaragara nyuma yo kwishyura.",
+    cart_contact_details: "Amakuru yo Kuvugana",
+    cart_delivery_address: "Aderesi yo Gutanga",
+    cart_select_district: "Hitamo akarere…",
+    cart_access_title: "Kode yo Kugera ku Itumba",
+    cart_access_pickup: "Erekana iyi kode ku farumasi kugira ngo ubone imiti.",
+    cart_access_delivery: "Ha umujogizi iyi kode ku muryango.",
+    cart_access_min: "Byibuze inyuguti 4.",
+    cart_access_label: "Kode yo Kugera",
+    cart_payment_subtitle: "Hitamo uburyo bwo kwishyura",
+    cart_momo_push: "Ubutumwa kuri nimero yawe ya MTN",
+    cart_airtel_soon: "Biraza vuba — ukoresha MTN MoMo ubu",
+    cart_pay_now: "Kwishyura nonaha",
+    cart_pay_after: "Kwishyura nyuma yo gutanga",
+    cart_pay_after_sub: "Kwishyurwa kuri mobile money — nta cash",
+    cart_estimated_fee: "Igiciro cyo gutanga giteganyijwe",
+    cart_free_pickup_label: "Ubuntu (Kwikura)",
+    cart_due_now: "Kwishyurwa nonaha",
+    cart_processing: "Turimo gutunganya…",
+    cart_creating: "Turimo gushyiraho itegeko…",
+    cart_momo_start: "Gutangiza kwishyura kwa MTN MoMo…",
+    cart_momo_wait: "Tegereza kwemera MoMo kuri telefoni yawe…",
+    cart_checkout_error: "Ntibyashobotse kurangiza. Ongera ugerageze.",
+    cart_your_access: "Kode Yawe",
+    cart_give_rider: "Ha umujogizi iyi kode akagera",
+    cart_your_pharmacy: "Farumasi Yawe",
+    cart_delivery_in: "Gutanga mu minota ~{min}",
+    cart_road_distance: "km {km} kuva iwawe",
+    cart_enable_location: "Emera aho uri kugira ngo ubone intera n'igiciro cyo gutanga",
+    cart_deliver_to: "Gutanga kuri",
+    cart_payment_label: "Kwishyura",
+    cart_insurance_savings: "Igabanyiriza ry'ubwisungane",
+    cart_charged_now: "Kwishyurwa nonaha",
+    cart_total_charged: "Igiteranyo cyishyurwa",
+    cart_delivery_after: "Igiciro cyo gutanga (nyuma yo gutanga)",
+    cart_defer_banner: "Igiciro cyo gutanga cyishyurwa nyuma yo kugera.",
+    cart_partial: "Igice",
+    cart_whole_pack: "Ipaki yose",
+    cart_rx_category: "Itegeko",
+    cart_calculating: "Gubara igihe cyo gutanga…",
+    cart_delivery_too_far: "Gutanga ntibishoboka hejuru ya 20 km hanze ya Kigali. Twahindutse kwikura.",
+    cart_items_count: "Ibintu {n} mu guriro",
     orders_title: "Ibyatumijwe Byanjye",
     orders_active: "Ibitararangira Gutumizwa",
     orders_past: "Ibyarangije Gutumizwa",
@@ -1023,6 +1293,96 @@ const translations: Record<LangCode, T> = {
     cart_confirmed_title: "Commande Confirmée !",
     cart_confirmed_subtitle: "Votre commande a été passée avec succès.",
     cart_continue_shopping: "Continuer les Achats",
+    cart_step_pharmacy: "Pharmacie",
+    cart_step_details: "Détails",
+    cart_step_pay_short: "Payer",
+    cart_back_store: "Retour à la boutique",
+    cart_back_rx: "Retour aux ordonnances",
+    cart_edit_cart: "Modifier le panier",
+    cart_prices_note: "Les prix finaux sont confirmés au choix de la pharmacie.",
+    cart_find_pharmacy: "Trouver la meilleure pharmacie",
+    cart_fulfillment_delivery: "Livraison",
+    cart_fulfillment_pickup: "Retrait",
+    cart_ai_title: "Farumasi IA",
+    cart_ai_finding: "Recherche de la meilleure option…",
+    cart_rx_finding: "Recherche des meilleures pharmacies pour votre ordonnance…",
+    cart_ai_phase1: "Analyse des pharmacies partenaires",
+    cart_ai_phase1_sub: "Vérification du réseau",
+    cart_ai_phase2: "Vérification du stock",
+    cart_ai_phase2_items: "Articles du panier",
+    cart_ai_phase3: "Calcul de proximité et délais",
+    cart_ai_phase3_gps: "Position GPS détectée",
+    cart_ai_phase3_district: "Estimation par district",
+    cart_ai_phase4: "Classement par score",
+    cart_ai_phase4_sub: "Stock · prix · rapidité · proximité",
+    cart_names_hidden: "Noms des pharmacies masqués",
+    cart_names_hidden_sub: "jusqu'au paiement — pour garantir des prix et stocks équitables.",
+    cart_no_match: "Aucune pharmacie correspondante",
+    cart_no_match_sub: "Aucune pharmacie n'a tous vos articles en stock.",
+    cart_no_match_tip_title: "Que faire :",
+    cart_no_match_tip1: "Retirez des articles et réessayez",
+    cart_no_match_tip2: "Revenez plus tard — stocks mis à jour régulièrement",
+    cart_no_match_tip3: "Contactez le support si urgent",
+    cart_pharmacy_label: "Pharmacie",
+    cart_best_match: "Meilleur choix",
+    cart_best_value: "Meilleur prix",
+    cart_fastest: "Plus rapide",
+    cart_full_stock: "Stock complet",
+    cart_nearest: "La plus proche",
+    cart_view_details: "Voir les détails",
+    cart_match_score: "Score de correspondance",
+    cart_products_prices: "Médicaments et prix",
+    cart_why_recommended: "Pourquoi cette pharmacie ?",
+    cart_not_available: "Indisponible",
+    cart_close_details: "Fermer",
+    cart_delivery_unavailable: "Livraison indisponible (>20 km)",
+    cart_continue_pharmacy: "Continuer avec la pharmacie",
+    cart_continue_pharmacy_empty: "Continuer avec la pharmacie …",
+    cart_pickup_details: "Détails de retrait",
+    cart_delivery_details: "Détails de livraison",
+    cart_details_subtitle: "Comment souhaitez-vous recevoir votre commande ?",
+    cart_pickup_banner: "Retrait sélectionné — pas de frais de livraison.",
+    cart_contact_details: "Coordonnées",
+    cart_delivery_address: "Adresse de livraison",
+    cart_select_district: "Choisir un district…",
+    cart_access_title: "Code d'accès commande",
+    cart_access_pickup: "Présentez ce code au comptoir de la pharmacie.",
+    cart_access_delivery: "Donnez ce code au livreur à la porte.",
+    cart_access_min: "Minimum 4 caractères.",
+    cart_access_label: "Code d'accès",
+    cart_payment_subtitle: "Choisissez votre mode de paiement",
+    cart_momo_push: "Notification push sur votre numéro MTN",
+    cart_airtel_soon: "Bientôt disponible — utilisez MTN MoMo",
+    cart_pay_now: "Payer maintenant",
+    cart_pay_after: "Payer à la livraison",
+    cart_pay_after_sub: "Débit mobile money à la livraison — sans espèces",
+    cart_estimated_fee: "Frais de livraison estimés",
+    cart_free_pickup_label: "Gratuit (Retrait)",
+    cart_due_now: "À payer maintenant",
+    cart_processing: "Traitement…",
+    cart_creating: "Création de la commande…",
+    cart_momo_start: "Démarrage du paiement MTN MoMo…",
+    cart_momo_wait: "En attente de l'approbation MoMo…",
+    cart_checkout_error: "Échec du paiement. Veuillez réessayer.",
+    cart_your_access: "Votre code d'accès",
+    cart_give_rider: "Donnez-le au livreur à son arrivée",
+    cart_your_pharmacy: "Votre pharmacie",
+    cart_delivery_in: "Livraison ~{min} min",
+    cart_road_distance: "{km} km de chez vous",
+    cart_enable_location: "Activez la localisation pour voir la distance et les frais de livraison",
+    cart_deliver_to: "Livrer à",
+    cart_payment_label: "Paiement",
+    cart_insurance_savings: "Économies assurance",
+    cart_charged_now: "Facturé maintenant",
+    cart_total_charged: "Total facturé",
+    cart_delivery_after: "Frais de livraison (après livraison)",
+    cart_defer_banner: "Frais de livraison facturés à l'arrivée.",
+    cart_partial: "Partiel",
+    cart_whole_pack: "Paquet entier",
+    cart_rx_category: "Ordonnance",
+    cart_calculating: "Calcul des délais de livraison…",
+    cart_delivery_too_far: "Livraison indisponible au-delà de 20 km hors Kigali. Retrait activé.",
+    cart_items_count: "{n} article(s) dans le panier",
     orders_title: "Mes Commandes",
     orders_active: "Commandes Actives",
     orders_past: "Commandes Passées",
@@ -1307,6 +1667,94 @@ const translations: Record<LangCode, T> = {
     cart_confirmed_title: "Agizo Limethibitishwa!",
     cart_confirmed_subtitle: "Agizo lako limetumwa kwa mafanikio.",
     cart_continue_shopping: "Endelea Kununua",
+    cart_step_pharmacy: "Duka la Dawa",
+    cart_step_details: "Maelezo",
+    cart_step_pay_short: "Lipa",
+    cart_back_store: "Rudi kwenye duka",
+    cart_back_rx: "Rudi kwa dawa za kuandikwa",
+    cart_edit_cart: "Hariri Kikapu",
+    cart_prices_note: "Bei za mwisho zinathibitishwa unapochagua duka la dawa.",
+    cart_find_pharmacy: "Tafuta Duka Bora la Dawa",
+    cart_fulfillment_delivery: "Uwasilishaji",
+    cart_fulfillment_pickup: "Kuchukua",
+    cart_ai_title: "Farumasi AI",
+    cart_ai_finding: "Inatafuta mechi bora…",
+    cart_rx_finding: "Inatafuta maduka bora kwa dawa yako…",
+    cart_ai_phase1: "Inachambua maduka ya washirika",
+    cart_ai_phase1_sub: "Inaangalia mtandao",
+    cart_ai_phase2: "Inathibitisha hisa ya bidhaa zako",
+    cart_ai_phase2_items: "Bidhaa za kikapu",
+    cart_ai_phase3: "Inahesabu umbali na muda",
+    cart_ai_phase3_gps: "GPS imegunduliwa",
+    cart_ai_phase3_district: "Makadirio kwa wilaya",
+    cart_ai_phase4: "Inapanga kwa alama",
+    cart_ai_phase4_sub: "Hisa · bei · kasi · umbali",
+    cart_names_hidden: "Majina ya maduka yamefichwa",
+    cart_names_hidden_sub: "hadi malipo — bei na hisa za haki.",
+    cart_no_match: "Hakuna duka linalolingana",
+    cart_no_match_sub: "Hakuna duka lenye bidhaa zote za kikapu.",
+    cart_no_match_tip_title: "Unaweza:",
+    cart_no_match_tip1: "Ondoa bidhaa moja moja ujaribu tena",
+    cart_no_match_tip2: "Rudi baadaye — hisa husasishwa",
+    cart_no_match_tip3: "Wasiliana na msaada ikiwa ni dharura",
+    cart_pharmacy_label: "Duka la Dawa",
+    cart_best_match: "Mechi Bora",
+    cart_best_value: "Thamani Bora",
+    cart_fastest: "Haraka Zaidi",
+    cart_full_stock: "Hisa kamili",
+    cart_nearest: "Karibu nawe",
+    cart_view_details: "Angalia maelezo",
+    cart_match_score: "Alama ya mechi",
+    cart_products_prices: "Dawa na bei",
+    cart_why_recommended: "Kwa nini duka hili la dawa?",
+    cart_not_available: "Haipatikani",
+    cart_close_details: "Funga",
+    cart_delivery_unavailable: "Uwasilishaji haupatikani (>20 km)",
+    cart_continue_pharmacy: "Endelea na Duka",
+    cart_continue_pharmacy_empty: "Endelea na Duka …",
+    cart_pickup_details: "Maelezo ya Kuchukua",
+    cart_delivery_details: "Maelezo ya Uwasilishaji",
+    cart_details_subtitle: "Ungependa kupokea agizo lako vipi?",
+    cart_pickup_banner: "Kuchukua kumechaguliwa — hakuna ada ya uwasilishaji.",
+    cart_contact_details: "Maelezo ya Mawasiliano",
+    cart_delivery_address: "Anwani ya Uwasilishaji",
+    cart_select_district: "Chagua wilaya…",
+    cart_access_title: "Msimbo wa Ufikiaji wa Agizo",
+    cart_access_pickup: "Onyesha msimbo huu kwenye duka la dawa.",
+    cart_access_delivery: "Mpe dereva msimbo huu mlangoni.",
+    cart_access_min: "Angalau herufi 4.",
+    cart_access_label: "Msimbo wa Ufikiaji",
+    cart_payment_subtitle: "Chagua njia ya kulipa",
+    cart_momo_push: "Arifa kwa nambari yako ya MTN",
+    cart_airtel_soon: "Inakuja hivi karibuni — tumia MTN MoMo sasa",
+    cart_pay_now: "Lipa sasa",
+    cart_pay_after: "Lipa baada ya uwasilishaji",
+    cart_pay_after_sub: "Malipo kwa mobile money — bila pesa taslimu",
+    cart_estimated_fee: "Ada ya uwasilishaji inayokadiriwa",
+    cart_free_pickup_label: "Bure (Kuchukua)",
+    cart_due_now: "Kulipa sasa",
+    cart_processing: "Inachakata…",
+    cart_creating: "Inaunda agizo…",
+    cart_momo_start: "Inaanza malipo ya MTN MoMo…",
+    cart_momo_wait: "Inasubiri idhini ya MoMo kwenye simu…",
+    cart_checkout_error: "Imeshindwa kukamilisha. Jaribu tena.",
+    cart_your_access: "Msimbo Wako",
+    cart_give_rider: "Mpe dereva akifika",
+    cart_your_pharmacy: "Duka Lako la Dawa",
+    cart_delivery_in: "Uwasilishaji ~{min} dak",
+    cart_deliver_to: "Wasilisha kwa",
+    cart_payment_label: "Malipo",
+    cart_insurance_savings: "Akiba ya bima",
+    cart_charged_now: "Inalipwa sasa",
+    cart_total_charged: "Jumla inayolipwa",
+    cart_delivery_after: "Ada ya uwasilishaji (baada ya uwasilishaji)",
+    cart_defer_banner: "Ada ya uwasilishaji italipwa baada ya kufika.",
+    cart_partial: "Sehemu",
+    cart_whole_pack: "Kifurushi kamili",
+    cart_rx_category: "Dawa ya kuandikwa",
+    cart_calculating: "Inahesabu muda wa uwasilishaji…",
+    cart_delivery_too_far: "Uwasilishaji haupatikani zaidi ya 20 km nje ya Kigali. Kuchukua kumechaguliwa.",
+    cart_items_count: "Bidhaa {n} kwenye kikapu",
     orders_title: "Maagizo Yangu",
     orders_active: "Maagizo Yanayoendelea",
     orders_past: "Maagizo ya Zamani",

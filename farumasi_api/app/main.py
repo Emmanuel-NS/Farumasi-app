@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Manage startup / shutdown lifecycle."""
     logger.info("FARUMASI API starting up...")
+    from app.services.background_tasks import start_background_tasks, stop_background_tasks
     # Phase-1 stabilization: fail fast if the database is unreachable.
     try:
         async with engine.connect() as conn:
@@ -43,6 +44,45 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS commission_rate_percent NUMERIC(5,2)",
                     "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT true",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) NOT NULL DEFAULT 'en'",
+                    "ALTER TABLE patient_profiles ADD COLUMN IF NOT EXISTS pin_hash VARCHAR(128)",
+                    "ALTER TABLE digital_prescriptions ADD COLUMN IF NOT EXISTS valid_until TIMESTAMPTZ",
+                    """
+                    CREATE TABLE IF NOT EXISTS platform_settings (
+                        key VARCHAR(120) PRIMARY KEY,
+                        value JSONB NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """,
+                    """
+                    CREATE TABLE IF NOT EXISTS data_export_jobs (
+                        id VARCHAR(36) PRIMARY KEY,
+                        user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+                        file_url VARCHAR(500),
+                        error_message TEXT,
+                        completed_at TIMESTAMPTZ,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """,
+                    """
+                    CREATE TABLE IF NOT EXISTS refund_requests (
+                        id VARCHAR(36) PRIMARY KEY,
+                        order_id VARCHAR(36) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                        patient_user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        amount NUMERIC(12,2) NOT NULL,
+                        currency VARCHAR(3) NOT NULL DEFAULT 'RWF',
+                        reason TEXT,
+                        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+                        processed_by_user_id VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+                        processed_at TIMESTAMPTZ,
+                        payment_reference VARCHAR(120),
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """,
                     "ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500)",
                     "ALTER TABLE pharmacies ADD COLUMN IF NOT EXISTS commission_rate_percent NUMERIC(5,2)",
                     "ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(120)",
@@ -91,6 +131,7 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)",
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_phone VARCHAR(20)",
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS defer_delivery_fee BOOLEAN NOT NULL DEFAULT false",
+                    "ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS estimated_distance_km NUMERIC(8,2)",
                     """
                     CREATE TABLE IF NOT EXISTS payment_transactions (
                         id VARCHAR(36) PRIMARY KEY,
@@ -121,7 +162,9 @@ async def lifespan(app: FastAPI):
             f"Cannot start FARUMASI API: database is unreachable at "
             f"{settings.ASYNC_DATABASE_URL.split('@')[-1]} ({exc})"
         ) from exc
+    await start_background_tasks()
     yield
+    await stop_background_tasks()
     logger.info("FARUMASI API shutting down...")
     await engine.dispose()
 

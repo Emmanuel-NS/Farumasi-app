@@ -72,7 +72,7 @@ export function Topbar({ onToggle }: TopbarProps) {
         <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center overflow-hidden">
           <Image src="/logo.png" alt="FARUMASI" width={28} height={28} className="object-contain" />
         </div>
-        <span className="text-white font-bold text-lg tracking-wide hidden sm:block">Farumasi</span>
+        <span className="text-white font-bold text-lg tracking-wide hidden sm:block">FARUMASI</span>
       </Link>
 
       <form className="flex-1 max-w-xl mx-auto" onSubmit={handleSearchSubmit}>
@@ -127,7 +127,7 @@ export function Topbar({ onToggle }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-0.5 shrink-0">
-        <button className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors">
+        <button className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors" onClick={() => router.push("/support")} title="Help & Support">
           <HelpCircle className="w-5 h-5" />
         </button>
 

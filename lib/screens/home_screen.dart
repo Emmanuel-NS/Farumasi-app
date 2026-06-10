@@ -27,6 +27,12 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
+class _ShellPayload {
+  final int index;
+  final List<Widget> pages;
+  const _ShellPayload(this.index, this.pages);
+}
+
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   static const Color _shellGreen = Color(0xFF1E9E68); // Match category avatars
@@ -41,6 +47,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _isSidebarCollapsed = false;
   double _sidebarWidth = 200.0;
   String? _activeRightSidebar;
+
+  /// Nested navigator key — keeps topbar/sidebar visible on wide screens
+  /// while sub-screens (order detail, product detail, etc.) push within
+  /// the content card instead of covering the entire viewport.
+  final GlobalKey<NavigatorState> _contentNavKey = GlobalKey<NavigatorState>();
+  late ValueNotifier<_ShellPayload> _shellPayload;
 
 
   Widget _buildActiveRightSidebar({bool fullWidth = false}) {
@@ -106,8 +118,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _goToStoreTab() => _selectTab(0);
 
   void _selectTab(int index) {
+    // When switching tabs on wide screen, pop any pushed sub-screens so the
+    // new tab starts from its root (not a stale detail route).
+    if (_contentNavKey.currentState?.canPop() == true) {
+      _contentNavKey.currentState!.popUntil((route) => route.isFirst);
+    }
     setState(() {
       _currentIndex = index;
+      _shellPayload.value = _ShellPayload(index, _pagesWide);
       if (index == 2 || index == 4) {
         if (!_isBottomBarVisible) {
           _hideBottomBarController.forward();
@@ -120,12 +138,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _rebuildPages({bool embedStoreWide = false}) {
     _pages = _buildPages(false);
     _pagesWide = _buildPages(true);
+    _shellPayload.value = _ShellPayload(_currentIndex, _pagesWide);
   }
 
   void _goToPrescriptionUpload() {
     setState(() {
       _openPrescriptionUpload = true;
       _currentIndex = 4;
+      _shellPayload.value = _ShellPayload(4, _pagesWide);
       _rebuildPages();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -151,7 +171,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         onBrowseStore: _goToStoreTab,
         child: PinGate(
           feature: 'orders',
-          child: OrdersScreen(onBrowseStore: () => setState(() => _currentIndex = 0)),
+          child: OrdersScreen(onBrowseStore: _goToStoreTab),
         ),
       ),
       GuestGate(
@@ -171,6 +191,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.initState();
     _pages = _buildPages(false);
     _pagesWide = _buildPages(true);
+    _shellPayload = ValueNotifier(_ShellPayload(0, _pagesWide));
     _hideBottomBarController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -188,11 +209,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final tab = StateService().consumePendingHomeTab();
     if (tab == null || !mounted) return;
     final upload = StateService().consumePrescriptionUploadTab();
-    setState(() {
-      _currentIndex = tab;
-      if (upload) _openPrescriptionUpload = true;
-      _rebuildPages();
-    });
+    _selectTab(tab);
+    if (upload) {
+      setState(() {
+        _openPrescriptionUpload = true;
+        _rebuildPages();
+      });
+    }
     if (upload) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _openPrescriptionUpload = false);
@@ -204,6 +227,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     StateService().removeListener(_onStateServiceNavigation);
     _hideBottomBarController.dispose();
+    _shellPayload.dispose();
     super.dispose();
   }
 
@@ -264,13 +288,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final pages = isWideScreen ? _pagesWide : _pages;
 
     return PopScope(
-      canPop: _currentIndex == 0,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-
-        setState(() {
-          _currentIndex = 0;
-        });
+        // On wide screen, let the nested content navigator handle back first.
+        if (isWideScreen && (_contentNavKey.currentState?.canPop() == true)) {
+          _contentNavKey.currentState!.pop();
+          return;
+        }
+        if (_currentIndex != 0) {
+          _selectTab(0);
+        }
       },
       child: Scaffold(
         drawer: null,
@@ -391,13 +419,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                                   : Radius.zero,
                                               bottomRight: Radius.zero,
                                             ),
-                                            child: Container(
-                                              color: const Color(0xFFF6F8FB),
-                                              child: IndexedStack(
-                                                index: _currentIndex,
-                                                children: pages,
-                                              ),
-                                            ),
+                            child: Container(
+                              color: const Color(0xFFF6F8FB),
+                              child: Navigator(
+                                key: _contentNavKey,
+                                onGenerateRoute: (settings) => MaterialPageRoute(
+                                  settings: settings,
+                                  builder: (_) => ValueListenableBuilder<_ShellPayload>(
+                                    valueListenable: _shellPayload,
+                                    builder: (_, payload, __) => IndexedStack(
+                                      index: payload.index,
+                                      children: payload.pages,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                                           ),
                                         ),
                                       ),
@@ -602,7 +639,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               if (onTapOverride != null) {
                 onTapOverride();
               } else {
-                setState(() => _currentIndex = index);
+                _selectTab(index);
               }
             },
             child: AnimatedContainer(
@@ -1045,12 +1082,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           const SizedBox(width: 16),
           if (isLoggedIn) ...[
-            _buildShellHeaderIcon(
-              icon: Icons.settings_outlined,
-              tooltip: 'Settings',
-              onTap: () => setState(() => _currentIndex = 5),
-            ),
-            const SizedBox(width: 12),
             PopupMenuButton<String>(
               offset: const Offset(0, 48),
               shape: RoundedRectangleBorder(
@@ -1085,6 +1116,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     context,
                     MaterialPageRoute(builder: (_) => const ProfileScreen()),
                   );
+                } else if (value == 'settings') {
+                  _selectTab(5);
                 } else if (value == 'logout') {
                   ref.read(authProvider.notifier).logout();
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1121,6 +1154,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                       SizedBox(width: 12),
                       Text('My Profile'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'settings',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.settings_outlined,
+                        color: Color(0xFF1E9E68),
+                        size: 20,
+                      ),
+                      SizedBox(width: 12),
+                      Text('Settings'),
                     ],
                   ),
                 ),

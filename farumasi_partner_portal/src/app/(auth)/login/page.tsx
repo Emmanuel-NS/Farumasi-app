@@ -13,7 +13,7 @@ import { useAuthStore } from "@/lib/store/auth";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
 
-const ALLOWED_ROLES = new Set(["partner_company_admin", "pharmacy_admin", "super_admin"]);
+const ALLOWED_ROLES = new Set(["partner_company_admin", "pharmacy_admin", "pharmacist", "super_admin"]);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -140,7 +140,7 @@ export default function LoginPage() {
                 <input type="checkbox" className="w-3.5 h-3.5 rounded border-border" />
                 Remember me
               </label>
-              <a href="#" className="text-xs text-farumasi-600 hover:underline">Forgot password?</a>
+              <Link href="/forgot-password" className="text-xs text-farumasi-600 hover:underline">Forgot password?</Link>
             </div>
 
             <Button type="submit" className="w-full gap-2" disabled={loading}>

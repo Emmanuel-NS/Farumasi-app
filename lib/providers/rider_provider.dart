@@ -370,10 +370,20 @@ class RiderNotifier extends StateNotifier<RiderState> {
     _useApi = true;
     state = state.copyWith(isLoading: true);
     try {
-      final profile = await _repo.fetchProfile();
-      final all = await _repo.listDeliveries();
-      final activeList = await _repo.listActiveDeliveries();
-      final earnings = await _repo.fetchEarnings();
+      // Fetch profile, deliveries, earnings and notifications in parallel
+      final results = await Future.wait([
+        _repo.fetchProfile(),
+        _repo.listDeliveries(),
+        _repo.listActiveDeliveries(),
+        _repo.fetchEarnings(),
+        _repo.fetchNotifications().catchError((_) => <RiderNotificationItem>[]),
+      ]);
+
+      final profile = results[0] as RiderProfile;
+      final all = results[1] as List<RiderDeliveryOrder>;
+      final activeList = results[2] as List<RiderDeliveryOrder>;
+      final earnings = results[3] as RiderEarnings;
+      final notifications = results[4] as List<RiderNotificationItem>;
 
       RiderDeliveryOrder? active;
       if (activeList.isNotEmpty) {
@@ -390,6 +400,31 @@ class RiderNotifier extends StateNotifier<RiderState> {
               d.status == RiderDeliveryStatus.cancelled)
           .toList();
 
+      // Enrich API earnings with recent entries derived from delivery history
+      final recentEntries = history
+          .where((d) => d.status == RiderDeliveryStatus.delivered)
+          .take(20)
+          .map((d) => EarningEntry(
+                orderId: d.id,
+                orderCode: d.orderCode,
+                destinationArea: d.destinationAddress.split(',').first,
+                amount: d.riderEarning,
+                date: d.deliveredAt ?? d.createdAt,
+                isPaid: true,
+              ))
+          .toList();
+      final enrichedEarnings = RiderEarnings(
+        todayEarnings: earnings.todayEarnings,
+        weeklyEarnings: earnings.weeklyEarnings,
+        monthlyEarnings: earnings.monthlyEarnings,
+        todayTrips: earnings.todayTrips,
+        weeklyTrips: earnings.weeklyTrips,
+        pendingPayout: earnings.pendingPayout,
+        paymentPeriodLabel: earnings.paymentPeriodLabel,
+        paymentStatus: earnings.paymentStatus,
+        recentEntries: recentEntries,
+      );
+
       state = state.copyWith(
         isLoading: false,
         isOnline: profile.availability == RiderAvailability.online,
@@ -397,7 +432,8 @@ class RiderNotifier extends StateNotifier<RiderState> {
         activeDelivery: active,
         pendingRequests: pending,
         history: history,
-        earnings: earnings,
+        earnings: enrichedEarnings,
+        notifications: notifications,
       );
     } catch (_) {
       state = state.copyWith(
@@ -504,10 +540,11 @@ class RiderNotifier extends StateNotifier<RiderState> {
 
     if (_useApi) {
       try {
-        final currentStatus = _apiStatusFromOrder(active);
-        final next = RiderRepository.nextStatusAfterAdvance(currentStatus);
-        if (next != null) {
-          await _repo.updateDeliveryStatus(active.id, next);
+        // Map the UI step directly to the desired API status to avoid needing
+        // multiple taps through invisible intermediate states.
+        final targetStatus = _targetStatusFromStep(active.activeStep);
+        if (targetStatus != null) {
+          await _repo.updateDeliveryStatus(active.id, targetStatus);
         }
         await refreshFromApi();
         return;
@@ -549,6 +586,23 @@ class RiderNotifier extends StateNotifier<RiderState> {
     }
 
     state = state.copyWith(activeDelivery: updated);
+  }
+
+  /// Maps the visible UI step to the next API status the rider should reach.
+  /// Skips intermediate states invisible in the UI (e.g., going_to_pickup).
+  String? _targetStatusFromStep(DeliveryStep? step) {
+    switch (step) {
+      case DeliveryStep.goToPickup:
+        return 'arrived_at_pickup';
+      case DeliveryStep.atPickup:
+        return 'out_for_delivery';
+      case DeliveryStep.delivering:
+        return 'arrived_at_destination';
+      case DeliveryStep.atDestination:
+        return 'qr_pending';
+      case null:
+        return null;
+    }
   }
 
   String _apiStatusFromOrder(RiderDeliveryOrder order) {
@@ -629,28 +683,34 @@ class RiderNotifier extends StateNotifier<RiderState> {
   }
 
   RiderEarnings _rebuildEarnings(List<RiderDeliveryOrder> history) {
+    // Only used in mock/offline mode – API mode fetches earnings from server.
     return _buildMockEarnings(history);
   }
 
   // ── Notifications ───────────────────────────────────────────────────────────
 
-  void markNotificationRead(String id) {
+  Future<void> markNotificationRead(String id) async {
+    // Optimistic local update first
     final updated = state.notifications.map((n) {
-      if (n.id == id) {
-        n.isRead = true;
-        return n;
-      }
+      if (n.id == id) { n.isRead = true; return n; }
       return n;
     }).toList();
     state = state.copyWith(notifications: updated);
+    if (_useApi) {
+      try {
+        await _repo.markNotificationRead(id);
+      } catch (_) {}
+    }
   }
 
-  void markAllNotificationsRead() {
-    final updated = state.notifications.map((n) {
-      n.isRead = true;
-      return n;
-    }).toList();
+  Future<void> markAllNotificationsRead() async {
+    final updated = state.notifications.map((n) { n.isRead = true; return n; }).toList();
     state = state.copyWith(notifications: updated);
+    if (_useApi) {
+      try {
+        await _repo.markAllNotificationsRead();
+      } catch (_) {}
+    }
   }
 }
 

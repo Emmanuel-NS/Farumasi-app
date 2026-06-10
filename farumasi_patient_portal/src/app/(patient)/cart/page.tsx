@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { cn, formatPrice, getInitials } from "@/lib/utils";
@@ -19,6 +19,8 @@ import {
   type BackendPrescription,
 } from "@/lib/services/prescriptions.service";
 import { productsService } from "@/lib/services/products.service";
+import { patientsService } from "@/lib/services/patients.service";
+import { useAuthStore } from "@/store/auth-store";
 import type { Pharmacy, Medicine } from "@/types";
 import {
   ShoppingCart,
@@ -45,31 +47,13 @@ import {
   Navigation,
   ExternalLink,
   Clock,
+  Info,
 } from "lucide-react";
-
-// ── Types ──────────────────────────────────────────────────────
-interface MedicineAvailability {
-  medicineName: string;
-  available: boolean;
-  stockStatus: string;
-  unitPrice: number;
-}
-
-interface PharmacyOption {
-  pharmacy: Pharmacy;
-  rank: 1 | 2 | 3;
-  codename: "A" | "B" | "C";
-  availability: MedicineAvailability[];
-  availableCount: number;
-  totalCount: number;
-  priceEstimate: number;
-  insuranceMatch: boolean;
-  insuranceSaving: number;
-  distanceKm: number;
-  score: number;
-  deliveryAvailable: boolean;
-  estimatedDeliveryMin: number;
-}
+import {
+  PharmacyMatchDetails,
+  type MedicineAvailability,
+  type PharmacyOption,
+} from "@/components/cart/pharmacy-match-details";
 
 function decodeSellMode(instructions: string | null | undefined): "pack" | "partial" {
   return instructions?.startsWith("[sm:partial]") ? "partial" : "pack";
@@ -127,6 +111,10 @@ type ListingsMap = Map<string, Map<string, ListingEntry>>;
 // Kigali districts — considered neighbours for proximity scoring
 const KIGALI = new Set(["Gasabo", "Nyarugenge", "Kicukiro"]);
 
+function isKigaliDistrict(district: string): boolean {
+  return KIGALI.has(district);
+}
+
 /** Straight-line distance between two GPS coordinates in km (Haversine). */
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -138,6 +126,33 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 }
 
 /**
+ * Estimated road distance — applies Rwanda road factor (×1.3) to the
+ * straight-line Haversine distance to account for hilly terrain.
+ */
+function roadDistanceKm(straightLineKm: number): number {
+  return straightLineKm * 1.3;
+}
+
+/**
+ * Distance-based delivery fee in RWF.
+ *   ≤10 km          → 1,500
+ *   >10 km, ≤15 km  → 2,000
+ *   >15 km, ≤20 km  → 2,500
+ *   >20 km          → 2,500 + 150 × ceiling(extra km)
+ */
+function calcDeliveryFee(roadKm: number): number {
+  if (roadKm <= 10) return 1_500;
+  if (roadKm <= 15) return 2_000;
+  if (roadKm <= 20) return 2_500;
+  return 2_500 + Math.ceil(roadKm - 20) * 150;
+}
+
+/** Returns true if the coordinate is outside the Kigali bounding box. */
+function isOutsideKigali(lat: number, lon: number): boolean {
+  return !(lat >= -2.05 && lat <= -1.85 && lon >= 29.95 && lon <= 30.15);
+}
+
+/**
  * Estimated one-way drive time in minutes.
  * Urban Kigali (<15 km): ~25 km/h  |  Highway (beyond): ~70 km/h
  */
@@ -146,6 +161,7 @@ function driveMinutes(distKm: number): number {
   if (distKm < 15) return Math.round(distKm / 25 * 60);
   return Math.round(15 / 25 * 60 + (distKm - 15) / 70 * 60);
 }
+
 
 function scorePharmacies(
   cartLines: CartEntry[],
@@ -221,6 +237,13 @@ function scorePharmacies(
 
   if (raw.length === 0) return [];
 
+  const totalCandidates = raw.length;
+  const priceRankById = new Map(
+    [...raw]
+      .sort((a, b) => a.priceEstimate - b.priceEstimate)
+      .map((r, i) => [r.pharmacy.id, i + 1] as const),
+  );
+
   // ── Normalise price and delivery time within this candidate set ──────────
   const prices  = raw.map((r) => r.priceEstimate);
   const times   = raw.map((r) => r.estimatedMin);
@@ -278,6 +301,8 @@ function scorePharmacies(
       score,
       deliveryAvailable:  r.pharmacy.isOpen,
       estimatedDeliveryMin: r.estimatedMin,
+      priceRank: priceRankById.get(r.pharmacy.id) ?? totalCandidates,
+      totalCandidates,
       rank:    1 as 1 | 2 | 3,
       codename: "A" as "A" | "B" | "C",
     };
@@ -316,17 +341,19 @@ const ORDER_NUM = `ORD-${Math.floor(10000 + Math.random() * 89999)}`;
 // ── Page ───────────────────────────────────────────────────────
 export default function CartPage() {
   const { items: cartItems, setQty, remove, clear } = useCartStore();
+  const user = useAuthStore((s) => s.user);
+  const isGuest = useAuthStore((s) => s.isGuest);
   const t = useTranslation();
   const searchParams = useSearchParams();
   const rxId = searchParams.get("rx"); // present when coming from a prescription
   const isLocked = !!rxId;             // prescription cart — items are read-only
 
   const STEPS: { key: Step; label: string; icon: React.ReactNode }[] = [
-    { key: "cart",      label: "Cart",     icon: <ShoppingCart className="w-3.5 h-3.5" /> },
-    { key: "pharmacy",  label: "Pharmacy", icon: <Brain className="w-3.5 h-3.5" /> },
-    { key: "details",   label: "Details",  icon: <MapPin className="w-3.5 h-3.5" /> },
-    { key: "payment",   label: "Pay",      icon: <CreditCard className="w-3.5 h-3.5" /> },
-    { key: "confirmed", label: "Done",     icon: <Package className="w-3.5 h-3.5" /> },
+    { key: "cart",      label: t.cart_step_cart,      icon: <ShoppingCart className="w-3.5 h-3.5" /> },
+    { key: "pharmacy",  label: t.cart_step_pharmacy,  icon: <Brain className="w-3.5 h-3.5" /> },
+    { key: "details",   label: t.cart_step_details,   icon: <MapPin className="w-3.5 h-3.5" /> },
+    { key: "payment",   label: t.cart_step_pay_short, icon: <CreditCard className="w-3.5 h-3.5" /> },
+    { key: "confirmed", label: t.cart_step_done,      icon: <Package className="w-3.5 h-3.5" /> },
   ];
 
   const [step, setStep]                       = useState<Step>("cart");
@@ -351,11 +378,46 @@ export default function CartPage() {
   const [listingsLoading, setListingsLoading] = useState(false);
   const [aiPhase, setAiPhase]               = useState(0);   // 0=idle, 1-4=phases, 5=done
   const [pharmaReady, setPharmaReady]       = useState(false);
+  const [detailsOption, setDetailsOption]   = useState<PharmacyOption | null>(null);
   // ── Prescription-locked mode state ──────────────────────────
   const [rxData, setRxData]       = useState<BackendPrescription | null>(null);
   const [rxLoading, setRxLoading] = useState(false);
   /** Catalogue product data for each prescription item that has a linked product_id */
   const [rxProductsMap, setRxProductsMap] = useState<Map<string, Medicine>>(new Map());
+  const detailsPrefilledRef = useRef(false);
+
+  // Pre-fill checkout details from the signed-in patient's profile (editable).
+  useEffect(() => {
+    if (step !== "details" || detailsPrefilledRef.current) return;
+
+    if (isGuest) {
+      detailsPrefilledRef.current = true;
+      return;
+    }
+
+    // Wait until auth profile is loaded before pre-filling.
+    if (!user) return;
+
+    detailsPrefilledRef.current = true;
+
+    if (user.name) setName((v) => v || user.name);
+    if (user.phone) {
+      setPhone((v) => v || user.phone);
+      setMomoPhone((v) => v || user.phone);
+    }
+
+    patientsService
+      .listAddresses()
+      .then((addresses) => {
+        const defaultAddr =
+          addresses.find((a) => a.is_default) ?? addresses[0];
+        if (!defaultAddr) return;
+        if (defaultAddr.line1) setStreet((v) => v || defaultAddr.line1);
+        if (defaultAddr.district) setDistrict((v) => v || defaultAddr.district);
+        if (defaultAddr.line2) setNotes((v) => v || defaultAddr.line2!);
+      })
+      .catch(() => {});
+  }, [step, user, isGuest]);
 
   useEffect(() => {
     Promise.all([
@@ -410,7 +472,7 @@ export default function CartPage() {
         description: item.medicine_name,
         price: 0,
         imageUrl: "",
-        category: "Prescription",
+        category: t.cart_rx_category,
         additionalCategories: [],
         additionalSubCategories: [],
         requiresPrescription: true,
@@ -475,6 +537,19 @@ export default function CartPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
+  // Auto-switch to pickup when the selected pharmacy is more than 20 km away
+  // (road distance = haversine × 1.3). The backend enforces this too, but we
+  // proactively disable delivery in the UI so the patient isn't surprised.
+  useEffect(() => {
+    const roadDist = patientLocation && selectedOption && selectedOption.distanceKm > 0
+      ? roadDistanceKm(selectedOption.distanceKm)
+      : 0;
+    if (roadDist > 20 && fulfillment === "delivery") {
+      setFulfillment("pickup");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOption, patientLocation]);
+
   // AI analysis phase animation — plays for ~2.6s when entering pharmacy step.
   // In locked mode we skip the phase visuals (jump to phase 5) but still wait
   // for listingsLoading to finish before revealing results (via pharmaReady effect).
@@ -528,7 +603,19 @@ export default function CartPage() {
   const hasCatalogRange = packLines.length > 0 && subtotalPackMax > subtotalPack;
   const hasPartialLines = partialLines.length > 0;
   const hasPackLines    = packLines.length > 0;
-  const deliveryFee  = fulfillment === "pickup" ? 0 : subtotal >= 10000 ? 0 : 1500;
+  // Road-distance estimate to the selected pharmacy (haversine × 1.3 Rwanda road multiplier).
+  // Only meaningful when both GPS and a pharmacy selection are available.
+  const selectedRoadDistKm =
+    patientLocation && selectedOption && selectedOption.distanceKm > 0
+      ? roadDistanceKm(selectedOption.distanceKm)
+      : 0;
+  const deliveryTooFar = selectedRoadDistKm > 20;
+
+  // Distance-based fee when GPS is available; fall back to subtotal threshold otherwise.
+  const deliveryFee =
+    fulfillment === "pickup" ? 0
+    : selectedRoadDistKm > 0 ? calcDeliveryFee(selectedRoadDistKm)
+    : subtotal >= 10000 ? 0 : 1500;
   const insuranceSavings = selectedOption?.insuranceSaving ?? 0;
   // Prescription insurance discount (set by pharmacist, only applies to locked/rx carts)
   const rxInsuranceDiscount = isLocked && rxData?.insurance_discount_pct && subtotal > 0
@@ -615,7 +702,7 @@ export default function CartPage() {
       <div className="flex items-center gap-3 mb-6">
         <Link
           href={isLocked ? "/prescriptions" : "/store"}
-          aria-label={isLocked ? "Back to prescriptions" : "Back to store"}
+          aria-label={isLocked ? t.cart_back_rx : t.cart_back_store}
           className="p-2 rounded-xl text-slate-400 hover:text-farumasi-700 hover:bg-farumasi-50 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -625,7 +712,7 @@ export default function CartPage() {
           <p className="text-slate-500 text-sm">
             {isLocked
               ? `${rxData?.items.length ?? "—"} item${(rxData?.items.length ?? 0) !== 1 ? "s" : ""} · Pharmacist prepared`
-              : `${enriched.length} item${enriched.length !== 1 ? "s" : ""}`}
+              : t.cart_items_count.replace("{n}", String(enriched.length))}
           </p>
         </div>
       </div>
@@ -705,7 +792,7 @@ export default function CartPage() {
                 )}
                 <p className="text-xs text-farumasi-600 font-medium mt-0.5">{medicine.category}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5 capitalize">
-                  {sellMode === "partial" ? `Partial · per ${unitLabel}` : "Whole pack"}
+                  {sellMode === "partial" ? `${t.cart_partial} · per ${unitLabel}` : t.cart_whole_pack}
                 </p>
                 {sellMode === "partial" && linePrice === 0 ? (
                   <p className="text-xs text-slate-400 italic mt-1.5">Price set at pharmacy</p>
@@ -731,7 +818,7 @@ export default function CartPage() {
                     "text-[9px] font-bold px-1.5 py-0.5 rounded-full",
                     sellMode === "partial" ? "bg-purple-100 text-purple-700" : "bg-farumasi-100 text-farumasi-700"
                   )}>
-                    {sellMode === "partial" ? "Partial" : "Whole pack"}
+                    {sellMode === "partial" ? t.cart_partial : t.cart_whole_pack}
                   </span>
                   <p className="text-xs font-bold text-slate-700 mt-1">×{qty}</p>
                 </div>
@@ -833,7 +920,7 @@ export default function CartPage() {
           {/* Hint when catalogue has a price range (min ≠ max across pharmacies) */}
           {hasCatalogRange && (
             <p className="text-xs text-slate-400 italic">
-              Prices confirmed when you select a pharmacy
+              {t.cart_prices_note}
             </p>
           )}
 
@@ -880,7 +967,7 @@ export default function CartPage() {
           className="w-full mt-4 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-base transition-colors py-3.5 flex items-center justify-center gap-2"
         >
           <Brain className="w-4 h-4" />
-          Find Best Pharmacy
+          {t.cart_find_pharmacy}
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
@@ -894,7 +981,7 @@ export default function CartPage() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => setStep("cart")}
-          aria-label="Back to cart"
+          aria-label={t.cart_edit_cart}
           className="p-2 rounded-xl text-slate-400 hover:text-farumasi-700 hover:bg-farumasi-50 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -908,24 +995,41 @@ export default function CartPage() {
       <StepBar />
 
       {/* Fulfillment mode toggle — affects AI ranking and pricing */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        {(["delivery", "pickup"] as const).map((mode) => (
-          <button
-            key={mode}
-            onClick={() => setFulfillment(mode)}
-            className={cn(
-              "flex items-center justify-center gap-1.5 py-2.5 rounded-2xl border-2 text-sm font-semibold transition-all",
-              fulfillment === mode
-                ? "border-farumasi-500 bg-farumasi-50 text-farumasi-700"
-                : "border-slate-100 bg-white text-slate-500 hover:border-farumasi-200"
-            )}
-          >
-            {mode === "delivery"
-              ? <><Truck className="w-4 h-4" /> Home Delivery</>
-              : <><Building2 className="w-4 h-4" /> Pickup &middot; Free</>}
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        {(["delivery", "pickup"] as const).map((mode) => {
+          const isDelivery = mode === "delivery";
+          const disabled   = isDelivery && deliveryTooFar;
+          return (
+            <button
+              key={mode}
+              onClick={() => !disabled && setFulfillment(mode)}
+              disabled={disabled}
+              className={cn(
+                "flex items-center justify-center gap-1.5 py-2.5 rounded-2xl border-2 text-sm font-semibold transition-all",
+                disabled
+                  ? "border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed opacity-60"
+                  : fulfillment === mode
+                  ? "border-farumasi-500 bg-farumasi-50 text-farumasi-700"
+                  : "border-slate-100 bg-white text-slate-500 hover:border-farumasi-200"
+              )}
+            >
+              {isDelivery
+                ? <><Truck className="w-4 h-4" /> {t.cart_fulfillment_delivery}</>
+                : <><Building2 className="w-4 h-4" /> {t.cart_fulfillment_pickup}</>}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Distance restriction warning — shown when selected pharmacy is >20 km away */}
+      {deliveryTooFar && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs font-medium text-amber-800">
+            {t.cart_delivery_too_far}
+          </p>
+        </div>
+      )}
 
       {/* For pickup: district picker shown only when GPS not yet granted */}
       {fulfillment === "pickup" && !patientLocation && (
@@ -937,7 +1041,7 @@ export default function CartPage() {
             onChange={(e) => setPatientDistrict(e.target.value)}
             className="flex-1 h-9 rounded-xl border border-slate-200 px-3 text-sm text-slate-800 bg-white outline-none focus:border-farumasi-400 transition-all"
           >
-            <option value="">Select district…</option>
+            <option value="">{t.cart_select_district}</option>
             {DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
@@ -947,8 +1051,7 @@ export default function CartPage() {
       <div className="flex items-start gap-2.5 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 mb-5">
         <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
         <p className="text-xs text-slate-600">
-          <span className="font-semibold">Pharmacy names are hidden</span> until you complete
-          payment — ensuring fair pricing and stock availability across our network.
+          <span className="font-semibold">{t.cart_names_hidden}</span> {t.cart_names_hidden_sub}
         </p>
       </div>
 
@@ -959,7 +1062,7 @@ export default function CartPage() {
           {isLocked ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <div className="w-8 h-8 border-2 border-farumasi-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-slate-500">Finding best pharmacies for your prescription…</p>
+              <p className="text-sm text-slate-500">{t.cart_rx_finding}</p>
             </div>
           ) : (
             <>
@@ -968,8 +1071,8 @@ export default function CartPage() {
                   <Brain className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Farumasi AI</p>
-                  <p className="text-xs text-slate-400">Finding your best match…</p>
+                  <p className="text-sm font-bold text-slate-900">{t.cart_ai_title}</p>
+                  <p className="text-xs text-slate-400">{t.cart_ai_finding}</p>
                 </div>
                 <div className="ml-auto flex items-center gap-0.5">
                   {[0, 1, 2].map((i) => (
@@ -985,23 +1088,23 @@ export default function CartPage() {
               <div className="space-y-3">
                 {([
                   {
-                    label: `Scanning ${pharmacyList.length || "—"} partner pharmacies`,
-                    sub: "Checking network availability",
+                    label: `${t.cart_ai_phase1} (${pharmacyList.length || "—"})`,
+                    sub: t.cart_ai_phase1_sub,
                   },
                   {
-                    label: "Verifying stock for your items",
+                    label: t.cart_ai_phase2,
                     sub: enriched.length > 0
                       ? enriched.slice(0, 2).map((e: CartEntry) => e.medicine.name).join(", ") +
                         (enriched.length > 2 ? ` +${enriched.length - 2} more` : "")
-                      : "Your cart items",
+                      : t.cart_ai_phase2_items,
                   },
                   {
-                    label: "Calculating proximity & delivery times",
-                    sub: patientLocation ? "GPS location detected" : "District-based estimate",
+                    label: t.cart_ai_phase3,
+                    sub: patientLocation ? t.cart_ai_phase3_gps : t.cart_ai_phase3_district,
                   },
                   {
-                    label: "Ranking by compatibility score",
-                    sub: "Availability · price · speed · proximity",
+                    label: t.cart_ai_phase4,
+                    sub: t.cart_ai_phase4_sub,
                   },
                 ] as { label: string; sub: string }[]).map((phase, idx) => {
                   const phaseNum = idx + 1;
@@ -1048,22 +1151,21 @@ export default function CartPage() {
           <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center mx-auto mb-3">
             <AlertCircle className="w-7 h-7 text-amber-500" />
           </div>
-          <h3 className="font-bold text-slate-800 mb-1">No matching pharmacies found</h3>
+          <h3 className="font-bold text-slate-800 mb-1">{t.cart_no_match}</h3>
           <p className="text-sm text-slate-500 mb-4 max-w-sm mx-auto">
-            None of our partner pharmacies currently have all your cart items in stock.
-            This happens when a product is temporarily unavailable or hasn&apos;t been listed nearby yet.
+            {t.cart_no_match_sub}
           </p>
           <div className="text-xs text-slate-500 bg-slate-50 rounded-2xl px-4 py-3 text-left space-y-1.5 mb-4">
-            <p className="font-semibold text-slate-600 mb-1.5">What you can do:</p>
-            <p>• Remove items one by one and retry — partial matches may appear</p>
-            <p>• Check back later — pharmacy stock is updated regularly</p>
-            <p>• Contact support if an item is urgently needed</p>
+            <p className="font-semibold text-slate-600 mb-1.5">{t.cart_no_match_tip_title}</p>
+            <p>• {t.cart_no_match_tip1}</p>
+            <p>• {t.cart_no_match_tip2}</p>
+            <p>• {t.cart_no_match_tip3}</p>
           </div>
           <button
             onClick={() => setStep("cart")}
             className="text-sm font-semibold text-farumasi-600 hover:underline"
           >
-            ← {isLocked ? "Back to cart" : "Edit Cart"}
+            ← {isLocked ? t.cart_back_rx : t.cart_edit_cart}
           </button>
         </div>
       ) : (
@@ -1075,20 +1177,30 @@ export default function CartPage() {
           // Only award secondary badges when the card is STRICTLY better than #1 on that axis
           const isBestValue = !isBest && opt.priceEstimate < rank1.priceEstimate;
           const isFastest   = !isBest && !isBestValue && opt.estimatedDeliveryMin < rank1.estimatedDeliveryMin;
-          // Per-card cost: medicines + applicable delivery fee
-          const cardDeliveryFee = fulfillment === "pickup" ? 0 : opt.priceEstimate >= 10000 ? 0 : 1500;
-          const cardTotal       = opt.priceEstimate - opt.insuranceSaving + cardDeliveryFee;
+          // Per-card road distance and delivery fee (GPS-based when available)
+          const cardRoadDistKm = patientLocation && opt.distanceKm > 0 ? roadDistanceKm(opt.distanceKm) : 0;
+          const cardDeliveryBlocked = fulfillment === "delivery" && cardRoadDistKm > 20;
+          const cardDeliveryFee =
+            fulfillment === "pickup" ? 0
+            : cardDeliveryBlocked ? 0
+            : cardRoadDistKm > 0 ? calcDeliveryFee(cardRoadDistKm)
+            : opt.priceEstimate >= 10000 ? 0 : 1500;
+          const cardTotal = opt.priceEstimate - opt.insuranceSaving + cardDeliveryFee;
 
           return (
-            <button
+            <div
               key={opt.codename}
-              onClick={() => setSelectedOption(opt)}
               className={cn(
-                "w-full text-left rounded-3xl border-2 p-4 transition-all",
+                "w-full rounded-3xl border-2 transition-all overflow-hidden",
                 isSelected
                   ? "border-farumasi-500 bg-farumasi-50 shadow-md"
                   : "border-slate-100 bg-white hover:border-farumasi-200 hover:shadow-sm"
               )}
+            >
+            <button
+              type="button"
+              onClick={() => setSelectedOption(opt)}
+              className="w-full text-left p-4"
             >
               {/* AI match strength bar */}
               <div className="w-full h-0.5 rounded-full bg-slate-100 mb-3 overflow-hidden">
@@ -1131,21 +1243,21 @@ export default function CartPage() {
                   <div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-sm font-bold text-slate-900">
-                        Pharmacy {opt.codename}
+                        {t.cart_pharmacy_label} {opt.codename}
                       </span>
                       {isBest && (
                         <span className="text-[10px] font-bold bg-farumasi-600 text-white px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                          <Star className="w-2.5 h-2.5" /> Best Match
+                          <Star className="w-2.5 h-2.5" /> {t.cart_best_match}
                         </span>
                       )}
                       {isBestValue && (
                         <span className="text-[10px] font-bold bg-blue-500 text-white px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                          <CreditCard className="w-2.5 h-2.5" /> Best Value
+                          <CreditCard className="w-2.5 h-2.5" /> {t.cart_best_value}
                         </span>
                       )}
                       {isFastest && (
                         <span className="text-[10px] font-bold bg-violet-500 text-white px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                          <Zap className="w-2.5 h-2.5" /> Fastest
+                          <Zap className="w-2.5 h-2.5" /> {t.cart_fastest}
                         </span>
                       )}
                       {!isBest && (
@@ -1169,12 +1281,12 @@ export default function CartPage() {
                     {/* AI insight — rank 1 only */}
                     {isBest && (() => {
                       const why: string[] = [];
-                      if (opt.availableCount === opt.totalCount) why.push("Full stock");
+                      if (opt.availableCount === opt.totalCount) why.push(t.cart_full_stock);
                       else why.push(`${opt.availableCount}/${opt.totalCount} items available`);
                       if (opt.insuranceMatch) why.push(`${PATIENT_INSURANCE} covered`);
                       const isNearest = opt.distanceKm > 0 &&
                         pharmacyOptions.every(o => o === opt || o.distanceKm === 0 || o.distanceKm >= opt.distanceKm);
-                      if (isNearest) why.push("Nearest to you");
+                      if (isNearest) why.push(t.cart_nearest);
                       return why.length > 0 ? (
                         <p className="text-[10px] text-farumasi-600 font-semibold mt-1 leading-tight">
                           Why: {why.slice(0, 3).join(" \u00b7 ")}
@@ -1264,10 +1376,16 @@ export default function CartPage() {
               <div className="mt-2.5 flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
                 <div className="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
                   <span>{formatPrice(opt.priceEstimate)} medicines</span>
-                  {cardDeliveryFee > 0 && (
-                    <span className="text-slate-400">+ {formatPrice(cardDeliveryFee)} delivery</span>
+                  {cardDeliveryBlocked && (
+                    <span className="text-amber-600 font-medium">{t.cart_delivery_unavailable}</span>
                   )}
-                  {cardDeliveryFee === 0 && fulfillment === "delivery" && (
+                  {!cardDeliveryBlocked && cardDeliveryFee > 0 && (
+                    <span className="text-slate-400">
+                      + {formatPrice(cardDeliveryFee)} delivery est.
+                      {cardRoadDistKm > 0 && ` (${cardRoadDistKm.toFixed(1)} km)`}
+                    </span>
+                  )}
+                  {!cardDeliveryBlocked && cardDeliveryFee === 0 && fulfillment === "delivery" && (
                     <span className="text-farumasi-600 font-medium">+ free delivery</span>
                   )}
                   {fulfillment === "pickup" && (
@@ -1278,14 +1396,34 @@ export default function CartPage() {
                   )}
                 </div>
                 <div className="text-sm font-extrabold text-farumasi-700 shrink-0 ml-2">
-                  Total {formatPrice(cardTotal)}
+                  {cardDeliveryBlocked ? "—" : `Total ${formatPrice(cardTotal)}`}
                 </div>
               </div>
             </button>
+            <div className="px-4 pb-3 pt-0">
+              <button
+                type="button"
+                onClick={() => setDetailsOption(opt)}
+                className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-farumasi-700 transition-colors"
+              >
+                <Info className="w-3.5 h-3.5" />
+                {t.cart_view_details}
+              </button>
+            </div>
+            </div>
           );
         })}
       </div>
       )} {/* end listingsLoading / pharmacyOptions ternary */}
+
+      <PharmacyMatchDetails
+        option={detailsOption}
+        allOptions={pharmacyOptions}
+        fulfillment={fulfillment}
+        patientLocation={patientLocation}
+        patientDistrict={patientDistrict}
+        onClose={() => setDetailsOption(null)}
+      />
 
       <button
         disabled={!selectedOption || !pharmaReady}
@@ -1297,7 +1435,7 @@ export default function CartPage() {
             : "bg-slate-200 cursor-not-allowed text-slate-400"
         )}
       >
-        {selectedOption ? `Continue with Pharmacy ${selectedOption.codename}` : "Continue with Pharmacy …"}
+        {selectedOption ? `${t.cart_continue_pharmacy} ${selectedOption.codename}` : t.cart_continue_pharmacy_empty}
         <ChevronRight className="w-4 h-4" />
       </button>
     </div>
@@ -1306,11 +1444,12 @@ export default function CartPage() {
   // ── STEP 3: Delivery details ──────────────────────────────────
   if (step === "details") {
     const needsAddress = fulfillment === "delivery";
+    const streetRequired = needsAddress && (!district || isKigaliDistrict(district));
     const canContinue  =
       name.trim().length > 0 &&
       phone.trim().length > 0 &&
       accessCode.trim().length >= 4 &&
-      (!needsAddress || (street.trim().length > 0 && !!district));
+      (!needsAddress || (!!district && (!streetRequired || street.trim().length > 0)));
 
     return (
       <div className="p-4 md:p-6 max-w-2xl mx-auto">
@@ -1324,9 +1463,9 @@ export default function CartPage() {
           </button>
           <div>
             <h1 className="text-xl font-bold text-slate-900">
-            {fulfillment === "pickup" ? "Pickup Details" : "Delivery Details"}
+            {fulfillment === "pickup" ? t.cart_pickup_details : t.cart_delivery_details}
           </h1>
-            <p className="text-slate-500 text-sm">How would you like to receive your order?</p>
+            <p className="text-slate-500 text-sm">{t.cart_details_subtitle}</p>
           </div>
         </div>
 
@@ -1337,15 +1476,14 @@ export default function CartPage() {
           <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 mb-5">
             <Building2 className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
             <p className="text-xs text-blue-700">
-              <span className="font-semibold">Pickup selected — no delivery fee.</span>{" "}
-              The pharmacy address will be revealed after payment.
+              {t.cart_pickup_banner}
             </p>
           </div>
         )}
 
         {/* Contact details — required for both pickup and delivery */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-4 mb-5">
-          <h3 className="text-sm font-bold text-slate-700">Contact Details</h3>
+          <h3 className="text-sm font-bold text-slate-700">{t.cart_contact_details}</h3>
 
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">
@@ -1376,16 +1514,25 @@ export default function CartPage() {
         {/* Address fields — delivery only */}
         {fulfillment === "delivery" && (
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-4 mb-5">
-            <h3 className="text-sm font-bold text-slate-700">Delivery Address</h3>
+            <h3 className="text-sm font-bold text-slate-700">{t.cart_delivery_address}</h3>
 
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">
-                {t.cart_street} <span className="text-red-400">*</span>
+                {t.cart_street}{" "}
+                {streetRequired ? (
+                  <span className="text-red-400">*</span>
+                ) : (
+                  <span className="text-slate-300 font-normal normal-case">(optional)</span>
+                )}
               </label>
               <input
                 value={street}
                 onChange={(e) => setStreet(e.target.value)}
-                placeholder="e.g. KG 15 Ave, Gisozi"
+                placeholder={
+                  streetRequired
+                    ? "e.g. KG 15 Ave, Gisozi"
+                    : "e.g. near main road (optional outside Kigali)"
+                }
                 className="w-full h-11 rounded-2xl border border-slate-200 px-4 text-sm text-slate-800 outline-none focus:border-farumasi-400 focus:ring-2 focus:ring-farumasi-100 transition-all"
               />
             </div>
@@ -1399,7 +1546,7 @@ export default function CartPage() {
                 onChange={(e) => setDistrict(e.target.value)}
                 className="w-full h-11 rounded-2xl border border-slate-200 px-4 text-sm text-slate-800 outline-none focus:border-farumasi-400 focus:ring-2 focus:ring-farumasi-100 transition-all bg-white"
               >
-                <option value="">Select district…</option>
+                <option value="">{t.cart_select_district}</option>
                 {DISTRICTS.map((d) => (
                   <option key={d} value={d}>
                     {d}
@@ -1427,17 +1574,17 @@ export default function CartPage() {
         {/* Access code — required for pickup and delivery security */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-3 mb-5">
           <div>
-            <h3 className="text-sm font-bold text-slate-700">Order Access Code</h3>
+            <h3 className="text-sm font-bold text-slate-700">{t.cart_access_title}</h3>
             <p className="text-xs text-slate-500 mt-1">
               {fulfillment === "pickup"
-                ? "Show this code at the pharmacy counter to collect your medicines."
-                : "Give this code to the rider at the door to confirm delivery."}
-              {" "}Minimum 4 characters.
+                ? t.cart_access_pickup
+                : t.cart_access_delivery}
+              {" "}{t.cart_access_min}
             </p>
           </div>
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">
-              Access Code <span className="text-red-400">*</span>
+              {t.cart_access_label} <span className="text-red-400">*</span>
             </label>
             <input
               value={accessCode}
@@ -1480,7 +1627,7 @@ export default function CartPage() {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{t.cart_payment_title}</h1>
-            <p className="text-slate-500 text-sm">Choose how you want to pay</p>
+            <p className="text-slate-500 text-sm">{t.cart_payment_subtitle}</p>
           </div>
         </div>
 
@@ -1494,14 +1641,14 @@ export default function CartPage() {
                 Icon: Smartphone,
                 iconColor: "text-yellow-600",
                 label: t.cart_momo,
-                desc: "Push notification to your MTN number",
+                desc: t.cart_momo_push,
               },
               {
                 key: "airtel" as const,
                 Icon: Smartphone,
                 iconColor: "text-red-500",
                 label: t.cart_airtel,
-                desc: "Coming soon — use MTN MoMo for now",
+                desc: t.cart_airtel_soon,
               },
             ] as const
           ).map(({ key, Icon, iconColor, label, desc }) => (
@@ -1567,13 +1714,13 @@ export default function CartPage() {
               {([
                 {
                   defer: false,
-                  title: "Pay now",
+                  title: t.cart_pay_now,
                   desc: `${formatPrice(deliveryFee)} charged with your medicines`,
                 },
                 {
                   defer: true,
-                  title: "Pay after delivery arrives",
-                  desc: "Charged to your mobile money when delivered — no cash",
+                  title: t.cart_pay_after,
+                  desc: t.cart_pay_after_sub,
                 },
               ] as const).map(({ defer, title, desc }) => (
                 <button
@@ -1615,11 +1762,15 @@ export default function CartPage() {
               <span>{formatPrice(subtotal)}</span>
             </div>
             <div className="flex justify-between text-slate-600">
-              <span>{t.cart_delivery_fee}</span>
+              <span>
+                {fulfillment === "delivery" && selectedRoadDistKm > 0
+                  ? t.cart_estimated_fee
+                  : t.cart_delivery_fee}
+              </span>
               <span className={deliveryFee === 0 ? "text-farumasi-600 font-bold" : ""}>
                 {deliveryFee === 0
                   ? fulfillment === "pickup"
-                    ? "Free (Pickup)"
+                    ? t.cart_free_pickup_label
                     : t.cart_free
                   : deferDeliveryFee
                   ? (
@@ -1630,6 +1781,11 @@ export default function CartPage() {
                   : formatPrice(deliveryFee)}
               </span>
             </div>
+            {fulfillment === "delivery" && selectedRoadDistKm > 0 && (
+              <p className="text-[11px] text-slate-400 -mt-1">
+                Based on ~{selectedRoadDistKm.toFixed(1)} km road distance
+              </p>
+            )}
             {insuranceSavings > 0 && (
               <div className="flex justify-between text-green-600">
                 <span className="flex items-center gap-1">
@@ -1648,7 +1804,7 @@ export default function CartPage() {
               </div>
             )}
             <div className="border-t border-slate-100 pt-2.5 flex justify-between">
-              <span className="font-bold text-slate-900">{deferDeliveryFee && deliveryFee > 0 ? "Due now" : t.cart_total}</span>
+              <span className="font-bold text-slate-900">{deferDeliveryFee && deliveryFee > 0 ? t.cart_due_now : t.cart_total}</span>
               <span className="font-extrabold text-farumasi-700 text-lg">
                 {formatPrice(amountDueNow)}
               </span>
@@ -1665,10 +1821,10 @@ export default function CartPage() {
           onClick={async () => {
             if (!canPlace || isPlacingOrder) return;
             setIsPlacingOrder(true);
-            setPaymentStepLabel("Creating order…");
+            setPaymentStepLabel(t.cart_creating);
             try {
               const deliveryAddr = fulfillment === "delivery"
-                ? `${street}, ${district}`
+                ? [street.trim(), district].filter(Boolean).join(", ")
                 : undefined;
 
               const orderItems = enriched.map((e: CartEntry) => {
@@ -1717,10 +1873,10 @@ export default function CartPage() {
               const orderCode = result.order_code ?? result.id ?? ORDER_NUM;
 
               if (amountDueNow > 0) {
-                setPaymentStepLabel("Starting MTN MoMo payment…");
+                setPaymentStepLabel(t.cart_momo_start);
                 const init = await paymentsService.initiateMomo(orderId, momoPhone);
                 if (init.payment_status !== "paid") {
-                  setPaymentStepLabel("Waiting for MoMo approval on your phone…");
+                  setPaymentStepLabel(t.cart_momo_wait);
                   await paymentsService.waitUntilPaid(orderId);
                 }
               }
@@ -1737,7 +1893,7 @@ export default function CartPage() {
                   ? detail
                   : err instanceof Error
                   ? err.message
-                  : "Could not complete checkout. Please try again."
+                  : t.cart_checkout_error
               );
             } finally {
               setIsPlacingOrder(false);
@@ -1752,7 +1908,7 @@ export default function CartPage() {
           )}
         >
           {isPlacingOrder
-            ? paymentStepLabel || "Processing…"
+            ? paymentStepLabel || t.cart_processing
             : `${t.cart_place_order} · ${formatPrice(amountDueNow)}`}
         </button>
         {isPlacingOrder && amountDueNow > 0 && (
@@ -1794,9 +1950,9 @@ export default function CartPage() {
           <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center gap-3">
             <Lock className="w-5 h-5 text-amber-600 shrink-0" />
             <div>
-              <p className="text-xs font-bold text-amber-700">Your Access Code</p>
+              <p className="text-xs font-bold text-amber-700">{t.cart_your_access}</p>
               <p className="text-base font-extrabold text-amber-900 tracking-widest font-mono">{accessCode}</p>
-              <p className="text-xs text-amber-600 mt-0.5">Show this at the pharmacy counter</p>
+              <p className="text-xs text-amber-600 mt-0.5">{t.cart_access_pickup}</p>
             </div>
           </div>
         )}
@@ -1806,7 +1962,7 @@ export default function CartPage() {
           <div className="w-full bg-gradient-to-br from-farumasi-600 to-farumasi-700 rounded-3xl p-5 mb-4 text-white">
             <div className="flex items-center gap-2 mb-3">
               <Eye className="w-4 h-4 opacity-70" />
-              <p className="text-xs font-bold uppercase tracking-wider opacity-70">Your Pharmacy</p>
+              <p className="text-xs font-bold uppercase tracking-wider opacity-70">{t.cart_your_pharmacy}</p>
             </div>
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
@@ -1891,9 +2047,9 @@ export default function CartPage() {
         <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center gap-3">
           <Lock className="w-5 h-5 text-amber-600 shrink-0" />
           <div>
-            <p className="text-xs font-bold text-amber-700">Your Access Code</p>
+            <p className="text-xs font-bold text-amber-700">{t.cart_your_access}</p>
             <p className="text-base font-extrabold text-amber-900 tracking-widest font-mono">{accessCode}</p>
-            <p className="text-xs text-amber-600 mt-0.5">Give this to the rider when they arrive</p>
+            <p className="text-xs text-amber-600 mt-0.5">{t.cart_give_rider}</p>
           </div>
         </div>
       )}
@@ -1903,7 +2059,7 @@ export default function CartPage() {
         <div className="w-full bg-gradient-to-br from-farumasi-600 to-farumasi-700 rounded-3xl p-5 mb-5 text-white">
           <div className="flex items-center gap-2 mb-3">
             <Eye className="w-4 h-4 opacity-70" />
-            <p className="text-xs font-bold uppercase tracking-wider opacity-70">Your Pharmacy</p>
+            <p className="text-xs font-bold uppercase tracking-wider opacity-70">{t.cart_your_pharmacy}</p>
           </div>
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
@@ -1916,7 +2072,7 @@ export default function CartPage() {
                 {selectedOption.pharmacy.locationName}
               </p>
               <p className="text-xs opacity-70 mt-1">
-                Delivery in ~{selectedOption.estimatedDeliveryMin} min
+                {t.cart_delivery_in.replace("{min}", String(selectedOption.estimatedDeliveryMin))}
               </p>
             </div>
           </div>
@@ -1924,16 +2080,16 @@ export default function CartPage() {
       )}
 
       <div className="w-full bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-3 mb-5">
-        {street && (
+        {fulfillment === "delivery" && district && (
           <div className="flex justify-between text-sm">
-            <span className="text-slate-500">Deliver to</span>
+            <span className="text-slate-500">{t.cart_deliver_to}</span>
             <span className="font-bold text-slate-900 text-right max-w-[200px]">
-              {street}, {district}
+              {[street.trim(), district].filter(Boolean).join(", ")}
             </span>
           </div>
         )}
         <div className="flex justify-between text-sm">
-          <span className="text-slate-500">Payment</span>
+          <span className="text-slate-500">{t.cart_payment_label}</span>
           <span className="font-bold text-slate-900">
             {payMethod === "momo" ? "MTN MoMo" : "Airtel Money"}
           </span>
@@ -1941,7 +2097,7 @@ export default function CartPage() {
         {insuranceSavings > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-green-600 flex items-center gap-1">
-              <Shield className="w-3.5 h-3.5" /> Insurance savings
+              <Shield className="w-3.5 h-3.5" /> {t.cart_insurance_savings}
             </span>
             <span className="font-bold text-green-700">−{formatPrice(insuranceSavings)}</span>
           </div>
@@ -1957,13 +2113,13 @@ export default function CartPage() {
         )}
         <div className="border-t border-slate-100 pt-3 flex justify-between">
           <span className="font-bold text-slate-900">
-            {deferDeliveryFee && deliveryFee > 0 ? "Charged now" : "Total charged"}
+            {deferDeliveryFee && deliveryFee > 0 ? t.cart_charged_now : t.cart_total_charged}
           </span>
           <span className="font-extrabold text-farumasi-700">{formatPrice(amountDueNow)}</span>
         </div>
         {deferDeliveryFee && deliveryFee > 0 && (
           <div className="flex justify-between text-sm text-slate-500">
-            <span>Delivery fee (after delivery)</span>
+            <span>{t.cart_delivery_after}</span>
             <span className="font-medium">{formatPrice(deliveryFee)}</span>
           </div>
         )}
@@ -1974,7 +2130,7 @@ export default function CartPage() {
         <div className="w-full flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 mb-5">
           <Truck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
           <p className="text-xs text-blue-700">
-            <span className="font-semibold">Delivery fee billed after arrival.</span>{" "}
+            <span className="font-semibold">{t.cart_defer_banner}</span>{" "}
             {formatPrice(deliveryFee)} will be charged to your{" "}
             {payMethod === "momo" ? "MTN MoMo" : "Airtel Money"} once your order is delivered.
           </p>

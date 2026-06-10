@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { formatRWF, formatDate } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, SearchInput, Button } from "@/components/ui";
 import { Package, Plus, Loader2 } from "lucide-react";
@@ -54,7 +55,9 @@ export default function CataloguePage() {
   return (
     <div className="space-y-5">
       <PageHeader title="Product Catalogue" subtitle={`${total} products registered`} breadcrumb="Marketplace">
-        <Button variant="primary" size="sm"><Plus className="w-4 h-4" /> Add Product</Button>
+        <Link href="/product-requests">
+          <Button variant="primary" size="sm"><Plus className="w-4 h-4" /> Review Product Requests</Button>
+        </Link>
       </PageHeader>
 
       <Card>

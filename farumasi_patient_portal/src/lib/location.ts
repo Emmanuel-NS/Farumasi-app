@@ -28,3 +28,24 @@ export const DEFAULT_KIGALI_COORDS: Coords = {
 export function getPatientCoords(): { coords: Coords; isFallback: boolean } {
   return { coords: DEFAULT_KIGALI_COORDS, isFallback: true };
 }
+
+/** Request the browser's current GPS position (patient delivery/pickup point). */
+export function requestPatientLocation(
+  options?: PositionOptions,
+): Promise<Coords> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("Geolocation unavailable"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) =>
+        resolve({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+        }),
+      (err) => reject(err),
+      { timeout: 8000, maximumAge: 120_000, enableHighAccuracy: false, ...options },
+    );
+  });
+}

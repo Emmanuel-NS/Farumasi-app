@@ -35,6 +35,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         return;
       }
 
+      if (user?.role === "super_admin" && !cancelled) {
+        setReady(true);
+      }
+
       try {
         let current = user;
         if (!current) {
@@ -59,8 +63,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
         if (!cancelled) setReady(true);
       } catch {
-        logout();
-        router.replace("/login");
+        if (!user) {
+          logout();
+          router.replace("/login");
+        }
       }
     }
 

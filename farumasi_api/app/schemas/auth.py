@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import EmailStr, field_validator
+from pydantic import EmailStr, Field, field_validator
 
 from app.schemas.common import FarumasiBaseModel
 from app.core.constants import UserRole
@@ -35,6 +35,16 @@ class TokenResponse(FarumasiBaseModel):
     refresh_token: str
     token_type: str = "bearer"
     must_change_password: bool = False
+
+
+class ForgotPasswordRequest(FarumasiBaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(FarumasiBaseModel):
+    email: EmailStr
+    code: str = Field(min_length=4, max_length=12)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class AccessTokenResponse(FarumasiBaseModel):

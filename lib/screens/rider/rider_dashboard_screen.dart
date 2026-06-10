@@ -12,6 +12,7 @@ import '../../providers/rider_provider.dart';
 import '../../providers/auth_provider.dart';
 import 'rider_active_delivery_screen.dart';
 import 'rider_notifications_screen.dart';
+import 'rider_payout_screen.dart';
 import 'rider_help_screen.dart';
 
 // ─── Shell ────────────────────────────────────────────────────────────────────
@@ -26,11 +27,22 @@ class RiderDashboardScreen extends ConsumerStatefulWidget {
 
 class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
   int _tabIndex = 0;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() => ref.read(riderProvider.notifier).refreshFromApi());
+    // Refresh data every 30 seconds to pick up new delivery requests
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      ref.read(riderProvider.notifier).refreshFromApi();
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -73,11 +85,13 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
       ),
       body: IndexedStack(
         index: _tabIndex,
-        children: const [
-          _HomeTab(),
-          _EarningsTab(),
-          _HistoryTab(),
-          _ProfileTab(),
+        children: [
+          _HomeTab(
+            onSwitchToEarnings: () => setState(() => _tabIndex = 1),
+          ),
+          const _EarningsTab(),
+          const _HistoryTab(),
+          const _ProfileTab(),
         ],
       ),
       bottomNavigationBar: Container(
@@ -151,7 +165,9 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
 // ─── Tab 0: Home ──────────────────────────────────────────────────────────────
 
 class _HomeTab extends ConsumerWidget {
-  const _HomeTab();
+  final VoidCallback? onSwitchToEarnings;
+
+  const _HomeTab({this.onSwitchToEarnings});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -262,7 +278,13 @@ class _HomeTab extends ConsumerWidget {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => const RiderNotificationsScreen()),
+              builder: (_) => RiderNotificationsScreen(
+                // Delivery: already on Home, just pop — no extra action
+                onDeliveryTapped: null,
+                // Payment: switch to Earnings tab after popping
+                onPaymentTapped: onSwitchToEarnings,
+              ),
+            ),
           ),
           child: Stack(
             children: [
@@ -1435,6 +1457,32 @@ class _PerTripEarningsView extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Request Payout button
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF1E9E68),
+              side: const BorderSide(color: Color(0xFF1E9E68)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              elevation: 0,
+            ),
+            icon: const Icon(Icons.account_balance_wallet_rounded, size: 18),
+            label: const Text(
+              'Request Payout',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RiderPayoutScreen()),
+            ),
           ),
         ),
         const SizedBox(height: 20),

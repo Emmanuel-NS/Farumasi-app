@@ -19,6 +19,7 @@ export interface BackendUser {
   two_factor_enabled?: boolean;
   email_verified?: boolean;
   phone_verified?: boolean;
+  preferred_language?: string;
 }
 
 export function adaptUser(u: BackendUser): AuthUser {
@@ -56,6 +57,10 @@ export const authService = {
 
   async getMe(): Promise<AuthUser> {
     const { data } = await api.get<BackendUser>("/users/me");
+    if (data.preferred_language) {
+      const { useLanguageStore } = await import("@/store/language-store");
+      useLanguageStore.getState().syncFromProfile(data.preferred_language);
+    }
     return adaptUser(data);
   },
 
@@ -63,9 +68,30 @@ export const authService = {
     full_name?: string;
     phone?: string;
     profile_image_url?: string;
+    preferred_language?: string;
   }): Promise<AuthUser> {
     const { data } = await api.put<BackendUser>("/users/me", params);
     return adaptUser(data);
+  },
+
+  async forgotPassword(email: string): Promise<{ status: string; message: string }> {
+    const { data } = await api.post<{ status: string; message: string }>("/auth/forgot-password", {
+      email: email.trim(),
+    });
+    return data;
+  },
+
+  async resetPassword(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<{ status: string; message: string }> {
+    const { data } = await api.post<{ status: string; message: string }>("/auth/reset-password", {
+      email: email.trim(),
+      code: code.trim(),
+      new_password: newPassword,
+    });
+    return data;
   },
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {

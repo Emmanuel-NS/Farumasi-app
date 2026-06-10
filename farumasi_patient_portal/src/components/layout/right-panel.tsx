@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { X, Bell, ShoppingCart, HelpCircle, Pill, Clock, Trash2, Package, Truck, Gift, FileText, MessageCircle, Settings, Phone, Mail } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { cartLineKey } from "@/lib/packaging-classes";
 import { cartLineUnitPrice } from "@/lib/cart-pricing";
 import { useAuthStore } from "@/store/auth-store";
 import type { AppNotification } from "@/types";
+import { notificationsService } from "@/lib/services/notifications.service";
 
 interface RightPanelProps {
   activePanel: string;
@@ -47,6 +48,16 @@ function NotificationsPanel() {
   const lang = useLanguageStore((s) => s.lang);
   const timeAgoLocal = useTimeAgo();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    notificationsService.getMyNotifications()
+      .then((items) => { if (!cancelled) setNotifications(items); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Lucide icon + icon colors + unread background per category — mirrors Flutter notification tile
   const catMeta: Record<string, { Icon: React.ElementType; iconBg: string; iconColor: string; unreadBg: string }> = {
@@ -60,10 +71,16 @@ function NotificationsPanel() {
 
   const markRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
+    void notificationsService.markRead(id).catch(() => {});
   };
 
   const deleteNotif = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const handleMarkAllRead = () => {
+    setNotifications((prev) => prev.map(n => ({ ...n, isRead: true })));
+    void notificationsService.markAllRead().catch(() => {});
   };
 
   return (
@@ -71,13 +88,17 @@ function NotificationsPanel() {
       <div className="px-5 py-3 flex items-center justify-between">
         <span className="text-xs text-slate-500">{tf(t.panel_unread, { n: notifications.filter(n => !n.isRead).length })}</span>
         <button
-          onClick={() => setNotifications((prev) => prev.map(n => ({ ...n, isRead: true })))}
+          onClick={handleMarkAllRead}
           className="text-xs text-farumasi-600 font-medium hover:underline"
         >
           {t.panel_mark_all}
         </button>
       </div>
-      {notifications.length === 0 ? (
+      {loading ? (
+        <div className="py-16 text-center">
+          <div className="w-6 h-6 border-2 border-farumasi-300 border-t-farumasi-600 rounded-full animate-spin mx-auto" />
+        </div>
+      ) : notifications.length === 0 ? (
         <div className="py-16 text-center">
           <Bell className="w-12 h-12 text-slate-200 mx-auto mb-3" />
           <p className="text-slate-500 text-sm">{t.panel_no_notif}</p>
@@ -142,6 +163,7 @@ function NotificationsPanel() {
 function CartPanel({ onClose }: { onClose: () => void }) {
   const t = useTranslation();
   const router = useRouter();
+  const pathname = usePathname();
   const { items: cartItems, setQty, remove } = useCartStore();
   const isGuest = useAuthStore((s) => s.isGuest);
   const enriched = Object.values(cartItems);
@@ -159,10 +181,9 @@ function CartPanel({ onClose }: { onClose: () => void }) {
 
   const goToCheckout = () => {
     onClose();
-    if (isGuest) {
-      router.push("/auth/login");
-    } else {
-      router.push("/cart");
+    const target = isGuest ? "/auth/login" : "/cart";
+    if (pathname !== target) {
+      router.push(target);
     }
   };
 
@@ -189,6 +210,14 @@ function CartPanel({ onClose }: { onClose: () => void }) {
         {enriched.map(({ medicine, qty, sellMode }) => {
           const lineKey = cartLineKey(medicine.id, sellMode);
           const linePrice = cartLineUnitPrice(medicine, sellMode);
+          const unitLabel = sellMode === "partial"
+            ? (medicine.partialUnitName ?? "unit")
+            : (medicine.unitsPerPack && medicine.unitsPerPack > 1 ? "pack" : "item");
+          const packMax = sellMode === "pack" && medicine.maxPrice && medicine.maxPrice > medicine.price
+            ? medicine.maxPrice
+            : null;
+          const lineTotalMin = linePrice * qty;
+          const lineTotalMax = packMax ? packMax * qty : null;
           return (
           <div key={lineKey} className="flex items-center gap-3 py-3">
             <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
@@ -199,10 +228,24 @@ function CartPanel({ onClose }: { onClose: () => void }) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-900 truncate">{medicine.name}</p>
-              <p className="text-xs text-farumasi-600 font-semibold mt-0.5">
-                {formatPrice(linePrice)}
-                {sellMode === "partial" ? ` / ${medicine.partialUnitName ?? "unit"}` : ""}
-              </p>
+              {sellMode === "partial" && linePrice === 0 ? (
+                <p className="text-xs text-slate-400 italic mt-0.5">Price at pharmacy</p>
+              ) : packMax ? (
+                <p className="text-xs text-farumasi-600 font-semibold mt-0.5">
+                  {formatPrice(linePrice)} – {formatPrice(packMax)}
+                  <span className="text-slate-500 font-medium"> / {unitLabel}</span>
+                  {qty > 1 && (
+                    <span className="block text-[11px] text-slate-500 font-medium mt-0.5">
+                      {formatPrice(lineTotalMin)} – {formatPrice(lineTotalMax!)}
+                    </span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-xs text-farumasi-600 font-semibold mt-0.5">
+                  {formatPrice(qty > 1 ? lineTotalMin : linePrice)}
+                  {sellMode === "partial" ? ` / ${unitLabel}` : qty > 1 ? "" : ` / ${unitLabel}`}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button

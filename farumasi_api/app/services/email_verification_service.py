@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -12,8 +13,12 @@ from app.core.security import hash_password, verify_password
 from app.models.email_verification_challenge import EmailVerificationChallenge
 from app.models.user import User
 from app.services.email_delivery_service import send_owner_verification_email
+from app.services.sms_delivery_service import send_verification_sms
 
 PURPOSE_PAYOUT_CREDENTIALS = "payout_credentials_update"
+PURPOSE_PASSWORD_RESET = "password_reset"
+
+logger = logging.getLogger(__name__)
 
 
 class EmailVerificationService:
@@ -52,16 +57,36 @@ class EmailVerificationService:
         )
         await self.db.flush()
 
-        sent = send_owner_verification_email(
+        email_sent = send_owner_verification_email(
             to_email=user.email,
             full_name=user.full_name,
             code=code,
             purpose_label=purpose_label,
         )
-        if not sent and (settings.ENVIRONMENT or "").lower() != "development":
-            raise ValidationError(
-                "Email could not be sent. Configure SMTP before requesting verification codes."
+
+        sms_sent = False
+        if user.phone and (not email_sent or purpose == PURPOSE_PASSWORD_RESET):
+            sms_sent = send_verification_sms(
+                phone=user.phone,
+                code=code,
+                purpose_label=purpose_label,
+                lang=getattr(user, "preferred_language", None),
             )
+
+        env = (settings.ENVIRONMENT or "").lower()
+        if not email_sent and not sms_sent:
+            if env == "development":
+                logger.warning(
+                    "Verification delivery skipped (no SMTP/SMS) — %s (%s): %s",
+                    user.email,
+                    purpose_label,
+                    code,
+                )
+            else:
+                raise ValidationError(
+                    "Verification code could not be sent. "
+                    "Configure SMTP or SMS (Africa's Talking) for production."
+                )
         return settings.EMAIL_VERIFICATION_EXPIRE_MINUTES
 
     async def verify_code(self, user: User, *, purpose: str, code: str) -> None:

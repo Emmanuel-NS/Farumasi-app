@@ -31,10 +31,13 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     hydrateAuth();
   }, [hydrateAuth]);
 
-  // Close mobile drawer after navigation
+  const closePanel = useCallback(() => setActivePanel(null), []);
+
+  // Close mobile drawer and side panels after navigation
   useEffect(() => {
     setMobileNavOpen(false);
-  }, [pathname]);
+    closePanel();
+  }, [pathname, closePanel]);
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -129,7 +132,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             </main>
 
             {activePanel && (
-              <RightPanel activePanel={activePanel} onClose={() => setActivePanel(null)} />
+              <RightPanel activePanel={activePanel} onClose={closePanel} />
             )}
           </div>
         </div>

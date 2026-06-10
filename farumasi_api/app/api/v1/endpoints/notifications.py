@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 
@@ -104,15 +104,17 @@ async def mark_all_read_patch(
 
 @router.post(
     "/",
-    response_model=NotificationOut,
-    status_code=201,
     dependencies=[Depends(require_super_admin())],
 )
 async def create_system_notification(
     data: NotificationCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Super-admin broadcast: send a system notification to a single user."""
+    """Super-admin broadcast: send a system notification to a single user.
+
+    Returns 201 with the created notification, or 204 when the recipient has
+    disabled the requested category in their notification preferences.
+    """
     notif = await NotificationService(db).send(
         user_id=data.user_id,
         title=data.title,
@@ -120,6 +122,8 @@ async def create_system_notification(
         category=data.category or "system",
         action_url=data.action_url,
     )
+    if notif is None:
+        return Response(status_code=204)
     await db.commit()
     await db.refresh(notif)
     return notif

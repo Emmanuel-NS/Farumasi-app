@@ -24,6 +24,7 @@ export default function RegisterPage() {
   const [businessType, setBusinessType] = useState("Distributor");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [district, setDistrict] = useState("Kigali");
+  const [sector, setSector] = useState("");
   const [address, setAddress] = useState("");
   const [businessPhone, setBusinessPhone] = useState("");
   const [businessEmail, setBusinessEmail] = useState("");
@@ -80,6 +81,7 @@ export default function RegisterPage() {
         phone: businessPhone.trim() || undefined,
         address: address.trim() || undefined,
         district: district.trim() || undefined,
+        sector: sector.trim() || undefined,
         business_registration_number: registrationNumber.trim() || undefined,
       });
       const accountValue = payoutAccount.trim();
@@ -199,7 +201,7 @@ export default function RegisterPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Sector</Label>
-                  <Input placeholder="e.g. Nyarugenge" />
+                  <Input placeholder="e.g. Nyarugenge" value={sector} onChange={(e) => setSector(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1.5">

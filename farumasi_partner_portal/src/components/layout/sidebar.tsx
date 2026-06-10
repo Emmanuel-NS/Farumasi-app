@@ -179,9 +179,9 @@ export function Sidebar({ collapsed }: SidebarProps) {
 
       <div className="shrink-0 border-t border-white/10 px-4 py-3.5">
         {!collapsed ? (
-          <p className="text-xs text-white/50 text-center cursor-pointer hover:text-white/80 transition-colors">
+          <Link href="/support" className="block text-xs text-white/50 text-center hover:text-white/80 transition-colors">
             Terms &amp; Conditions
-          </p>
+          </Link>
         ) : (
           <div className="h-3" />
         )}

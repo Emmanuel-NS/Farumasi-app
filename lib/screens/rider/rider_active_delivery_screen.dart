@@ -5,6 +5,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/rider_models.dart';
 import '../../providers/rider_provider.dart';
@@ -119,8 +121,8 @@ class _RiderActiveDeliveryScreenState
                     _OrderSummaryCard(order: order),
                     const SizedBox(height: 20),
 
-                    // ── Map navigation button ──────────────────────────
-                    _NavigateButton(order: order),
+                    // ── Embedded map with Navigate button ──────────────
+                    _MapCard(order: order),
                     const SizedBox(height: 20),
 
                     // ── Delivery timeline ─────────────────────────────
@@ -565,71 +567,174 @@ class _OrderSummaryCard extends StatelessWidget {
   }
 }
 
-// ─── Navigate button ──────────────────────────────────────────────────────────
+// ─── Embedded map card ────────────────────────────────────────────────────────
 
-class _NavigateButton extends StatelessWidget {
+class _MapCard extends StatelessWidget {
   final RiderDeliveryOrder order;
 
-  const _NavigateButton({required this.order});
+  const _MapCard({required this.order});
 
   @override
   Widget build(BuildContext context) {
+    final pickup = LatLng(
+      order.pickupCoordinates[0],
+      order.pickupCoordinates[1],
+    );
+    final destination = LatLng(
+      order.destinationCoordinates[0],
+      order.destinationCoordinates[1],
+    );
+
     final isGoingToPickup =
         order.activeStep == DeliveryStep.goToPickup ||
             order.activeStep == DeliveryStep.atPickup;
-    final coords = isGoingToPickup
+    final targetCoords = isGoingToPickup
         ? order.pickupCoordinates
         : order.destinationCoordinates;
 
-    return GestureDetector(
-      onTap: () => _openMaps(coords[0], coords[1]),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.blue.shade50,
-          borderRadius: BorderRadius.circular(16),
-          border:
-              Border.all(color: Colors.blue.shade200, width: 1),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade600,
-                borderRadius: BorderRadius.circular(10),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Map tile (220 px tall)
+          SizedBox(
+            height: 220,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCameraFit: CameraFit.bounds(
+                  bounds: LatLngBounds(pickup, destination),
+                  padding: const EdgeInsets.all(48),
+                ),
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                ),
               ),
-              child: const Icon(Icons.map_rounded,
-                  color: Colors.white, size: 20),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.farumasi.app',
+                ),
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: [pickup, destination],
+                      color: Colors.blue.shade400,
+                      strokeWidth: 3.0,
+                    ),
+                  ],
+                ),
+                MarkerLayer(
+                  markers: [
+                    // Pharmacy – green pin
+                    Marker(
+                      point: pickup,
+                      width: 36,
+                      height: 36,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade600,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.store_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                    // Patient – red pin
+                    Marker(
+                      point: destination,
+                      width: 36,
+                      height: 36,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade600,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.location_on_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isGoingToPickup
-                        ? 'Navigate to Pharmacy'
-                        : 'Navigate to Destination',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Colors.blue.shade800,
+          ),
+
+          // Distance / time row + Navigate button
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Row(
+              children: [
+                Icon(Icons.route_outlined,
+                    size: 15, color: Colors.grey.shade500),
+                const SizedBox(width: 6),
+                Text(
+                  '${order.estimatedDistanceKm} km  •  ~${order.estimatedTimeMinutes} min',
+                  style: TextStyle(
+                      color: Colors.grey.shade600, fontSize: 13),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () =>
+                      _openMaps(targetCoords[0], targetCoords[1]),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade600,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.navigation_rounded,
+                            color: Colors.white, size: 15),
+                        const SizedBox(width: 6),
+                        Text(
+                          isGoingToPickup
+                              ? 'To Pharmacy'
+                              : 'To Patient',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    'Opens Google Maps',
-                    style: TextStyle(
-                        color: Colors.blue.shade400,
-                        fontSize: 12),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            Icon(Icons.arrow_forward_ios_rounded,
-                size: 16, color: Colors.blue.shade400),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

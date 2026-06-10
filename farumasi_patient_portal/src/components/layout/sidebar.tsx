@@ -3,17 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { FarumasiLogo } from "@/components/shared/farumasi-logo";
-import { getInitials } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { useAuthStore } from "@/store/auth-store";
 import {
   Store,
-  HeartPulse,
+  Shield,
   MessageCircle,
-  ShoppingBag,
+  History,
   FileText,
-  Settings,
+  Settings as SettingsIcon,
   LogOut,
   LogIn,
   Lock,
@@ -33,24 +31,26 @@ interface SidebarProps {
   onNavigate?: () => void;
 }
 
-export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
+export function Sidebar({
+  collapsed,
+  onNavigate,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslation();
   const isGuest = useAuthStore((s) => s.isGuest);
   const logout = useAuthStore((s) => s.logout);
-  const user = useAuthStore((s) => s.user);
 
-  const navItems: NavItem[] = [
-    { label: t.nav_home,          href: "/store",          icon: Store         },
-    { label: t.nav_health,        href: "/health",         icon: HeartPulse    },
-    { label: t.nav_consult,       href: "/consult",        icon: MessageCircle, restricted: isGuest },
-    { label: t.nav_orders,        href: "/orders",         icon: ShoppingBag,   restricted: isGuest },
-    { label: t.nav_prescriptions, href: "/prescriptions",  icon: FileText,      restricted: isGuest },
+  const primaryNav: NavItem[] = [
+    { label: t.nav_home,    href: "/store",     icon: Store },
+    { label: t.nav_health,  href: "/health",    icon: Shield },
+    { label: t.nav_consult, href: "/consult",   icon: MessageCircle, restricted: isGuest },
+    { label: t.nav_orders,  href: "/orders",    icon: History,       restricted: isGuest },
   ];
 
-  const bottomItems: NavItem[] = [
-    { label: t.nav_settings, href: "/settings", icon: Settings },
+  const secondaryNav: NavItem[] = [
+    { label: t.nav_prescriptions, href: "/prescriptions", icon: FileText, restricted: isGuest },
+    { label: t.nav_settings,      href: "/settings",      icon: SettingsIcon },
   ];
 
   const isActive = (href: string) => {
@@ -69,12 +69,11 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
       className={cn(
         "flex flex-col h-full transition-all duration-[220ms] ease-out overflow-hidden shrink-0",
         "bg-farumasi-600",
-        collapsed ? "w-[92px]" : "w-[200px]"
+        collapsed ? "w-[92px]" : "w-[200px]",
       )}
     >
-      {/* Nav */}
       <nav className="flex-1 overflow-y-auto scrollbar-hide pt-2.5 pb-1 px-2 space-y-0.5">
-        {navItems.map((item) => (
+        {primaryNav.map((item) => (
           <SidebarItem
             key={item.href}
             item={item}
@@ -84,10 +83,9 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
           />
         ))}
 
-        {/* Divider */}
         <div className="mx-3 my-3.5 border-t border-[#2A6A53]" />
 
-        {bottomItems.map((item) => (
+        {secondaryNav.map((item) => (
           <SidebarItem
             key={item.href}
             item={item}
@@ -98,20 +96,18 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Spacer pushes logout + user to bottom */}
       <div className="shrink-0 px-2 pb-3 space-y-0.5">
         {isGuest ? (
-          /* Guest — show Sign In */
           <Link
             href="/auth/login"
             onClick={() => onNavigate?.()}
             className={cn(
-              "flex items-center gap-3 rounded-xl transition-colors duration-180",
-              collapsed ? "justify-center px-0 py-2.5" : "px-2.5 py-[9px]",
-              "hover:bg-white/10"
+              "flex items-center rounded-xl transition-colors duration-180 hover:bg-white/10",
+              collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
             )}
+            title="Sign In"
           >
-            <div className="w-[34px] h-[34px] shrink-0 rounded-[9px] bg-white/20 flex items-center justify-center">
+            <div className="w-[34px] h-[34px] shrink-0 rounded-[9px] bg-[#47D196]/20 flex items-center justify-center">
               <LogIn className="w-[18px] h-[18px] text-white" />
             </div>
             {!collapsed && (
@@ -119,55 +115,22 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
             )}
           </Link>
         ) : (
-          <>
-            {/* Logout */}
-            <button
-              onClick={handleLogout}
-              className={cn(
-                "w-full flex items-center gap-3 rounded-xl transition-colors duration-180",
-                collapsed ? "justify-center px-0 py-2.5" : "px-2.5 py-[9px]",
-                "hover:bg-white/10"
-              )}
-            >
-              <div className="w-[34px] h-[34px] shrink-0 rounded-[9px] bg-white/20 flex items-center justify-center">
-                <LogOut className="w-[18px] h-[18px] text-white" />
-              </div>
-              {!collapsed && (
-                <span className="text-[13px] font-medium text-[#D2E8DE]">Logout</span>
-              )}
-            </button>
-
-            {/* User info */}
-            <Link
-              href="/profile"
-              onClick={() => onNavigate?.()}
-              className={cn(
-                "flex items-center gap-2.5 rounded-xl hover:bg-white/10 transition-colors",
-                collapsed ? "justify-center px-0 py-2.5" : "px-2 py-2"
-              )}
-            >
-              <div className="w-[34px] h-[34px] rounded-full bg-white/25 border-2 border-white/40 flex items-center justify-center shrink-0">
-                <span className="text-xs font-bold text-white">{getInitials(user?.name ?? "Me")}</span>
-              </div>
-              {!collapsed && (
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-white truncate">{user?.name?.split(" ")[0] ?? "My Account"}</p>
-                  <p className="text-xs text-white/70 truncate">Patient</p>
-                </div>
-              )}
-            </Link>
-          </>
+          <SidebarAction
+            icon={LogOut}
+            label="Logout"
+            collapsed={collapsed}
+            onClick={handleLogout}
+          />
         )}
 
-        {/* Terms */}
         {!collapsed && (
           <div className="pt-3 pb-1 text-center">
-            <a
-              href="/terms"
+            <Link
+              href="/legal/terms"
               className="text-[12px] text-[#9BC8B5] underline underline-offset-2 decoration-[#9BC8B5] hover:text-white transition-colors"
             >
               Terms &amp; Conditions
-            </a>
+            </Link>
           </div>
         )}
       </div>
@@ -190,27 +153,28 @@ function SidebarItem({
 
   if (item.restricted) {
     return (
-      <div
+      <Link
+        href="/auth/login"
+        onClick={() => onNavigate?.()}
+        title={`${item.label} (Sign in required)`}
         className={cn(
-          "flex items-center rounded-xl opacity-40 cursor-not-allowed",
+          "flex items-center rounded-xl opacity-40 hover:opacity-60 transition-opacity",
           collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
-          "border border-transparent"
         )}
-        title="Login required"
       >
-        <div className="w-[34px] h-[34px] shrink-0 rounded-[9px] bg-white/20 flex items-center justify-center relative">
+        <div className="w-[34px] h-[34px] shrink-0 rounded-[9px] bg-[#47D196]/20 flex items-center justify-center relative">
           <Icon className="w-[18px] h-[18px] text-white" />
-          <Lock className="w-[9px] h-[9px] text-white absolute -bottom-0.5 -right-0.5" />
+          <Lock className="w-[9px] h-[9px] text-[#96B3A7] absolute -bottom-0.5 -right-0.5" />
         </div>
         {!collapsed && (
           <>
-            <span className="flex-1 text-[13px] leading-none font-medium text-[#D2E8DE]">
+            <span className="flex-1 text-[13px] leading-none font-medium text-[#96B3A7]">
               {item.label}
             </span>
-            <ChevronRight className="w-[18px] h-[18px] shrink-0 text-white/30" />
+            <Lock className="w-4 h-4 shrink-0 text-[#96B3A7]" />
           </>
         )}
-      </div>
+      </Link>
     );
   }
 
@@ -219,48 +183,92 @@ function SidebarItem({
       href={item.href}
       prefetch
       onClick={() => onNavigate?.()}
+      title={collapsed ? item.label : undefined}
       className={cn(
         "flex items-center rounded-xl transition-all duration-180",
         collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
         active
-          ? "bg-white/20 border border-white/40"
-          : "border border-transparent hover:bg-white/10"
+          ? "bg-[#47D196]/20 border border-[#47D196]/40"
+          : "border border-transparent hover:bg-white/10",
       )}
     >
-      {/* Icon container — matches Flutter 34×34 rounded-[9px] */}
       <div
         className={cn(
           "w-[34px] h-[34px] shrink-0 rounded-[9px] flex items-center justify-center transition-colors duration-180",
-          active ? "bg-[#47D196]" : "bg-white/20"
+          active ? "bg-[#47D196]" : "bg-[#47D196]/20",
         )}
       >
         <Icon
           className={cn(
             "w-[18px] h-[18px]",
-            active ? "text-[#0A2B1E]" : "text-white"
+            active ? "text-[#0A2B1E]" : "text-white",
           )}
         />
       </div>
 
-      {/* Label + chevron */}
       {!collapsed && (
         <>
           <span
             className={cn(
               "flex-1 text-[13px] leading-none",
-              active ? "font-bold text-[#EFFFB5]" : "font-medium text-[#D2E8DE]"
+              active ? "font-bold text-[#EFFBF5]" : "font-medium text-[#D2E8DE]",
             )}
           >
             {item.label}
           </span>
-          <ChevronRight
-            className={cn(
-              "w-[18px] h-[18px] shrink-0",
-              active ? "text-[#BFECD8]" : "text-white/30"
-            )}
-          />
+          {active && (
+            <ChevronRight className="w-[18px] h-[18px] shrink-0 text-[#BFECD8]" />
+          )}
         </>
       )}
     </Link>
+  );
+}
+
+function SidebarAction({
+  icon: Icon,
+  label,
+  collapsed,
+  active = false,
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  collapsed: boolean;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={collapsed ? label : undefined}
+      className={cn(
+        "w-full flex items-center rounded-xl transition-all duration-180",
+        collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
+        active
+          ? "bg-[#47D196]/20 border border-[#47D196]/40"
+          : "border border-transparent hover:bg-white/10",
+      )}
+    >
+      <div
+        className={cn(
+          "w-[34px] h-[34px] shrink-0 rounded-[9px] flex items-center justify-center transition-colors duration-180",
+          active ? "bg-[#47D196]" : "bg-[#47D196]/20",
+        )}
+      >
+        <Icon
+          className={cn(
+            "w-[18px] h-[18px]",
+            active ? "text-[#0A2B1E]" : "text-white",
+          )}
+        />
+      </div>
+      {!collapsed && (
+        <span className="flex-1 text-left text-[13px] leading-none font-medium text-[#D2E8DE]">
+          {label}
+        </span>
+      )}
+    </button>
   );
 }

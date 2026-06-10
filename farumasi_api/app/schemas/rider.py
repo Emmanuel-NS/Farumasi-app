@@ -28,6 +28,7 @@ class RiderProfileOut(BaseModel):
     user_id: str
     rider_type: str
     vehicle_type: Optional[str] = None
+    vehicle_plate: Optional[str] = None
     assigned_area: Optional[str] = None
     availability_status: str
     verification_status: str

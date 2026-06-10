@@ -62,6 +62,7 @@ export const productsService = {
     offset?: number;
     limit?: number;
     only_with_listings?: boolean;
+    include_unapproved?: boolean;
   }): Promise<PaginatedProducts> {
     const { data } = await api.get<PaginatedProducts>("/products", {
       params: { only_with_listings: false, ...params },

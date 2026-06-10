@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, SearchInput, Button } from "@/components/ui";
 import { Navigation, Plus, Loader2 } from "lucide-react";
@@ -40,7 +41,9 @@ export default function RidersPage() {
   return (
     <div className="space-y-5">
       <PageHeader title="Riders" subtitle={`${total} registered riders`} breadcrumb="Platform Management">
-        <Button variant="primary" size="sm"><Plus className="w-4 h-4" /> Add Rider</Button>
+        <Link href="/users/riders">
+          <Button variant="primary" size="sm"><Plus className="w-4 h-4" /> Add Rider</Button>
+        </Link>
       </PageHeader>
 
       <Card>

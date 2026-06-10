@@ -84,11 +84,13 @@ class AuthRepository {
     String? fullName,
     String? email,
     String? phone,
+    String? preferredLanguage,
   }) async {
     final response = await _client.dio.put('/users/me', data: {
       if (fullName != null) 'full_name': fullName,
       if (email != null) 'email': email,
       if (phone != null) 'phone': phone,
+      if (preferredLanguage != null) 'preferred_language': preferredLanguage,
     });
     final data = response.data as Map<String, dynamic>;
     return AuthUser(

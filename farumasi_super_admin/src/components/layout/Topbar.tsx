@@ -8,6 +8,7 @@ import { cn, timeAgo } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import api from "@/lib/api";
 import { openNotification } from "@/lib/notification-links";
+import { startVisibleInterval } from "@/lib/polling";
 import {
   Bell, Search, Menu, ChevronDown, Settings, LogOut,
   AlertTriangle, Info, User,
@@ -66,6 +67,7 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
     action_url?: string | null;
     created_at: string;
   }>>([]);
+  const [unread, setUnread] = useState(0);
 
   const initials =
     user?.full_name
@@ -81,6 +83,7 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
     router.replace("/login");
   }
 
+  // Poll the notification list every 60 s (fires immediately on mount).
   useEffect(() => {
     type NotifItem = {
       id: string;
@@ -91,15 +94,25 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
       action_url?: string | null;
       created_at: string;
     };
-    api.get<{ items: NotifItem[] } | NotifItem[]>("/notifications/", { params: { limit: 20 } })
-      .then(r => {
-        const data = r.data;
-        setNotifications(Array.isArray(data) ? data : (data as { items: NotifItem[] }).items ?? []);
-      })
-      .catch(() => setNotifications([]));
+    return startVisibleInterval(() => {
+      api.get<{ items: NotifItem[] } | NotifItem[]>("/notifications/", { params: { limit: 20 } })
+        .then(r => {
+          const data = r.data;
+          setNotifications(Array.isArray(data) ? data : (data as { items: NotifItem[] }).items ?? []);
+        })
+        .catch(() => {});
+    }, 60_000);
   }, []);
 
-  const unread = notifications.filter((n) => !n.read_status).length;
+  // Poll the unread count independently every 60 s so the bell badge stays
+  // live even when the notification dropdown has never been opened.
+  useEffect(() => {
+    return startVisibleInterval(() => {
+      api.get<{ unread: number }>("/notifications/unread-count")
+        .then(r => setUnread(r.data.unread))
+        .catch(() => {});
+    }, 60_000);
+  }, []);
 
   async function handleNotifClick(notif: (typeof notifications)[number]) {
     await openNotification(
@@ -110,6 +123,7 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
         setNotifications((prev) =>
           prev.map((n) => (n.id === id ? { ...n, read_status: true } : n)),
         );
+        if (!notif.read_status) setUnread((prev) => Math.max(0, prev - 1));
       },
     );
     setShowNotif(false);

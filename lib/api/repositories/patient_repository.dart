@@ -17,10 +17,20 @@ class PatientRepository {
 
   static String resolveMediaUrl(String? url) {
     if (url == null || url.trim().isEmpty) return '';
-    final trimmed = url.trim();
+    var trimmed = url.trim();
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      trimmed = trimmed.substring(1, trimmed.length - 1).trim();
+    }
+    if (trimmed.startsWith('//')) return 'https:$trimmed';
     if (RegExp(r'^(https?:|data:|blob:)', caseSensitive: false).hasMatch(trimmed)) {
       return trimmed;
     }
+    // Bare host/path links stored without scheme (e.g. cdn.example.com/img.jpg).
+    if (RegExp(r'^[\w.-]+\.[a-zA-Z]{2,}(/|$)').hasMatch(trimmed)) {
+      return 'https://$trimmed';
+    }
+    if (trimmed.startsWith('uploads/')) return '$apiOrigin/$trimmed';
     if (trimmed.startsWith('/')) return '$apiOrigin$trimmed';
     return '$apiOrigin/$trimmed';
   }
@@ -30,12 +40,41 @@ class PatientRepository {
     return resolveMediaUrl(url);
   }
 
+  static const String productPlaceholderImage =
+      'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=80';
+
   static String _productImageUrl(Map<String, dynamic> json) {
-    for (final key in ['image_url', 'thumbnail_url', 'cover_image_url']) {
-      final raw = json[key] as String?;
-      if (raw != null && raw.trim().isNotEmpty) {
+    for (final key in ['image_url', 'thumbnail_url', 'cover_image_url', 'image', 'logo_url']) {
+      final raw = json[key];
+      if (raw is String && raw.trim().isNotEmpty) {
         return resolveMediaUrl(raw);
       }
+    }
+    final images = json['images'];
+    if (images is List) {
+      for (final item in images) {
+        if (item is String && item.trim().isNotEmpty) return resolveMediaUrl(item);
+        if (item is Map) {
+          for (final key in ['url', 'image_url', 'src']) {
+            final raw = item[key];
+            if (raw is String && raw.trim().isNotEmpty) return resolveMediaUrl(raw);
+          }
+        }
+      }
+    }
+    final desc = json['description'];
+    if (desc is String && desc.trim().isNotEmpty) {
+      try {
+        final parsed = jsonDecode(desc);
+        if (parsed is Map) {
+          for (final key in ['image_url', 'image', 'cover_image_url', 'thumbnail_url']) {
+            final raw = parsed[key];
+            if (raw is String && raw.trim().isNotEmpty) {
+              return resolveMediaUrl(raw);
+            }
+          }
+        }
+      } catch (_) {}
     }
     return '';
   }
@@ -292,8 +331,27 @@ class PatientRepository {
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
     });
-    final upload = await _client.dio.post('/uploads/prescription', data: form);
+    return _finalizePrescriptionUpload(form);
+  }
+
+  Future<PatientPrescription> uploadPrescriptionBytes(
+    List<int> bytes,
+    String filename,
+  ) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    return _finalizePrescriptionUpload(form);
+  }
+
+  Future<PatientPrescription> _finalizePrescriptionUpload(FormData form) async {
+    final upload = await _client.dio.post(
+      '/uploads/prescription',
+      data: form,
+      options: Options(contentType: 'multipart/form-data'),
+    );
     final url = (upload.data as Map<String, dynamic>)['url'] as String?;
+    if (url == null || url.isEmpty) throw Exception('Upload returned no URL');
     final response = await _client.dio.post(
       '/patients/me/prescriptions/upload',
       data: {'uploaded_file_url': url},
@@ -569,6 +627,8 @@ class PatientRepository {
     required String recommendationId,
     String deliveryMethod = 'delivery',
     String? deliveryAddress,
+    String? patientAccessCode,
+    bool deferDeliveryFee = false,
     String? notes,
   }) async {
     final response = await _client.dio.post('/orders/', data: {
@@ -576,6 +636,9 @@ class PatientRepository {
       'selected_recommendation_id': recommendationId,
       'delivery_method': deliveryMethod,
       if (deliveryAddress != null) 'delivery_address': deliveryAddress,
+      if (patientAccessCode != null && patientAccessCode.isNotEmpty)
+        'patient_access_code': patientAccessCode,
+      if (deferDeliveryFee) 'defer_delivery_fee': true,
       if (notes != null) 'notes': notes,
     });
     return (response.data as Map<String, dynamic>)['id'] as String;
@@ -590,6 +653,39 @@ class PatientRepository {
   Future<NotificationPreferences> fetchNotificationPreferences() async {
     final response = await _client.dio.get('/users/me/notification-preferences');
     return NotificationPreferences.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<PatientProfileSummary> fetchMyProfile() async {
+    final response = await _client.dio.get('/patients/me');
+    final data = response.data as Map<String, dynamic>;
+    return PatientProfileSummary(hasPin: data['has_pin'] == true);
+  }
+
+  Future<void> setServerPin(String pin) async {
+    await _client.dio.put('/patients/me/pin', data: {'pin': pin});
+  }
+
+  Future<bool> verifyServerPin(String pin) async {
+    try {
+      await _client.dio.post('/patients/me/pin/verify', data: {'pin': pin});
+      return true;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        return false;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> changeServerPin(String currentPin, String newPin) async {
+    await _client.dio.put('/patients/me/pin/change', data: {
+      'current_pin': currentPin,
+      'new_pin': newPin,
+    });
+  }
+
+  Future<void> clearServerPin(String pin) async {
+    await _client.dio.delete('/patients/me/pin', data: {'pin': pin});
   }
 
   Future<NotificationPreferences> updateNotificationPreferences(
@@ -990,7 +1086,10 @@ class PatientRepository {
       description: shortDesc,
       price: displayPrice.roundToDouble(),
       maxPrice: (priceTo ?? displayPrice).roundToDouble(),
-      imageUrl: _productImageUrl(json),
+      imageUrl: () {
+        final url = _productImageUrl(json);
+        return url.isNotEmpty ? url : productPlaceholderImage;
+      }(),
       category: (json['category'] as String?) ?? 'General',
       subCategory: dosageForm,
       requiresPrescription: json['prescription_required'] as bool? ?? false,
@@ -1010,6 +1109,7 @@ class PatientRepository {
           : null,
       storage: 'Store below 25°C in a dry place away from sunlight.',
       warnings: 'Keep out of reach of children. Read the label carefully.',
+      productType: (json['product_type'] as String?) ?? 'medicine',
       dosage: strength != null
           ? '$strength — follow prescriber instructions.'
           : 'Follow prescriber instructions.',
@@ -1106,6 +1206,9 @@ class PatientOrder {
   final String? deliveryAddress;
   final String? patientAccessCode;
   final String? notes;
+  final bool deferDeliveryFee;
+  final String? assignedRiderName;
+  final String? assignedRiderPhone;
   final DateTime createdAt;
   final List<PatientOrderItem> items;
 
@@ -1122,6 +1225,9 @@ class PatientOrder {
     this.deliveryAddress,
     this.patientAccessCode,
     this.notes,
+    this.deferDeliveryFee = false,
+    this.assignedRiderName,
+    this.assignedRiderPhone,
     required this.createdAt,
     required this.items,
   });
@@ -1153,6 +1259,9 @@ class PatientOrder {
   factory PatientOrder.fromJson(Map<String, dynamic> json) {
     final pharmacy = json['pharmacy'] as Map<String, dynamic>?;
     final partner = json['partner_company'] as Map<String, dynamic>?;
+    final delivery = json['delivery'] as Map<String, dynamic>?;
+    final rider = delivery?['rider'] as Map<String, dynamic>?;
+    final riderUser = rider?['user'] as Map<String, dynamic>?;
     final rawStatus = json['order_status'] as String? ?? json['status'] as String?;
     return PatientOrder(
       id: json['id'] as String,
@@ -1169,6 +1278,9 @@ class PatientOrder {
       deliveryAddress: json['delivery_address'] as String?,
       patientAccessCode: json['patient_access_code'] as String?,
       notes: json['notes'] as String?,
+      deferDeliveryFee: json['defer_delivery_fee'] as bool? ?? false,
+      assignedRiderName: riderUser?['full_name'] as String?,
+      assignedRiderPhone: riderUser?['phone'] as String?,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.now(),
       items: (json['items'] as List? ?? [])
@@ -1672,14 +1784,24 @@ class PatientDelivery {
   final String id;
   final String orderId;
   final String status;
+  final String? pickupAddress;
+  final double? pickupLatitude;
+  final double? pickupLongitude;
   final String? destinationAddress;
+  final double? destinationLatitude;
+  final double? destinationLongitude;
   final int? elapsedSeconds;
 
   PatientDelivery({
     required this.id,
     required this.orderId,
     required this.status,
+    this.pickupAddress,
+    this.pickupLatitude,
+    this.pickupLongitude,
     this.destinationAddress,
+    this.destinationLatitude,
+    this.destinationLongitude,
     this.elapsedSeconds,
   });
 
@@ -1688,10 +1810,21 @@ class PatientDelivery {
       id: json['id'] as String,
       orderId: json['order_id'] as String,
       status: (json['status'] as String?) ?? 'pending_assignment',
+      pickupAddress: json['pickup_address'] as String?,
+      pickupLatitude: (json['pickup_latitude'] as num?)?.toDouble(),
+      pickupLongitude: (json['pickup_longitude'] as num?)?.toDouble(),
       destinationAddress: json['destination_address'] as String?,
+      destinationLatitude: (json['destination_latitude'] as num?)?.toDouble(),
+      destinationLongitude: (json['destination_longitude'] as num?)?.toDouble(),
       elapsedSeconds: (json['elapsed_seconds'] as num?)?.toInt(),
     );
   }
+
+  bool get hasMapCoords =>
+      pickupLatitude != null &&
+      pickupLongitude != null &&
+      destinationLatitude != null &&
+      destinationLongitude != null;
 
   double get progress {
     const weights = {
@@ -1719,16 +1852,24 @@ class PatientDelivery {
 
 class PatientDeliveryQr {
   final String qrCode;
+  final String? qrToken;
   final String? accessCode;
 
-  PatientDeliveryQr({required this.qrCode, this.accessCode});
+  PatientDeliveryQr({required this.qrCode, this.qrToken, this.accessCode});
 
   factory PatientDeliveryQr.fromJson(Map<String, dynamic> json) {
     return PatientDeliveryQr(
-      qrCode: (json['qr_code'] as String?) ?? (json['qr_payload'] as String?) ?? '',
+      qrCode: (json['qr_code'] as String?) ?? '',
+      qrToken: (json['qr_token'] as String?) ?? (json['qr_payload'] as String?),
       accessCode: json['access_code'] as String?,
     );
   }
+
+  bool get hasImage =>
+      qrCode.isNotEmpty &&
+      (qrCode.startsWith('http://') || qrCode.startsWith('https://') || qrCode.startsWith('/'));
+
+  String get displayToken => qrToken ?? qrCode;
 }
 
 class PharmacyRecommendation {
@@ -1772,6 +1913,11 @@ class PharmacyRecommendation {
       canFulfillComplete: json['can_fulfill_complete_prescription'] as bool? ?? false,
     );
   }
+}
+
+class PatientProfileSummary {
+  const PatientProfileSummary({required this.hasPin});
+  final bool hasPin;
 }
 
 class NotificationPreferences {

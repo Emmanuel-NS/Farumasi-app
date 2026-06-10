@@ -49,6 +49,7 @@ class PatientProfile(Base, UUIDMixin, TimestampMixin):
     emergency_contact: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     allergies: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     chronic_conditions: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    pin_hash: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────
     user: Mapped["User"] = relationship("User", back_populates="patient_profile")

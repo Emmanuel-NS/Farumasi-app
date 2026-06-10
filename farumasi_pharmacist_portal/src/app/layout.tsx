@@ -7,8 +7,21 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "FARUMASI — Pharmacist Portal",
+  title: {
+    template: "%s | FARUMASI Pharmacist",
+    default: "FARUMASI — Pharmacist Portal",
+  },
   description: "Manage prescriptions, orders, inventory and health content for FARUMASI pharmacies",
+  manifest: "/manifest.json",
+  themeColor: "#1E9E68",
+  appleWebApp: {
+    capable: true,
+    title: "FARUMASI Rx",
+  },
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

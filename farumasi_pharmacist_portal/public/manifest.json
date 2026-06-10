@@ -1,0 +1,13 @@
+{
+  "name": "FARUMASI — Pharmacist Portal",
+  "short_name": "FARUMASI Rx",
+  "description": "Manage prescriptions, orders, inventory and health content for FARUMASI pharmacies",
+  "start_url": "/overview",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1E9E68",
+  "icons": [
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

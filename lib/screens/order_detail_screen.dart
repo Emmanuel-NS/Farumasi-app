@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../api/repositories/patient_repository.dart';
+import '../widgets/delivery_tracking_map.dart';
 import '../widgets/portal/portal_ui.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -17,8 +22,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   PatientDelivery? _delivery;
   PatientDeliveryQr? _deliveryQr;
   bool _loading = true;
+  bool _qrLoading = false;
   String? _error;
   bool _cancelling = false;
+  Timer? _pollTimer;
 
   static const _deliverySteps = [
     ('pending_review', 'Order Placed', 'Waiting for pharmacy to confirm'),
@@ -43,37 +50,89 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     'delivered': 4,
   };
 
+  static const _trackableStatuses = {'out_for_delivery', 'delivered'};
+
   @override
   void initState() {
     super.initState();
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  bool _isDeliveryOrder(PatientOrder order) =>
+      (order.deliveryMethod ?? 'delivery').toLowerCase() == 'delivery';
+
+  void _syncPolling() {
+    _pollTimer?.cancel();
+    final order = _order;
+    if (order == null || !_isDeliveryOrder(order) || order.status != 'out_for_delivery') {
+      return;
+    }
+    _pollTimer = Timer.periodic(const Duration(seconds: 12), (_) => _refreshLiveDelivery());
+  }
+
+  Future<void> _refreshLiveDelivery() async {
+    if (!mounted) return;
+    try {
+      final results = await Future.wait([
+        PatientRepository.instance.fetchOrder(widget.orderId),
+        PatientRepository.instance.fetchDeliveryForOrder(widget.orderId),
+      ]);
+      if (!mounted) return;
+      final order = results[0] as PatientOrder;
+      setState(() {
+        _order = order;
+        _delivery = results[1] as PatientDelivery?;
+      });
+      if (order.status != 'out_for_delivery') {
+        _pollTimer?.cancel();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _load({bool quiet = false}) async {
+    if (!quiet) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final order = await PatientRepository.instance.fetchOrder(widget.orderId);
       PatientDelivery? delivery;
       PatientDeliveryQr? qr;
-      if (order.status != 'cancelled' && order.status != 'delivered') {
-        delivery = await PatientRepository.instance.fetchDeliveryForOrder(widget.orderId);
+
+      final isDelivery = _isDeliveryOrder(order);
+      final isCancelled = order.status == 'cancelled';
+
+      if (isDelivery && !isCancelled) {
+        if (!quiet) setState(() => _qrLoading = true);
         qr = await PatientRepository.instance.fetchDeliveryQr(widget.orderId);
+        if (_trackableStatuses.contains(order.status)) {
+          delivery = await PatientRepository.instance.fetchDeliveryForOrder(widget.orderId);
+        }
       }
+
       if (!mounted) return;
       setState(() {
         _order = order;
         _delivery = delivery;
         _deliveryQr = qr;
         _loading = false;
+        _qrLoading = false;
       });
+      _syncPolling();
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = 'Could not load order';
         _loading = false;
+        _qrLoading = false;
       });
     }
   }
@@ -119,6 +178,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
+  Future<void> _callRider(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  String _riderInitials(String? name) {
+    if (name == null || name.trim().isEmpty) return 'DR';
+    return name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .map((p) => p[0])
+        .take(2)
+        .join()
+        .toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,33 +211,49 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     actionLabel: 'Back to orders',
                     onAction: () => Navigator.pop(context),
                   )
-                : _buildContent(_order!),
+                : RefreshIndicator(
+                    color: PortalColors.green,
+                    onRefresh: () => _load(quiet: true),
+                    child: _buildContent(_order!),
+                  ),
       ),
     );
   }
 
   Widget _buildContent(PatientOrder order) {
-    final isPickup = (order.deliveryMethod ?? 'delivery').toLowerCase() == 'pickup';
+    final isPickup = !_isDeliveryOrder(order);
     final isCancelled = order.status == 'cancelled';
     final isDelivered = order.status == 'delivered';
+    final isOutForDelivery = order.status == 'out_for_delivery';
     final steps = isPickup ? _pickupSteps : _deliverySteps;
     final activeWeight = _statusWeight[order.status] ?? -1;
     final subtotal = order.subtotal > 0 ? order.subtotal : order.totalAmount - order.deliveryFee;
+    final delivery = _delivery;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
         PortalBackLink(label: 'Back to Orders', onTap: () => Navigator.pop(context)),
         _headerCard(order, isPickup),
+        if (isOutForDelivery && delivery != null && delivery.hasMapCoords)
+          DeliveryTrackingMap(
+            pharmacyName: order.pharmacyName ?? 'Pharmacy',
+            pickup: LatLng(delivery.pickupLatitude!, delivery.pickupLongitude!),
+            destination: LatLng(delivery.destinationLatitude!, delivery.destinationLongitude!),
+            progress: delivery.progress,
+            etaMinutes: delivery.etaMinutes,
+          ),
+        if (isOutForDelivery) _riderCard(order),
         if (isCancelled)
           _cancelledBanner()
         else
           _timelineCard(steps, activeWeight, isCancelled),
         if (order.patientAccessCode != null && !isCancelled && !isDelivered)
           _accessCodeCard(order.patientAccessCode!, isPickup),
-        if (_delivery != null && !isCancelled && !isDelivered) _deliveryTrackingCard(_delivery!),
-        if (_deliveryQr != null && _deliveryQr!.qrCode.isNotEmpty && !isCancelled && !isDelivered)
-          _qrCard(_deliveryQr!),
+        if (delivery != null && !isCancelled && !isDelivered && !isOutForDelivery)
+          _deliveryTrackingCard(delivery),
+        if (!isPickup && !isCancelled) _deliveryQrSection(),
         if (order.deliveryAddress != null && !isPickup)
           _infoCard(
             icon: Icons.location_on_outlined,
@@ -189,6 +283,56 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _riderCard(PatientOrder order) {
+    final name = order.assignedRiderName ?? 'Your Rider';
+    final phone = order.assignedRiderPhone;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: PortalColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: PortalColors.greenLight,
+            child: Text(
+              _riderInitials(order.assignedRiderName),
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: PortalColors.green,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: PortalColors.slate900),
+                ),
+                const Text('Delivery rider', style: TextStyle(fontSize: 12, color: PortalColors.slate400)),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: phone != null ? () => _callRider(phone) : null,
+            style: IconButton.styleFrom(
+              backgroundColor: PortalColors.greenLight,
+              disabledBackgroundColor: PortalColors.slate100,
+            ),
+            icon: Icon(Icons.phone, color: phone != null ? PortalColors.green : PortalColors.slate300),
+          ),
+        ],
+      ),
     );
   }
 
@@ -488,7 +632,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           }),
           const Divider(color: PortalColors.slate200),
           _priceRow('Subtotal', subtotal),
-          if (order.deliveryFee > 0) _priceRow('Delivery fee', order.deliveryFee),
+          if (order.deliveryFee > 0)
+            _priceRow(
+              order.deferDeliveryFee ? 'Delivery fee (pay rider)' : 'Delivery fee',
+              order.deliveryFee,
+            ),
+          if (order.deferDeliveryFee)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                'Delivery fee will be collected by the rider on arrival.',
+                style: TextStyle(fontSize: 11, color: PortalColors.slate500),
+              ),
+            ),
           const SizedBox(height: 8),
           _priceRow('Total', order.totalAmount, bold: true),
         ],
@@ -536,7 +692,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Live delivery', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          const Text('Delivery status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
@@ -565,26 +721,91 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _qrCard(PatientDeliveryQr qr) {
+  Widget _deliveryQrSection() {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: PortalColors.greenLight,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: PortalColors.greenBorder),
+        border: Border.all(color: PortalColors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Delivery QR code', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          SelectableText(qr.qrCode, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-          if (qr.accessCode != null) ...[
-            const SizedBox(height: 8),
-            Text('Code: ${qr.accessCode}', style: const TextStyle(fontWeight: FontWeight.w600)),
-          ],
+          const Row(
+            children: [
+              Icon(Icons.qr_code_2, size: 18, color: PortalColors.green),
+              SizedBox(width: 8),
+              Text(
+                'Delivery verification',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_qrLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(color: PortalColors.green, strokeWidth: 2),
+              ),
+            )
+          else if (_deliveryQr != null && (_deliveryQr!.hasImage || _deliveryQr!.displayToken.isNotEmpty))
+            _qrCard(_deliveryQr!)
+          else
+            const Text(
+              'Your delivery QR will appear once a rider is assigned.',
+              style: TextStyle(fontSize: 13, color: PortalColors.slate500),
+            ),
         ],
+      ),
+    );
+  }
+
+  Widget _qrCard(PatientDeliveryQr qr) {
+    final imageUrl = qr.hasImage ? PatientRepository.resolveMediaUrl(qr.qrCode) : null;
+    return Column(
+      children: [
+        if (imageUrl != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.network(
+              imageUrl,
+              width: 176,
+              height: 176,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => _qrTokenBox(qr.displayToken),
+            ),
+          )
+        else
+          _qrTokenBox(qr.displayToken),
+        const SizedBox(height: 12),
+        const Text(
+          'Show this to the rider to confirm you are the correct recipient.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: PortalColors.slate500),
+        ),
+        if (qr.accessCode != null) ...[
+          const SizedBox(height: 8),
+          Text('Code: ${qr.accessCode}', style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
+      ],
+    );
+  }
+
+  Widget _qrTokenBox(String token) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: PortalColors.slate100,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: PortalColors.cardBorder),
+      ),
+      child: SelectableText(
+        token,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
       ),
     );
   }

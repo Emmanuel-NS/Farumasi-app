@@ -22,26 +22,30 @@ const _supabaseAnonKey = String.fromEnvironment(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase (Auth + Storage)
-  if (_supabaseUrl.isNotEmpty && _supabaseAnonKey.isNotEmpty) {
-    await Supabase.initialize(
-      url: _supabaseUrl,
-      anonKey: _supabaseAnonKey,
-    );
-  }
-
-  // Initialize local notifications
-  try {
-    await NotificationService().init();
-  } catch (e) {
-    debugPrint('Failed to init notifications: $e');
-  }
-
   runApp(
     const ProviderScope(
       child: FarumasiApp(),
     ),
   );
+
+  // Defer non-critical startup work so the first frame paints sooner.
+  Future<void>(() async {
+    if (_supabaseUrl.isNotEmpty && _supabaseAnonKey.isNotEmpty) {
+      try {
+        await Supabase.initialize(
+          url: _supabaseUrl,
+          anonKey: _supabaseAnonKey,
+        );
+      } catch (e) {
+        debugPrint('Failed to init Supabase: $e');
+      }
+    }
+    try {
+      await NotificationService().init();
+    } catch (e) {
+      debugPrint('Failed to init notifications: $e');
+    }
+  });
 }
 
 class FarumasiApp extends ConsumerWidget {

@@ -73,4 +73,18 @@ api.interceptors.response.use(
   }
 );
 
+/** Extract a human-readable error message from an Axios error response. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getApiError(err: any, fallback = "Something went wrong"): string {
+  const detail = err?.response?.data?.detail;
+  if (!detail) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const first = detail[0];
+    if (typeof first === "string") return first;
+    if (first?.msg) return first.msg as string;
+  }
+  return fallback;
+}
+
 export default api;

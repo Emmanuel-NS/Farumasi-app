@@ -47,6 +47,9 @@ class User(Base, UUIDMixin, TimestampMixin):
     must_change_password: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    preferred_language: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="en", server_default="en"
+    )
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────

@@ -1,0 +1,13 @@
+{
+  "name": "FARUMASI — Super Admin",
+  "short_name": "FARUMASI Admin",
+  "description": "FARUMASI Ecosystem Command Center",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1E9E68",
+  "icons": [
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

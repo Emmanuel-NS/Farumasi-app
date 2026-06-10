@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async'; // For Typewriter animation timer
 import '../models/models.dart';
 import '../widgets/medicine_item.dart';
@@ -24,6 +25,21 @@ import '../models/product_category.dart';
 import '../widgets/store_category_scroller.dart';
 import '../widgets/sponsored_carousel.dart';
 import 'prescriptions_screen.dart';
+
+enum _StoreSort { defaultSort, priceAsc, priceDesc }
+
+class _ProductTypeOption {
+  final String value;
+  final String label;
+  const _ProductTypeOption(this.value, this.label);
+}
+
+const _productTypeOptions = [
+  _ProductTypeOption('medicine', 'Medicine'),
+  _ProductTypeOption('medical_device', 'Medical Device'),
+  _ProductTypeOption('food_supplements', 'Food Supplements'),
+  _ProductTypeOption('cosmetics', 'Cosmetics'),
+];
 
 class MedicineStoreScreen extends StatefulWidget {
   final bool embeddedInHomeShell;
@@ -91,7 +107,6 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     setState(() {
       if (cat.name == 'All') {
         _selectedCategories.clear();
-        _selectedSubCategory = null;
         return;
       }
       final norm = cat.name.toLowerCase();
@@ -99,9 +114,20 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
         _selectedCategories.remove(norm);
       } else {
         _selectedCategories.add(norm);
-        _selectedSubCategory = null;
       }
     });
+  }
+
+  bool _medicineMatchesCategory(Medicine m) {
+    if (_selectedCategories.isEmpty) return true;
+    final cats = <String>{};
+    for (final c in m.allCategories) {
+      for (final part in c.split(',')) {
+        final t = part.trim().toLowerCase();
+        if (t.isNotEmpty) cats.add(t);
+      }
+    }
+    return cats.any(_selectedCategories.contains);
   }
 
   String _categoryLabel(String key) {
@@ -175,9 +201,26 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     }
   }
 
+  String? _sellerMapUrl(Pharmacy pharmacy) {
+    final coords = pharmacy.coordinates;
+    if (coords.length >= 2) {
+      final lat = coords[0];
+      final lng = coords[1];
+      if (lat.abs() > 0.01 || lng.abs() > 0.01) {
+        return 'https://www.google.com/maps?q=$lat,$lng';
+      }
+    }
+    final query = '${pharmacy.name} ${pharmacy.locationName}'.trim();
+    if (query.isNotEmpty) {
+      return 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}';
+    }
+    return null;
+  }
+
   Widget _buildSellerCarouselCard(Pharmacy pharmacy) {
     final isSelected = _selectedPharmacyId == pharmacy.id;
     final listedCount = isSelected ? _pharmacyListingPrices.length : null;
+    final mapUrl = _sellerMapUrl(pharmacy);
     return Container(
       width: 250,
       height: 106,
@@ -198,82 +241,128 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
           ),
         ],
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => _togglePharmacyFilter(pharmacy),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(14),
-              ),
-              child: pharmacy.imageUrl.isNotEmpty
-                  ? Image.network(
-                      PatientRepository.resolveMediaUrl(pharmacy.imageUrl),
-                      width: 96,
-                      height: 106,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _sellerPlaceholder(pharmacy.name),
-                    )
-                  : _sellerPlaceholder(pharmacy.name, width: 96),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      pharmacy.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: isSelected
-                            ? const Color(0xFF1E9E68)
-                            : const Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      pharmacy.sellerKind == 'partner'
-                          ? 'Healthcare company'
-                          : (pharmacy.isOpen ? 'Open now' : 'Closed'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    if (isSelected) ...[
-                      const SizedBox(height: 4),
-                      if (_pharmacyListingsLoading)
-                        const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+      child: Stack(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => _togglePharmacyFilter(pharmacy),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(14),
+                  ),
+                  child: pharmacy.imageUrl.isNotEmpty
+                      ? Image.network(
+                          PatientRepository.resolveMediaUrl(pharmacy.imageUrl),
+                          width: 96,
+                          height: 106,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _sellerPlaceholder(pharmacy.name),
                         )
-                      else
+                      : _sellerPlaceholder(pharmacy.name, width: 96),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
                         Text(
-                          listedCount != null
-                              ? '$listedCount products listed'
-                              : 'Viewing inventory',
-                          style: const TextStyle(
-                            fontSize: 10,
+                          pharmacy.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF1E9E68),
+                            color: isSelected
+                                ? const Color(0xFF1E9E68)
+                                : const Color(0xFF0F172A),
                           ),
                         ),
-                    ],
-                  ],
+                        if (pharmacy.district.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            pharmacy.district,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 2),
+                        Text(
+                          pharmacy.sellerKind == 'partner'
+                              ? 'Healthcare company'
+                              : (pharmacy.isOpen ? 'Open now' : 'Closed'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                        if (isSelected) ...[
+                          const SizedBox(height: 4),
+                          if (_pharmacyListingsLoading)
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          else
+                            Text(
+                              listedCount != null
+                                  ? '$listedCount products listed'
+                                  : 'Viewing inventory',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1E9E68),
+                              ),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (mapUrl != null)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Material(
+                color: Colors.white.withValues(alpha: 0.92),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                elevation: 1,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () async {
+                    final uri = Uri.parse(mapUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.location_on_outlined,
+                      size: 16,
+                      color: Color(0xFF1E9E68),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -414,7 +503,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   @override
   void initState() {
     super.initState();
-    StateService().onShowFilterModal = _showFilterModal;
+    StateService().onShowFilterModal = _toggleShowFilters;
     _categoryScrollController = ScrollController();
     _categoryScrollController.addListener(_updateCategoryScrollState);
 
@@ -475,15 +564,12 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     super.dispose();
   }
 
-  // Search & Filter State
+  // Search & Filter State — aligned with patient portal store-filter-store
   String _searchQuery = '';
-  Set<String> _selectedCategories = {}; // Revert to set for multi-selection
-  String? _selectedSubCategory;
-  RangeValues _priceRange = const RangeValues(0, 50000);
-
-  double _minRating = 0.0;
-  String _sortBy = 'Name'; // 'Name' or 'Price'
-  bool _sortAscending = true;
+  Set<String> _selectedCategories = {};
+  _StoreSort _sort = _StoreSort.defaultSort;
+  String _selectedProductType = 'All';
+  bool _showFilters = false;
   bool _showCategories = false; // Collapsed by default
   bool _hideDesktopCategories = false; // User toggle for desktop shell
   bool _canScrollLeft = false;
@@ -579,41 +665,16 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
         }
       }
 
-      // Category Match
-      final matchesCategory =
-          _selectedCategories.isEmpty ||
-          m.allCategories.any((c) => _selectedCategories.contains(c.toLowerCase()));
+      final matchesCategory = _medicineMatchesCategory(m);
 
-      // SubCategory Match (if any selected, must match)
-      final matchesSubCategory =
-          _selectedSubCategory == null || m.subCategory == _selectedSubCategory;
-      // Filtering by Price
-      // If Sort By is Min Price, filter by Min Price
-      // If Sort By is Max Price, filter by Max Price
-      // If Sort By is Name (or anything else), filter by Min Price (default behavior)
-      bool matchesPrice = false;
-
-      if (_sortBy == 'MaxPrice') {
-        final maxP = m.maxPrice ?? m.price;
-        matchesPrice = maxP >= _priceRange.start && maxP <= _priceRange.end;
-      } else {
-        // Default to filtering on base/min price
-        matchesPrice =
-            m.price >= _priceRange.start && m.price <= _priceRange.end;
-      }
-
-      final matchesRating = m.rating >= _minRating;
+      final matchesProductType = _selectedProductType == 'All' ||
+          m.productType.toLowerCase() == _selectedProductType.toLowerCase();
 
       final matchesPharmacy = _selectedPharmacyId == null ||
           _pharmacyListingPrices.isEmpty ||
           _pharmacyListingPrices.containsKey(m.id);
 
-      return matches &&
-          matchesCategory &&
-          matchesSubCategory &&
-          matchesPrice &&
-          matchesRating &&
-          matchesPharmacy;
+      return matches && matchesCategory && matchesProductType && matchesPharmacy;
     }).toList();
   }
 
@@ -622,7 +683,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
       return 'At ${_selectedPharmacyName!}';
     }
     if (_searchQuery.isNotEmpty) return 'Search Results';
-    if (_selectedCategories.isNotEmpty || _selectedSubCategory != null) {
+    if (_selectedCategories.isNotEmpty) {
       return 'Filtered Results';
     }
     return 'Explore Medicines';
@@ -731,49 +792,43 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   }
 
   List<Medicine> get _sortedMedicines {
-    var list = _filteredMedicines;
-    switch (_sortBy) {
-      case 'MinPrice':
-        list.sort(
-          (a, b) => _sortAscending
-              ? a.price.compareTo(b.price)
-              : b.price.compareTo(a.price),
-        );
+    final list = List<Medicine>.from(_filteredMedicines);
+    switch (_sort) {
+      case _StoreSort.priceAsc:
+        list.sort((a, b) => a.price.compareTo(b.price));
         break;
-      case 'MaxPrice':
-        list.sort((a, b) {
-          final aMax = a.maxPrice ?? a.price;
-          final bMax = b.maxPrice ?? b.price;
-          return _sortAscending ? aMax.compareTo(bMax) : bMax.compareTo(aMax);
-        });
+      case _StoreSort.priceDesc:
+        list.sort((a, b) => b.price.compareTo(a.price));
         break;
-      case 'Name':
-      default:
-        list.sort(
-          (a, b) => _sortAscending
-              ? a.name.compareTo(b.name)
-              : b.name.compareTo(a.name),
-        );
+      case _StoreSort.defaultSort:
         break;
     }
     return list;
   }
 
-  List<String> get _categories {
-    return _backendCategories.map((c) => c.name).toList();
+  int get _activeFilterCount {
+    var count = 0;
+    if (_sort != _StoreSort.defaultSort) count++;
+    if (_selectedProductType != 'All') count++;
+    if (_selectedCategories.isNotEmpty) count++;
+    if (_searchQuery.trim().isNotEmpty) count++;
+    return count;
   }
 
-  List<String> get _currentSubCategories {
-    if (_selectedCategories.isEmpty) return [];
-    return _catalogMedicines
-        .where(
-          (m) =>
-              m.allCategories.any((c) => _selectedCategories.contains(c.toLowerCase())) &&
-              m.subCategory != null,
-        )
-        .map((m) => m.subCategory!)
-        .toSet()
-        .toList();
+  void _toggleShowFilters() {
+    setState(() => _showFilters = !_showFilters);
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _searchQuery = '';
+      _searchController.clear();
+      StateService().setSearchQuery('');
+      _sort = _StoreSort.defaultSort;
+      _selectedProductType = 'All';
+      _selectedCategories.clear();
+      _showFilters = false;
+    });
   }
 
   IconData _getCategoryIcon(String category) {
@@ -809,497 +864,182 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     }
   }
 
-  void _showFilterModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  Widget _buildFilterPanel() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          return Container(
-            padding: const EdgeInsets.all(20.0),
-            height:
-                MediaQuery.of(context).size.height *
-                0.75, // Slightly reduced height
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Sort & Filter',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    TextButton(
-                      child: const Text(
-                        'Reset',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      onPressed: () {
-                        setModalState(() {
-                          _selectedCategories.clear();
-                          _selectedSubCategory = null;
-                          _priceRange = const RangeValues(0, 50000);
-                          _minRating = 0.0;
-                          _sortBy = 'Name';
-                          _sortAscending = true;
-                        });
-                        setState(() {});
-                      },
-                    ),
-                  ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Sort by:',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade600,
                 ),
-                const Divider(),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      // --- Sorting Logic Redesign ---
-                      const Text(
-                        'Sort Products By',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Custom Radio-like Options for Sort Field
-                      _buildSortOption(
-                        title: "Name",
-                        isSelected: _sortBy == 'Name',
-                        onTap: () {
-                          setModalState(() {
-                            _sortBy = 'Name';
-                          });
-                          setState(() {});
-                        },
-                      ),
-                      _buildSortOption(
-                        title: "Minimum Price",
-                        subtitle: "Sort based on the lowest available price",
-                        isSelected: _sortBy == 'MinPrice',
-                        onTap: () {
-                          setModalState(() {
-                            _sortBy = 'MinPrice';
-                          });
-                          setState(() {});
-                        },
-                      ),
-                      _buildSortOption(
-                        title: "Maximum Price",
-                        subtitle: "Sort based on the highest available price",
-                        isSelected: _sortBy == 'MaxPrice',
-                        onTap: () {
-                          setModalState(() {
-                            _sortBy = 'MaxPrice';
-                          });
-                          setState(() {});
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Order',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Ascending / Descending Toggle
-                      Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                setModalState(() => _sortAscending = true);
-                                setState(() {});
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _sortAscending
-                                      ? const Color(0xFF1E9E68)
-                                      : Colors.white,
-                                  border: Border.all(
-                                    color: _sortAscending
-                                        ? const Color(0xFF1E9E68)
-                                        : Colors.grey.shade300,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    "Ascending",
-                                    style: TextStyle(
-                                      fontWeight: _sortAscending
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                      color: _sortAscending
-                                          ? const Color(0xFF1E9E68)
-                                          : Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                setModalState(() => _sortAscending = false);
-                                setState(() {});
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: !_sortAscending
-                                      ? const Color(0xFF1E9E68)
-                                      : Colors.white,
-                                  border: Border.all(
-                                    color: !_sortAscending
-                                        ? const Color(0xFF1E9E68)
-                                        : Colors.grey.shade300,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    "Descending",
-                                    style: TextStyle(
-                                      fontWeight: !_sortAscending
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                      color: !_sortAscending
-                                          ? const Color(0xFF1E9E68)
-                                          : Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-                      const Divider(),
-                      const SizedBox(height: 16),
-
-                      // --- Filtering ---
-                      const Text(
-                        'Category',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Searchable Dropdown Button (Updated for Multi-Select)
-                      InkWell(
-                        onTap: () async {
-                          // Show custom searchable dialog that supports multi-select
-                          final selected = await showDialog<List<String>>(
-                            context: context,
-                            builder: (ctx) => _SearchableMultiSelectDialog(
-                              title: "Select Categories",
-                              items: _categories,
-                              selectedItems: _selectedCategories.toList(),
-                            ),
-                          );
-
-                          if (selected != null) {
-                            setModalState(() {
-                              _selectedCategories =
-                                  selected.map((s) => s.toLowerCase()).toSet();
-                              if (_selectedSubCategory != null) {
-                                bool isValid = _catalogMedicines.any(
-                                  (m) =>
-                                      m.allCategories.any(
-                                        (c) => _selectedCategories.contains(
-                                          c.toLowerCase(),
-                                        ),
-                                      ) &&
-                                      m.subCategory == _selectedSubCategory,
-                                );
-                                if (!isValid) _selectedSubCategory = null;
-                              }
-                            });
-                            setState(() {});
-                          }
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _selectedCategories.isEmpty
-                                      ? 'All Categories'
-                                      : '${_selectedCategories.length} selected',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: _selectedCategories.isEmpty
-                                        ? Colors.grey.shade600
-                                        : Colors.black87,
-                                    fontWeight: _selectedCategories.isNotEmpty
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const Icon(
-                                Icons.arrow_drop_down,
-                                color: Colors.grey,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Display Selected Categories as Chips for Easy Removal
-                      if (_selectedCategories.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _selectedCategories
-                              .map(
-                                (cat) => Chip(
-                                  label: Text(
-                                    _categoryLabel(cat),
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  deleteIcon: const Icon(Icons.close, size: 16),
-                                  onDeleted: () {
-                                    setModalState(() {
-                                      _selectedCategories.remove(cat);
-                                      if (_selectedCategories.isEmpty) {
-                                        _selectedSubCategory = null;
-                                      }
-                                    });
-                                    setState(() {});
-                                  },
-                                  backgroundColor: const Color(0xFF1E9E68),
-                                  labelStyle: TextStyle(
-                                    color: const Color(0xFF1E9E68),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ],
-
-                      // Sub-Category Section (Conditional)
-                      if (_selectedCategories.isNotEmpty &&
-                          _currentSubCategories.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Sub-Category (Refine)',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: [
-                            ChoiceChip(
-                              label: const Text('Any'),
-                              selected: _selectedSubCategory == null,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  setModalState(
-                                    () => _selectedSubCategory = null,
-                                  );
-                                  setState(() {});
-                                }
-                              },
-                            ),
-                            ..._currentSubCategories.map(
-                              (sub) => ChoiceChip(
-                                label: Text(sub),
-                                selected: _selectedSubCategory == sub,
-                                onSelected: (selected) {
-                                  setModalState(() {
-                                    if (selected) {
-                                      _selectedSubCategory = sub;
-                                    } else {
-                                      _selectedSubCategory = null;
-                                    }
-                                  });
-                                  setState(() {});
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-
-                      // PRICE RANGE SECTION
-                      const SizedBox(height: 24),
-                      Text(
-                        _sortBy == 'MaxPrice'
-                            ? 'Maximum Price Range'
-                            : 'Minimum Price Range',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Filter by ${_sortBy == 'MaxPrice' ? 'Max' : 'Min'} Price',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Text(
-                            '${_priceRange.start.round()} - ${_priceRange.end.round()} RWF',
-                            style: const TextStyle(
-                              color: Color(0xFF1E9E68),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      RangeSlider(
-                        values: _priceRange,
-                        min: 0,
-                        max: 50000,
-                        divisions: 50,
-                        activeColor: const Color(0xFF1E9E68),
-                        inactiveColor: const Color(0xFF1E9E68),
-                        labels: RangeLabels(
-                          '${_priceRange.start.round()}',
-                          '${_priceRange.end.round()}',
-                        ),
-                        onChanged: (values) {
-                          setModalState(() => _priceRange = values);
-                          setState(() {});
-                        },
-                      ),
-                    ],
-                  ),
+              ),
+              _buildFilterChip(
+                label: 'Default',
+                selected: _sort == _StoreSort.defaultSort,
+                onTap: () => setState(() => _sort = _StoreSort.defaultSort),
+              ),
+              _buildFilterChip(
+                label: 'Price: Low → High',
+                selected: _sort == _StoreSort.priceAsc,
+                onTap: () => setState(() => _sort = _StoreSort.priceAsc),
+              ),
+              _buildFilterChip(
+                label: 'Price: High → Low',
+                selected: _sort == _StoreSort.priceDesc,
+                onTap: () => setState(() => _sort = _StoreSort.priceDesc),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Type',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade600,
                 ),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E9E68),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Apply Changes',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
+              ),
+              _buildFilterChip(
+                label: 'All',
+                selected: _selectedProductType == 'All',
+                onTap: () => setState(() => _selectedProductType = 'All'),
+              ),
+              ..._productTypeOptions.map(
+                (pt) => _buildFilterChip(
+                  label: pt.label,
+                  selected: _selectedProductType == pt.value,
+                  onTap: () => setState(() => _selectedProductType = pt.value),
                 ),
-              ],
-            ),
-          );
-        },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  // Helper widget for custom radio-style sort option
-  Widget _buildSortOption({
-    required String title,
-    String? subtitle,
-    required bool isSelected,
+  Widget _buildFilterChip({
+    required String label,
+    required bool selected,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1E9E68) : Colors.white,
-          border: Border.all(
-            color: isSelected ? const Color(0xFF1E9E68) : Colors.grey.shade300,
-            width: isSelected ? 2 : 1,
-          ),
+          color: selected ? const Color(0xFF1E9E68) : Colors.white,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? const Color(0xFF1E9E68) : const Color(0xFFE2E8F0),
+          ),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: isSelected ? const Color(0xFF1E9E68) : Colors.grey,
+            Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? Colors.white : const Color(0xFFCBD5E1),
+                  width: 2,
+                ),
+                color: selected ? Colors.white38 : Colors.transparent,
+              ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.w500,
-                      color: isSelected
-                          ? const Color(0xFF1E9E68)
-                          : Colors.black87,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ],
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: selected ? Colors.white : const Color(0xFF475569),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFilterTrigger({
+    Color? iconColor,
+    bool compact = false,
+  }) {
+    final active = _showFilters || _activeFilterCount > 0;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          onPressed: _toggleShowFilters,
+          tooltip: 'Filters',
+          icon: Icon(
+            Icons.tune,
+            color: iconColor ?? const Color(0xFF1E9E68),
+            size: compact ? 20 : 24,
+          ),
+          style: compact && active
+              ? IconButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E9E68),
+                  foregroundColor: Colors.white,
+                )
+              : null,
+        ),
+        if (_activeFilterCount > 0)
+          Positioned(
+            right: 4,
+            top: 4,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBBF24),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _activeFilterCount > 9 ? '9+' : '$_activeFilterCount',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -1397,7 +1137,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const SettingsScreen(),
+                                  builder: (ctx) => SettingsScreen(onBack: () => Navigator.pop(ctx)),
                                 ),
                               );
                             },
@@ -1540,10 +1280,8 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                           hintText:
                                               'Search medicines, symptoms, categories...',
                                           prefixIcon: const Icon(Icons.search),
-                                          suffixIcon: IconButton(
-                                            onPressed: _showFilterModal,
-                                            icon: const Icon(Icons.tune),
-                                            tooltip: 'Sort & Filter',
+                                          suffixIcon: _buildFilterTrigger(
+                                            compact: true,
                                           ),
                                           filled: true,
                                           fillColor: const Color(0xFFF3F6FA),
@@ -1565,6 +1303,8 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           ),
                         ),
                       ),
+                    if (_showFilters)
+                      SliverToBoxAdapter(child: _buildFilterPanel()),
                     SliverPersistentHeader(
                       pinned: true,
                       delegate: _StickyHeaderDelegate(
@@ -1693,22 +1433,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                             ),
                             const Spacer(),
-                            if (_searchQuery.isNotEmpty ||
-                                _selectedCategories.isNotEmpty ||
-                                _selectedSubCategory != null)
+                            if (_activeFilterCount > 0)
                               TextButton.icon(
-                                onPressed: () {
-                                  setState(() {
-                                    _searchQuery = '';
-                                    _searchController.clear();
-                                    _selectedCategories.clear();
-                                    _selectedSubCategory = null;
-                                    _priceRange = const RangeValues(0, 50000);
-                                    _minRating = 0.0;
-                                    _sortBy = 'Name';
-                                    _sortAscending = true;
-                                  });
-                                },
+                                onPressed: _clearAllFilters,
                                 icon: const Icon(Icons.close, size: 16),
                                 label: const Text('Clear All'),
                               ),
@@ -2008,8 +1735,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (context) =>
-                                                const SettingsScreen(),
+                                            builder: (ctx) => SettingsScreen(
+                                              onBack: () => Navigator.pop(ctx),
+                                            ),
                                           ),
                                         );
                                       },
@@ -2059,8 +1787,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (context) =>
-                                                  const SettingsScreen(),
+                                              builder: (ctx) => SettingsScreen(
+                                                onBack: () => Navigator.pop(ctx),
+                                              ),
                                             ),
                                           );
                                         } else if (value == 'logout') {
@@ -2293,15 +2022,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                       Icons.search,
                                       color: Colors.grey,
                                     ),
-                                    suffixIcon: IconButton(
-                                      icon: const Icon(
-                                        Icons.sort, // Changed icon to sort
-                                        color: Color(0xFF1E9E68),
-                                        size: 24,
-                                      ),
-                                      onPressed: _showFilterModal,
-                                      tooltip: "Sort & Filter",
-                                    ),
+                                    suffixIcon: _buildFilterTrigger(),
                                     border: InputBorder.none,
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 16,
@@ -2347,6 +2068,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                   ),
                 ),
               ),
+
+              if (_showFilters)
+                SliverToBoxAdapter(child: _buildFilterPanel()),
 
               // Partner Pharmacies Section (Replaces Popular Today)
               if (_searchQuery.isEmpty && _selectedCategories.isEmpty) ...[
@@ -2453,22 +2177,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                         '${_sortedMedicines.length} medicine${_sortedMedicines.length == 1 ? '' : 's'}',
                         style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                       ),
-                      if (_searchQuery.isNotEmpty ||
-                          _selectedCategories.isNotEmpty ||
-                          _selectedSubCategory != null)
+                      if (_activeFilterCount > 0)
                         TextButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _searchQuery = '';
-                              _searchController.clear();
-                              _selectedCategories.clear();
-                              _selectedSubCategory = null;
-                              _priceRange = const RangeValues(0, 50000);
-                              _minRating = 0.0;
-                              _sortBy = 'Name';
-                              _sortAscending = true;
-                            });
-                          },
+                          onPressed: _clearAllFilters,
                           icon: const Icon(
                             Icons.close,
                             size: 16,
@@ -2981,138 +2692,6 @@ class _SearchableListDialogState extends State<_SearchableListDialog> {
                     onTap: () => Navigator.pop(context, filtered[actualIndex]),
                   );
                 },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchableMultiSelectDialog extends StatefulWidget {
-  final String title;
-  final List<String> items;
-  final List<String> selectedItems;
-
-  const _SearchableMultiSelectDialog({
-    required this.title,
-    required this.items,
-    required this.selectedItems,
-  });
-
-  @override
-  State<_SearchableMultiSelectDialog> createState() =>
-      _SearchableMultiSelectDialogState();
-}
-
-class _SearchableMultiSelectDialogState
-    extends State<_SearchableMultiSelectDialog> {
-  String _searchQuery = '';
-  late Set<String> _tempSelected;
-
-  @override
-  void initState() {
-    super.initState();
-    _tempSelected = Set.from(widget.selectedItems);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final filtered = widget.items
-        .where(
-          (item) => item.toLowerCase().contains(_searchQuery.toLowerCase()),
-        )
-        .toList();
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        height: 600,
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  widget.title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            if (_tempSelected.isNotEmpty)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => setState(() => _tempSelected.clear()),
-                  child: const Text(
-                    'Clear All',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-              ),
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Search categories...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-              onChanged: (val) => setState(() => _searchQuery = val),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView.separated(
-                itemCount: filtered.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final item = filtered[index];
-                  final isSelected = _tempSelected.contains(item);
-                  return CheckboxListTile(
-                    title: Text(item),
-                    value: isSelected,
-                    activeColor: const Color(0xFF1E9E68),
-                    onChanged: (val) {
-                      setState(() {
-                        if (val == true) {
-                          _tempSelected.add(item);
-                        } else {
-                          _tempSelected.remove(item);
-                        }
-                      });
-                    },
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E9E68),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: () {
-                  Navigator.pop(context, _tempSelected.toList());
-                },
-                child: Text(
-                  'Done ()',
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                ),
               ),
             ),
           ],

@@ -43,70 +43,7 @@ export default function PharmacistLayout({ children }: { children: React.ReactNo
   const togglePanel = (panel: string) =>
     setActivePanel((prev) => (prev === panel ? null : panel));
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600 animate-pulse">
-        {/* Topbar skeleton */}
-        <div className="h-14 shrink-0 flex items-center justify-between px-4 bg-farumasi-600">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-white/20" />
-            <div className="hidden md:block h-4 w-28 rounded bg-white/20" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-white/20" />
-            <div className="w-8 h-8 rounded-full bg-white/20" />
-            <div className="w-8 h-8 rounded-full bg-white/20" />
-          </div>
-        </div>
-        {/* Body */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Sidebar skeleton */}
-          <div className="hidden md:flex flex-col w-56 shrink-0 bg-farumasi-700/40 p-3 gap-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-xl">
-                <div className="w-5 h-5 rounded bg-white/20 shrink-0" />
-                <div className="h-3 rounded bg-white/20 flex-1" />
-              </div>
-            ))}
-          </div>
-          <div className="w-3 bg-farumasi-600 hidden md:block" />
-          {/* Content skeleton */}
-          <div className="flex-1 bg-[#F6F8FB] rounded-tl-[32px] p-6 space-y-6 overflow-hidden">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1.5">
-                <div className="h-5 w-36 rounded bg-slate-200" />
-                <div className="h-3 w-52 rounded bg-slate-200" />
-              </div>
-              <div className="h-8 w-24 rounded-lg bg-slate-200" />
-            </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-xl border p-4 space-y-3">
-                  <div className="h-3 w-20 rounded bg-slate-200" />
-                  <div className="h-7 w-16 rounded bg-slate-200" />
-                </div>
-              ))}
-            </div>
-            <div className="bg-white rounded-xl border overflow-hidden">
-              <div className="p-4 border-b"><div className="h-4 w-32 rounded bg-slate-200" /></div>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-4 px-4 py-3 border-b last:border-0">
-                  <div className="w-8 h-8 rounded-full bg-slate-200 shrink-0" />
-                  <div className="space-y-1.5 flex-1">
-                    <div className="h-3.5 w-40 rounded bg-slate-200" />
-                    <div className="h-3 w-24 rounded bg-slate-200" />
-                  </div>
-                  <div className="h-5 w-16 rounded-full bg-slate-200" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) return null;
+  if (!isLoading && !isAuthenticated) return null;
 
   // Wrong-portal guard: block pharmacy_admin / partner accounts
   if (user && !ALLOWED_ROLES.has(user.role)) {

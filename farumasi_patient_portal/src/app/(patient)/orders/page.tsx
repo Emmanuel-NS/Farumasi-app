@@ -56,6 +56,7 @@ export default function OrdersPage() {
   const [orders, setOrders]       = useState<Order[]>([]);
   const [archived, setArchived]   = useState<Set<string>>(new Set());
   const [loading, setLoading]     = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [cancelling, setCancelling]     = useState(false);
@@ -77,7 +78,8 @@ export default function OrdersPage() {
     try {
       const res = await ordersService.getMyOrders(0, 50);
       setOrders(res.items.map(adaptOrder));
-    } catch { /* no-op */ }
+      setLoadError(false);
+    } catch { setLoadError(true); }
     finally {
       setLoading(false);
       setRefreshing(false);
@@ -165,6 +167,13 @@ export default function OrdersPage() {
                     <div className="h-3 w-2/3 bg-slate-100 rounded" />
                   </div>
                 ))}
+              </div>
+            ) : loadError ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-3 max-w-sm mx-auto text-center">
+                <span className="text-4xl">⚠️</span>
+                <p className="font-semibold text-slate-700">Couldn&apos;t load orders</p>
+                <p className="text-sm text-slate-500">Check your connection and try again.</p>
+                <button onClick={() => load()} className="mt-2 px-5 py-2 rounded-xl bg-farumasi-600 text-white text-sm font-semibold hover:bg-farumasi-700 transition-colors">Retry</button>
               </div>
             ) : tab === "active" ? (
               activeOrders.length === 0 ? (

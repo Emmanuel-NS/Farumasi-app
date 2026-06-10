@@ -137,10 +137,12 @@ function StorePageInner() {
   const [orderingRecId, setOrderingRecId] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     Promise.all([
       productsService.getAllProducts(),
       productsService.getCategories(),
     ]).then(([prods, cats]) => {
+      if (cancelled) return;
       setMedicines(prods);
       // Count products per category — a product may belong to multiple (comma-separated)
       const countMap: Record<string, number> = {};
@@ -153,11 +155,22 @@ function StorePageInner() {
         .map((c) => ({ name: c.name, icon_name: c.icon_name }))
         .sort((a, b) => (countMap[b.name] ?? 0) - (countMap[a.name] ?? 0));
       setBackendCategories(sorted);
-    }).catch(() => toast.error("Failed to load products")).finally(() => setLoadingProducts(false));
+    }).catch(() => toast.error("Failed to load products")).finally(() => {
+      if (!cancelled) setLoadingProducts(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load sellers after the product grid so the store paints sooner.
+  useEffect(() => {
     let cancelled = false;
     if (pharmacies.length === 0) setSellersLoading(true);
     setSellersError(false);
-    (async () => {
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      (async () => {
       try {
         const [pharmsRes, partnersRes, idsRes] = await Promise.allSettled([
           pharmaciesService.listPharmacies(0, 200),
@@ -205,9 +218,11 @@ function StorePageInner() {
       } finally {
         if (!cancelled) setSellersLoading(false);
       }
-    })();
+      })();
+    }, 0);
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
   }, []);
 
@@ -628,6 +643,8 @@ function StorePageInner() {
                   <button
                     key={cat.name}
                     onClick={() => toggleCategory(cat.name)}
+                    title={getCatLabel(cat.name)}
+                    aria-label={getCatLabel(cat.name)}
                     className="flex flex-col items-center shrink-0 gap-2 hover:opacity-90 transition-opacity"
                     style={{ touchAction: "pan-x" }}
                   >

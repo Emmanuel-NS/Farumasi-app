@@ -18,6 +18,7 @@ class PatientProfileOut(FarumasiBaseModel):
     emergency_contact: Optional[Dict[str, Any]] = None
     allergies: Optional[List[str]] = None
     chronic_conditions: Optional[List[str]] = None
+    has_pin: bool = False
     created_at: datetime
 
 

@@ -1,13 +1,13 @@
 import 'dart:async';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../api/repositories/patient_repository.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
+import '../utils/media_pick_helper.dart';
+import '../widgets/media_attachment_viewer.dart';
 import '../widgets/portal/portal_ui.dart';
 import 'medicine_detail_screen.dart';
 
@@ -300,15 +300,17 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
 
   Future<void> _pickImage() async {
     setState(() => _attachMenuOpen = false);
-    final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (file == null) return;
     try {
-      final bytes = await file.readAsBytes();
-      final url = await PatientRepository.instance.uploadConsultImageBytes(bytes, file.name);
+      final picked = await pickImageBytes();
+      if (picked == null) return;
+      final url = await PatientRepository.instance.uploadConsultImageBytes(
+        picked.bytes,
+        picked.name,
+      );
       if (!mounted) return;
       setState(() {
         _pendingAttachmentUrl = url;
-        _pendingAttachmentName = file.name;
+        _pendingAttachmentName = picked.name;
         _pendingAttachmentType = 'image';
       });
     } catch (e) {
@@ -343,26 +345,17 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
 
   Future<void> _pickDocument() async {
     setState(() => _attachMenuOpen = false);
-    final result = await FilePicker.platform.pickFiles(
-      withData: true,
-      type: FileType.custom,
-      allowedExtensions: const ['pdf', 'doc', 'docx', 'txt', 'png', 'jpg', 'jpeg', 'webp', 'heic'],
-    );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
     try {
-      late final String url;
-      if (file.bytes != null) {
-        url = await PatientRepository.instance.uploadConsultDocumentBytes(file.bytes!, file.name);
-      } else if (file.path != null) {
-        url = await PatientRepository.instance.uploadConsultDocument(file.path!);
-      } else {
-        throw Exception('Could not read file');
-      }
+      final picked = await pickDocumentBytes();
+      if (picked == null) return;
+      final url = await PatientRepository.instance.uploadConsultDocumentBytes(
+        picked.bytes,
+        picked.name,
+      );
       if (!mounted) return;
       setState(() {
         _pendingAttachmentUrl = url;
-        _pendingAttachmentName = file.name;
+        _pendingAttachmentName = picked.name;
         _pendingAttachmentType = 'file';
       });
     } catch (e) {
@@ -899,12 +892,40 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Row(
                     children: [
-                      Icon(
-                        _pendingAttachmentType == 'image' ? Icons.image_outlined : Icons.attach_file,
-                        color: PortalColors.green,
-                      ),
+                      if (_pendingAttachmentType == 'image')
+                        GestureDetector(
+                          onTap: () => showFullScreenImage(
+                            context,
+                            _pendingAttachmentUrl!,
+                            title: _pendingAttachmentName,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              PatientRepository.resolveMediaUrl(_pendingAttachmentUrl),
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  const Icon(Icons.image_outlined, color: PortalColors.green),
+                            ),
+                          ),
+                        )
+                      else
+                        Icon(
+                          _pendingAttachmentType == 'product'
+                              ? Icons.medication_outlined
+                              : Icons.attach_file,
+                          color: PortalColors.green,
+                        ),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(_pendingAttachmentName ?? 'Attachment', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                      Expanded(
+                        child: Text(
+                          _pendingAttachmentName ?? 'Attachment',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       IconButton(
                         onPressed: () => setState(() {
                           _pendingAttachmentUrl = null;
@@ -1011,23 +1032,41 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             if (msg.attachmentType == 'image' && msg.attachmentUrl != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  PatientRepository.resolveMediaUrl(msg.attachmentUrl),
-                  height: 120,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+              GestureDetector(
+                onTap: () => showFullScreenImage(
+                  context,
+                  msg.attachmentUrl!,
+                  title: msg.attachmentName,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Image.network(
+                        PatientRepository.resolveMediaUrl(msg.attachmentUrl),
+                        height: 160,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Icon(Icons.zoom_in, color: Colors.white, size: 18),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            if (msg.attachmentType == 'file')
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.attach_file, size: 16),
-                  const SizedBox(width: 4),
-                  Flexible(child: Text(msg.attachmentName ?? 'Attachment', style: const TextStyle(fontSize: 13))),
-                ],
+            if (msg.attachmentType == 'file' && msg.attachmentUrl != null)
+              AttachmentFileChip(
+                name: msg.attachmentName ?? 'Document',
+                url: msg.attachmentUrl!,
+                isPatientBubble: isMe,
               ),
             if (msg.attachmentType == 'product')
               _ConsultProductAttachmentCard(message: msg),

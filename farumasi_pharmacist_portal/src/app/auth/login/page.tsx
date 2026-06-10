@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
@@ -48,10 +50,10 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-white/20 backdrop-blur mb-3">
-            <span className="text-3xl">💊</span>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white mb-3 shadow-sm">
+            <Image src="/logo.png" alt="FARUMASI" width={36} height={36} className="object-contain" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">FARUMASI</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-wide">FARUMASI</h1>
           <p className="text-white/70 text-sm mt-1 font-medium">Pharmacist Portal</p>
         </div>
 
@@ -103,9 +105,9 @@ export default function LoginPage() {
             </div>
 
             <div className="flex justify-end">
-              <button type="button" className="text-xs text-farumasi-600 font-medium hover:underline">
+              <Link href="/forgot-password" className="text-xs text-farumasi-600 font-medium hover:underline">
                 Forgot password?
-              </button>
+              </Link>
             </div>
 
             <button

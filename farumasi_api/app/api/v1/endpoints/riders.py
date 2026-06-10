@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from typing import Optional
+from pydantic import BaseModel, field_validator
 
 from app.core.constants import UserRole
 from app.core.database import get_db
@@ -21,7 +23,37 @@ from app.schemas.delivery import (
     QRConfirmRequest,
 )
 from app.services.delivery_service import DeliveryService
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError
+
+
+class RiderPayoutRequest(BaseModel):
+    amount: float
+    mobile_number: str
+    payment_method: str = "mtn_momo"
+
+    @field_validator("amount")
+    @classmethod
+    def validate_amount(cls, v: float) -> float:
+        if v < 500:
+            raise ValueError("Minimum payout is 500 RWF")
+        return round(v, 2)
+
+    @field_validator("mobile_number")
+    @classmethod
+    def validate_mobile(cls, v: str) -> str:
+        digits = "".join(c for c in v if c.isdigit())
+        if len(digits) < 9:
+            raise ValueError("Mobile number must have at least 9 digits")
+        return v
+
+
+class RiderPayoutOut(BaseModel):
+    id: str
+    status: str
+    amount: float
+    mobile_number: str
+    payment_method: str
+    message: str
 
 router = APIRouter()
 
@@ -169,4 +201,87 @@ async def my_earnings(
 ):
     rider = await _get_rider(current_user.id, db)
     return await DeliveryService(db).compute_rider_earnings(rider)
+
+
+@router.post("/me/payout-request", response_model=RiderPayoutOut, status_code=201)
+async def request_rider_payout(
+    data: RiderPayoutRequest,
+    current_user: User = Depends(require_roles(UserRole.RIDER)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Submit a payout request for accumulated rider earnings.
+
+    Per-trip riders can request a payout of their pending earnings via
+    MTN MoMo or Airtel Money.  The request is queued for finance team approval.
+    """
+    import uuid as _uuid
+
+    from app.core.constants import WithdrawalStatus
+    from app.models.revenue import WithdrawalRequest
+
+    rider = await _get_rider(current_user.id, db)
+    earnings = await DeliveryService(db).compute_rider_earnings(rider)
+    pending = float(earnings.get("pending_payout", 0) if isinstance(earnings, dict) else getattr(earnings, "pending_payout", 0))
+
+    if data.amount > pending:
+        raise ValidationError(
+            f"Requested amount ({data.amount:.0f} RWF) exceeds available balance ({pending:.0f} RWF)"
+        )
+
+    from app.services.notification_service import NotificationService
+    from app.services.audit_service import AuditService
+
+    withdrawal = WithdrawalRequest(
+        id=str(_uuid.uuid4()),
+        requester_user_id=current_user.id,
+        amount=data.amount,
+        payout_method=data.payment_method,
+        payout_details={
+            "mobile_number": data.mobile_number,
+            "rider_id": rider.id,
+            "request_type": "rider_payout",
+        },
+        status=WithdrawalStatus.PENDING,
+    )
+    db.add(withdrawal)
+    await db.flush()
+
+    await AuditService(db).log(
+        actor_user_id=current_user.id,
+        action="rider.payout_request",
+        entity_type="WithdrawalRequest",
+        entity_id=withdrawal.id,
+        new_value={
+            "amount": data.amount,
+            "mobile_number": data.mobile_number,
+            "payment_method": data.payment_method,
+        },
+    )
+
+    from app.models.user import User as UserModel
+    from sqlalchemy import select as _select
+
+    finance_res = await db.execute(
+        _select(UserModel).where(UserModel.role.in_(["finance_admin", "super_admin"]))
+    )
+    finance_users = finance_res.scalars().all()
+    ns = NotificationService(db)
+    for fu in finance_users:
+        await ns.send(
+            user_id=fu.id,
+            title="Rider Payout Request",
+            message=f"Rider #{rider.id[-6:]} requested {data.amount:.0f} RWF payout to {data.mobile_number} via {data.payment_method}.",
+            category="payment",
+        )
+
+    await db.commit()
+
+    return RiderPayoutOut(
+        id=withdrawal.id,
+        status=withdrawal.status,
+        amount=data.amount,
+        mobile_number=data.mobile_number,
+        payment_method=data.payment_method,
+        message="Your payout request has been submitted and will be processed within 1–2 business days.",
+    )
 

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { DateRangeFilter, type DateRangeValue, RANGE_LABELS } from "@/components/shared/date-range-filter";
+import { DateRangeFilter, type DateRangeValue, RANGE_LABELS, getDateRangeStart } from "@/components/shared/date-range-filter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RevenueChart } from "@/components/charts/revenue-chart";
@@ -56,40 +56,59 @@ export default function DashboardPage() {
   const user = useAuthStore(s => s.user);
   const [range, setRange] = useState<DateRangeValue>("month");
   const [orders, setOrders] = useState<BackendOrder[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState(0);
   const [listings, setListings] = useState<BackendListing[]>([]);
+  const [listingsTotal, setListingsTotal] = useState(0);
   const [revenue, setRevenue] = useState<BackendRevenueRecord[]>([]);
   const [revenueSummary, setRevenueSummary] = useState<BackendRevenueSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Initial load: listings, revenue summary (not range-dependent)
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     Promise.all([
-      ordersService.listPartnerOrders({ offset: 0, limit: 100 }),
       listingsService.listMyListings({ offset: 0, limit: 100 }),
       revenueService.listTransactions().catch(() => [] as BackendRevenueRecord[]),
       revenueService.getSummary().catch(() => null),
     ])
-      .then(([o, l, r, summary]) => {
+      .then(([l, r, summary]) => {
         if (cancelled) return;
-        setOrders(o.items);
         setListings(l.items);
+        setListingsTotal(l.total);
         setRevenue(r);
         setRevenueSummary(summary);
       })
       .catch(err => {
         if (cancelled) return;
         toast.error(getApiError(err, "Failed to load dashboard"));
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Orders reload when range changes — use from_date to get full chart data for the period
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const fromDate = getDateRangeStart(range).toISOString();
+    ordersService.listPartnerOrders({ offset: 0, limit: 100, from_date: fromDate })
+      .then(o => {
+        if (cancelled) return;
+        setOrders(o.items);
+        setOrdersTotal(o.total);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        toast.error(getApiError(err, "Failed to load orders"));
       })
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, []);
+  }, [range]);
 
   const kpis = useMemo(() => {
     const inProgressOrders = orders.filter(o =>
       IN_PROGRESS_STATUSES.has((o.status || o.order_status || "").toLowerCase()),
     ).length;
-    const totalProducts = listings.length;
+    const totalProducts = listingsTotal || listings.length;
     const activeListings = listings.filter(l => uiStatus(l) === "available").length;
     const lowStockCount = listings.filter(l => {
       const s = uiStatus(l);
@@ -103,23 +122,44 @@ export default function DashboardPage() {
       activeListings,
       lowStockCount,
     };
-  }, [orders, listings, revenueSummary]);
+  }, [orders, listings, listingsTotal, revenueSummary]);
 
-  // Build orders chart: last 7 days by date
+  // Build orders chart filtered by the selected date range (mirrors buildRevenueChartData)
   const ordersChart = useMemo<ChartDataPoint[]>(() => {
-    const map: Record<string, number> = {};
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now); d.setDate(d.getDate() - i);
-      const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      map[key] = 0;
+    const start = getDateRangeStart(range);
+    const rows: { label: string; value: number; sortKey: number }[] = [];
+    const index = new Map<string, number>();
+
+    for (const o of orders) {
+      const d = new Date(o.created_at);
+      if (d < start) continue;
+
+      let label: string;
+      let sortKey: number;
+
+      if (range === "today" || range === "week" || range === "14d") {
+        label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        sortKey = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      } else if (range === "month") {
+        label = `${d.toLocaleDateString("en-US", { month: "short" })} ${d.getDate()}`;
+        sortKey = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      } else {
+        label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+        sortKey = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+      }
+
+      const key = String(sortKey);
+      if (!index.has(key)) {
+        index.set(key, rows.length);
+        rows.push({ label, value: 0, sortKey });
+      }
+      rows[index.get(key)!].value += 1;
     }
-    orders.forEach(o => {
-      const key = new Date(o.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      if (key in map) map[key] = (map[key] || 0) + 1;
-    });
-    return Object.entries(map).map(([label, value]) => ({ label, value }));
-  }, [orders]);
+
+    return rows
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ label, value }) => ({ label, value }));
+  }, [orders, range]);
 
   const revenueChart = useMemo<ChartDataPoint[]>(() => {
     return buildRevenueChartData(revenue, range);
@@ -219,8 +259,8 @@ export default function DashboardPage() {
           <CardContent>
             <OrdersChart data={ordersChart} height={180} />
             <div className="flex items-center justify-between mt-3 pt-3 border-t">
-              <span className="text-xs text-muted-foreground">Total tracked</span>
-              <span className="text-sm font-bold text-foreground">{orders.length}</span>
+              <span className="text-xs text-muted-foreground">All orders (total)</span>
+              <span className="text-sm font-bold text-foreground">{ordersTotal}</span>
             </div>
           </CardContent>
         </Card>

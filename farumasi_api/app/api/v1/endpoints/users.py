@@ -1,8 +1,9 @@
 from typing import List, Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.constants import UserStatus
@@ -69,20 +70,26 @@ async def update_my_notification_preferences(
     return data
 
 
-# ── Data export (stub: queues an email-delivery request) ────────────────────
+# ── Data export ────────────────────────────────────────────────────────────
 @router.post("/me/export-data", status_code=202)
 async def request_data_export(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.models.data_export_job import DataExportJob
+
+    job = DataExportJob(user_id=current_user.id, status="pending")
+    db.add(job)
+    await db.flush()
     await AuditService(db).log(
         actor_user_id=current_user.id,
         action="user.data_export.request",
-        entity_type="User",
-        entity_id=current_user.id,
+        entity_type="DataExportJob",
+        entity_id=job.id,
     )
     return {
         "status": "queued",
+        "job_id": job.id,
         "message": f"We are preparing your data export and will email it to {current_user.email} within 48 hours.",
     }
 
@@ -101,6 +108,22 @@ async def delete_my_account(
     current_user.status = UserStatus.ARCHIVED
     current_user.deleted_at = now
     current_user.session_invalidated_at = now
+
+    # Purge prescription upload URLs for this patient (retain metadata for compliance window).
+    from app.models.patient import PatientProfile
+    from app.models.prescription import DigitalPrescription
+
+    patient_res = await db.execute(
+        select(PatientProfile).where(PatientProfile.user_id == current_user.id)
+    )
+    patient = patient_res.scalar_one_or_none()
+    if patient:
+        rx_res = await db.execute(
+            select(DigitalPrescription).where(DigitalPrescription.patient_id == patient.id)
+        )
+        for rx in rx_res.scalars():
+            rx.uploaded_file_url = None
+
     await db.flush()
     await AuditService(db).log(
         actor_user_id=current_user.id,

@@ -37,7 +37,7 @@ class UserService:
             from app.core.exceptions import PermissionDenied
             raise PermissionDenied("You may only edit your own profile")
 
-        old_snapshot = {"first_name": user.first_name, "last_name": user.last_name, "phone": user.phone}
+        old_snapshot = {"full_name": user.full_name, "phone": user.phone}
 
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(user, field, value)

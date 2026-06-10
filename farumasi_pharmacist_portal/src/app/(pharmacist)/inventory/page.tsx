@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -2562,19 +2562,21 @@ export default function InventoryPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Products load independently so a pharmacy-list failure never blocks the catalogue.
       try {
-        const [prodResult, pharmResult] = await Promise.all([
-          productsService.searchProducts({ limit: 100 }),
-          pharmaciesService.listAll(),
-        ]);
-        if (cancelled) return;
-        setProducts(prodResult.items);
-        setPharmacyMap(new Map(pharmResult.items.map((p: BackendPharmacy) => [p.id, p.name])));
+        const prodResult = await productsService.searchProducts({ limit: 100, include_unapproved: true });
+        if (!cancelled) setProducts(prodResult.items);
       } catch {
         if (!cancelled) toast.error("Could not load products");
       } finally {
         if (!cancelled) setLoading(false);
       }
+      // Pharmacy map is best-effort (used for name display only).
+      pharmaciesService.listAll()
+        .then(({ items }) => {
+          if (!cancelled) setPharmacyMap(new Map(items.map((p: BackendPharmacy) => [p.id, p.name])));
+        })
+        .catch(() => { /* non-critical — name lookup degrades gracefully */ });
     })();
     return () => { cancelled = true; };
   }, []);

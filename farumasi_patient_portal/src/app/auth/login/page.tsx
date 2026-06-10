@@ -185,7 +185,7 @@ export default function LoginPage() {
 
             {tab === "login" && (
               <div className="flex items-center justify-end pt-0.5">
-                <Link href="#" className="text-xs text-farumasi-600 font-semibold hover:underline">Forgot?</Link>
+                <Link href="/forgot-password" className="text-xs text-farumasi-600 font-semibold hover:underline">Forgot?</Link>
               </div>
             )}
 

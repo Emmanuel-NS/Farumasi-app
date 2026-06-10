@@ -289,6 +289,12 @@ class PrescriptionService:
     ) -> DigitalPrescription:
         rx = await self._get_or_404(prescription_id)
         await self._assert_can_view_async(rx, actor)
+        await AuditService(self.db).log(
+            actor_user_id=actor.id,
+            action="prescription.viewed",
+            entity_type="DigitalPrescription",
+            entity_id=rx.id,
+        )
         return rx
 
     async def list_prescriptions(
@@ -519,6 +525,13 @@ class PrescriptionService:
         # Reflect review outcome on the prescription
         if data.review_status == ReviewStatus.APPROVED:
             rx.status = PrescriptionStatus.REVIEWED
+            from datetime import datetime, timedelta, timezone
+
+            from app.services.platform_settings_service import PlatformSettingsService
+
+            cfg = await PlatformSettingsService(self.db).get_delivery_config()
+            days = int(cfg.get("prescription_valid_days", 90))
+            rx.valid_until = datetime.now(timezone.utc) + timedelta(days=days)
         elif data.review_status == ReviewStatus.CLARIFICATION_NEEDED:
             rx.status = PrescriptionStatus.UNDER_REVIEW
         elif data.review_status == ReviewStatus.REJECTED:
@@ -573,6 +586,13 @@ class PrescriptionService:
             rx = await self._get_or_404(review.prescription_id)
             if data.review_status == ReviewStatus.APPROVED:
                 rx.status = PrescriptionStatus.REVIEWED
+                from datetime import datetime, timedelta, timezone
+
+                from app.services.platform_settings_service import PlatformSettingsService
+
+                cfg = await PlatformSettingsService(self.db).get_delivery_config()
+                days = int(cfg.get("prescription_valid_days", 90))
+                rx.valid_until = datetime.now(timezone.utc) + timedelta(days=days)
             elif data.review_status == ReviewStatus.CLARIFICATION_NEEDED:
                 rx.status = PrescriptionStatus.UNDER_REVIEW
             elif data.review_status == ReviewStatus.REJECTED:

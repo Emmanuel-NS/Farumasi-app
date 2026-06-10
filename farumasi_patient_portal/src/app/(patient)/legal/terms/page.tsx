@@ -1,7 +1,7 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
-export const metadata = { title: "Terms of Service · Farumasi" };
+export const metadata = { title: "Terms of Service Â· Farumasi" };
 
 export default function TermsPage() {
   return (
@@ -34,7 +34,7 @@ export default function TermsPage() {
                 To serve you safely, Farumasi needs to collect and share certain personal information with the licensed pharmacists, doctors, and riders who fulfill your request. By using the app, <strong>you agree to provide details such as your full name, contact information, delivery address, prescriptions, medications, allergies, and relevant health information</strong> whenever they are needed to process an order or consultation.
               </p>
               <p className="text-sm text-farumasi-900/90 mt-2 leading-relaxed">
-                We treat this information as strictly confidential. It is encrypted in transit, accessible only to the healthcare professionals directly involved in your care, and never sold to advertisers. You can review, export, or delete your data at any time from <Link href="/settings" className="font-semibold underline">Settings → Data &amp; Privacy</Link>.
+                We treat this information as strictly confidential. It is encrypted in transit, accessible only to the healthcare professionals directly involved in your care, and never sold to advertisers. You can review, export, or delete your data at any time from <Link href="/settings" className="font-semibold underline">Settings â†’ Data &amp; Privacy</Link>.
               </p>
             </div>
           </div>
@@ -45,11 +45,11 @@ export default function TermsPage() {
         </section>
         <section>
           <h2 className="text-base font-bold text-slate-900">5. Acceptable use</h2>
-          <p>You agree not to misuse the platform — including attempting to obtain controlled substances fraudulently, reselling medicine, or interfering with the service.</p>
+          <p>You agree not to misuse the platform â€” including attempting to obtain controlled substances fraudulently, reselling medicine, or interfering with the service.</p>
         </section>
         <section>
           <h2 className="text-base font-bold text-slate-900">6. Termination</h2>
-          <p>You may close your account at any time from Settings → Data & Privacy. We may suspend accounts that violate these Terms.</p>
+          <p>You may close your account at any time from Settings â†’ Data & Privacy. We may suspend accounts that violate these Terms.</p>
         </section>
         <section>
           <h2 className="text-base font-bold text-slate-900">7. Contact</h2>

@@ -7,9 +7,17 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "FARUMASI — Patient Portal",
+  title: {
+    template: "%s | FARUMASI",
+    default: "FARUMASI — Patient Portal",
+  },
   description: "Your trusted pharmacy and healthcare coordination platform",
   manifest: "/manifest.json",
+  themeColor: "#1E9E68",
+  appleWebApp: {
+    capable: true,
+    title: "FARUMASI",
+  },
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",

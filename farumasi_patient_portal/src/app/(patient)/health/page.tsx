@@ -113,6 +113,7 @@ export default function HealthPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [ARTICLES, setArticles] = useState<HealthArticle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [savedOnly, setSavedOnly] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | ArticleType>("all");
   const [sortBy, setSortBy] = useState<ArticleSort>("newest");
@@ -127,8 +128,8 @@ export default function HealthPage() {
           articleType: typeFilter !== "all" ? typeFilter : undefined,
         });
     promise
-      .then((items) => setArticles(items))
-      .catch(() => setArticles([]))
+      .then((items) => { setArticles(items); setLoadError(false); })
+      .catch(() => { setArticles([]); setLoadError(true); })
       .finally(() => setLoading(false));
   }, [savedOnly, sortBy, typeFilter]);
 
@@ -305,6 +306,18 @@ export default function HealthPage() {
           <div className="flex flex-col items-center justify-center py-24">
             <div className="w-10 h-10 border-2 border-farumasi-600 border-t-transparent rounded-full animate-spin mb-3" />
             <p className="text-slate-500 text-sm">Loading articles…</p>
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center gap-3">
+            <span className="text-5xl">⚠️</span>
+            <p className="font-semibold text-slate-700">Couldn&apos;t load articles</p>
+            <p className="text-sm text-slate-500">Check your connection and try again.</p>
+            <button
+              onClick={fetchArticles}
+              className="mt-2 px-5 py-2 rounded-xl bg-farumasi-600 text-white text-sm font-semibold hover:bg-farumasi-700 transition-colors"
+            >
+              Retry
+            </button>
           </div>
         ) : articles.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">

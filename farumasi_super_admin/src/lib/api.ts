@@ -7,8 +7,11 @@ const api = axios.create({ baseURL: BASE_URL, timeout: 20_000 });
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    const isAuthRoute =
-      config.url?.includes("/auth/login") || config.url?.includes("/auth/register");
+      const isAuthRoute =
+        config.url?.includes("/auth/login") ||
+        config.url?.includes("/auth/register") ||
+        config.url?.includes("/auth/forgot-password") ||
+        config.url?.includes("/auth/reset-password");
     if (!isAuthRoute) {
       const token = localStorage.getItem(TOKEN_KEY);
       if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -21,8 +24,11 @@ api.interceptors.response.use(
   (r) => r,
   (err) => {
     if (err.response?.status === 401 && typeof window !== "undefined") {
-      const onLogin = window.location.pathname.startsWith("/login");
-      if (!onLogin) {
+      const onAuthPage =
+        window.location.pathname.startsWith("/login") ||
+        window.location.pathname.startsWith("/forgot-password") ||
+        window.location.pathname.startsWith("/reset-password");
+      if (!onAuthPage) {
         localStorage.removeItem(TOKEN_KEY);
         window.location.href = "/login";
       }

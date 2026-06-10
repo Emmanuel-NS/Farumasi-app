@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { authService, getApiError } from "@/lib/services/auth.service";
@@ -96,6 +97,12 @@ export default function LoginPage() {
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Link href="/forgot-password" className="text-xs text-farumasi-600 font-medium hover:underline">
+                Forgot password?
+              </Link>
             </div>
 
             {error && (

@@ -15,6 +15,9 @@ import {
   MapPinned,
   ShieldCheck,
   Store,
+  Eye,
+  EyeOff,
+  KeyRound,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PendingChangeRequestsCard } from "@/components/shared/pending-change-requests";
@@ -41,6 +44,7 @@ import {
   type SellerChangeRequest,
 } from "@/lib/services/seller-change-requests.service";
 import { useAuthStore } from "@/lib/store/auth";
+import { authService } from "@/lib/services/auth.service";
 
 interface PharmacyProfile {
   id: string;
@@ -78,6 +82,9 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<PartnerCompanyUpdatePayload>({});
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [pwShow, setPwShow] = useState({ current: false, next: false });
+  const [pwSaving, setPwSaving] = useState(false);
 
   useEffect(() => {
     if (!user?.role) return;
@@ -167,6 +174,23 @@ export default function SettingsPage() {
       toast.error(getApiError(err, "Failed to save"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const changePassword = async () => {
+    const { current, next, confirm } = pwForm;
+    if (!current || !next || !confirm) { toast.error("Fill all password fields"); return; }
+    if (next.length < 8) { toast.error("New password must be at least 8 characters"); return; }
+    if (next !== confirm) { toast.error("Passwords don't match"); return; }
+    setPwSaving(true);
+    try {
+      await authService.changePassword(current, next);
+      toast.success("Password changed successfully");
+      setPwForm({ current: "", next: "", confirm: "" });
+    } catch (err: unknown) {
+      toast.error(getApiError(err, "Failed to change password"));
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -402,22 +426,81 @@ export default function SettingsPage() {
                     <Lock className="w-4 h-4 text-farumasi-600" /> Login account
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <p>
-                    <span className="text-muted-foreground">Signed in as </span>
-                    <span className="font-medium">{user?.full_name ?? user?.email}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
-                  <Badge variant="outline" className="capitalize font-normal">
-                    {user?.role?.replace(/_/g, " ")}
-                  </Badge>
-                  <p className="text-[11px] text-muted-foreground pt-1">
-                    Agreement copies and withdrawal history are in{" "}
-                    <Link href="/requests" className="text-farumasi-600 font-medium hover:underline">
-                      Requests
-                    </Link>
-                    .
-                  </p>
+                <CardContent className="space-y-4 text-sm">
+                  <div className="space-y-1">
+                    <p>
+                      <span className="text-muted-foreground">Signed in as </span>
+                      <span className="font-medium">{user?.full_name ?? user?.email}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                    <Badge variant="outline" className="capitalize font-normal">
+                      {user?.role?.replace(/_/g, " ")}
+                    </Badge>
+                    <p className="text-[11px] text-muted-foreground pt-1">
+                      Agreement copies and withdrawal history are in{" "}
+                      <Link href="/requests" className="text-farumasi-600 font-medium hover:underline">
+                        Requests
+                      </Link>
+                      .
+                    </p>
+                  </div>
+
+                  <div className="border-t pt-4 space-y-3">
+                    <p className="font-medium flex items-center gap-1.5 text-sm">
+                      <KeyRound className="w-3.5 h-3.5 text-farumasi-600" /> Change Password
+                    </p>
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Input
+                          type={pwShow.current ? "text" : "password"}
+                          placeholder="Current password"
+                          value={pwForm.current}
+                          onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
+                          className="pr-9 text-sm"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setPwShow((s) => ({ ...s, current: !s.current }))}
+                        >
+                          {pwShow.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          type={pwShow.next ? "text" : "password"}
+                          placeholder="New password (min 8 characters)"
+                          value={pwForm.next}
+                          onChange={(e) => setPwForm({ ...pwForm, next: e.target.value })}
+                          className="pr-9 text-sm"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setPwShow((s) => ({ ...s, next: !s.next }))}
+                        >
+                          {pwShow.next ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <Input
+                        type="password"
+                        placeholder="Confirm new password"
+                        value={pwForm.confirm}
+                        onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
+                        className="text-sm"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={changePassword}
+                      disabled={pwSaving}
+                      className="w-full gap-1.5"
+                    >
+                      {pwSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+                      Update password
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>

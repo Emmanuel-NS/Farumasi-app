@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { api } from "@/lib/api";
 
 async function sha256(text: string): Promise<string> {
   const enc = new TextEncoder().encode(text);
@@ -68,6 +69,11 @@ export const usePinStore = create<PinStore>()(
         const hash = await sha256(pin);
         const pinsByUser = { ...get().pinsByUser, [userId]: hash };
         set({ pinsByUser, pinHash: hash, isLocked: false });
+        try {
+          await api.put("/patients/me/pin", { pin });
+        } catch {
+          /* keep local hash; server sync retried on next change */
+        }
       },
 
       changePin: async (currentPin, newPin) => {
@@ -79,6 +85,14 @@ export const usePinStore = create<PinStore>()(
         const hash = await sha256(newPin);
         const pinsByUser = { ...get().pinsByUser, [userId]: hash };
         set({ pinsByUser, pinHash: hash });
+        try {
+          await api.put("/patients/me/pin/change", {
+            current_pin: currentPin,
+            new_pin: newPin,
+          });
+        } catch {
+          /* local hash updated */
+        }
         return true;
       },
 
@@ -100,6 +114,11 @@ export const usePinStore = create<PinStore>()(
         const pinsByUser = { ...get().pinsByUser };
         delete pinsByUser[userId];
         set({ pinsByUser, pinHash: null, isLocked: false });
+        try {
+          await api.delete("/patients/me/pin", { data: { pin } });
+        } catch {
+          /* cleared locally */
+        }
         return true;
       },
 

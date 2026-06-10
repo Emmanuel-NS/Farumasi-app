@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import EmailStr, Field
 
@@ -47,12 +47,14 @@ class UserOut(FarumasiBaseModel):
     email_verified: bool = False
     phone_verified: bool = False
     must_change_password: bool = False
+    preferred_language: str = "en"
 
 
 class UserUpdateRequest(FarumasiBaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     profile_image_url: Optional[str] = None
+    preferred_language: Optional[Literal["en", "rw", "fr", "sw"]] = None
 
 
 class UserStatusUpdate(FarumasiBaseModel):
@@ -73,6 +75,19 @@ class ChangePasswordRequest(FarumasiBaseModel):
 class DeleteAccountRequest(FarumasiBaseModel):
     password: str = Field(min_length=1)
     reason: Optional[str] = None
+
+
+class PinSetRequest(FarumasiBaseModel):
+    pin: str = Field(min_length=4, max_length=8)
+
+
+class PinVerifyRequest(FarumasiBaseModel):
+    pin: str = Field(min_length=4, max_length=8)
+
+
+class PinChangeRequest(FarumasiBaseModel):
+    current_pin: str = Field(min_length=4, max_length=8)
+    new_pin: str = Field(min_length=4, max_length=8)
 
 
 # Aliases used by endpoints

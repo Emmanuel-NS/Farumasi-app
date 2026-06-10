@@ -1,7 +1,7 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ChevronLeft, Mail, MessageCircle, Phone } from "lucide-react";
 
-export const metadata = { title: "Help & Support · Farumasi" };
+export const metadata = { title: "Help & Support Â· Farumasi" };
 
 const FAQ = [
   {
@@ -10,7 +10,7 @@ const FAQ = [
   },
   {
     q: "Can I upload a prescription?",
-    a: "Yes. Go to Prescriptions → New, then upload a photo or PDF. A licensed pharmacist will review it before dispensing.",
+    a: "Yes. Go to Prescriptions â†’ New, then upload a photo or PDF. A licensed pharmacist will review it before dispensing.",
   },
   {
     q: "How long does delivery take?",
@@ -22,7 +22,7 @@ const FAQ = [
   },
   {
     q: "How do I cancel an order?",
-    a: "Open the order from Orders → tap Cancel. Cancellation is free until the pharmacy starts preparing your items.",
+    a: "Open the order from Orders â†’ tap Cancel. Cancellation is free until the pharmacy starts preparing your items.",
   },
 ];
 
@@ -47,7 +47,7 @@ export default function HelpPage() {
           <details key={item.q} className="bg-white rounded-2xl border border-slate-100 p-4 group">
             <summary className="text-sm font-semibold text-slate-800 cursor-pointer list-none flex items-center justify-between">
               {item.q}
-              <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
+              <span className="text-slate-400 group-open:rotate-180 transition-transform">â–¾</span>
             </summary>
             <p className="text-sm text-slate-600 mt-2 leading-relaxed">{item.a}</p>
           </details>

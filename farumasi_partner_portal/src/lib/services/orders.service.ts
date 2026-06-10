@@ -110,6 +110,7 @@ export const ordersService = {
     offset?: number;
     limit?: number;
     status?: string;
+    from_date?: string;
   }): Promise<PaginatedOrders> {
     const { data } = await api.get<PaginatedOrders>(`${getSellerMeBase()}/orders`, { params });
     return { ...data, items: data.items.map(norm) };

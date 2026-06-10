@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../api/repositories/patient_repository.dart';
 import '../models/models.dart';
 import '../services/state_service.dart';
 import '../utils/product_cart_flow.dart';
@@ -69,7 +70,7 @@ class MedicineItem extends StatelessWidget {
                             ),
                             child: medicine.imageUrl.isNotEmpty
                                 ? Image.network(
-                              medicine.imageUrl,
+                              PatientRepository.resolveMediaUrl(medicine.imageUrl),
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,

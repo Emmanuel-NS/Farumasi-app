@@ -13,7 +13,59 @@ const _kPayment = 'payment';
 const _kAlert = 'alert';
 
 class RiderNotificationsScreen extends ConsumerWidget {
-  const RiderNotificationsScreen({super.key});
+  /// Called after popping when a delivery-type notification is tapped.
+  /// If null, pops and shows a snackbar hint instead.
+  final VoidCallback? onDeliveryTapped;
+
+  /// Called after popping when a payment-type notification is tapped.
+  /// If null, pops and shows a snackbar hint instead.
+  final VoidCallback? onPaymentTapped;
+
+  const RiderNotificationsScreen({
+    super.key,
+    this.onDeliveryTapped,
+    this.onPaymentTapped,
+  });
+
+  void _handleTap(
+      BuildContext context, WidgetRef ref, RiderNotificationItem n) {
+    ref.read(riderProvider.notifier).markNotificationRead(n.id);
+
+    switch (n.type) {
+      case _kDelivery:
+        // Capture messenger before pop to keep the reference valid
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.pop(context);
+        if (onDeliveryTapped != null) {
+          onDeliveryTapped!();
+        } else {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Check Home tab for new deliveries.'),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      case _kPayment:
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.pop(context);
+        if (onPaymentTapped != null) {
+          onPaymentTapped!();
+        } else {
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Check the Earnings tab for payment details.'),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      default:
+        // 'alert', 'system' — already marked read, no navigation needed
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -79,9 +131,7 @@ class RiderNotificationsScreen extends ConsumerWidget {
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (_, i) => _NotificationTile(
                 notification: notifications[i],
-                onTap: () => ref
-                    .read(riderProvider.notifier)
-                    .markNotificationRead(notifications[i].id),
+                onTap: () => _handleTap(context, ref, notifications[i]),
               ),
             ),
     );

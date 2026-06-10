@@ -23,7 +23,9 @@ async def _get_patient(user_id: str, db: AsyncSession) -> PatientProfile:
 
 @router.get("/me", response_model=PatientProfileOut)
 async def get_my_profile(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await _get_patient(current_user.id, db)
+    patient = await _get_patient(current_user.id, db)
+    base = PatientProfileOut.model_validate(patient)
+    return base.model_copy(update={"has_pin": bool(patient.pin_hash)})
 
 
 @router.put("/me", response_model=PatientProfileOut)
@@ -205,4 +207,90 @@ async def get_my_order_delivery_qr(
     db: AsyncSession = Depends(get_db),
 ):
     return await DeliveryService(db).get_qr_for_patient(order_id, current_user)
+
+
+# ── Server-synced PIN (matches portal / app SHA-256 hashes) ───────────────
+import hashlib  # noqa: E402
+
+from app.core.exceptions import AuthenticationError, ValidationError  # noqa: E402
+from app.schemas.user import PinChangeRequest, PinSetRequest, PinVerifyRequest  # noqa: E402
+from app.services.audit_service import AuditService  # noqa: E402
+
+
+def _hash_pin(pin: str) -> str:
+    return hashlib.sha256(pin.encode("utf-8")).hexdigest()
+
+
+@router.put("/me/pin", status_code=200)
+async def set_my_pin(
+    data: PinSetRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    patient = await _get_patient(current_user.id, db)
+    patient.pin_hash = _hash_pin(data.pin)
+    await db.flush()
+    await AuditService(db).log(
+        actor_user_id=current_user.id,
+        action="patient.pin.set",
+        entity_type="PatientProfile",
+        entity_id=patient.id,
+    )
+    return {"status": "ok", "has_pin": True}
+
+
+@router.post("/me/pin/verify", status_code=200)
+async def verify_my_pin(
+    data: PinVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    patient = await _get_patient(current_user.id, db)
+    if not patient.pin_hash:
+        return {"status": "ok", "verified": True}
+    if _hash_pin(data.pin) != patient.pin_hash:
+        raise AuthenticationError("Incorrect PIN")
+    return {"status": "ok", "verified": True}
+
+
+@router.put("/me/pin/change", status_code=200)
+async def change_my_pin(
+    data: PinChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    patient = await _get_patient(current_user.id, db)
+    if not patient.pin_hash:
+        raise ValidationError("No PIN is set")
+    if _hash_pin(data.current_pin) != patient.pin_hash:
+        raise AuthenticationError("Current PIN is incorrect")
+    patient.pin_hash = _hash_pin(data.new_pin)
+    await db.flush()
+    await AuditService(db).log(
+        actor_user_id=current_user.id,
+        action="patient.pin.change",
+        entity_type="PatientProfile",
+        entity_id=patient.id,
+    )
+    return {"status": "ok"}
+
+
+@router.delete("/me/pin", status_code=200)
+async def clear_my_pin(
+    data: PinVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    patient = await _get_patient(current_user.id, db)
+    if patient.pin_hash and _hash_pin(data.pin) != patient.pin_hash:
+        raise AuthenticationError("Incorrect PIN")
+    patient.pin_hash = None
+    await db.flush()
+    await AuditService(db).log(
+        actor_user_id=current_user.id,
+        action="patient.pin.clear",
+        entity_type="PatientProfile",
+        entity_id=patient.id,
+    )
+    return {"status": "ok", "has_pin": False}
 

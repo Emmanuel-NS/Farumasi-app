@@ -2,9 +2,21 @@ from __future__ import annotations
 
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
+
+# Maps notification category values to the corresponding key inside
+# notification_prefs["events"].  Only categories listed here are subject to
+# preference gating; any other category is always delivered.
+_CATEGORY_TO_PREF_KEY: dict[str, str] = {
+    "order": "orders",
+    "delivery": "orders",
+    "prescription": "reminders",
+    "payment": "orders",
+    "general": "app_updates",
+}
 
 
 class NotificationService:
@@ -18,7 +30,27 @@ class NotificationService:
         message: str,
         category: Optional[str] = None,
         action_url: Optional[str] = None,
-    ) -> Notification:
+    ) -> Optional[Notification]:
+        """Insert a notification for *user_id* and return it.
+
+        Returns ``None`` (without inserting) when the user has explicitly
+        disabled the relevant event category in their notification preferences.
+        """
+        if category is not None:
+            pref_key = _CATEGORY_TO_PREF_KEY.get(category)
+            if pref_key is not None:
+                from app.models.user import User
+
+                result = await self.db.execute(
+                    select(User.notification_prefs).where(User.id == user_id)
+                )
+                prefs = result.scalar_one_or_none()
+                if isinstance(prefs, dict):
+                    events: dict = prefs.get("events", {})
+                    # Default is True (enabled); only skip when explicitly False.
+                    if events.get(pref_key, True) is False:
+                        return None
+
         notif = Notification(
             user_id=user_id,
             title=title,
@@ -60,11 +92,17 @@ class NotificationService:
         *,
         order_code: Optional[str] = None,
     ) -> None:
+        from app.models.user import User
+        from app.utils.notification_i18n import localized_order_status
+
         code = order_code or order_id[:8].upper()
+        user = await self.db.get(User, patient_user_id)
+        lang = getattr(user, "preferred_language", None) if user else None
+        title, message = localized_order_status(lang, code=code, status=status)
         await self.send(
             patient_user_id,
-            "Order Update",
-            f"Your order #{code} status has changed to: {status}.",
+            title,
+            message,
             category="order",
             action_url=f"/orders/{order_id}",
         )
