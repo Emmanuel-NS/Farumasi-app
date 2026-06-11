@@ -556,6 +556,20 @@ class DeliveryService:
                 OrderStatus.REJECTED,
             }:
                 order.order_status = OrderStatus.OUT_FOR_DELIVERY
+                patient_user_id = (
+                    await self.db.execute(
+                        select(PatientProfile.user_id).where(
+                            PatientProfile.id == order.patient_id
+                        )
+                    )
+                ).scalar_one_or_none()
+                if patient_user_id:
+                    await NotificationService(self.db).order_status_changed(
+                        patient_user_id,
+                        order.id,
+                        OrderStatus.OUT_FOR_DELIVERY,
+                        order_code=order.order_code,
+                    )
 
         await self.db.flush()
 

@@ -43,7 +43,7 @@ class _SponsoredCarouselState extends State<SponsoredCarousel> {
       final items = await PatientRepository.instance.fetchSponsoredArticles();
       if (!mounted) return;
       setState(() {
-        _items = items.isNotEmpty ? items : _fallbackItems;
+        _items = items;
         _index = 0;
         _loading = false;
       });
@@ -51,10 +51,9 @@ class _SponsoredCarouselState extends State<SponsoredCarousel> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _items = _fallbackItems;
+        _items = const [];
         _loading = false;
       });
-      _restartTimer();
     }
   }
 
@@ -66,23 +65,6 @@ class _SponsoredCarouselState extends State<SponsoredCarousel> {
       setState(() => _index = (_index + 1) % _items.length);
     });
   }
-
-  static final _fallbackItems = <SponsoredArticle>[
-    SponsoredArticle(
-      id: 'sp1',
-      title: 'Stay Hydrated This Season',
-      summary: 'Simple tips to keep your body energized every day.',
-      imageUrl:
-          'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&q=80&w=800',
-    ),
-    SponsoredArticle(
-      id: 'sp2',
-      title: 'Understanding Your Prescription',
-      summary: 'How Farumasi pharmacists review and prepare your medicines.',
-      imageUrl:
-          'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=800',
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {

@@ -23,6 +23,35 @@ class NotificationService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def _localized_copy(
+        self,
+        user_id: str,
+        title: str,
+        message: str,
+        *,
+        category: Optional[str],
+    ) -> tuple[str, str]:
+        from app.models.user import User
+        from app.services.translation_service import TranslationService
+
+        user = await self.db.get(User, user_id)
+        lang = (getattr(user, "preferred_language", None) or "en").lower()
+        if lang == "en":
+            return title, message
+
+        prefix = category or "general"
+        svc = TranslationService(self.db)
+        rows, _ = await svc.translate_batch(
+            source_lang="en",
+            target_lang=lang,
+            items=[
+                {"id": "title", "text": title, "context": f"notification:{prefix}:title"},
+                {"id": "body", "text": message, "context": f"notification:{prefix}:body"},
+            ],
+        )
+        by_id = {r["id"]: r["text"] for r in rows}
+        return by_id.get("title", title), by_id.get("body", message)
+
     async def send(
         self,
         user_id: str,
@@ -30,6 +59,8 @@ class NotificationService:
         message: str,
         category: Optional[str] = None,
         action_url: Optional[str] = None,
+        *,
+        translate: bool = True,
     ) -> Optional[Notification]:
         """Insert a notification for *user_id* and return it.
 
@@ -50,6 +81,11 @@ class NotificationService:
                     # Default is True (enabled); only skip when explicitly False.
                     if events.get(pref_key, True) is False:
                         return None
+
+        if translate:
+            title, message = await self._localized_copy(
+                user_id, title, message, category=category
+            )
 
         notif = Notification(
             user_id=user_id,
@@ -84,6 +120,44 @@ class NotificationService:
             action_url=f"/orders/{order_id}",
         )
 
+    async def patient_order_placed(
+        self, patient_user_id: str, order_id: str, *, order_code: Optional[str] = None
+    ) -> None:
+        code = order_code or order_id[:8].upper()
+        await self.send(
+            patient_user_id,
+            "Order placed",
+            f"Your order #{code} was received. Complete payment to confirm, then track status here.",
+            category="order",
+            action_url=f"/orders/{order_id}",
+        )
+
+    async def prescription_cart_ready(
+        self, patient_user_id: str, prescription_id: str, *, notes: Optional[str] = None
+    ) -> None:
+        msg = "Your pharmacist prepared your prescription cart. Review items and checkout when ready."
+        if notes:
+            msg = f"{msg} Note: {notes}"
+        await self.send(
+            patient_user_id,
+            "Prescription cart ready",
+            msg,
+            category="prescription",
+            action_url=f"/cart?rx={prescription_id}",
+        )
+
+    async def payment_failed(
+        self, patient_user_id: str, order_id: str, *, order_code: Optional[str] = None
+    ) -> None:
+        code = order_code or order_id[:8].upper()
+        await self.send(
+            patient_user_id,
+            "Payment failed",
+            f"Payment for order #{code} could not be completed. Open the order to try again.",
+            category="payment",
+            action_url=f"/orders/{order_id}",
+        )
+
     async def order_status_changed(
         self,
         patient_user_id: str,
@@ -105,6 +179,7 @@ class NotificationService:
             message,
             category="order",
             action_url=f"/orders/{order_id}",
+            translate=False,
         )
 
     async def delivery_assigned(

@@ -151,6 +151,32 @@ async def lifespan(app: FastAPI):
                         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """,
+                    """
+                    CREATE TABLE IF NOT EXISTS translation_cache (
+                        id VARCHAR(36) PRIMARY KEY,
+                        source_hash VARCHAR(64) NOT NULL,
+                        source_lang VARCHAR(10) NOT NULL,
+                        target_lang VARCHAR(10) NOT NULL,
+                        context VARCHAR(120) NOT NULL,
+                        source_text TEXT NOT NULL,
+                        translated_text TEXT NOT NULL,
+                        provider VARCHAR(32) NOT NULL,
+                        char_count INTEGER NOT NULL,
+                        hit_count INTEGER NOT NULL DEFAULT 0,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        CONSTRAINT uq_translation_cache_hash_target_context
+                            UNIQUE (source_hash, target_lang, context)
+                    )
+                    """,
+                    """
+                    CREATE TABLE IF NOT EXISTS translation_usage_daily (
+                        usage_date DATE PRIMARY KEY,
+                        chars_used BIGINT NOT NULL DEFAULT 0,
+                        api_calls INTEGER NOT NULL DEFAULT 0,
+                        updated_at TIMESTAMPTZ NOT NULL
+                    )
+                    """,
                 ):
                     await conn.execute(text(stmt))
             logger.info("Optional DB columns ensured")

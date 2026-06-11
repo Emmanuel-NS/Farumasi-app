@@ -42,12 +42,17 @@ import {
 import { minQuantityForLine } from "@/lib/cart-pricing";
 import { HEALTHCARE_CATEGORY_ICONS, IconGeneral } from "@/components/icons/CategoryIcons";
 import type { CategoryIconComponent } from "@/components/icons/CategoryIcons";
-import { SponsoredCarousel } from "@/components/health/sponsored-carousel";
+import dynamic from "next/dynamic";
 import {
   SellerImageLightbox,
   SellerImageThumb,
   type SellerImagePreview,
 } from "@/components/shared/seller-image-lightbox";
+
+const SponsoredCarousel = dynamic(
+  () => import("@/components/health/sponsored-carousel").then((m) => m.SponsoredCarousel),
+  { ssr: false, loading: () => null },
+);
 
 // ── Category → custom icon resolution ───────────────────────────────────────
 const _ICON_BY_NAME: Record<string, CategoryIconComponent> = Object.fromEntries(

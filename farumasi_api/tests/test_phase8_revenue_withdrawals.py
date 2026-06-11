@@ -51,7 +51,7 @@ async def _seed_payout_credentials(
 
 async def _pay_order_sandbox(client: AsyncClient, patient: dict, order_id: str, phone: str = "0788000000") -> None:
     r = await client.post(
-        f"/api/v1/patients/me/orders/{order_id}/payments/momo/initiate",
+        f"/api/v1/patients/me/orders/{order_id}/payments/pesapal/initiate",
         headers=_h(patient),
         json={"phone": phone},
     )

@@ -84,17 +84,21 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     try {
       final result = await PatientRepository.instance.fetchStoreSellers();
       if (!mounted) return;
+      var sellers = result.sellers;
+      if (sellers.isEmpty && result.hadError) {
+        sellers = await PatientRepository.instance.loadCachedStoreSellers();
+      }
       setState(() {
-        if (result.sellers.isNotEmpty) {
-          _pharmacies = result.sellers;
-        }
-        _sellersError = result.hadError && result.sellers.isEmpty;
+        if (sellers.isNotEmpty) _pharmacies = sellers;
+        _sellersError = sellers.isEmpty;
         _sellersLoading = false;
       });
     } catch (_) {
+      final cached = await PatientRepository.instance.loadCachedStoreSellers();
       if (!mounted) return;
       setState(() {
-        _sellersError = true;
+        if (cached.isNotEmpty) _pharmacies = cached;
+        _sellersError = cached.isEmpty;
         _sellersLoading = false;
       });
     }
@@ -406,7 +410,30 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
         ),
       );
     }
-    if (!catalog.loadedFromApi && catalog.error != null) {
+    if (catalog.loadedFromCache && catalog.medicines.isNotEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: const Color(0xFFEFF6FF),
+        child: Row(
+          children: [
+            const Icon(Icons.offline_bolt, size: 16, color: Color(0xFF1D4ED8)),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Offline — showing your last saved medicines.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
+              ),
+            ),
+            TextButton(
+              onPressed: () => PatientCatalogService().refresh(immediate: true),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (!catalog.loadedFromApi && catalog.error != null && catalog.medicines.isEmpty) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -417,7 +444,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
             const SizedBox(width: 8),
             const Expanded(
               child: Text(
-                'Could not reach the API — showing offline sample products.',
+                'Could not reach the server. Connect to load medicines.',
                 style: TextStyle(fontSize: 12, color: Color(0xFF9A3412)),
               ),
             ),

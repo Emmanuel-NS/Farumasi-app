@@ -1,8 +1,7 @@
 import '../api_client.dart';
 import '../../models/models.dart' as local;
 
-/// Fetches medicines from the real API.
-/// Falls back to local dummy data when the backend is unavailable (offline mode).
+/// Fetches medicines from the real API (legacy endpoint).
 class MedicineRepository {
   final _client = FarumasiApiClient.instance;
 

@@ -66,7 +66,9 @@ export const ordersService = {
   },
 
   async createOrder(payload: CreateOrderPayload): Promise<BackendOrder> {
-    const { data } = await api.post<BackendOrder>("/patients/me/orders", payload);
+    const { data } = await api.post<BackendOrder>("/patients/me/orders", payload, {
+      timeout: 60_000,
+    });
     return data;
   },
 

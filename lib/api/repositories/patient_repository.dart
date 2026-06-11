@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import '../api_client.dart';
+import '../../models/cache_serializers.dart';
 import '../../models/models.dart';
 import '../../models/product_category.dart';
+import '../../services/offline_cache_service.dart';
 
 /// Patient-facing API — mirrors farumasi_patient_portal services.
 class PatientRepository {
@@ -11,6 +13,25 @@ class PatientRepository {
   static final PatientRepository instance = PatientRepository._();
 
   final _client = FarumasiApiClient.instance;
+  final _cache = OfflineCacheService.instance;
+
+  static String _productsCacheKey({String? search, String? category}) =>
+      'products:${search?.trim() ?? ''}:${category?.trim() ?? ''}';
+
+  static List<Map<String, dynamic>> _extractMaps(dynamic data) {
+    final List<dynamic> items;
+    if (data is Map && data['items'] is List) {
+      items = data['items'] as List;
+    } else if (data is List) {
+      items = data;
+    } else {
+      return [];
+    }
+    return items
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
 
   static String get apiOrigin =>
       FarumasiApiClient.baseUrl.replaceAll(RegExp(r'/api/v\d+/?$'), '');
@@ -99,31 +120,64 @@ class PatientRepository {
       queryParams['category'] = category;
     }
 
-    final response = await _client.dio.get(
-      '/products/',
-      queryParameters: queryParams,
-    );
-    final data = response.data;
-    final List<dynamic> items;
-    if (data is Map && data['items'] is List) {
-      items = data['items'] as List;
-    } else if (data is List) {
-      items = data;
-    } else {
-      return [];
+    final cacheKey = _productsCacheKey(search: search, category: category);
+    try {
+      final response = await _client.dio.get(
+        '/products/',
+        queryParameters: queryParams,
+      );
+      final items = _extractMaps(response.data);
+      if (items.isNotEmpty) {
+        await _cache.saveJsonList(cacheKey, items);
+        if ((search == null || search.isEmpty) &&
+            (category == null || category.isEmpty || category == 'All')) {
+          await _cache.saveJsonList('products:all', items);
+        }
+      }
+      return items.map(_adaptProduct).toList();
+    } catch (_) {
+      rethrow;
     }
-    return items
-        .map((e) => _adaptProduct(e as Map<String, dynamic>))
-        .toList();
+  }
+
+  /// Last saved catalogue from a successful API response (offline use).
+  Future<List<Medicine>> loadCachedProducts({
+    String? search,
+    String? category,
+  }) async {
+    final cacheKey = _productsCacheKey(search: search, category: category);
+    var raw = await _cache.loadJsonList(cacheKey);
+    raw ??= await _cache.loadJsonList('products:all');
+    if (raw == null) return [];
+    return raw.map(_adaptProduct).toList();
   }
 
   Future<List<ProductCategory>> fetchCategoryDefinitions() async {
-    final response = await _client.dio.get('/products/categories/');
-    final data = response.data;
-    if (data is! List) return [];
-    return data
-        .whereType<Map>()
-        .map((e) => ProductCategory.fromJson(Map<String, dynamic>.from(e)))
+    try {
+      final response = await _client.dio.get('/products/categories/');
+      final data = response.data;
+      if (data is! List) return loadCachedCategoryDefinitions();
+      final maps = data
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      if (maps.isNotEmpty) {
+        await _cache.saveJsonList('product_categories', maps);
+      }
+      return maps
+          .map(ProductCategory.fromJson)
+          .where((c) => c.name.isNotEmpty)
+          .toList();
+    } catch (_) {
+      rethrow;
+    }
+  }
+
+  Future<List<ProductCategory>> loadCachedCategoryDefinitions() async {
+    final raw = await _cache.loadJsonList('product_categories');
+    if (raw == null) return [];
+    return raw
+        .map(ProductCategory.fromJson)
         .where((c) => c.name.isNotEmpty)
         .toList();
   }
@@ -203,10 +257,22 @@ class PatientRepository {
     return PatientOrder.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<PaymentInitiateResult> initiateMomo(String orderId, String phone) async {
+  Future<PaymentInitiateResult> initiatePesapal(
+    String orderId, {
+    required String phone,
+    String? name,
+    String? email,
+    String? redirectUrl,
+  }) async {
     final response = await _client.dio.post(
-      '/patients/me/orders/$orderId/payments/momo/initiate',
-      data: {'phone': phone},
+      '/patients/me/orders/$orderId/payments/pesapal/initiate',
+      data: {
+        'phone': phone,
+        if (name != null && name.isNotEmpty) 'name': name,
+        if (email != null && email.isNotEmpty) 'email': email,
+        if (redirectUrl != null && redirectUrl.isNotEmpty)
+          'redirect_url': redirectUrl,
+      },
     );
     return PaymentInitiateResult.fromJson(
       response.data as Map<String, dynamic>,
@@ -231,7 +297,7 @@ class PatientRepository {
       }
       await Future.delayed(const Duration(milliseconds: 2500));
     }
-    throw Exception('Payment timed out. Check your phone or try again.');
+    throw Exception('Payment timed out. Check your payment status or try again.');
   }
 
   /// Pick a pharmacy that can fulfil all cart lines via active listings.
@@ -387,19 +453,23 @@ class PatientRepository {
     if (sortBy != null && sortBy.isNotEmpty) {
       queryParams['sort_by'] = sortBy;
     }
-    final response = await _client.dio.get('/articles/', queryParameters: queryParams);
-    final data = response.data;
-    final List<dynamic> items;
-    if (data is Map && data['items'] is List) {
-      items = data['items'] as List;
-    } else if (data is List) {
-      items = data;
-    } else {
-      return [];
+    const cacheKey = 'health_articles';
+    try {
+      final response = await _client.dio.get('/articles/', queryParameters: queryParams);
+      final items = _extractMaps(response.data);
+      if (items.isNotEmpty) {
+        await _cache.saveJsonList(cacheKey, items);
+      }
+      return items.map(PatientArticle.fromJson).toList();
+    } catch (_) {
+      rethrow;
     }
-    return items
-        .map((e) => PatientArticle.fromJson(e as Map<String, dynamic>))
-        .toList();
+  }
+
+  Future<List<PatientArticle>> loadCachedArticles() async {
+    final cached = await _cache.loadJsonList('health_articles');
+    if (cached == null) return [];
+    return cached.map(PatientArticle.fromJson).toList();
   }
 
   Future<PatientArticle?> fetchArticleById(String id) async {
@@ -538,26 +608,58 @@ class PatientRepository {
     bool unreadOnly = false,
     int limit = 50,
   }) async {
-    final response = await _client.dio.get(
-      '/notifications/',
-      queryParameters: {
-        'unread_only': unreadOnly ? true : null,
-        'limit': limit,
-        'offset': 0,
+    const cacheKey = 'notifications';
+    try {
+      final response = await _client.dio.get(
+        '/notifications/',
+        queryParameters: {
+          if (unreadOnly) 'unread_only': 'true',
+          'limit': limit,
+          'offset': 0,
+        },
+      );
+      final items = _extractMaps(response.data);
+      if (items.isNotEmpty) {
+        await _cache.saveJsonList(cacheKey, items);
+      }
+      return items.map(PatientNotification.fromJson).toList();
+    } catch (_) {
+      final cached = await _cache.loadJsonList(cacheKey);
+      if (cached == null) return [];
+      return cached.map(PatientNotification.fromJson).toList();
+    }
+  }
+
+  /// Cached machine translation (server DB + Google). Re-use for UI and dynamic text.
+  Future<Map<String, String>> translateBatch({
+    required String targetLang,
+    required List<Map<String, String>> items,
+    String sourceLang = 'en',
+  }) async {
+    if (sourceLang == targetLang || items.isEmpty) {
+      return {for (final it in items) it['id']!: it['text']!};
+    }
+    final response = await _client.dio.post(
+      '/translations/batch',
+      data: {
+        'source_lang': sourceLang,
+        'target_lang': targetLang,
+        'items': items
+            .map((it) => {
+                  'id': it['id'],
+                  'text': it['text'],
+                  'context': it['context'] ?? 'dynamic',
+                })
+            .toList(),
       },
     );
-    final data = response.data;
-    final List<dynamic> items;
-    if (data is Map && data['items'] is List) {
-      items = data['items'] as List;
-    } else if (data is List) {
-      items = data;
-    } else {
-      return [];
-    }
-    return items
-        .map((e) => PatientNotification.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final data = response.data as Map<String, dynamic>;
+    final rows = data['translations'] as List<dynamic>? ?? [];
+    return {
+      for (final row in rows)
+        if (row is Map)
+          row['id'].toString(): row['text']?.toString() ?? '',
+    };
   }
 
   Future<int> fetchUnreadNotificationCount() async {
@@ -699,29 +801,36 @@ class PatientRepository {
   }
 
   Future<List<SponsoredArticle>> fetchSponsoredArticles({int limit = 10}) async {
+    const cacheKey = 'sponsored_articles';
     try {
-      final response = await _client.dio.get(
-        '/articles/feed/sponsored',
-        queryParameters: {'limit': limit},
-      );
-      final data = response.data;
-      final List<dynamic> raw = data is List ? data : (data is Map ? data['items'] as List? ?? [] : []);
-      return raw.map(_adaptSponsored).toList();
-    } catch (_) {
-      final response = await _client.dio.get(
-        '/articles/',
-        queryParameters: {'sponsored_only': true, 'limit': limit},
-      );
-      final data = response.data;
-      final List<dynamic> items;
-      if (data is Map && data['items'] is List) {
-        items = data['items'] as List;
-      } else if (data is List) {
-        items = data;
-      } else {
-        return [];
+      List<SponsoredArticle> articles;
+      try {
+        final response = await _client.dio.get(
+          '/articles/feed/sponsored',
+          queryParameters: {'limit': limit},
+        );
+        final data = response.data;
+        final List<dynamic> raw =
+            data is List ? data : (data is Map ? data['items'] as List? ?? [] : []);
+        articles = raw.map(_adaptSponsored).toList();
+      } catch (_) {
+        final response = await _client.dio.get(
+          '/articles/',
+          queryParameters: {'sponsored_only': true, 'limit': limit},
+        );
+        articles = _extractMaps(response.data).map(_adaptSponsored).toList();
       }
-      return items.map(_adaptSponsored).toList();
+      if (articles.isNotEmpty) {
+        await _cache.saveJsonList(
+          cacheKey,
+          articles.map(CacheSerializers.sponsoredToJson).toList(),
+        );
+      }
+      return articles;
+    } catch (_) {
+      final cached = await _cache.loadJsonList(cacheKey);
+      if (cached == null) return [];
+      return cached.map(CacheSerializers.sponsoredFromJson).toList();
     }
   }
 
@@ -975,7 +1084,11 @@ class PatientRepository {
     }
 
     if (pharmacies.isEmpty && partners.isEmpty && ids.pharmacyIds.isEmpty) {
-      return StoreSellersResult(sellers: const [], hadError: hadError);
+      final cached = await loadCachedStoreSellers();
+      return StoreSellersResult(
+        sellers: cached,
+        hadError: hadError && cached.isEmpty,
+      );
     }
 
     final partnerLogoByName = <String, String>{};
@@ -1032,10 +1145,23 @@ class PatientRepository {
         )
         .toList();
 
+    final sellers = [...withPharm, ...withPartner];
+    if (sellers.isNotEmpty) {
+      await _cache.saveJsonList(
+        'store_sellers',
+        sellers.map(CacheSerializers.pharmacyToJson).toList(),
+      );
+    }
     return StoreSellersResult(
-      sellers: [...withPharm, ...withPartner],
-      hadError: hadError && withPharm.isEmpty && withPartner.isEmpty,
+      sellers: sellers,
+      hadError: hadError && sellers.isEmpty,
     );
+  }
+
+  Future<List<Pharmacy>> loadCachedStoreSellers() async {
+    final raw = await _cache.loadJsonList('store_sellers');
+    if (raw == null) return [];
+    return raw.map(CacheSerializers.pharmacyFromJson).toList();
   }
 
   Pharmacy _pharmacyFromJson(Map<String, dynamic> m) {
@@ -1360,12 +1486,14 @@ class PaymentInitiateResult {
   final String paymentStatus;
   final double amount;
   final String message;
+  final String? checkoutUrl;
 
   PaymentInitiateResult({
     required this.orderId,
     required this.paymentStatus,
     required this.amount,
     required this.message,
+    this.checkoutUrl,
   });
 
   factory PaymentInitiateResult.fromJson(Map<String, dynamic> json) {
@@ -1374,6 +1502,7 @@ class PaymentInitiateResult {
       paymentStatus: (json['payment_status'] as String?) ?? 'pending',
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       message: (json['message'] as String?) ?? '',
+      checkoutUrl: json['checkout_url'] as String?,
     );
   }
 }

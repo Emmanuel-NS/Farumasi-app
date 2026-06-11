@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useLanguageStore, type LangCode } from "@/store/language-store";
+import { useTranslationOverlayStore } from "@/store/translation-overlay-store";
 import { useTranslation } from "@/lib/translations";
 import { useAuthStore } from "@/store/auth-store";
 import { authService } from "@/lib/services/auth.service";
@@ -49,6 +50,7 @@ function loadGuestPrefs(): NotificationPreferences {
 
 export default function SettingsPage() {
   const { lang, setLang } = useLanguageStore();
+  const uiWarming = useTranslationOverlayStore((s) => s.warming);
   const t = useTranslation();
   const isGuest = useAuthStore((s) => s.isGuest);
   const user = useAuthStore((s) => s.user);
@@ -289,6 +291,11 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
+            {lang !== "en" && uiWarming && (
+              <p className="text-xs text-farumasi-600 mt-3">
+                Preparing {LANG_OPTIONS.find((o) => o.code === lang)?.native ?? lang} translations…
+              </p>
+            )}
           </div>
         </AccordionSection>
 

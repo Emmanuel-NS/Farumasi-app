@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = (
         "http://localhost:3000,http://localhost:3001,http://localhost:3002,"
         "http://localhost:3003,http://localhost:3004,http://localhost:3005,"
+        "http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,"
+        "http://127.0.0.1:3003,http://127.0.0.1:3004,http://127.0.0.1:3005,"
         "http://localhost:8080,http://127.0.0.1:8080"
     )
 
@@ -59,16 +61,26 @@ class Settings(BaseSettings):
     SMS_SENDER_ID: str = "FARUMASI"
     SMS_HTTP_URL: str = ""
 
-    # ── Patient payments (MTN MoMo Collection) ────────────────────────────
-    # sandbox = auto-confirm for local/dev E2E; live = real MoMo API
+    # ── Patient payments (Pesapal) ────────────────────────────────────────
+    # sandbox = auto-confirm for local/dev E2E; live = Pesapal hosted checkout
     PAYMENT_MODE: str = "sandbox"
-    MTN_MOMO_SUBSCRIPTION_KEY: str = ""
-    MTN_MOMO_API_USER: str = ""
-    MTN_MOMO_API_KEY: str = ""
-    MTN_MOMO_ENV: str = "sandbox"
-    MTN_MOMO_CALLBACK_URL: str = ""
-    MTN_MOMO_CURRENCY: str = "RWF"
-    MTN_MOMO_TARGET_ENVIRONMENT: str = "sandbox"
+    PAYMENT_CURRENCY: str = "RWF"
+    PESAPAL_ENV: str = "sandbox"  # sandbox | live
+    PESAPAL_CONSUMER_KEY: str = ""
+    PESAPAL_CONSUMER_SECRET: str = ""
+    PESAPAL_IPN_ID: str = ""
+    PESAPAL_IPN_URL: str = ""
+    API_PUBLIC_URL: str = "http://localhost:8000"
+    PATIENT_PORTAL_URL: str = "http://localhost:3002"
+
+    # ── Translation (Google Cloud Translation API v2) ─────────────────────
+    # Set GOOGLE_TRANSLATE_API_KEY from Google Cloud Console (Translation API).
+    # Cached strings are stored in PostgreSQL — repeat lookups cost nothing.
+    GOOGLE_TRANSLATE_API_KEY: str = ""
+    TRANSLATION_ENABLED: bool = True
+    TRANSLATION_DAILY_CHAR_LIMIT: int = 500_000
+    TRANSLATION_MAX_BATCH_SIZE: int = 50
+    TRANSLATION_MAX_TEXT_LENGTH: int = 5000
 
     # ── File Storage ──────────────────────────────────────────────────────
     STORAGE_BACKEND: str = "local"  # local | s3 | cloudinary

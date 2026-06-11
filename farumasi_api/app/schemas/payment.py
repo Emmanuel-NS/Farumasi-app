@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Optional
 
 from app.schemas.common import FarumasiBaseModel
 
 
-class MomoPaymentInitiate(FarumasiBaseModel):
+class PesapalPaymentInitiate(FarumasiBaseModel):
     phone: str
+    email: Optional[str] = None
+    name: Optional[str] = None
+    redirect_url: Optional[str] = None
 
 
 class PaymentStatusOut(FarumasiBaseModel):
@@ -27,4 +29,5 @@ class PaymentInitiateOut(FarumasiBaseModel):
     currency: str = "RWF"
     provider: str
     external_id: Optional[str] = None
+    checkout_url: Optional[str] = None
     message: str

@@ -1,7 +1,13 @@
 from __future__ import annotations
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
+
+
+class InsuranceBrief(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    name: str
 
 
 class PharmacyBase(BaseModel):
@@ -56,3 +62,4 @@ class PharmacyOut(PharmacyBase):
     commission_rate_percent: Optional[float] = None
     effective_commission_rate_percent: Optional[float] = None
     commission_rate_source: Optional[str] = None
+    accepted_insurances: List[InsuranceBrief] = []

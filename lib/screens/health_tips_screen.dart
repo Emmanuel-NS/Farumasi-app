@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:farumasi_app/api/repositories/patient_repository.dart';
@@ -69,260 +69,6 @@ void _openArticleDetail(BuildContext context, HealthArticle article) {
   );
 }
 
-// --- Content Data (Mock) ---
-final List<HealthArticle> _articles = [
-  HealthArticle(
-    id: 'a1',
-    title: "The Science of Hydration",
-    subtitle: "More than just drinking water.",
-    summary:
-        "Why water is the most critical nutrient for your body's daily functions and how it affects your brain.",
-    category: "General Health",
-    readTimeMin: 4,
-    imageUrl:
-        "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&q=80&w=800",
-    source: "Journal of Biological Chemistry",
-    fullContent: """
-Water is essential for life, making up about 60% of the adult human body. Every cell, tissue, and organ in your body needs water to work properly.
-
-**1. Regulates Body Temperature**
-Water that is stored in middle layers of the skin comes to the skin's surface as sweat when the body heats up. As it evaporates, it cools the body. In sport.
-
-**2. Lubricates Joints**
-Cartilage, found in joints and the disks of the spine, contains around 80 percent water. Long-term dehydration can reduce the joints’ shock-absorbing ability, leading to joint pain.
-
-**3. Boosts Performance**
-A study published in 'Sports Medicine' found that dehydration reduces performance in activities lasting longer than 30 minutes. If you don’t stay hydrated, your physical performance can suffer.
-
-**4. Prevents Headaches**
-Dehydration can trigger headaches and migraine in some individuals. Research has shown that water can relieve headaches in those who are dehydrated.
-    """,
-  ),
-  HealthArticle(
-    id: 'a2',
-    title: "Mastering Sleep Hygiene",
-    subtitle: "The secret to 8 hours of deep rest.",
-    summary:
-        "Optimizing your environment and habits for restorative deep sleep.",
-    category: "Wellness",
-    readTimeMin: 6,
-    imageUrl:
-        "https://images.unsplash.com/photo-1541781777631-fa95375ed299?auto=format&fit=crop&q=80&w=800", // Bedroom/Sleep environment
-    source: "National Sleep Foundation",
-    fullContent: """
-Sleep services to restore the body and mind. The National Sleep Foundation recommends 7-9 hours for adults.
-
-**The Circadian Rhythm**
-Your body has a natural time-keeping clock known as your circadian rhythm. It affects your brain, body, and hormones, helping you stay awake and telling your body when it's time to sleep.
-
-**Blue Light Exposure**
-Exposure to light during the day is beneficial, but nighttime light exposure has the opposite effect. This is due to its effect on your circadian rhythm, tricking your brain into thinking it is still daytime. Blue light—which electronic devices like smartphones and computers emit in large amounts—is the worst in this regard.
-
-**Caffeine Cuts**
-Caffeine has numerous benefits and is consumed by 90% of the US population. However, when consumed late in the day, caffeine stimulates your nervous system and may stop your body from naturally relaxing at night.
-    """,
-  ),
-];
-
-final List<HealthArticle> _remedies = [
-  HealthArticle(
-    id: 'r1',
-    title: "Flu & Cold Recovery",
-    subtitle: "Virus Defense Protocol",
-    summary: "Science-backed natural methods to shorten recovery time.",
-    category: "Viral Infection",
-    readTimeMin: 4,
-    imageUrl:
-        "https://images.unsplash.com/photo-1512568400610-62da28bc8a13?auto=format&fit=crop&q=80&w=800", // Tea/Hot drink
-    source: "Mayo Clinic",
-    fullContent: """
-Influenza (Flu) is a viral infection that attacks your respiratory system. While rest is paramount, these natural methods can support recovery.
-
-**1. Honey and Tea**
-Honey is a natural cough suppressant. A study in 'Archives of Pediatrics & Adolescent Medicine' found that honey was more effective than common cough suppressants for treating nighttime coughs.
-*Usage*: Mix 2 teaspoons of honey with herbal tea or warm water and lemon.
-
-**2. Steam Inhalation**
-Inhaling steam helps thin mucus and drain the sinuses.
-*Usage*: Pour hot water into a bowl, drape a towel over your head, and breathe deeply for 5-10 minutes.
-
-**3. Zinc Supplementation**
-Research suggests that zinc lozenges may shorten the length of a cold if taken within 24 hours of symptoms appearing.
-    """,
-  ),
-  HealthArticle(
-    id: 'r2',
-    title: "Natural Diabetes Management",
-    subtitle: "Lifestyle Control",
-    summary: "How diet and stress management significantly impact blood sugar.",
-    category: "Chronic Care",
-    readTimeMin: 7,
-    imageUrl:
-        "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=800", // Healthy Salad
-    source: "American Diabetes Association",
-    fullContent: """
-Type 2 diabetes management relies heavily on lifestyle.
-
-**1. Fiber-Rich Diet**
-Fiber slows carb digestion and sugar absorption. For these reasons, it promotes a more gradual rise in blood sugar levels. 
-*Action*: Focus on non-starchy vegetables, legumes, and whole grains.
-
-**2. Apple Cider Vinegar**
-Apple cider vinegar has many health benefits. Although it is made from apples, the fruit's sugar is fermented into acetic acid. Research shows it promotes lower fasting blood sugar levels.
-*Usage*: Mix 1 tsp in a glass of water before a meal.
-
-**3. Stress Management**
-When stressed, your body releases glucagon and cortisol, hormones that cause blood sugar levels to rise. Exercises like yoga and mindfulness-based stress reduction (MBSR) can correct insulin secretion problems in chronic diabetes.
-    """,
-  ),
-];
-
-final List<HealthArticle> _srh = [
-  HealthArticle(
-    id: "id_39",
-    source: "Medical Review Board",
-    title: "Understanding Family Planning Options",
-    subtitle: "Learn more about this topic",
-    summary: "Brief overview of the topic.",
-    fullContent: "There are multiple methods for family planning available today. Selecting the right birth control depends on your health, lifestyle, and how well it protects against sexually transmitted infections (STIs).\n\n**Condoms**: Provide dual protection against pregnancy and STIs.\n**Pills & Implants**: Hormonal methods with high effectiveness.\n**Natural Methods**: Tracking fertility awareness.",
-    imageUrl: "https://images.unsplash.com/photo-1549480112-9c17adfed579?w=600&q=80",
-    category: "SRH",
-  ),
-  HealthArticle(
-    id: "id_28",
-    source: "Medical Review Board",
-    title: "Menstrual Health & Hygiene",
-    subtitle: "Learn more about this topic",
-    summary: "Brief overview of the topic.",
-    fullContent: "Maintaining proper menstrual hygiene is critical to reproductive health. Changing pads/tampons every 4-6 hours, staying hydrated, and eating iron-rich foods can significantly reduce discomfort and prevent infections.",
-    imageUrl: "https://images.unsplash.com/photo-1510065098258-299f0e47fe20?w=600&q=80",
-    category: "SRH",
-  ),
-];
-
-final List<HealthArticle> _mentalHealth = [
-  HealthArticle(
-    id: "id_27",
-    source: "Medical Review Board",
-    title: "Managing Workplace Stress",
-    subtitle: "Learn more about this topic",
-    summary: "Brief overview of the topic.",
-    fullContent: "Burnout is a state of emotional, physical, and mental exhaustion caused by excessive and prolonged stress. Identifying the signs early is key.\n\n**Tip 1**: Take micro-breaks every 90 minutes.\n**Tip 2**: Set boundaries on your availability.\n**Tip 3**: Communicate with your team about workloads.",
-    imageUrl: "https://images.unsplash.com/photo-1555529733-0e670560f8e1?w=600&q=80",
-    category: "Mental Health",
-  ),
-  HealthArticle(
-    id: "id_26",
-    source: "Medical Review Board",
-    title: "The Power of Mindfulness",
-    subtitle: "Learn more about this topic",
-    summary: "Brief overview of the topic.",
-    fullContent: "Practicing mindfulness can reduce anxiety and depression. Simple 5-minute deep breathing exercises can lower heart rates and improve mental clarity throughout your day.",
-    imageUrl: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&q=80",
-    category: "Mental Health",
-  ),
-];
-
-final List<HealthArticle> _nutrition = [
-  HealthArticle(
-    id: "id_27",
-    source: "Medical Review Board",
-    title: "Building a Balanced Plate",
-    subtitle: "Learn more about this topic",
-    summary: "Brief overview of the topic.",
-    fullContent: "The foundation of a healthy diet is a balanced plate. Fill half your plate with vegetables and fruits, one quarter with lean protein, and one quarter with whole grains. Avoid highly processed sugars to maintain steady energy levels.",
-    imageUrl: "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&q=80",
-    category: "Nutrition",
-  ),
-  HealthArticle(
-    id: "id_22",
-    source: "Medical Review Board",
-    title: "Hydration Guidelines",
-    subtitle: "Learn more about this topic",
-    summary: "Brief overview of the topic.",
-    fullContent: "Drinking enough water allows your body to regulate temperature, process nutrients, and lubricate joints. Aim for at least 8 cups (2 liters) of water a day, adjusting based on your activity level and climate.",
-    imageUrl: "https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=600&q=80",
-    category: "Nutrition",
-  ),
-];
-
-final List<HealthArticle> _motherAndBabies = [
-  HealthArticle(
-    id: 'mb1',
-    title: "Postpartum Care Essentials",
-    subtitle: "Taking care of yourself after childbirth",
-    summary: "Key steps and symptoms to watch out for during postpartum recovery.",
-    fullContent: "Recovering from childbirth takes time and patience. Ensure you get plenty of rest, stay nutrient-rich, and monitor any concerning symptoms. Always speak with your healthcare provider about post-birth bleeding, physical recovery, and your mental well-being.",
-    category: "Mother & Babies",
-    readTimeMin: 4,
-    imageUrl: "https://images.unsplash.com/photo-1519689680058-324335c77eba?auto=format&fit=crop&q=80&w=800",
-    source: "Maternal Health Association",
-  ),
-  HealthArticle(
-    id: 'mb2',
-    title: "First Foods for Your Baby",
-    subtitle: "Navigating the transition to solids",
-    summary: "A quick guide on when and how to start feeding your baby solid foods safely.",
-    fullContent: "The American Academy of Pediatrics recommends starting solid foods around 6 months of age, when the baby shows signs of readiness (like sitting up and showing interest). Introduce one single-ingredient food at a time, such as pureed vegetables or iron-fortified cereals.",
-    category: "Mother & Babies",
-    readTimeMin: 3,
-    imageUrl: "https://images.unsplash.com/photo-1453227588063-bb302b62f50b?auto=format&fit=crop&q=80&w=800",
-    source: "Pediatrics Institute",
-  ),
-];
-
-final List<HealthArticle> _facts = [
-  HealthArticle(
-    id: 'f1',
-    title: "Raw Onions & Lungs",
-    subtitle: "Nature's Antihistamine",
-    summary:
-        "Eating raw onions can help clear airways due to rich Quercetin content.",
-    category: "Did You Know?",
-    readTimeMin: 2,
-    imageUrl:
-        "https://images.unsplash.com/photo-1620574387735-3624d75b2dbc?auto=format&fit=crop&q=80&w=800", // Red Onions
-    source: "Am. J. Physiol.",
-    fullContent: """
-**Did you know that eating raw onions can help with respiratory issues?**
-
-### The Science
-Onions, specifically red onions, are one of the highest food sources of **Quercetin**. Quercetin is a powerful antioxidant flavonoid that acts as a natural antihistamine and anti-inflammatory agent.
-
-### The Research
-A study published in the 'American Journal of Physiology' found that Quercetin helps relax the airway muscles (bronchodilation). This can be particularly beneficial for people suffering from asthma or bronchitis.
-
-### How to Consume
-To get the maximum benefit, onions should be eaten raw. Cooking can degrade some of the compounds.
-    """,
-  ),
-  HealthArticle(
-    id: 'f2',
-    title: "Garlic as Antibiotic",
-    subtitle: "Ancient Defense",
-    summary:
-        "Garlic releases Allicin when crushed, a mighty antimicrobial compound.",
-    category: "Did You Know?",
-    readTimeMin: 2,
-    imageUrl:
-        "https://images.unsplash.com/photo-1615485925763-867862880b1a?auto=format&fit=crop&q=80&w=800",
-    source: "J. Antimicrobial Chemotherapy",
-    fullContent: """
-**Did you know garlic was used in World War I to treat gangrene?**
-
-### The Science
-When a garlic clove is crushed or chewed, it releases a compound called **Allicin**. This unstable compound serves as a defense mechanism for the plant against pests, but for humans, it has potent antibacterial properties.
-
-### The Research
-Studies have shown garlic to be effective against a wide spectrum of bacteria, including Salmonella and E. coli. One study found that garlic extract could inhibit the growth of these bacteria to a similar degree as standard antibiotics.
-
-### Tip
-Let crushed garlic sit for 10 minutes before cooking. This allows the enzymatic reaction that creates Allicin to fully occur.
-    """,
-  ),
-];
-
-// --- Main Screen ---
 
 const _healthTabs = [
   'All',
@@ -416,12 +162,16 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
         }
       });
     } catch (_) {
+      final cached = await PatientRepository.instance.loadCachedArticles();
       if (!mounted) return;
       setState(() {
-        _liveArticles = _articles;
+        _liveArticles = cached.map(HealthArticle.fromPatientArticle).toList();
         _apiLoaded = false;
         _loading = false;
         _invalidateArticleCache();
+        for (final a in _liveArticles.where((a) => a.isSaved)) {
+          _savedIds.add(a.id);
+        }
       });
     }
   }
@@ -450,25 +200,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
   }
 
   List<HealthArticle> get _allArticles {
-    _cachedAllArticles ??= () {
-      final seen = <String>{};
-      final out = <HealthArticle>[];
-      final source = _apiLoaded
-          ? _liveArticles
-          : [
-              ..._liveArticles,
-              ..._remedies,
-              ..._srh,
-              ..._mentalHealth,
-              ..._nutrition,
-              ..._motherAndBabies,
-              ..._facts,
-            ];
-      for (final a in source) {
-        if (seen.add(a.id)) out.add(a);
-      }
-      return out;
-    }();
+    _cachedAllArticles ??= List<HealthArticle>.from(_liveArticles);
     return _cachedAllArticles!;
   }
 
@@ -539,7 +271,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
                   children: [
                     CircularProgressIndicator(color: PortalColors.green),
                     SizedBox(height: 12),
-                    Text('Loading articles…', style: TextStyle(color: PortalColors.slate500)),
+                    Text('Loading articlesâ€¦', style: TextStyle(color: PortalColors.slate500)),
                   ],
                 ),
               )
@@ -558,13 +290,13 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
                 : CustomScrollView(
                     slivers: [
                       SliverToBoxAdapter(child: _buildHeader(articles.length)),
-                      if (!_apiLoaded && !_loading)
+                      if (!_apiLoaded && !_loading && articles.isNotEmpty)
                         const SliverToBoxAdapter(
                           child: Padding(
                             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
                             child: Text(
-                              'Showing offline sample articles — connect to the API for live content.',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF9A3412)),
+                              'Offline — showing your last saved articles.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
                             ),
                           ),
                         ),
@@ -699,7 +431,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search articles, tips, guides…',
+                  hintText: 'Search articles, tips, guidesâ€¦',
                   hintStyle: TextStyle(fontSize: 14, color: PortalColors.slate400),
                   prefixIcon: Icon(Icons.search, size: 18, color: PortalColors.slate400),
                   suffixIcon: _searchQuery.isNotEmpty

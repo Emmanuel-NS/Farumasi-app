@@ -9,6 +9,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { RightPanel } from "@/components/layout/right-panel";
 import { PatientRoleGuard } from "@/components/shared/patient-role-guard";
 import { hydrateLanguage } from "@/store/language-store";
+import { TranslationProvider } from "@/components/providers/translation-provider";
 import { useAuthStore } from "@/store/auth-store";
 
 const MOBILE_NAV_MQ = "(max-width: 639px)";
@@ -87,6 +88,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
       : null;
 
   return (
+    <TranslationProvider>
     <PatientRoleGuard>
       <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600">
         <Topbar
@@ -138,5 +140,6 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         </div>
       </div>
     </PatientRoleGuard>
+    </TranslationProvider>
   );
 }

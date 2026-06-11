@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,7 +17,9 @@ import 'package:farumasi_app/screens/notification_screen.dart';
 import 'package:farumasi_app/screens/cart_screen.dart';
 import 'package:farumasi_app/screens/profile_screen.dart';
 import 'package:farumasi_app/screens/settings_screen.dart';
+import 'package:farumasi_app/screens/terms_conditions_screen.dart';
 import 'package:farumasi_app/services/state_service.dart';
+import 'package:farumasi_app/services/notification_service.dart';
 import 'package:farumasi_app/providers/auth_provider.dart';
 import 'package:farumasi_app/core/router.dart';
 
@@ -203,7 +206,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Future.delayed(Duration.zero, () {
       _autoPickLocation();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = ref.read(authProvider);
+      if (auth.status == AuthStatus.authenticated) {
+        NotificationService().refreshFromApi();
+      }
+    });
+    _notificationPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      final auth = ref.read(authProvider);
+      if (auth.status == AuthStatus.authenticated) {
+        NotificationService().refreshFromApi();
+      }
+    });
   }
+
+  Timer? _notificationPollTimer;
 
   void _onStateServiceNavigation() {
     final tab = StateService().consumePendingHomeTab();
@@ -225,6 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
+    _notificationPollTimer?.cancel();
     StateService().removeListener(_onStateServiceNavigation);
     _hideBottomBarController.dispose();
     _shellPayload.dispose();
@@ -906,11 +924,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Center(
                 child: TextButton(
-                  onPressed: () async {
-                    final u = Uri.parse('https://example.com/terms');
-                    if (await canLaunchUrl(u)) {
-                      await launchUrl(u);
-                    }
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TermsConditionsScreen(),
+                      ),
+                    );
                   },
                   child: const Text(
                     'Terms & Conditions',
@@ -1034,10 +1054,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _buildShellHeaderIcon(
             icon: Icons.help_outline,
             tooltip: 'Help',
+            isActive: _activeRightSidebar == 'help',
             onTap: () {
               setState(() {
                 _activeRightSidebar = _activeRightSidebar == 'help' ? null : 'help';
               });
+            },
+          ),
+          const SizedBox(width: 8),
+          ListenableBuilder(
+            listenable: NotificationService(),
+            builder: (context, _) {
+              final unreadCount = NotificationService()
+                  .notifications
+                  .where((n) => n['isRead'] != true)
+                  .length;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  _buildShellHeaderIcon(
+                    icon: Icons.notifications_outlined,
+                    tooltip: 'Notifications',
+                    isActive: _activeRightSidebar == 'notifications',
+                    onTap: () {
+                      setState(() {
+                        _activeRightSidebar =
+                            _activeRightSidebar == 'notifications'
+                                ? null
+                                : 'notifications';
+                      });
+                    },
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: CircleAvatar(
+                        radius: 8,
+                        backgroundColor: Colors.red,
+                        child: Text(
+                          unreadCount > 9 ? '9+' : '$unreadCount',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           ),
           const SizedBox(width: 8),
@@ -1054,6 +1119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   _buildShellHeaderIcon(
                     icon: Icons.shopping_cart_outlined,
                     tooltip: 'Cart',
+                    isActive: _activeRightSidebar == 'cart',
                     onTap: () {
                       setState(() {
                         _activeRightSidebar = _activeRightSidebar == 'cart' ? null : 'cart';
@@ -1230,6 +1296,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     required IconData icon,
     required String tooltip,
     required VoidCallback onTap,
+    bool isActive = false,
   }) {
     return Tooltip(
       message: tooltip,
@@ -1239,8 +1306,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.all(10.0),
+            decoration: BoxDecoration(
+              color: isActive ? Colors.white.withValues(alpha: 0.22) : null,
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, color: Colors.white, size: 24),
           ),
         ),

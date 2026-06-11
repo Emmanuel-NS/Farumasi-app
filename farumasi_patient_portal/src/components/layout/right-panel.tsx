@@ -13,6 +13,7 @@ import { cartLineUnitPrice } from "@/lib/cart-pricing";
 import { useAuthStore } from "@/store/auth-store";
 import type { AppNotification } from "@/types";
 import { notificationsService } from "@/lib/services/notifications.service";
+import { startVisibleInterval } from "@/lib/polling";
 
 interface RightPanelProps {
   activePanel: string;
@@ -52,17 +53,27 @@ function NotificationsPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    notificationsService.getMyNotifications()
-      .then((items) => { if (!cancelled) setNotifications(items); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+    const load = () => {
+      notificationsService.getMyNotifications()
+        .then((items) => { if (!cancelled) setNotifications(items); })
+        .catch(() => {})
+        .finally(() => { if (!cancelled) setLoading(false); });
+    };
+    load();
+    const stop = startVisibleInterval(load, 20_000);
+    return () => {
+      cancelled = true;
+      stop();
+    };
+  }, [lang]);
 
   // Lucide icon + icon colors + unread background per category — mirrors Flutter notification tile
   const catMeta: Record<string, { Icon: React.ElementType; iconBg: string; iconColor: string; unreadBg: string }> = {
     order:         { Icon: Package,  iconBg: "bg-farumasi-100", iconColor: "text-farumasi-600", unreadBg: "bg-farumasi-50"  },
     order_shipped: { Icon: Truck,    iconBg: "bg-indigo-100",   iconColor: "text-indigo-600",   unreadBg: "bg-indigo-50/70" },
+    delivery:      { Icon: Truck,    iconBg: "bg-indigo-100",   iconColor: "text-indigo-600",   unreadBg: "bg-indigo-50/70" },
+    payment:       { Icon: Package,  iconBg: "bg-green-100",    iconColor: "text-green-600",    unreadBg: "bg-green-50/70"  },
+    prescription:  { Icon: Pill,     iconBg: "bg-farumasi-100", iconColor: "text-farumasi-600", unreadBg: "bg-farumasi-50"  },
     health_tip:    { Icon: Pill,     iconBg: "bg-farumasi-100", iconColor: "text-farumasi-600", unreadBg: "bg-farumasi-50"  },
     promo:         { Icon: Gift,     iconBg: "bg-purple-100",   iconColor: "text-purple-600",   unreadBg: "bg-purple-50/70" },
     reminder:      { Icon: Clock,    iconBg: "bg-amber-100",    iconColor: "text-amber-600",    unreadBg: "bg-amber-50/70"  },
@@ -227,7 +238,17 @@ function CartPanel({ onClose }: { onClose: () => void }) {
               }
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-900 truncate">{medicine.name}</p>
+              {medicine.id && !medicine.id.startsWith("rx-") ? (
+                <Link
+                  href={`/store/${medicine.id}`}
+                  onClick={onClose}
+                  className="text-sm font-bold text-farumasi-700 hover:underline truncate block"
+                >
+                  {medicine.name}
+                </Link>
+              ) : (
+                <p className="text-sm font-bold text-slate-900 truncate">{medicine.name}</p>
+              )}
               {sellMode === "partial" && linePrice === 0 ? (
                 <p className="text-xs text-slate-400 italic mt-0.5">Price at pharmacy</p>
               ) : packMax ? (

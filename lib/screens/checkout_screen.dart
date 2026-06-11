@@ -286,11 +286,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
 
       final order = await PatientRepository.instance.createOrder(build.payload);
-      await PatientRepository.instance.initiateMomo(
+      final init = await PatientRepository.instance.initiatePesapal(
         order.id,
-        _phoneController.text.trim(),
+        phone: _phoneController.text.trim(),
       );
-      await PatientRepository.instance.waitUntilPaid(order.id);
+      if (init.paymentStatus != 'paid') {
+        await PatientRepository.instance.waitUntilPaid(order.id);
+      }
 
       if (!mounted) return;
       StateService().clearCart();
@@ -485,7 +487,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Pharmacy Subtotal', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text('${discountedTotal.toStringAsFixed(0)} RWF', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('${total.toStringAsFixed(0)} RWF', style: TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                       SizedBox(height: 8),

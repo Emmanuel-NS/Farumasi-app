@@ -71,10 +71,7 @@ class NotificationService extends ChangeNotifier {
       _error = null;
     } catch (e) {
       _error = 'Could not load notifications';
-      if (notifications.isEmpty) {
-        _loadFallbackNotifications();
-        _usesApi = false;
-      }
+      _usesApi = notifications.isNotEmpty;
     } finally {
       _loading = false;
       notifyListeners();
@@ -92,20 +89,6 @@ class NotificationService extends ChangeNotifier {
       'orderId': n.orderId,
       'actionUrl': n.actionUrl,
     };
-  }
-
-  void _loadFallbackNotifications() {
-    if (notifications.isNotEmpty) return;
-    notifications.addAll([
-      {
-        'id': 'local-1',
-        'title': 'Welcome to FARUMASI',
-        'body': 'Sign in to receive order and prescription updates.',
-        'time': DateTime.now(),
-        'category': 'general',
-        'isRead': false,
-      },
-    ]);
   }
 
   void clearNotifications() {

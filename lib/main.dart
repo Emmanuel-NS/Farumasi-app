@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/router.dart';
 import 'theme/app_theme.dart';
 import 'services/notification_service.dart';
+import 'services/patient_catalog_service.dart';
 
 // Supabase keys injected via --dart-define at build time
 // dart-define=SUPABASE_URL=https://xxx.supabase.co
@@ -45,6 +46,7 @@ Future<void> main() async {
     } catch (e) {
       debugPrint('Failed to init notifications: $e');
     }
+    await PatientCatalogService().hydrateFromCache();
   });
 }
 

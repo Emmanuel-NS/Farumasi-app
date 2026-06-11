@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../api/repositories/patient_repository.dart';
 import '../core/cart_pharmacy_scoring.dart';
@@ -52,8 +54,11 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   final _descriptionController = TextEditingController();
   final _phoneController = TextEditingController();
   final _accessCodeController = TextEditingController();
-  String _momoPhone = '';
   bool _isSubmitting = false;
+  bool _locationDenied = false;
+  bool _locationLoading = false;
+  double? _patientLat;
+  double? _patientLon;
   String? _confirmedOrderCode;
   String? _confirmedOrderId;
 
@@ -62,8 +67,78 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     super.initState();
     _nameController.text = StateService().userName ?? '';
     _phoneController.text = '0780000000';
-    _momoPhone = '0780000000';
+    _hydrateLocationFromState();
   }
+
+  void _hydrateLocationFromState() {
+    final coords = StateService().userCoordinates;
+    if (coords == null) return;
+    final parts = coords.split(',');
+    if (parts.length != 2) return;
+    final lat = double.tryParse(parts[0].trim());
+    final lon = double.tryParse(parts[1].trim());
+    if (lat != null && lon != null) {
+      _patientLat = lat;
+      _patientLon = lon;
+    }
+  }
+
+  Future<void> _requestPatientLocation() async {
+    setState(() {
+      _locationLoading = true;
+      _locationDenied = false;
+    });
+    try {
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) {
+        setState(() {
+          _locationDenied = true;
+          _locationLoading = false;
+        });
+        return;
+      }
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        setState(() {
+          _locationDenied = true;
+          _locationLoading = false;
+        });
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+      if (!mounted) return;
+      setState(() {
+        _patientLat = pos.latitude;
+        _patientLon = pos.longitude;
+        _locationDenied = false;
+        _locationLoading = false;
+      });
+      StateService().setLocation(
+        StateService().userAddress ?? 'Current location',
+        '${pos.latitude},${pos.longitude}',
+      );
+      if (_step == CheckoutStep.pharmacy) {
+        _loadPharmacyRecommendations();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _locationDenied = true;
+        _locationLoading = false;
+      });
+    }
+  }
+
+  bool get _deliveryLocationReady =>
+      _fulfillment != 'delivery' || (_patientLat != null && _patientLon != null);
 
   @override
   void dispose() {
@@ -171,9 +246,11 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     return _catalogueSubtotalMin(items);
   }
 
-  double _deliveryFeeFor(List<CartItem> items) {
+  double? _deliveryFeeFor(List<CartItem> items) {
     if (_fulfillment == 'pickup') return 0;
+    if (_patientLat == null || _patientLon == null) return null;
     final straightKm = _selectedPharmacy?.distanceKm ?? 0;
+    if (straightKm <= 0) return 1500;
     return deliveryFeeForRoadKm(straightKm, isPickup: false);
   }
 
@@ -202,7 +279,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
 
   double _amountDueNow(List<CartItem> items) {
     final medicines = _medicinesTotal(items);
-    final delivery = _deliveryFeeFor(items);
+    final delivery = _deliveryFeeFor(items) ?? 0;
     final total = medicines + delivery;
     if (_deferDeliveryFee && delivery > 0 && _fulfillment == 'delivery') {
       return total - delivery;
@@ -229,7 +306,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         _WizardStep('Cart', Icons.shopping_cart_outlined),
         _WizardStep('Pharmacy', Icons.store_outlined),
         _WizardStep('Details', Icons.location_on_outlined),
-        _WizardStep('Payment', Icons.smartphone_outlined),
+        _WizardStep('Payment', Icons.credit_card_outlined),
         _WizardStep('Done', Icons.check_circle_outline),
       ];
 
@@ -244,11 +321,16 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     if (_nameController.text.trim().isEmpty) missing.add('Full name');
     if (_phoneController.text.trim().isEmpty) missing.add('Contact phone');
     if (_fulfillment == 'delivery') {
+      if (!_deliveryLocationReady) {
+        missing.add('Location access (enable GPS for delivery fee)');
+      }
       if (_neighborhoodController.text.trim().isEmpty) missing.add('Street / area');
       if (_descriptionController.text.trim().isEmpty) missing.add('Delivery notes');
     }
     if (_accessCodeController.text.trim().length < 4) missing.add('Access code (min 4 characters)');
-    if (_momoPhone.trim().length < 9) missing.add('MoMo phone number');
+    if (_phoneController.text.trim().length < 9) {
+      missing.add('Mobile number for payment');
+    }
 
     if (missing.isNotEmpty) {
       if (!mounted) return;
@@ -262,14 +344,22 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         ? 'Pickup · $_selectedDistrict · ${_nameController.text.trim()} · ${_phoneController.text.trim()}'
         : '${_neighborhoodController.text.trim()}, $_selectedDistrict\n${_descriptionController.text.trim()}\n${_nameController.text.trim()} · ${_phoneController.text.trim()}';
 
-    double? lat;
-    double? lon;
-    final coords = StateService().userCoordinates;
-    if (coords != null) {
-      final parts = coords.split(',');
-      if (parts.length == 2) {
-        lat = double.tryParse(parts[0].trim());
-        lon = double.tryParse(parts[1].trim());
+    double? lat = _patientLat;
+    double? lon = _patientLon;
+    if (_fulfillment == 'delivery' && (lat == null || lon == null)) {
+      await _requestPatientLocation();
+      lat = _patientLat;
+      lon = _patientLon;
+      if (lat == null || lon == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Enable location access to place a delivery order.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isSubmitting = false);
+        return;
       }
     }
 
@@ -295,8 +385,29 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
       );
 
       final order = await PatientRepository.instance.createOrder(build.payload);
-      await PatientRepository.instance.initiateMomo(order.id, _momoPhone.trim());
-      await PatientRepository.instance.waitUntilPaid(order.id);
+      final init = await PatientRepository.instance.initiatePesapal(
+        order.id,
+        phone: _phoneController.text.trim(),
+        name: _nameController.text.trim(),
+      );
+
+      if (init.checkoutUrl != null && init.checkoutUrl!.isNotEmpty) {
+        final uri = Uri.parse(init.checkoutUrl!);
+        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+          throw Exception('Could not open Pesapal checkout.');
+        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Complete payment in your browser, then return here.'),
+            duration: Duration(seconds: 6),
+          ),
+        );
+      }
+
+      if (init.paymentStatus != 'paid') {
+        await PatientRepository.instance.waitUntilPaid(order.id);
+      }
 
       if (!mounted) return;
       StateService().clearCart();
@@ -443,7 +554,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '${items.length} item${items.length == 1 ? '' : 's'} in cart',
+          '${items.length} product${items.length == 1 ? '' : 's'} in cart',
           style: TextStyle(color: Colors.grey.shade600),
         ),
         const SizedBox(height: 16),
@@ -505,12 +616,15 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                   label: 'Delivery',
                   icon: Icons.delivery_dining_outlined,
                   selected: _fulfillment == 'delivery',
-                  onTap: () => setState(() {
-                    _fulfillment = 'delivery';
-                    _selectedPharmacy = null;
-                    _pharmaReady = false;
+                  onTap: () {
+                    setState(() {
+                      _fulfillment = 'delivery';
+                      _selectedPharmacy = null;
+                      _pharmaReady = false;
+                    });
+                    if (_patientLat == null) _requestPatientLocation();
                     _startAiAnimation();
-                  }),
+                  },
                 ),
               ),
               Expanded(
@@ -530,6 +644,35 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           ),
         ),
         const SizedBox(height: 12),
+        if (_fulfillment == 'delivery' && !_deliveryLocationReady)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.my_location, color: Color(0xFF92400E)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _locationDenied
+                        ? 'Allow location to see delivery fees.'
+                        : 'Enable location for accurate delivery pricing.',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _locationLoading ? null : _requestPatientLocation,
+                  child: Text(_locationLoading ? '…' : 'Enable'),
+                ),
+              ],
+            ),
+          ),
+        if (_fulfillment == 'delivery' && !_deliveryLocationReady)
+          const SizedBox(height: 8),
         if (!_pharmaReady)
           Container(
             padding: const EdgeInsets.all(20),
@@ -705,7 +848,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           }),
           const SizedBox(height: 8),
           ElevatedButton(
-            onPressed: _selectedPharmacy != null
+            onPressed: _selectedPharmacy != null && _deliveryLocationReady
                 ? () => setState(() => _step = CheckoutStep.details)
                 : null,
             style: _primaryBtn,
@@ -722,7 +865,10 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
 
   Widget _buildDetailsStep(List<CartItem> items) {
     final medicines = _medicinesTotal(items);
-    final deliveryFee = _deliveryFeeFor(items);
+    final deliveryFee = _deliveryFeeFor(items) ?? 0;
+    final deliveryLabel = _fulfillment == 'delivery' && !_deliveryLocationReady
+        ? 'Enable location'
+        : (deliveryFee == 0 ? 'Free' : '${deliveryFee.round()} RWF');
     final isPickup = _fulfillment == 'pickup';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -848,10 +994,42 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
               ],
             ),
           ),
+        if (!isPickup && !_deliveryLocationReady) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Location required for delivery',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _locationDenied
+                      ? 'Allow location access to calculate delivery fee.'
+                      : 'Enable GPS — delivery is never shown as free without your location.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+                ),
+                TextButton(
+                  onPressed: _locationLoading ? null : _requestPatientLocation,
+                  child: Text(_locationLoading ? 'Detecting…' : 'Enable location'),
+                ),
+              ],
+            ),
+          ),
+        ],
         _SummaryCard(
           subtotalMin: medicines,
           subtotalMax: medicines,
           deliveryFee: deliveryFee,
+          deliveryLabel: deliveryLabel,
           subtotalLabel: 'Medicines',
           totalLabel: 'Total (est.)',
         ),
@@ -860,7 +1038,8 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           onPressed: _nameController.text.trim().isEmpty ||
                   _phoneController.text.trim().isEmpty ||
                   _accessCodeController.text.trim().length < 4 ||
-                  (!isPickup && _neighborhoodController.text.trim().isEmpty)
+                  (!isPickup && _neighborhoodController.text.trim().isEmpty) ||
+                  (!_deliveryLocationReady && !isPickup)
               ? null
               : () => setState(() => _step = CheckoutStep.payment),
           style: _primaryBtn,
@@ -872,7 +1051,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
 
   Widget _buildPaymentStep(List<CartItem> items) {
     final medicines = _medicinesTotal(items);
-    final deliveryFee = _deliveryFeeFor(items);
+    final deliveryFee = _deliveryFeeFor(items) ?? 0;
     final total = medicines + deliveryFee;
     final dueNow = _amountDueNow(items);
     return Column(
@@ -881,30 +1060,24 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFFBEB),
+            color: const Color(0xFFFFF7ED),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFFDE68A)),
+            border: Border.all(color: const Color(0xFFFED7AA)),
           ),
-          child: Row(
+          child: const Row(
             children: [
-              Image.network(
-                'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/MTN_logo.svg/120px-MTN_logo.svg.png',
-                width: 40,
-                height: 40,
-                errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.smartphone, color: Color(0xFFFFCC00)),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
+              Icon(Icons.credit_card, color: Color(0xFFEA580C), size: 32),
+              SizedBox(width: 12),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'MTN Mobile Money',
+                      'Pesapal',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      'Pay securely with MoMo',
+                      'Card, MTN MoMo, or Airtel Money via Pesapal',
                       style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     ),
                   ],
@@ -915,14 +1088,14 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         ),
         const SizedBox(height: 16),
         TextField(
+          controller: _phoneController,
           keyboardType: TextInputType.phone,
           decoration: const InputDecoration(
-            labelText: 'MoMo phone number',
+            labelText: 'Mobile number for payment',
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.phone_android),
             hintText: '078XXXXXXX',
           ),
-          onChanged: (v) => setState(() => _momoPhone = v),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -934,6 +1107,35 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
             prefixIcon: Icon(Icons.lock_outline),
           ),
         ),
+        const SizedBox(height: 12),
+        if (_fulfillment == 'delivery' && !_deliveryLocationReady)
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.location_off, color: Color(0xFF92400E)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _locationDenied
+                        ? 'Enable location to place a delivery order.'
+                        : 'Waiting for GPS…',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _locationLoading ? null : _requestPatientLocation,
+                  child: const Text('Enable'),
+                ),
+              ],
+            ),
+          ),
         if (_fulfillment == 'delivery' && deliveryFee > 0) ...[
           const SizedBox(height: 12),
           Container(
@@ -992,7 +1194,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         ElevatedButton(
           onPressed: _isSubmitting ? null : () => _submitPayment(items),
           style: _primaryBtn,
-          child: Text(_isSubmitting ? 'Processing…' : 'Pay with MoMo'),
+          child: Text(_isSubmitting ? 'Processing…' : 'Pay with Pesapal'),
         ),
       ],
     );
@@ -1318,6 +1520,7 @@ class _SummaryCard extends StatelessWidget {
     required this.subtotalMin,
     required this.subtotalMax,
     required this.deliveryFee,
+    this.deliveryLabel,
     this.subtotalLabel = 'Subtotal (est.)',
     this.totalLabel = 'Total (est.)',
   });
@@ -1325,6 +1528,7 @@ class _SummaryCard extends StatelessWidget {
   final double subtotalMin;
   final double subtotalMax;
   final double deliveryFee;
+  final String? deliveryLabel;
   final String subtotalLabel;
   final String totalLabel;
 
@@ -1347,7 +1551,7 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         children: [
           _row(subtotalLabel, _range(subtotalMin, subtotalMax)),
-          _row('Delivery', deliveryFee == 0 ? 'Free' : '${deliveryFee.round()} RWF'),
+          _row('Delivery', deliveryLabel ?? (deliveryFee == 0 ? 'Free' : '${deliveryFee.round()} RWF')),
           const Divider(),
           _row(totalLabel, _range(totalMin, totalMax), bold: true),
         ],

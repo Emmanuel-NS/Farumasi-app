@@ -3,11 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../api/repositories/patient_repository.dart';
-import '../data/dummy_data.dart';
 import '../models/models.dart';
 import '../models/product_category.dart';
 
-/// Loads patient store catalogue from the API; keeps dummy data as offline fallback.
+/// Loads patient store catalogue from the API; uses locally cached real data offline.
 class PatientCatalogService extends ChangeNotifier {
   PatientCatalogService._();
   static final PatientCatalogService _instance = PatientCatalogService._();
@@ -18,6 +17,7 @@ class PatientCatalogService extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   bool _loadedFromApi = false;
+  bool _loadedFromCache = false;
   Future<void>? _refreshFuture;
   String? _lastSearch;
   String? _lastCategory;
@@ -28,6 +28,7 @@ class PatientCatalogService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get loadedFromApi => _loadedFromApi;
+  bool get loadedFromCache => _loadedFromCache;
 
   List<ProductCategory> get _sortedCategoryDefinitions {
     if (_categoryDefinitions.isEmpty) {
@@ -87,6 +88,7 @@ class PatientCatalogService extends ChangeNotifier {
   }
 
   Future<void> _fetchCatalog({String? search, String? category}) async {
+    _loadedFromCache = false;
     try {
       final results = await Future.wait([
         PatientRepository.instance.fetchProducts(search: search, category: category),
@@ -94,23 +96,53 @@ class PatientCatalogService extends ChangeNotifier {
       ]);
       final products = results[0] as List<Medicine>;
       final cats = results[1] as List<ProductCategory>;
+
       if (products.isNotEmpty) {
         _medicines = products;
         _loadedFromApi = true;
-      } else if (!_loadedFromApi) {
+        _error = null;
+      } else if (!_loadedFromApi && _medicines.isEmpty) {
         _medicines = const [];
       }
+
       if (cats.isNotEmpty) {
         _categoryDefinitions = cats;
       }
     } catch (e) {
       _error = e.toString();
-      if (!_loadedFromApi) {
-        _medicines = List.from(dummyMedicines);
+      final cachedProducts = await PatientRepository.instance.loadCachedProducts(
+        search: search,
+        category: category,
+      );
+      final cachedCats = await PatientRepository.instance.loadCachedCategoryDefinitions();
+
+      if (cachedProducts.isNotEmpty) {
+        _medicines = cachedProducts;
+        _loadedFromCache = true;
+        _loadedFromApi = false;
+      } else if (!_loadedFromApi) {
+        _medicines = const [];
+      }
+
+      if (cachedCats.isNotEmpty) {
+        _categoryDefinitions = cachedCats;
       }
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Warm cache on app start when offline — loads last saved catalogue without network.
+  Future<void> hydrateFromCache() async {
+    if (_medicines.isNotEmpty) return;
+    final cached = await PatientRepository.instance.loadCachedProducts();
+    final cats = await PatientRepository.instance.loadCachedCategoryDefinitions();
+    if (cached.isEmpty && cats.isEmpty) return;
+    _medicines = cached;
+    _categoryDefinitions = cats;
+    _loadedFromCache = true;
+    _loadedFromApi = false;
+    notifyListeners();
   }
 }

@@ -374,7 +374,20 @@ class PrescriptionService:
                     raise BusinessRuleError(
                         "Pharmacists may only set status to 'reviewed' or 'under_review'"
                     )
+                old_status = rx.status
                 rx.status = data.status
+                if data.status == PrescriptionStatus.REVIEWED and old_status != PrescriptionStatus.REVIEWED:
+                    patient_row = (
+                        await self.db.execute(
+                            select(PatientProfile).where(PatientProfile.id == rx.patient_id)
+                        )
+                    ).scalar_one_or_none()
+                    if patient_row is not None:
+                        await NotificationService(self.db).prescription_cart_ready(
+                            patient_row.user_id,
+                            rx.id,
+                            notes=data.notes,
+                        )
             # Insurance coverage: only set when pharmacist provides non-None values
             if data.insurance_provider is not None:
                 rx.insurance_provider = data.insurance_provider or None

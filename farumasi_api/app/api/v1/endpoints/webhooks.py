@@ -7,26 +7,46 @@ from app.services.payments.payment_service import PaymentService
 router = APIRouter()
 
 
-@router.post("/momo")
-async def momo_payment_webhook(
+def _pesapal_params(request: Request, body: dict) -> tuple[str, str]:
+    tracking = (
+        request.query_params.get("OrderTrackingId")
+        or body.get("OrderTrackingId")
+        or ""
+    )
+    merchant_ref = (
+        request.query_params.get("OrderMerchantReference")
+        or body.get("OrderMerchantReference")
+        or ""
+    )
+    return tracking, merchant_ref
+
+
+@router.post("/pesapal")
+async def pesapal_ipn_post(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """MTN MoMo Collection callback (X-Reference-Id header + status body)."""
-    reference_id = request.headers.get("X-Reference-Id") or request.headers.get("x-reference-id")
-    body = {}
+    """Pesapal IPN (POST) — verify payment and acknowledge."""
+    body: dict = {}
     try:
         body = await request.json()
     except Exception:
         pass
-
-    status = body.get("status") or request.headers.get("X-Status") or "SUCCESSFUL"
-    financial_id = body.get("financialTransactionId")
-
-    if not reference_id:
-        return {"ok": False, "detail": "Missing X-Reference-Id"}
-
-    processed = await PaymentService(db).handle_momo_webhook(
-        reference_id, status=str(status), financial_transaction_id=financial_id
+    tracking, merchant_ref = _pesapal_params(request, body)
+    return await PaymentService(db).handle_pesapal_ipn(
+        order_tracking_id=tracking,
+        merchant_reference=merchant_ref,
     )
-    return {"ok": processed}
+
+
+@router.get("/pesapal")
+async def pesapal_ipn_get(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Pesapal IPN (GET) — same handler as POST."""
+    tracking, merchant_ref = _pesapal_params(request, {})
+    return await PaymentService(db).handle_pesapal_ipn(
+        order_tracking_id=tracking,
+        merchant_reference=merchant_ref,
+    )

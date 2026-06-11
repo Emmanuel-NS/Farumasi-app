@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils";
 import { useSearchStore } from "@/store/search-store";
-import { useCartStore } from "@/store/cart-store";
+import { useCartLineCount } from "@/store/cart-store";
 import { useAuthStore } from "@/store/auth-store";
 import { useTranslation } from "@/lib/translations";
 import {
@@ -54,7 +54,7 @@ export function Topbar({
   const clearStoreFilters = useStoreFilterStore((s) => s.clearAll);
   const isStorePage = pathname === "/store";
   const storeFilterCount = storeActiveFilterCount(query);
-  const cartItemCount = Object.values(useCartStore((s) => s.items)).reduce((acc, e) => acc + e.qty, 0);
+  const cartItemCount = useCartLineCount();
   const [showProfile, setShowProfile] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const [unread, setUnread] = useState(0);

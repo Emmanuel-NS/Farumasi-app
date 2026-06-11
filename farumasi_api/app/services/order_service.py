@@ -113,6 +113,11 @@ class OrderService:
         delivery_fee = 0.0
         _delivery_distance_km: Optional[float] = None
         if data.delivery_method == DeliveryMethod.DELIVERY:
+            if data.delivery_latitude is None or data.delivery_longitude is None:
+                raise ValidationError(
+                    "Location access is required for delivery orders. "
+                    "Enable GPS in your browser or app and try again."
+                )
             # Calculate distance-based fee using real road distance (returns fee, distance)
             delivery_fee, _delivery_distance_km = await self._calculate_order_delivery_fee(
                 data, pharmacy_id, partner_id
@@ -197,6 +202,12 @@ class OrderService:
                 recipient_ids = [owner_user_id]
         for uid in recipient_ids:
             await notif.order_placed(uid, order.id, order_code=order.order_code)
+
+        patient_user_id = await self._patient_user_id(patient.id)
+        if patient_user_id:
+            await notif.patient_order_placed(
+                patient_user_id, order.id, order_code=order.order_code
+            )
 
         await AuditService(self.db).log(
             actor_user_id=actor.id,
@@ -482,6 +493,16 @@ class OrderService:
         if order.order_status in (OrderStatus.COMPLETED, OrderStatus.DELIVERED):
             await self._create_revenue(order)
         await self.db.flush()
+
+        patient_user_id = await self._patient_user_id(order.patient_id)
+        if patient_user_id:
+            await NotificationService(self.db).order_status_changed(
+                patient_user_id,
+                order.id,
+                order.order_status,
+                order_code=order.order_code,
+            )
+
         return await self._reload(order.id)
 
     # ── Item resolution ───────────────────────────────────────────────────
@@ -612,7 +633,10 @@ class OrderService:
                     raise BusinessRuleError(
                         f"Listing {lst.id} is not active"
                     )
-                if lst.availability_status != ListingAvailability.AVAILABLE:
+                if lst.availability_status not in (
+                    ListingAvailability.AVAILABLE,
+                    ListingAvailability.LOW_STOCK,
+                ):
                     raise BusinessRuleError(
                         f"Listing {lst.id} is not available"
                     )
@@ -879,7 +903,7 @@ class OrderService:
             ).scalar_one_or_none()
             if ph:
                 delivery.pickup_address = ", ".join(
-                    p for p in (ph.address, ph.district, ph.city) if p
+                    p for p in (ph.address, ph.district, "Kigali") if p
                 ) or ph.name
                 delivery.pickup_latitude = ph.latitude
                 delivery.pickup_longitude = ph.longitude
@@ -891,7 +915,7 @@ class OrderService:
             ).scalar_one_or_none()
             if partner:
                 delivery.pickup_address = ", ".join(
-                    p for p in (partner.address, partner.city) if p
+                    p for p in (partner.address, partner.district, "Kigali") if p
                 ) or partner.name
                 delivery.pickup_latitude = partner.latitude
                 delivery.pickup_longitude = partner.longitude

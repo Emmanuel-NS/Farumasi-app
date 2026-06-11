@@ -32,12 +32,16 @@ api.interceptors.request.use((config) => {
     }
   }
 
-  // FastAPI redirect_slashes=False: ensure list-style paths end with '/'
-  // Paths that are clearly NOT list endpoints: contain a UUID, or end in an action keyword
   if (config.url) {
     const isActionPath = /\/(login|register|refresh|logout|me|read|approve|reject|assign|publish|archive|confirm-qr|mark-all-read|read-all|mark-paid|availability|summary)$/.test(config.url);
-    const hasSegmentAfterSlash = /\/[^/]+\/[^/]+$/.test(config.url); // has sub-path like /orders/123
-    if (!config.url.endsWith("/") && !isActionPath && !hasSegmentAfterSlash) {
+    const hasSegmentAfterSlash = /\/[^/]+\/[^/]+$/.test(config.url);
+    const isCreateOrder = config.url === "/patients/me/orders";
+    if (
+      !isCreateOrder &&
+      !config.url.endsWith("/") &&
+      !isActionPath &&
+      !hasSegmentAfterSlash
+    ) {
       config.url = config.url + "/";
     }
   }

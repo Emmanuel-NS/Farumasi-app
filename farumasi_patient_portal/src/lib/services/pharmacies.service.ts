@@ -1,5 +1,10 @@
 import api, { mediaUrl } from "@/lib/api";
 
+export interface BackendInsuranceBrief {
+  id: string;
+  name: string;
+}
+
 export interface BackendPharmacy {
   id: string;
   name: string;
@@ -16,6 +21,7 @@ export interface BackendPharmacy {
   image_url?: string | null;
   logo_url?: string | null;
   sellerKind?: "pharmacy" | "partner";
+  accepted_insurances?: BackendInsuranceBrief[];
 }
 
 /** Resolve store logo for pharmacies (logo_url) or partners (logo_url → image_url). */

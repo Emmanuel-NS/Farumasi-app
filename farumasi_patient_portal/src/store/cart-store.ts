@@ -18,6 +18,11 @@ interface CartStore {
   clear: () => void;
 }
 
+/** Distinct cart lines (unique products / sell-mode rows), not unit quantity. */
+export function cartLineCount(items: Record<string, CartEntry>): number {
+  return Object.keys(items).length;
+}
+
 export const useCartStore = create<CartStore>()(
   persist(
     (set) => ({
@@ -77,3 +82,7 @@ export const useCartStore = create<CartStore>()(
     },
   ),
 );
+
+export function useCartLineCount(): number {
+  return useCartStore((s) => cartLineCount(s.items));
+}

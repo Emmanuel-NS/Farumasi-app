@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { cacheThrough } from "@/lib/memory-cache";
 import type { Medicine, MarketingPharmacy, ProductType } from "@/types";
 
 /** Shape returned by GET /products */
@@ -102,6 +103,9 @@ export function adaptProduct(p: BackendProduct): Medicine {
   };
 }
 
+const CATALOG_TTL_MS = 90_000;
+const CATEGORY_TTL_MS = 300_000;
+
 export const productsService = {
   async getProducts(params?: {
     search?: string;
@@ -110,8 +114,11 @@ export const productsService = {
     limit?: number;
     only_with_listings?: boolean;
   }): Promise<PaginatedProducts> {
-    const { data } = await api.get<PaginatedProducts>("/products", { params });
-    return data;
+    const key = `products:${JSON.stringify(params ?? {})}`;
+    return cacheThrough(key, CATALOG_TTL_MS, async () => {
+      const { data } = await api.get<PaginatedProducts>("/products", { params });
+      return data;
+    });
   },
 
   async getProductById(id: string): Promise<Medicine> {
@@ -130,9 +137,11 @@ export const productsService = {
   },
 
   async getCategories(): Promise<{ id: string; name: string; icon_name: string; is_default: boolean; display_order: number }[]> {
-    const { data } = await api.get<{ id: string; name: string; icon_name: string; is_default: boolean; display_order: number }[]>(
-      "/products/categories/",
-    );
-    return data;
+    return cacheThrough("products:categories", CATEGORY_TTL_MS, async () => {
+      const { data } = await api.get<{ id: string; name: string; icon_name: string; is_default: boolean; display_order: number }[]>(
+        "/products/categories/",
+      );
+      return data;
+    });
   },
 };

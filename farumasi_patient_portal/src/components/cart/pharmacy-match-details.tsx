@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import {
   X, CheckCircle2, XCircle, MapPin, Shield, Pill,
-  Star, CreditCard, Clock, Building2, ListOrdered,
+  Star, CreditCard, Building2, ListOrdered, Truck,
 } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
@@ -26,14 +26,26 @@ export interface PharmacyOption {
   availableCount: number;
   totalCount: number;
   priceEstimate: number;
+  /** Medicine subtotal after Rx insurance (same as priceEstimate when pharmacy does not accept insurance). */
+  priceAfterInsurance: number;
   insuranceMatch: boolean;
   insuranceSaving: number;
+  /** Pharmacist applied insurance on this Rx (regardless of pharmacy acceptance). */
+  rxHasInsurance?: boolean;
   distanceKm: number;
+  roadDistanceKm: number;
   score: number;
+  maxScore: number;
+  matchPercent: number;
   deliveryAvailable: boolean;
-  estimatedDeliveryMin: number;
   priceRank: number;
+  /** Rank among pharmacies that have every cart item (fair price compare) */
+  fullStockPriceRank: number;
+  comparesOnFullStockPrice: boolean;
+  distanceRank: number;
   totalCandidates: number;
+  /** Prescription-only: pharmacist applied insurance on this Rx */
+  rxInsuranceActive?: boolean;
 }
 
 export interface MatchCriterion {
@@ -41,12 +53,6 @@ export interface MatchCriterion {
   label: string;
   met: boolean;
   note?: string;
-}
-
-const PATIENT_INSURANCE = "RSSB";
-
-function roadDistanceKm(straightLineKm: number): number {
-  return straightLineKm * 1.3;
 }
 
 function ordinal(n: number): string {
@@ -62,6 +68,9 @@ export function buildMatchCriteria(
     fulfillment: "delivery" | "pickup";
     patientLocation: [number, number] | null;
     patientDistrict: string;
+    rxInsuranceProvider?: string | null;
+    rxInsuranceDiscountPct?: number | null;
+    deliveryFee?: number;
   },
 ): MatchCriterion[] {
   const criteria: MatchCriterion[] = [];
@@ -69,12 +78,12 @@ export function buildMatchCriteria(
 
   criteria.push({
     key: "rank",
-    label: "Overall AI match",
+    label: "Overall match rank",
     met: opt.rank === 1,
     note:
       opt.rank === 1
-        ? `Top pick of ${allOptions.length}`
-        : `#${opt.rank} of ${allOptions.length} shown`,
+        ? `Top pick of ${allOptions.length} shown`
+        : `#${opt.rank} of ${allOptions.length} shown · ${opt.matchPercent}% fit`,
   });
 
   criteria.push({
@@ -86,93 +95,81 @@ export function buildMatchCriteria(
       : `${opt.availableCount}/${opt.totalCount} available`,
   });
 
-  const priceRank =
-    [...allOptions]
-      .sort((a, b) => a.priceEstimate - b.priceEstimate)
-      .findIndex((o) => o.codename === opt.codename) + 1;
+  const fullStockPeers = allOptions.filter((o) => o.availableCount === o.totalCount);
 
-  criteria.push({
-    key: "price",
-    label: "Medicine total price",
-    met: priceRank === 1,
-    note:
-      priceRank === 1
-        ? `Lowest of ${allOptions.length} (${formatPrice(opt.priceEstimate)})`
-        : `${ordinal(priceRank)} of ${allOptions.length} · ${formatPrice(opt.priceEstimate)}`,
-  });
-
-  if (opt.totalCandidates > allOptions.length) {
+  if (fullStock) {
+    const rankAmongFull =
+      opt.fullStockPriceRank > 0 ? opt.fullStockPriceRank : fullStockPeers.length;
     criteria.push({
-      key: "price_pool",
-      label: "Price among all matching pharmacies",
-      met: opt.priceRank === 1,
-      note: `${ordinal(opt.priceRank)} of ${opt.totalCandidates} pharmacies with your items`,
+      key: "price",
+      label: "Medicine subtotal (full-stock pharmacies only)",
+      met: rankAmongFull === 1 && fullStockPeers.length > 1,
+      note:
+        fullStockPeers.length <= 1
+          ? `Only pharmacy with all ${opt.totalCount} items · ${formatPrice(opt.priceEstimate)}`
+          : rankAmongFull === 1
+            ? `Lowest among ${fullStockPeers.length} with full stock · ${formatPrice(opt.priceEstimate)}`
+            : `${ordinal(rankAmongFull)} of ${fullStockPeers.length} full-stock · ${formatPrice(opt.priceEstimate)}`,
+    });
+  } else {
+    criteria.push({
+      key: "price",
+      label: "Medicine subtotal (full-stock pharmacies only)",
+      met: false,
+      note: `${opt.availableCount}/${opt.totalCount} items — price not compared to full-stock pharmacies`,
     });
   }
 
   if (ctx.patientLocation || ctx.patientDistrict) {
-    const isNearest =
-      opt.distanceKm > 0 &&
-      allOptions.every(
-        (o) =>
-          o.codename === opt.codename ||
-          o.distanceKm === 0 ||
-          o.distanceKm >= opt.distanceKm,
-      );
-    const roadKm =
-      ctx.patientLocation && opt.distanceKm > 0
-        ? roadDistanceKm(opt.distanceKm)
-        : 0;
+    const roadKm = opt.roadDistanceKm > 0 ? opt.roadDistanceKm : 0;
+    const hasDistanceRank = opt.distanceRank > 0 && opt.totalCandidates > 0;
 
     criteria.push({
       key: "proximity",
-      label: "Near your location",
-      met: isNearest || (opt.distanceKm > 0 && opt.distanceKm < 10),
+      label: "Distance rank",
+      met: hasDistanceRank && opt.distanceRank === 1,
       note: roadKm > 0
-        ? isNearest
-          ? `Nearest · ${roadKm.toFixed(1)} km road distance`
-          : `${roadKm.toFixed(1)} km road distance`
-        : opt.pharmacy.district || "District-based estimate",
+        ? hasDistanceRank
+          ? `${ordinal(opt.distanceRank)} nearest of ${opt.totalCandidates} · ~${roadKm.toFixed(1)} km est. road (GPS)`
+          : `~${roadKm.toFixed(1)} km est. road distance (straight-line × 1.3)`
+        : opt.pharmacy.district
+          ? `Same district: ${opt.pharmacy.district} (enable GPS for km)`
+          : "Enable location for distance ranking",
+    });
+  }
+
+  if (ctx.rxInsuranceProvider && ctx.rxInsuranceDiscountPct) {
+    criteria.push({
+      key: "insurance",
+      label: "Accepts prescription insurance",
+      met: opt.insuranceMatch,
+      note: opt.insuranceMatch
+        ? `${ctx.rxInsuranceProvider} accepted · ${ctx.rxInsuranceDiscountPct}% off medicines (−${formatPrice(opt.insuranceSaving)})`
+        : `Does not accept ${ctx.rxInsuranceProvider} — full price ${formatPrice(opt.priceEstimate)}`,
     });
   }
 
   criteria.push({
-    key: "insurance",
-    label: `Accepts ${PATIENT_INSURANCE} insurance`,
-    met: opt.insuranceMatch,
-    note: opt.insuranceMatch
-      ? `Est. savings ${formatPrice(opt.insuranceSaving)}`
-      : "Not accepted at this pharmacy",
+    key: "open",
+    label: "Open now (high priority)",
+    met: opt.pharmacy.isOpen,
+    note: opt.pharmacy.isOpen ? "Ready to fulfill" : "Currently closed — ranked lower",
   });
 
   criteria.push({
-    key: "open",
-    label: "Open now",
-    met: opt.pharmacy.isOpen,
-    note: opt.pharmacy.isOpen ? "Ready to fulfill" : "Currently closed",
+    key: "weights",
+    label: "How match % is calculated",
+    met: true,
+    note:
+      "Priority: stock & open → insurance (Rx only) → distance & full-stock price (equal weight)",
   });
 
-  if (ctx.fulfillment === "delivery") {
-    const isFastest = allOptions.every(
-      (o) => o.estimatedDeliveryMin >= opt.estimatedDeliveryMin,
-    );
+  if (ctx.fulfillment === "delivery" && ctx.deliveryFee != null && ctx.deliveryFee > 0) {
     criteria.push({
-      key: "delivery",
-      label: "Delivery speed estimate",
-      met: isFastest,
-      note: `~${opt.estimatedDeliveryMin} min total`,
-    });
-  } else {
-    const travelMin =
-      opt.distanceKm > 0 ? Math.round((opt.distanceKm / 25) * 60) : 0;
-    criteria.push({
-      key: "pickup",
-      label: "Convenient for pickup",
-      met: opt.distanceKm > 0 && opt.distanceKm < 15,
-      note:
-        opt.distanceKm > 0
-          ? `~${travelMin} min drive · ${roadDistanceKm(opt.distanceKm).toFixed(1)} km`
-          : opt.pharmacy.district,
+      key: "delivery_fee",
+      label: "Estimated delivery fee",
+      met: true,
+      note: `${formatPrice(ctx.deliveryFee)} based on road distance to your address`,
     });
   }
 
@@ -185,6 +182,9 @@ export function PharmacyMatchDetails({
   fulfillment,
   patientLocation,
   patientDistrict,
+  rxInsuranceProvider,
+  rxInsuranceDiscountPct,
+  deliveryFee,
   onClose,
 }: {
   option: PharmacyOption | null;
@@ -192,6 +192,9 @@ export function PharmacyMatchDetails({
   fulfillment: "delivery" | "pickup";
   patientLocation: [number, number] | null;
   patientDistrict: string;
+  rxInsuranceProvider?: string | null;
+  rxInsuranceDiscountPct?: number | null;
+  deliveryFee?: number;
   onClose: () => void;
 }) {
   const t = useTranslation();
@@ -219,12 +222,12 @@ export function PharmacyMatchDetails({
     fulfillment,
     patientLocation,
     patientDistrict,
+    rxInsuranceProvider,
+    rxInsuranceDiscountPct,
+    deliveryFee,
   });
   const img = sellerImageSrc({ image_url: option.pharmacy.imageUrl });
-  const roadKm =
-    patientLocation && option.distanceKm > 0
-      ? roadDistanceKm(option.distanceKm)
-      : 0;
+  const roadKm = option.roadDistanceKm > 0 ? option.roadDistanceKm : 0;
   const priceRank =
     [...allOptions]
       .sort((a, b) => a.priceEstimate - b.priceEstimate)
@@ -274,7 +277,7 @@ export function PharmacyMatchDetails({
               <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                 <MapPin className="w-3 h-3 shrink-0" />
                 {option.pharmacy.district}
-                {roadKm > 0 && ` · ${roadKm.toFixed(1)} km`}
+                {roadKm > 0 && ` · ~${roadKm.toFixed(1)} km est. road`}
               </p>
             </div>
           </div>
@@ -295,22 +298,17 @@ export function PharmacyMatchDetails({
                 {t.cart_match_score}
               </span>
               <span className="text-sm font-extrabold text-farumasi-700 tabular-nums">
-                {Math.round(
-                  (option.score / (allOptions[0]?.score || option.score)) * 100,
-                )}
-                %
+                {option.matchPercent}%
               </span>
             </div>
+            <p className="text-[10px] text-farumasi-700/80 mb-2">
+              Stock &amp; open first · insurance (Rx) · then distance &amp; price (equal, price only when all items in stock).
+            </p>
             <div className="h-1.5 rounded-full bg-white/80 overflow-hidden">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-farumasi-400 to-farumasi-600"
                 style={{
-                  width: `${Math.min(
-                    100,
-                    Math.round(
-                      (option.score / (allOptions[0]?.score || option.score)) * 100,
-                    ),
-                  )}%`,
+                  width: `${Math.min(100, option.matchPercent)}%`,
                 }}
               />
             </div>
@@ -355,6 +353,26 @@ export function PharmacyMatchDetails({
                 {formatPrice(option.priceEstimate)}
               </span>
             </div>
+            {option.insuranceMatch && option.insuranceSaving > 0 && rxInsuranceProvider && (
+              <div className="flex justify-between items-center text-sm text-green-600">
+                <span className="flex items-center gap-1">
+                  <Shield className="w-3.5 h-3.5" />
+                  {rxInsuranceProvider} ({rxInsuranceDiscountPct}% off)
+                </span>
+                <span className="font-bold">−{formatPrice(option.insuranceSaving)}</span>
+              </div>
+            )}
+            {option.insuranceMatch && option.insuranceSaving > 0 && (
+              <div className="flex justify-between items-center text-sm font-bold text-slate-800">
+                <span>You pay (medicines)</span>
+                <span className="text-farumasi-700">{formatPrice(option.priceAfterInsurance)}</span>
+              </div>
+            )}
+            {!option.insuranceMatch && option.rxHasInsurance && rxInsuranceProvider && (
+              <p className="text-xs text-amber-700 mt-2">
+                Full price — this pharmacy does not accept {rxInsuranceProvider}.
+              </p>
+            )}
           </section>
 
           {/* Why recommended */}
@@ -404,9 +422,14 @@ export function PharmacyMatchDetails({
                 <Star className="w-3 h-3" /> {t.cart_best_match}
               </span>
             )}
-            {option.insuranceMatch && (
+            {option.insuranceMatch && rxInsuranceProvider && (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-green-100 text-green-800 px-2.5 py-1 rounded-full">
-                <Shield className="w-3 h-3" /> {PATIENT_INSURANCE}
+                <Shield className="w-3 h-3" /> Accepts {rxInsuranceProvider}
+              </span>
+            )}
+            {!option.insuranceMatch && option.rxHasInsurance && rxInsuranceProvider && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">
+                <Shield className="w-3 h-3" /> Full price — no {rxInsuranceProvider}
               </span>
             )}
             {option.pharmacy.isOpen && (
@@ -414,9 +437,9 @@ export function PharmacyMatchDetails({
                 <Building2 className="w-3 h-3" /> Open
               </span>
             )}
-            {fulfillment === "delivery" && (
+            {fulfillment === "delivery" && deliveryFee != null && deliveryFee > 0 && (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-violet-100 text-violet-800 px-2.5 py-1 rounded-full">
-                <Clock className="w-3 h-3" /> ~{option.estimatedDeliveryMin} min
+                <Truck className="w-3 h-3" /> +{formatPrice(deliveryFee)} delivery
               </span>
             )}
             {priceRank === 1 && option.rank !== 1 && (

@@ -1,4 +1,5 @@
 import { useLanguageStore, type LangCode } from "@/store/language-store";
+import { useTranslationOverlayStore } from "@/store/translation-overlay-store";
 
 // ── Translation shape ─────────────────────────────────────────────────────────
 export type T = {
@@ -536,11 +537,11 @@ const translations: Record<LangCode, T> = {
     cart_district: "District",
     cart_notes: "Additional Notes (optional)",
     cart_continue_payment: "Continue to Payment",
-    cart_payment_title: "Payment Method",
-    cart_momo: "MTN Mobile Money",
+    cart_payment_title: "Payment",
+    cart_momo: "Pesapal",
     cart_airtel: "Airtel Money",
     cart_cash: "Cash on Delivery",
-    cart_momo_number: "MoMo Phone Number",
+    cart_momo_number: "Mobile number for payment",
     cart_place_order: "Place Order",
     cart_confirmed_title: "Order Confirmed!",
     cart_confirmed_subtitle: "Your order has been placed successfully.",
@@ -602,8 +603,8 @@ const translations: Record<LangCode, T> = {
     cart_access_delivery: "Give this code to the rider at the door to confirm delivery.",
     cart_access_min: "Minimum 4 characters.",
     cart_access_label: "Access Code",
-    cart_payment_subtitle: "Choose how you want to pay",
-    cart_momo_push: "Push notification to your MTN number",
+    cart_payment_subtitle: "Pay securely with Pesapal",
+    cart_momo_push: "Card, MTN MoMo, or Airtel Money via Pesapal",
     cart_airtel_soon: "Coming soon — use MTN MoMo for now",
     cart_pay_now: "Pay now",
     cart_pay_after: "Pay after delivery arrives",
@@ -613,8 +614,8 @@ const translations: Record<LangCode, T> = {
     cart_due_now: "Due now",
     cart_processing: "Processing…",
     cart_creating: "Creating order…",
-    cart_momo_start: "Starting MTN MoMo payment…",
-    cart_momo_wait: "Waiting for MoMo approval on your phone…",
+    cart_momo_start: "Opening Pesapal checkout…",
+    cart_momo_wait: "Waiting for payment confirmation…",
     cart_checkout_error: "Could not complete checkout. Please try again.",
     cart_your_access: "Your Access Code",
     cart_give_rider: "Give this to the rider when they arrive",
@@ -911,10 +912,10 @@ const translations: Record<LangCode, T> = {
     cart_notes: "Amanota Yongeye (ntabwoba)",
     cart_continue_payment: "Komeza ku Kwishyura",
     cart_payment_title: "Uburyo bwo Kwishyura",
-    cart_momo: "MTN Mobile Money",
+    cart_momo: "Pesapal",
     cart_airtel: "Airtel Money",
     cart_cash: "Amafaranga mu Ngufu",
-    cart_momo_number: "Nimero ya MoMo",
+    cart_momo_number: "Nimero ya telefoni yo kwishyura",
     cart_place_order: "Tanga Itumba",
     cart_confirmed_title: "Itumba Ryemejwe!",
     cart_confirmed_subtitle: "Itumba ryawe ryatanzwe neza.",
@@ -976,8 +977,8 @@ const translations: Record<LangCode, T> = {
     cart_access_delivery: "Ha umujogizi iyi kode ku muryango.",
     cart_access_min: "Byibuze inyuguti 4.",
     cart_access_label: "Kode yo Kugera",
-    cart_payment_subtitle: "Hitamo uburyo bwo kwishyura",
-    cart_momo_push: "Ubutumwa kuri nimero yawe ya MTN",
+    cart_payment_subtitle: "Wishyura neza na Pesapal",
+    cart_momo_push: "Ikarita, MTN MoMo, cyangwa Airtel binyuze muri Pesapal",
     cart_airtel_soon: "Biraza vuba — ukoresha MTN MoMo ubu",
     cart_pay_now: "Kwishyura nonaha",
     cart_pay_after: "Kwishyura nyuma yo gutanga",
@@ -987,8 +988,8 @@ const translations: Record<LangCode, T> = {
     cart_due_now: "Kwishyurwa nonaha",
     cart_processing: "Turimo gutunganya…",
     cart_creating: "Turimo gushyiraho itegeko…",
-    cart_momo_start: "Gutangiza kwishyura kwa MTN MoMo…",
-    cart_momo_wait: "Tegereza kwemera MoMo kuri telefoni yawe…",
+    cart_momo_start: "Gufungura Pesapal…",
+    cart_momo_wait: "Tegereza kwemeza kwishyura…",
     cart_checkout_error: "Ntibyashobotse kurangiza. Ongera ugerageze.",
     cart_your_access: "Kode Yawe",
     cart_give_rider: "Ha umujogizi iyi kode akagera",
@@ -1285,10 +1286,10 @@ const translations: Record<LangCode, T> = {
     cart_notes: "Notes Supplémentaires (optionnel)",
     cart_continue_payment: "Continuer vers le Paiement",
     cart_payment_title: "Mode de Paiement",
-    cart_momo: "MTN Mobile Money",
+    cart_momo: "Pesapal",
     cart_airtel: "Airtel Money",
     cart_cash: "Paiement à la Livraison",
-    cart_momo_number: "Numéro MoMo",
+    cart_momo_number: "Numéro mobile pour le paiement",
     cart_place_order: "Passer la Commande",
     cart_confirmed_title: "Commande Confirmée !",
     cart_confirmed_subtitle: "Votre commande a été passée avec succès.",
@@ -1350,8 +1351,8 @@ const translations: Record<LangCode, T> = {
     cart_access_delivery: "Donnez ce code au livreur à la porte.",
     cart_access_min: "Minimum 4 caractères.",
     cart_access_label: "Code d'accès",
-    cart_payment_subtitle: "Choisissez votre mode de paiement",
-    cart_momo_push: "Notification push sur votre numéro MTN",
+    cart_payment_subtitle: "Payez en toute sécurité avec Pesapal",
+    cart_momo_push: "Carte, MTN MoMo ou Airtel Money via Pesapal",
     cart_airtel_soon: "Bientôt disponible — utilisez MTN MoMo",
     cart_pay_now: "Payer maintenant",
     cart_pay_after: "Payer à la livraison",
@@ -1361,8 +1362,8 @@ const translations: Record<LangCode, T> = {
     cart_due_now: "À payer maintenant",
     cart_processing: "Traitement…",
     cart_creating: "Création de la commande…",
-    cart_momo_start: "Démarrage du paiement MTN MoMo…",
-    cart_momo_wait: "En attente de l'approbation MoMo…",
+    cart_momo_start: "Ouverture de Pesapal…",
+    cart_momo_wait: "En attente de confirmation du paiement…",
     cart_checkout_error: "Échec du paiement. Veuillez réessayer.",
     cart_your_access: "Votre code d'accès",
     cart_give_rider: "Donnez-le au livreur à son arrivée",
@@ -1659,10 +1660,10 @@ const translations: Record<LangCode, T> = {
     cart_notes: "Maelezo Zaidi (hiari)",
     cart_continue_payment: "Endelea na Malipo",
     cart_payment_title: "Njia ya Malipo",
-    cart_momo: "MTN Mobile Money",
+    cart_momo: "Pesapal",
     cart_airtel: "Airtel Money",
     cart_cash: "Pesa Taslimu kwa Utoaji",
-    cart_momo_number: "Nambari ya MoMo",
+    cart_momo_number: "Nambari ya simu kwa malipo",
     cart_place_order: "Tuma Agizo",
     cart_confirmed_title: "Agizo Limethibitishwa!",
     cart_confirmed_subtitle: "Agizo lako limetumwa kwa mafanikio.",
@@ -1724,8 +1725,8 @@ const translations: Record<LangCode, T> = {
     cart_access_delivery: "Mpe dereva msimbo huu mlangoni.",
     cart_access_min: "Angalau herufi 4.",
     cart_access_label: "Msimbo wa Ufikiaji",
-    cart_payment_subtitle: "Chagua njia ya kulipa",
-    cart_momo_push: "Arifa kwa nambari yako ya MTN",
+    cart_payment_subtitle: "Lipa kwa usalama na Pesapal",
+    cart_momo_push: "Kadi, MTN MoMo, au Airtel Money kupitia Pesapal",
     cart_airtel_soon: "Inakuja hivi karibuni — tumia MTN MoMo sasa",
     cart_pay_now: "Lipa sasa",
     cart_pay_after: "Lipa baada ya uwasilishaji",
@@ -1735,8 +1736,8 @@ const translations: Record<LangCode, T> = {
     cart_due_now: "Kulipa sasa",
     cart_processing: "Inachakata…",
     cart_creating: "Inaunda agizo…",
-    cart_momo_start: "Inaanza malipo ya MTN MoMo…",
-    cart_momo_wait: "Inasubiri idhini ya MoMo kwenye simu…",
+    cart_momo_start: "Inafungua Pesapal…",
+    cart_momo_wait: "Inasubiri uthibitisho wa malipo…",
     cart_checkout_error: "Imeshindwa kukamilisha. Jaribu tena.",
     cart_your_access: "Msimbo Wako",
     cart_give_rider: "Mpe dereva akifika",
@@ -1891,7 +1892,13 @@ const translations: Record<LangCode, T> = {
 // ── Hook ──────────────────────────────────────────────────────────────────────
 export function useTranslation(): T {
   const lang = useLanguageStore((s) => s.lang);
-  return translations[lang];
+  const storeLang = useTranslationOverlayStore((s) => s.lang);
+  const uiOverlay = useTranslationOverlayStore((s) => s.uiOverlay);
+  const base = translations[lang];
+  if (lang === "en" || storeLang !== lang || Object.keys(uiOverlay).length === 0) {
+    return base;
+  }
+  return { ...base, ...uiOverlay };
 }
 
 /** Get translations without a hook (e.g. in non-component contexts). */

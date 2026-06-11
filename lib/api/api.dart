@@ -19,4 +19,4 @@ export 'repositories/medicine_repository.dart';
 export 'repositories/order_repository.dart';
 export 'repositories/prescription_repository.dart';
 export 'repositories/patient_repository.dart';
-export 'repositories/pharmacy_repository.dart';
+export 'repositories/pharmacy_repository.dart' hide PharmacyRecommendation;

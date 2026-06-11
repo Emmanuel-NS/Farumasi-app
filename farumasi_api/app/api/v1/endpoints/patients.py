@@ -163,21 +163,28 @@ async def create_my_order(
     return await OrderService(db).create_order(data, current_user)
 
 
-from app.schemas.payment import MomoPaymentInitiate, PaymentInitiateOut, PaymentStatusOut  # noqa: E402
+from app.schemas.payment import PaymentInitiateOut, PaymentStatusOut, PesapalPaymentInitiate  # noqa: E402
 from app.services.payments.payment_service import PaymentService  # noqa: E402
 
 
 @router.post(
-    "/me/orders/{order_id}/payments/momo/initiate",
+    "/me/orders/{order_id}/payments/pesapal/initiate",
     response_model=PaymentInitiateOut,
 )
-async def initiate_my_order_momo_payment(
+async def initiate_my_order_pesapal_payment(
     order_id: str,
-    data: MomoPaymentInitiate,
+    data: PesapalPaymentInitiate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await PaymentService(db).initiate_momo(order_id, current_user, data.phone)
+    return await PaymentService(db).initiate_pesapal(
+        order_id,
+        current_user,
+        phone=data.phone,
+        email=data.email,
+        name=data.name,
+        redirect_url=data.redirect_url,
+    )
 
 
 @router.get(

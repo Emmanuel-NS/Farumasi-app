@@ -7,13 +7,18 @@ import { cn } from "@/lib/utils";
 import { useTranslation, tf, useTimeAgo } from "@/lib/translations";
 import { Bell, Trash2, X } from "lucide-react";
 import type { AppNotification } from "@/types";
+import { startVisibleInterval } from "@/lib/polling";
 import { openNotification } from "@/lib/notification-links";
+import { useDynamicTranslation } from "@/hooks/use-dynamic-translation";
 
 const CAT_FILTERS = ["All", "Order", "Health", "Promo", "Reminder"];
 
 const catIcon: Record<string, string> = {
   order: "📦",
   order_shipped: "🚚",
+  delivery: "🚚",
+  payment: "💳",
+  prescription: "💊",
   health_tip: "💊",
   promo: "🎁",
   reminder: "⏰",
@@ -22,8 +27,8 @@ const catIcon: Record<string, string> = {
 
 const catMatch: Record<string, string[]> = {
   All: [],
-  Order: ["order", "order_shipped"],
-  Health: ["health_tip"],
+  Order: ["order", "order_shipped", "delivery", "payment"],
+  Health: ["health_tip", "prescription"],
   Promo: ["promo"],
   Reminder: ["reminder"],
 };
@@ -37,24 +42,33 @@ export default function NotificationsPage() {
   const timeAgoLocal = useTimeAgo();
 
   useEffect(() => {
-    notificationsService.getMyNotifications()
-      .then((items) => {
-        // Filter out notifications the user has locally dismissed.
-        if (typeof window !== "undefined") {
-          try {
-            const raw = localStorage.getItem("farumasi_deleted_notifs");
-            const ids: string[] = raw ? JSON.parse(raw) : [];
-            if (Array.isArray(ids) && ids.length) {
-              setNotifications(items.filter((n) => !ids.includes(n.id)));
-              return;
+    let cancelled = false;
+    const load = () => {
+      notificationsService.getMyNotifications()
+        .then((items) => {
+          if (cancelled) return;
+          if (typeof window !== "undefined") {
+            try {
+              const raw = localStorage.getItem("farumasi_deleted_notifs");
+              const ids: string[] = raw ? JSON.parse(raw) : [];
+              if (Array.isArray(ids) && ids.length) {
+                setNotifications(items.filter((n) => !ids.includes(n.id)));
+                return;
+              }
+            } catch {
+              /* ignore */
             }
-          } catch {
-            /* ignore */
           }
-        }
-        setNotifications(items);
-      })
-      .catch(() => {});
+          setNotifications(items);
+        })
+        .catch(() => {});
+    };
+    load();
+    const stop = startVisibleInterval(load, 20_000);
+    return () => {
+      cancelled = true;
+      stop();
+    };
   }, []);
 
   const FILTER_LABELS = [t.notif_filter_all, t.notif_filter_unread, t.notif_filter_read];
@@ -166,41 +180,67 @@ export default function NotificationsPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((n) => {
-            const ln = n;
-            return (
-            <div
+          {filtered.map((n) => (
+            <NotificationRow
               key={n.id}
-              onClick={() => void handleOpen(n)}
-              className={cn(
-                "group flex gap-3 bg-white rounded-2xl border px-4 py-3.5 cursor-pointer hover:shadow-sm transition-all",
-                !n.isRead ? "border-farumasi-100 bg-farumasi-50/50" : "border-slate-100"
-              )}
-            >
-              <span className="text-2xl shrink-0">{catIcon[n.category] ?? "🔔"}</span>
-              <div className="flex-1 min-w-0">
-                <p className={cn("text-sm text-slate-900", !n.isRead ? "font-bold" : "font-medium")}>{ln.title}</p>
-                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{ln.message}</p>
-                <p className="text-[10px] text-slate-400 mt-1.5">{timeAgoLocal(n.time)}</p>
-                {n.actionUrl && (
-                  <p className="text-[10px] text-farumasi-600 font-medium mt-0.5">Tap to open →</p>
-                )}
-              </div>
-              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                {!n.isRead && <div className="w-2 h-2 rounded-full bg-farumasi-500" />}
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteN(n.id); }}
-                  aria-label="Delete notification"
-                  className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-red-400 transition-all rounded-lg hover:bg-red-50"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-            );
-          })}
+              notification={n}
+              catIcon={catIcon}
+              timeAgo={timeAgoLocal(n.time)}
+              onOpen={() => void handleOpen(n)}
+              onDelete={(e) => { e.stopPropagation(); deleteN(n.id); }}
+            />
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function NotificationRow({
+  notification: n,
+  catIcon,
+  timeAgo,
+  onOpen,
+  onDelete,
+}: {
+  notification: AppNotification;
+  catIcon: Record<string, string>;
+  timeAgo: string;
+  onOpen: () => void;
+  onDelete: (e: React.MouseEvent) => void;
+}) {
+  const title = useDynamicTranslation(n.title, `notification:${n.category}:title`);
+  const message = useDynamicTranslation(n.message, `notification:${n.category}:body`);
+
+  return (
+    <div
+      onClick={onOpen}
+      className={cn(
+        "group flex gap-3 bg-white rounded-2xl border px-4 py-3.5 cursor-pointer hover:shadow-sm transition-all",
+        !n.isRead ? "border-farumasi-100 bg-farumasi-50/50" : "border-slate-100",
+      )}
+    >
+      <span className="text-2xl shrink-0">{catIcon[n.category] ?? "🔔"}</span>
+      <div className="flex-1 min-w-0">
+        <p className={cn("text-sm text-slate-900", !n.isRead ? "font-bold" : "font-medium")}>
+          {title.text}
+        </p>
+        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{message.text}</p>
+        <p className="text-[10px] text-slate-400 mt-1.5">{timeAgo}</p>
+        {n.actionUrl && (
+          <p className="text-[10px] text-farumasi-600 font-medium mt-0.5">Tap to open →</p>
+        )}
+      </div>
+      <div className="flex flex-col items-end gap-1.5 shrink-0">
+        {!n.isRead && <div className="w-2 h-2 rounded-full bg-farumasi-500" />}
+        <button
+          onClick={onDelete}
+          aria-label="Delete notification"
+          className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-red-400 transition-all rounded-lg hover:bg-red-50"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 }

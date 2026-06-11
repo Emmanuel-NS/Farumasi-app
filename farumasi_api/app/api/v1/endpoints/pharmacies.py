@@ -116,7 +116,10 @@ async def list_pharmacies(
     count_q = select(func.count(Pharmacy.id))
     data_q = (
         select(Pharmacy)
-        .options(selectinload(Pharmacy.owner))
+        .options(
+            selectinload(Pharmacy.owner),
+            selectinload(Pharmacy.accepted_insurances),
+        )
         .order_by(Pharmacy.created_at.desc())
         .offset(offset)
         .limit(limit)

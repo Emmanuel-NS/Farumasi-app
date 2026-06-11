@@ -110,6 +110,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _openSection = _openSection == id ? null : id);
   }
 
+  void _openSubScreen(BuildContext context, Widget screen) {
+    Navigator.of(
+      context,
+      rootNavigator: MediaQuery.sizeOf(context).width >= 600,
+    ).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
@@ -340,26 +347,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   PortalActionRow(
                     icon: Icons.help_outline,
                     label: 'Help & Support',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const HelpScreen()),
-                    ),
+                    onTap: () => _openSubScreen(context, const HelpScreen()),
                   ),
                   PortalActionRow(
                     icon: Icons.article_outlined,
                     label: 'Terms & Conditions',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TermsConditionsScreen()),
-                    ),
+                    onTap: () => _openSubScreen(context, const TermsConditionsScreen()),
                   ),
                   PortalActionRow(
                     icon: Icons.privacy_tip_outlined,
                     label: 'Privacy Policy',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DataPrivacyScreen()),
-                    ),
+                    onTap: () => _openSubScreen(context, const DataPrivacyScreen()),
                   ),
                 ],
               ),
