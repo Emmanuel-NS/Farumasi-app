@@ -38,7 +38,7 @@ CORS_ORIGINS=https://patient.farumasi.com,https://pharmacy.farumasi.com,https://
 
 | Component | Recommended host | Why |
 |-----------|------------------|-----|
-| **FastAPI backend** | [Railway](https://railway.app), [Render](https://render.com), or Fly.io | Long-running Python, WebSockets, file uploads, Pesapal IPN |
+| **FastAPI backend** | [Render](https://render.com), [Railway](https://railway.app), or Fly.io | Long-running Python, WebSockets, file uploads, Pesapal IPN |
 | **PostgreSQL** | [Neon](https://neon.tech) or Supabase Postgres | Managed DB with connection string for API |
 | **Redis** (optional) | Upstash Redis | Cache / rate limits |
 | **Flutter mobile** | Google Play + App Store | Native builds |
@@ -46,30 +46,43 @@ CORS_ORIGINS=https://patient.farumasi.com,https://pharmacy.farumasi.com,https://
 
 ---
 
-## Backend (Railway example)
+## Backend with Docker
 
-1. New **Railway** project → deploy from Git, root `farumasi_api`.
-2. Add **PostgreSQL** plugin → copy `DATABASE_URL`.
-3. Set env vars:
+For a self-hosted or VPS deployment, use the API Docker image and compose files in `farumasi_api/`.
 
-   ```
-   ASYNC_DATABASE_URL=postgresql+asyncpg://...
-   DATABASE_URL=postgresql://...
-   SECRET_KEY=<long random string>
-   ENVIRONMENT=production
-   PAYMENT_MODE=live
-   PESAPAL_ENV=sandbox
-   PESAPAL_CONSUMER_KEY=...
-   PESAPAL_CONSUMER_SECRET=...
-   PESAPAL_IPN_ID=...
-   API_PUBLIC_URL=https://api.farumasi.com
-   PATIENT_PORTAL_URL=https://patient.farumasi.com
-   CORS_ORIGINS=https://patient.farumasi.com,...
-   ```
+See **[farumasi_api/DOCKER.md](farumasi_api/DOCKER.md)** for build, run, registry push, and VPS setup.
 
-4. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-5. Run migrations: `alembic upgrade head` (Railway one-off job or release command).
-6. Register Pesapal IPN: `python scripts/register_pesapal_ipn.py --url https://api.farumasi.com/api/v1/webhooks/pesapal`
+Quick local full stack:
+
+```bash
+cd farumasi_api
+cp .env.example .env
+docker compose up -d --build
+docker compose exec api alembic upgrade head
+docker compose exec api python scripts/seed.py
+```
+
+---
+
+## Backend on Render (Docker) — recommended
+
+Full guide: **[farumasi_api/RENDER.md](farumasi_api/RENDER.md)**
+
+Quick summary (Blueprint):
+
+1. Render → **New Blueprint** → connect GitHub repo (uses root `render.yaml`).
+2. Fill `CORS_ORIGINS`, `API_PUBLIC_URL`, `PATIENT_PORTAL_URL` when prompted.
+3. Postgres + API deploy together; migrations run via `RUN_MIGRATIONS=true`.
+4. **Shell** → `python scripts/seed.py` once.
+5. Point Vercel portals at `https://YOUR-SERVICE.onrender.com/api/v1`.
+
+Manual alternative: **Web Service** → Docker → **Root Directory** `farumasi_api`.
+
+---
+
+## Backend on Railway (Docker)
+
+See **[farumasi_api/RAILWAY.md](farumasi_api/RAILWAY.md)** if you use Railway instead.
 
 ---
 
@@ -87,7 +100,7 @@ CORS_ORIGINS=https://patient.farumasi.com,https://pharmacy.farumasi.com,https://
 
 ## Suggested rollout order
 
-1. Neon Postgres + Railway API (sandbox Pesapal).
+1. Render API + Postgres (or Neon + Render API) with sandbox Pesapal.
 2. Patient portal on Vercel → point `NEXT_PUBLIC_API_URL` at API.
 3. Pharmacist + partner + admin portals.
 4. Pesapal live keys + IPN when API has public HTTPS URL.

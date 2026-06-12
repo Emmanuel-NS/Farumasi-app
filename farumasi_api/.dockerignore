@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Local secrets and env (inject at runtime)
+.env
+.env.*
+
+# Local data
+uploads/*
+!uploads/.gitkeep
+test.db
+*.sqlite3
+
+# Git / IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Docs and tests (not needed in runtime image)
+tests/
+*.md
+!README.md
+
+# OS
+.DS_Store
+Thumbs.db

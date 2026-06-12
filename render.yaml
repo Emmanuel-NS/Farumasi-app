@@ -1,0 +1,45 @@
+# FARUMASI — Render Blueprint (API + Postgres)
+# Dashboard → New → Blueprint → connect this GitHub repo
+# See farumasi_api/RENDER.md for full setup guide.
+
+services:
+  - type: web
+    name: farumasi-api
+    runtime: docker
+    plan: free
+    rootDir: farumasi_api
+    # Paths are relative to repo root (not rootDir) per Render blueprint spec
+    dockerfilePath: farumasi_api/Dockerfile
+    dockerContext: farumasi_api
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - farumasi_api/**
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PAYMENT_MODE
+        value: live
+      - key: PESAPAL_ENV
+        value: sandbox
+      - key: RUN_MIGRATIONS
+        value: "true"
+      - key: PAYMENT_CURRENCY
+        value: RWF
+      - key: DATABASE_URL
+        fromDatabase:
+          name: farumasi-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: API_PUBLIC_URL
+        sync: false
+      - key: PATIENT_PORTAL_URL
+        sync: false
+
+databases:
+  - name: farumasi-db
+    plan: free
+    databaseName: farumasi

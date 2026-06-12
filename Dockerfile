@@ -1,3 +1,7 @@
+# Monorepo fallback: used when the host builds from the repository root
+# without rootDir / dockerContext configured (e.g. some Render setups).
+# Canonical API image: farumasi_api/Dockerfile
+
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -6,17 +10,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# System deps for asyncpg / psycopg2 and health checks
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY farumasi_api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY farumasi_api/ .
 
 RUN mkdir -p uploads \
     && chmod +x docker-entrypoint.sh \

@@ -108,6 +108,24 @@ class Settings(BaseSettings):
         return str(v) if v is not None else ""
 
     @model_validator(mode="after")
+    def _derive_async_database_url(self) -> "Settings":
+        """When only DATABASE_URL is set (e.g. Render/Railway), derive asyncpg URL."""
+        url = self.DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        if not url.startswith("postgresql://"):
+            return self
+        sync_tail = url.split("@", 1)[-1] if "@" in url else ""
+        async_tail = (
+            self.ASYNC_DATABASE_URL.split("@", 1)[-1]
+            if "@" in self.ASYNC_DATABASE_URL
+            else ""
+        )
+        if sync_tail and sync_tail != async_tail:
+            self.ASYNC_DATABASE_URL = url.replace(
+                "postgresql://", "postgresql+asyncpg://", 1
+            )
+        return self
+
+    @model_validator(mode="after")
     def _enforce_secret_in_non_dev(self) -> "Settings":
         """Phase-1 hardening: forbid the default SECRET_KEY outside development."""
         env = (self.ENVIRONMENT or "").lower()
