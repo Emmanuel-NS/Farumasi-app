@@ -23,6 +23,12 @@ _ADMIN_PHARMACY_ROLES = (
     UserRole.COMPLIANCE_ADMIN,
 )
 
+# Pharmacists need read-only directory access for cross-pharmacy inventory views.
+_PHARMACY_LIST_ROLES = _ADMIN_PHARMACY_ROLES + (
+    UserRole.PHARMACIST,
+    UserRole.PHARMACY_ADMIN,
+)
+
 
 def _pharmacy_out(pharmacy: Pharmacy) -> PharmacyOut:
     from app.services.seller_commission import (
@@ -107,7 +113,7 @@ async def list_pharmacies(
     if not open_only:
         if current_user is None:
             raise AuthenticationError("Authentication credentials not provided")
-        if current_user.role not in _ADMIN_PHARMACY_ROLES:
+        if current_user.role not in _PHARMACY_LIST_ROLES:
             raise AuthorizationError("Not allowed to list all pharmacies")
     from sqlalchemy import func
     filters = []

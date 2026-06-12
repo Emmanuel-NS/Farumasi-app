@@ -24,8 +24,13 @@ import {
   type CreateProductInput,
   type UpdateProductInput,
 } from "@/lib/services/products.service";
-import { listingsService, type BackendListing, type ListingAvailability } from "@/lib/services/listings.service";
-import { pharmaciesService, type BackendPharmacy } from "@/lib/services/pharmacies.service";
+import {
+  listingsService,
+  buildPharmacyMapFromListings,
+  listingSellerName,
+  type BackendListing,
+  type ListingAvailability,
+} from "@/lib/services/listings.service";
 import { ordersService } from "@/lib/services/orders.service";
 
 /* ─── Constants ─────────────────────────────────────────── */
@@ -210,7 +215,7 @@ function PharmacyListModal({
           {sorted.length === 0 ? (
             <p className="py-10 text-center text-sm text-slate-400">No data available</p>
           ) : sorted.map((l, i) => {
-            const name = l.pharmacy_id ? (pharmacyMap.get(l.pharmacy_id) ?? "Unknown Pharmacy") : "Partner Wholesale";
+            const name = listingSellerName(l, pharmacyMap);
             const isSuspended = l.availability_status === "suspended";
             return (
               <div key={l.id} className={cn("flex items-center gap-3 rounded-xl px-4 py-3 relative", isSuspended ? "bg-red-50 border border-red-100" : "bg-slate-50")}>
@@ -293,7 +298,7 @@ function PharmacyListModal({
             <h3 className="text-[15px] font-bold text-slate-900">
               {confirmAction === "remove" ? "Remove Listing" : confirmAction === "suspend" ? "Suspend Listing" : "Mark Out of Stock"}
             </h3>
-            <p className="text-sm text-slate-500 mt-1">{pharmacyMap.get(actionTarget.pharmacy_id ?? "") ?? "This pharmacy"} · {productName}</p>
+            <p className="text-sm text-slate-500 mt-1">{listingSellerName(actionTarget, pharmacyMap)} · {productName}</p>
           </div>
           {confirmAction === "suspend" && (
             <div>
@@ -607,18 +612,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     return () => { cancelled = true; };
   }, [id, router]);
 
-  /* Fetch listings + pharmacies */
+  /* Fetch listings (pharmacy names are nested on each listing). */
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      listingsService.getListingsForProduct(id),
-      pharmaciesService.listAll(),
-    ]).then(([listResult, pharmResult]) => {
-      if (cancelled) return;
-      setListings(listResult);
-      setPharmacyMap(new Map(pharmResult.items.map((p: BackendPharmacy) => [p.id, p.name])));
-    }).catch(() => toast.error("Could not load pharmacy data"))
-      .finally(()  => { if (!cancelled) setListingsLoading(false); });
+    listingsService
+      .getListingsForProduct(id)
+      .then((listResult) => {
+        if (cancelled) return;
+        setListings(listResult);
+        setPharmacyMap(buildPharmacyMapFromListings(listResult));
+      })
+      .catch(() => toast.error("Could not load pharmacy data"))
+      .finally(() => { if (!cancelled) setListingsLoading(false); });
     return () => { cancelled = true; };
   }, [id]);
 

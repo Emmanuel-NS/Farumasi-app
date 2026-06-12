@@ -2,6 +2,26 @@ import api from "@/lib/api";
 import { type BackendListing } from "./pharmacies.service";
 export type { BackendListing };
 
+/** Build id→name map from nested listing payloads (no separate /pharmacies call). */
+export function buildPharmacyMapFromListings(listings: BackendListing[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const l of listings) {
+    if (l.pharmacy?.id) map.set(l.pharmacy.id, l.pharmacy.name);
+    if (l.partner_company?.id) map.set(l.partner_company.id, l.partner_company.name);
+  }
+  return map;
+}
+
+export function listingSellerName(
+  listing: BackendListing,
+  pharmacyMap?: Map<string, string>,
+): string {
+  if (listing.pharmacy?.name) return listing.pharmacy.name;
+  if (listing.partner_company?.name) return listing.partner_company.name;
+  if (listing.pharmacy_id) return pharmacyMap?.get(listing.pharmacy_id) ?? "Unknown Pharmacy";
+  return "Partner Wholesale";
+}
+
 export type ListingAvailability = "available" | "unavailable" | "out_of_stock" | "suspended";
 
 export interface UpdateListingInput {

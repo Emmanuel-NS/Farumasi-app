@@ -67,7 +67,13 @@ import {
   type CreateProductInput,
   type UpdateProductInput,
 } from "@/lib/services/products.service";
-import { listingsService, type BackendListing, type ListingAvailability } from "@/lib/services/listings.service";
+import {
+  listingsService,
+  buildPharmacyMapFromListings,
+  listingSellerName,
+  type BackendListing,
+  type ListingAvailability,
+} from "@/lib/services/listings.service";
 import { pharmaciesService, type BackendPharmacy } from "@/lib/services/pharmacies.service";
 import { ordersService } from "@/lib/services/orders.service";
 
@@ -1039,9 +1045,7 @@ function PharmacyListModal({
             <p className="py-10 text-center text-sm text-slate-400">No data available</p>
           ) : (
             sorted.map((l, i) => {
-              const name = l.pharmacy_id
-                ? (pharmacyMap.get(l.pharmacy_id) ?? "Unknown Pharmacy")
-                : "Partner Wholesale";
+              const name = listingSellerName(l, pharmacyMap);
               const isSuspended = l.availability_status === "suspended";
 
               return (
@@ -1174,7 +1178,7 @@ function PharmacyListModal({
               {confirmAction === "remove" ? "Remove Listing" : confirmAction === "suspend" ? "Suspend Listing" : "Mark Out of Stock"}
             </h3>
             <p className="text-sm text-slate-500 mt-1">
-              {pharmacyMap.get(actionTarget.pharmacy_id ?? "") ?? "This pharmacy"} · {productName}
+              {listingSellerName(actionTarget, pharmacyMap)} · {productName}
             </p>
           </div>
 
@@ -1384,11 +1388,17 @@ interface DetailPanelProps {
   onEdit: () => void;
 }
 
-function ProductDetailPanel({ product, pharmacyMap, onClose, onEdit }: DetailPanelProps) {
+function ProductDetailPanel({ product, pharmacyMap: parentPharmacyMap, onClose, onEdit }: DetailPanelProps) {
   const [listings,        setListings]        = useState<BackendListing[]>([]);
   const [listingsLoading, setListingsLoading] = useState(true);
   const [activeModal,     setActiveModal]     = useState<null | "price" | "expiry" | "sales">(null);
   const [activeTab,       setActiveTab]       = useState<"overview" | "dosage" | "safety">("overview");
+
+  const pharmacyMap = useMemo(() => {
+    const fromListings = buildPharmacyMapFromListings(listings);
+    if (fromListings.size > 0) return fromListings;
+    return parentPharmacyMap;
+  }, [listings, parentPharmacyMap]);
 
   useEffect(() => {
     let cancelled = false;

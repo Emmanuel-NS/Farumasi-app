@@ -26,6 +26,19 @@ export interface UpdatePharmacyInput {
   accepts_delivery?: boolean;
 }
 
+export interface ListingPharmacyBrief {
+  id: string;
+  name: string;
+  district?: string | null;
+  image_url?: string | null;
+}
+
+export interface ListingPartnerBrief {
+  id: string;
+  name: string;
+  logo_url?: string | null;
+}
+
 export interface BackendListing {
   id: string;
   product_id: string;
@@ -43,6 +56,8 @@ export interface BackendListing {
   location_longitude?: number | null;
   status: string;
   created_at: string;
+  pharmacy?: ListingPharmacyBrief | null;
+  partner_company?: ListingPartnerBrief | null;
 }
 
 export interface PaginatedListings {
