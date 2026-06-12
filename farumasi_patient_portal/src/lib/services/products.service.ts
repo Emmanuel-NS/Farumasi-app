@@ -1,4 +1,4 @@
-import api from "@/lib/api";
+import api, { mediaUrl } from "@/lib/api";
 import { cacheThrough } from "@/lib/memory-cache";
 import type { Medicine, MarketingPharmacy, ProductType } from "@/types";
 
@@ -76,7 +76,10 @@ export function adaptProduct(p: BackendProduct): Medicine {
     safetyInfo: desc.safety?.trim() || undefined,
     price: displayPrice,
     maxPrice: maxPrice,
-    imageUrl: p.image_url ?? PLACEHOLDER_IMAGE,
+    imageUrl: (() => {
+      const raw = p.image_url?.trim();
+      return raw ? mediaUrl(raw) : PLACEHOLDER_IMAGE;
+    })(),
     category: p.category ?? "General",
     subCategory: p.dosage_form ?? undefined,
     additionalCategories: [],

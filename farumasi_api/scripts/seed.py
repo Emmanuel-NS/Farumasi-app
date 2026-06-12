@@ -369,6 +369,28 @@ DEMO_PRODUCTS = [
     },
 ]
 
+# Stable external images for catalogue items (articles already use Unsplash).
+_CATEGORY_PRODUCT_IMAGES = {
+    "Analgesics": "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80",
+    "Antibiotics": "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=800&q=80",
+    "Antimalarials": "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&q=80",
+    "Antidiabetics": "https://images.unsplash.com/photo-1550572017-4c427d3c8ef2?w=800&q=80",
+    "Antihypertensives": "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=800&q=80",
+    "Gastrointestinal": "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=800&q=80",
+    "Respiratory": "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?w=800&q=80",
+    "Vitamins & Supplements": "https://images.unsplash.com/photo-1550572017-edd153b80906?w=800&q=80",
+    "Antihistamines": "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=800&q=80",
+}
+_DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80"
+
+
+def _product_image_url(product_data: dict) -> str:
+    if product_data.get("image_url"):
+        return product_data["image_url"]
+    category = product_data.get("category") or ""
+    return _CATEGORY_PRODUCT_IMAGES.get(category, _DEFAULT_PRODUCT_IMAGE)
+
+
 PHARMACIST_EXTRAS = [
     {
         "email": "pharmacist@farumasi.com",
@@ -647,16 +669,20 @@ async def seed():
         seeded_products = []
         for i, pd in enumerate(DEMO_PRODUCTS):
             existing_prod = (await db.execute(select(ProductCatalogueItem).where(ProductCatalogueItem.name == pd["name"]).limit(1))).scalar_one_or_none()
+            image_url = _product_image_url(pd)
             if not existing_prod:
                 product = ProductCatalogueItem(
                     approval_status=ProductApprovalStatus.APPROVED,
                     created_by_user_id=admin_user.id,
+                    image_url=image_url,
                     **pd,
                 )
                 db.add(product)
                 await db.flush()
                 seeded_products.append(product)
             else:
+                if not existing_prod.image_url:
+                    existing_prod.image_url = image_url
                 seeded_products.append(existing_prod)
 
         # Ensure every product has a listing for pharmacy[0]

@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import api from "@/lib/api";
+import api, { mediaUrl } from "@/lib/api";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -855,13 +855,13 @@ function ProductCard({
       <div className={cn("relative h-44 overflow-hidden bg-gradient-to-br", grad)}>
         {product.image_url && !imgErr ? (
           <Image
-            src={product.image_url}
+            src={mediaUrl(product.image_url)}
             alt={product.name}
             fill
             className="object-cover"
             sizes="320px"
             onError={() => setImgErr(true)}
-            unoptimized={!product.image_url.startsWith("https://images.unsplash.com")}
+            unoptimized
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
