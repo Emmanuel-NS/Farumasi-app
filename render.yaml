@@ -1,6 +1,6 @@
-# FARUMASI — Render Blueprint (API + Postgres)
+# FARUMASI — Render Blueprint (API + Postgres + Next.js portals)
 # Dashboard → New → Blueprint → connect this GitHub repo
-# See farumasi_api/RENDER.md for full setup guide.
+# See farumasi_api/RENDER.md and DEPLOYMENT.md for full setup guide.
 
 services:
   - type: web
@@ -37,6 +37,72 @@ services:
       - key: API_PUBLIC_URL
         sync: false
       - key: PATIENT_PORTAL_URL
+        sync: false
+
+  - type: web
+    name: farumasi-patient-portal
+    runtime: node
+    plan: free
+    rootDir: farumasi_patient_portal
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    buildFilter:
+      paths:
+        - farumasi_patient_portal/**
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_USE_MOCK
+        value: "false"
+
+  - type: web
+    name: farumasi-partner-portal
+    runtime: node
+    plan: free
+    rootDir: farumasi_partner_portal
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    buildFilter:
+      paths:
+        - farumasi_partner_portal/**
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  - type: web
+    name: farumasi-pharmacist-portal
+    runtime: node
+    plan: free
+    rootDir: farumasi_pharmacist_portal
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    buildFilter:
+      paths:
+        - farumasi_pharmacist_portal/**
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  - type: web
+    name: farumasi-super-admin
+    runtime: node
+    plan: free
+    rootDir: farumasi_super_admin
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    buildFilter:
+      paths:
+        - farumasi_super_admin/**
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
         sync: false
 
 databases:

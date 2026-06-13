@@ -2,6 +2,51 @@
 
 Monorepo layout — each app deploys separately.
 
+## Deploy portals now (Render — same account as API)
+
+Your API is already on Render (`https://farumasi-app.onrender.com`). The root `render.yaml` now includes all four MVP portals.
+
+### Option A — Sync existing Blueprint (recommended)
+
+1. [dashboard.render.com](https://dashboard.render.com) → open your **Farumasi** Blueprint.
+2. Click **Manual sync** (or **Sync** after pushing this repo).
+3. Render proposes **4 new web services** — approve them.
+4. When prompted for **`NEXT_PUBLIC_API_URL`** on each portal, use:
+
+   ```
+   https://farumasi-app.onrender.com/api/v1
+   ```
+
+5. After all four portals deploy, copy their public URLs and update **`CORS_ORIGINS`** on **farumasi-api**:
+
+   ```
+   https://farumasi-patient-portal.onrender.com,https://farumasi-partner-portal.onrender.com,https://farumasi-pharmacist-portal.onrender.com,https://farumasi-super-admin.onrender.com
+   ```
+
+   Also set **`PATIENT_PORTAL_URL`** to the patient portal URL (used in payment/email links).
+
+6. Save API env vars (triggers redeploy). Test login on each portal.
+
+### Option B — Vercel (better Next.js DX, custom domains)
+
+Repeat for each folder: `farumasi_patient_portal`, `farumasi_partner_portal`, `farumasi_pharmacist_portal`, `farumasi_super_admin`.
+
+1. [vercel.com](https://vercel.com) → **Add New Project** → import Git repo.
+2. **Root Directory** → set to the portal folder (e.g. `farumasi_patient_portal`).
+3. **Environment variables** (Production + Preview):
+
+   ```
+   NEXT_PUBLIC_API_URL=https://farumasi-app.onrender.com/api/v1
+   ```
+
+   Patient portal only — also set `NEXT_PUBLIC_USE_MOCK=false`.
+
+4. Deploy. Add each `*.vercel.app` URL (or custom domain) to API **`CORS_ORIGINS`**.
+
+Each portal includes a `vercel.json` with `npm ci` + `next build` settings.
+
+---
+
 ## What runs on Vercel (Next.js)
 
 | App | Folder | Suggested domain |
