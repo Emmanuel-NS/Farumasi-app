@@ -616,8 +616,7 @@ export default function ConsultPage() {
   return (
     <GuestGate feature="Consult">
       <div
-        className="flex h-full bg-white border border-slate-100 rounded-2xl overflow-hidden relative"
-        style={{ maxHeight: "calc(100vh - 88px)" }}
+        className="flex h-[calc(100dvh-72px)] max-h-[calc(100dvh-72px)] bg-white border border-slate-100 rounded-2xl overflow-hidden relative"
       >
         {/* LEFT — list rail */}
         <aside

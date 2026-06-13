@@ -13,7 +13,6 @@ export const metadata: Metadata = {
   },
   description: "Your trusted pharmacy and healthcare coordination platform",
   manifest: "/manifest.json",
-  themeColor: "#1E9E68",
   appleWebApp: {
     capable: true,
     title: "FARUMASI",
@@ -22,6 +21,12 @@ export const metadata: Metadata = {
     icon: "/logo.png",
     apple: "/logo.png",
   },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#1E9E68",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

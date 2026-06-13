@@ -11,7 +11,7 @@
         </div>
         <div className="h-8 w-24 rounded-lg bg-slate-200" />
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[14px]">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="bg-white rounded-xl border p-4 space-y-3">
             <div className="h-3 w-24 rounded bg-slate-200" />

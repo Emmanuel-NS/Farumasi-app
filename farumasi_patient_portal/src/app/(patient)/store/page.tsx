@@ -738,12 +738,11 @@ function StorePageInner() {
                 <div
                   key={pharmacy.id}
                   className={cn(
-                    "relative flex bg-white rounded-[14px] border overflow-hidden transition-all shrink-0",
+                    "relative flex bg-white rounded-[14px] border overflow-hidden transition-all shrink-0 w-[220px] sm:w-[250px] h-[96px] sm:h-[106px]",
                     isSelected
                       ? "border-farumasi-500 shadow-[0_0_0_2px_rgba(30,158,104,0.25)] shadow-md"
                       : "border-[#E6EAEE] shadow-[0_5px_10px_rgba(15,23,42,0.07)] hover:shadow-md hover:border-farumasi-300"
                   )}
-                  style={{ width: 250, height: 106 }}
                 >
                   {/* Invisible full-card selection button */}
                   <button
@@ -843,10 +842,7 @@ function StorePageInner() {
         </div>
       ) : (
         /* Flutter: SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent:~220, mainAxisExtent:~300, crossAxisSpacing:14, mainAxisSpacing:14) */
-        <div
-          className="grid gap-[14px]"
-          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}
-        >
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[14px]">
           {filtered.map((med) => {
             // Cart keys are "productId:pack" or "productId:partial"
             const isInCart = (cartItems[cartLineKey(med.id, "pack")]?.qty ?? 0) > 0
@@ -887,8 +883,7 @@ function StorePageInner() {
               /* Flutter Card(elevation:2, margin:all(8), borderRadius:12) */
               <div
                 key={med.id}
-                className="bg-white rounded-[12px] shadow-md overflow-hidden flex flex-col m-2"
-                style={{ height: 310 }}
+                className="bg-white rounded-[12px] shadow-md overflow-hidden flex flex-col min-h-[280px] sm:min-h-[310px]"
               >
                 {/* Image area — click to add/remove from cart instantly */}
                 <div
@@ -1022,14 +1017,14 @@ function StorePageInner() {
       {/* ── Quick View Modal ─────────────────────────────── */}
       {quickView && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center p-0 sm:p-4"
           onClick={() => setQuickView(null)}
         >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
           {/* Compact Patient Overview card */}
           <div
-            className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl z-10 p-5 space-y-3"
+            className="relative w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl z-10 p-5 space-y-3 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close */}

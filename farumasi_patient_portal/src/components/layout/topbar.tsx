@@ -56,6 +56,7 @@ export function Topbar({
   const storeFilterCount = storeActiveFilterCount(query);
   const cartItemCount = useCartLineCount();
   const [showProfile, setShowProfile] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const [unread, setUnread] = useState(0);
   useEffect(() => {
@@ -121,12 +122,12 @@ export function Topbar({
       </button>
 
       {/* Logo + Brand */}
-      <Link href="/store" className="flex items-center gap-2.5 shrink-0">
+      <Link href="/store" className="flex items-center gap-2 sm:gap-2.5 shrink-0 min-w-0">
         <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0">
           <Image src="/logo.png" alt="FARUMASI" width={28} height={28} className="object-contain" />
         </div>
-        <div className="flex flex-col leading-none">
-          <span className="text-white font-extrabold text-[16px] tracking-wide">
+        <div className="flex flex-col leading-none min-w-0">
+          <span className="text-white font-extrabold text-[15px] sm:text-[16px] tracking-wide truncate">
             FARUMASI
           </span>
           <span className="text-white/60 text-[9px] font-medium tracking-[0.12em] uppercase hidden sm:block">
@@ -180,12 +181,12 @@ export function Topbar({
 
       <div className="flex-1 hidden sm:block" />
 
-      <div className="flex items-center gap-0.5 ml-auto sm:ml-0">
+      <div className="flex items-center gap-0.5 ml-auto sm:ml-0 shrink-0 min-w-0">
         {/* Narrow topbar: search icon then filter (full bar hidden below sm) */}
         <button
           type="button"
           className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors sm:hidden"
-          onClick={() => setQuery(query ? "" : " ")}
+          onClick={() => setMobileSearchOpen(true)}
           title="Search"
           aria-label="Search"
         >
@@ -193,11 +194,11 @@ export function Topbar({
         </button>
         {isStorePage && <StoreFilterButton iconOnly className="sm:hidden" />}
 
-        {/* Help */}
+        {/* Help — desktop only; mobile users open /help from nav */}
         <button
           onClick={onHelpClick}
           className={cn(
-            "p-2 rounded-lg transition-colors",
+            "hidden sm:block p-2 rounded-lg transition-colors",
             activePanel === "help" ? "bg-white/20 text-white" : "text-white/80 hover:text-white hover:bg-white/10"
           )}
           title="Help"
@@ -297,8 +298,8 @@ export function Topbar({
         </div>
       </div>
 
-      {/* Mobile search overlay — shown when query is active on narrow screens */}
-      {query && (
+      {/* Mobile search overlay */}
+      {mobileSearchOpen && (
         <div className="absolute top-full left-0 right-0 bg-farumasi-600 px-4 py-3 flex items-center gap-2 z-30 border-t border-white/10 sm:hidden">
           <Search className="w-4 h-4 text-white/60 shrink-0" />
           <input
@@ -310,9 +311,12 @@ export function Topbar({
           />
           <button
             type="button"
-            onClick={clear}
+            onClick={() => {
+              clear();
+              setMobileSearchOpen(false);
+            }}
             className="text-white/60 hover:text-white shrink-0"
-            aria-label="Clear search"
+            aria-label="Close search"
           >
             <X className="w-4 h-4" />
           </button>

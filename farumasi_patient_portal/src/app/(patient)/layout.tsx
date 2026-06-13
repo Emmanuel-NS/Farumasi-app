@@ -41,13 +41,15 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   }, [pathname, closePanel]);
 
   useEffect(() => {
-    if (!mobileNavOpen) return;
+    if (!mobileNavOpen && !activePanel) return;
+    const isMobile = typeof window !== "undefined" && window.matchMedia(MOBILE_NAV_MQ).matches;
+    if (!isMobile) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [mobileNavOpen]);
+  }, [mobileNavOpen, activePanel]);
 
   const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
 
@@ -87,6 +89,27 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         )
       : null;
 
+  const mobilePanelPortal =
+    portalReady && activePanel
+      ? createPortal(
+          <div
+            className="fixed top-[72px] left-0 right-0 bottom-0 z-[100] sm:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Side panel"
+          >
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/45"
+              aria-label="Close panel"
+              onClick={closePanel}
+            />
+            <RightPanel activePanel={activePanel} onClose={closePanel} overlay />
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
     <TranslationProvider>
     <PatientRoleGuard>
@@ -102,6 +125,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         />
 
         {mobileNavPortal}
+        {mobilePanelPortal}
 
         <div
           className={cn(
@@ -121,12 +145,12 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             </div>
           </div>
 
-          <div className={cn("flex flex-1 min-w-0 overflow-hidden", activePanel ? "gap-3" : "")}>
+          <div className={cn("flex flex-1 min-w-0 overflow-hidden", activePanel ? "sm:gap-3" : "")}>
             <main
               className={cn(
-                "flex-1 overflow-y-auto scrollbar-hide bg-[#F6F8FB]",
-                "rounded-tl-[32px]",
-                activePanel ? "rounded-tr-[24px]" : "",
+                "flex-1 min-w-0 overflow-y-auto scrollbar-hide bg-[#F6F8FB]",
+                "rounded-tl-[20px] sm:rounded-tl-[32px]",
+                activePanel ? "sm:rounded-tr-[24px]" : "",
                 mobileNavOpen && "max-sm:overflow-hidden",
               )}
             >
@@ -134,7 +158,9 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             </main>
 
             {activePanel && (
-              <RightPanel activePanel={activePanel} onClose={closePanel} />
+              <div className="hidden sm:block shrink-0">
+                <RightPanel activePanel={activePanel} onClose={closePanel} />
+              </div>
             )}
           </div>
         </div>

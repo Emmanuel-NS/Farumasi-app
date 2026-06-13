@@ -296,7 +296,7 @@ export default function ArticleDetailPage() {
           </div>
         </div>
       ) : (
-        <div className="relative w-full overflow-hidden" style={{ height: 420 }}>
+        <div className="relative w-full overflow-hidden h-56 sm:h-[420px]">
           {article.imageUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img

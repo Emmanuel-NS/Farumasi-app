@@ -18,12 +18,21 @@ import { startVisibleInterval } from "@/lib/polling";
 interface RightPanelProps {
   activePanel: string;
   onClose: () => void;
+  /** Full-height slide-over on mobile (rendered inside a portal backdrop). */
+  overlay?: boolean;
 }
 
-export function RightPanel({ activePanel, onClose }: RightPanelProps) {
+export function RightPanel({ activePanel, onClose, overlay = false }: RightPanelProps) {
   const t = useTranslation();
   return (
-    <div className="w-[360px] max-w-full bg-white flex flex-col animate-slide-in rounded-t-[24px] shadow-[-4px_0_24px_rgba(15,23,42,0.10)] shrink-0 overflow-hidden">
+    <div
+      className={cn(
+        "bg-white flex flex-col overflow-hidden",
+        overlay
+          ? "absolute inset-y-0 right-0 z-10 w-full max-w-[360px] animate-slide-in shadow-2xl"
+          : "w-[360px] max-w-full shrink-0 animate-slide-in rounded-t-[24px] shadow-[-4px_0_24px_rgba(15,23,42,0.10)]",
+      )}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
         <h2 className="font-bold text-slate-900 text-base">

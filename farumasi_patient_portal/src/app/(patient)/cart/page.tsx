@@ -637,7 +637,7 @@ export default function CartPage() {
           const pharmacistNotes = rxItem ? decodeInstructions(rxItem.instructions) : null;
           const hasProductLink = Boolean(medicine.id) && !medicine.id.startsWith("rx-");
           return (
-            <div key={lineKey} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex gap-4 items-start">
+            <div key={lineKey} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-start">
               <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
                 {medicine.imageUrl ? (
                   <img src={medicine.imageUrl} alt={medicine.name} className="w-full h-full object-cover" />
@@ -691,7 +691,7 @@ export default function CartPage() {
                 </div>
               ) : (
                 /* Normal mode — remove + qty controls */
-                <div className="flex flex-col items-end gap-2 shrink-0">
+                <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 shrink-0 w-full sm:w-auto">
                   <button onClick={() => remove(lineKey)} aria-label={`Remove ${medicine.name} from cart`}
                     className="p-1.5 text-slate-300 hover:text-red-400 transition-colors">
                     <Trash2 className="w-4 h-4" />
