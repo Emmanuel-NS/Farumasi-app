@@ -177,8 +177,10 @@ export default function CartPage() {
 
     detailsPrefilledRef.current = true;
 
-    if (user.name) setName((v) => v || user.name);
-    if (user.phone) setPhone((v) => v || user.phone);
+    const profileName = user.name;
+    const profilePhone = user.phone;
+    if (profileName) setName((v) => v || profileName);
+    if (profilePhone) setPhone((v) => v || profilePhone);
 
     patientsService
       .listAddresses()
@@ -186,8 +188,10 @@ export default function CartPage() {
         const defaultAddr =
           addresses.find((a) => a.is_default) ?? addresses[0];
         if (!defaultAddr) return;
-        if (defaultAddr.district) setDistrict((v) => v || defaultAddr.district);
-        if (defaultAddr.line2) setNotes((v) => v || defaultAddr.line2!);
+        const addrDistrict = defaultAddr.district;
+        const addrNotes = defaultAddr.line2;
+        if (addrDistrict) setDistrict((v) => v || addrDistrict);
+        if (addrNotes) setNotes((v) => v || addrNotes);
       })
       .catch(() => {});
   }, [step, user, isGuest]);
@@ -462,6 +466,8 @@ export default function CartPage() {
         : selectedRoadDistKm > 0
           ? calcDeliveryFee(selectedRoadDistKm)
           : 1500;
+  const deliveryFeeAmount = deliveryFee ?? 0;
+  const hasPositiveDeliveryFee = deliveryFeeAmount > 0;
   const medicineFullSubtotal = selectedOption?.priceEstimate ?? subtotal;
   // Insurance discount only when the selected pharmacy accepts the Rx insurance
   const rxInsuranceDiscount =
@@ -472,9 +478,9 @@ export default function CartPage() {
       ? selectedOption.insuranceSaving
       : 0;
   const medicineSubtotal = medicineFullSubtotal - rxInsuranceDiscount;
-  const total        = medicineFullSubtotal + (deliveryFee ?? 0) - rxInsuranceDiscount;
+  const total        = medicineFullSubtotal + deliveryFeeAmount - rxInsuranceDiscount;
   // If patient defers the delivery fee, only medicines + insurance savings are due now
-  const amountDueNow = total - (deferDeliveryFee && (deliveryFee ?? 0) > 0 ? (deliveryFee ?? 0) : 0);
+  const amountDueNow = total - (deferDeliveryFee && hasPositiveDeliveryFee ? deliveryFeeAmount : 0);
   const stepIdx      = STEPS.findIndex((s) => s.key === step);
 
   const rxInsuranceProvider =
@@ -1678,7 +1684,7 @@ export default function CartPage() {
         </div>
 
         {/* Deferred delivery fee option — delivery only when fee applies */}
-        {fulfillment === "delivery" && deliveryFee > 0 && (
+        {fulfillment === "delivery" && hasPositiveDeliveryFee && (
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Delivery Fee</p>
             <div className="space-y-2">
@@ -1686,7 +1692,7 @@ export default function CartPage() {
                 {
                   defer: false,
                   title: t.cart_pay_now,
-                  desc: `${formatPrice(deliveryFee)} charged with your medicines`,
+                  desc: `${formatPrice(deliveryFeeAmount)} charged with your medicines`,
                 },
                 {
                   defer: true,
@@ -1819,7 +1825,7 @@ export default function CartPage() {
               </div>
             )}
             <div className="border-t border-slate-100 pt-2.5 flex justify-between">
-              <span className="font-bold text-slate-900">{deferDeliveryFee && deliveryFee > 0 ? t.cart_due_now : t.cart_total}</span>
+              <span className="font-bold text-slate-900">{deferDeliveryFee && hasPositiveDeliveryFee ? t.cart_due_now : t.cart_total}</span>
               <span className="font-extrabold text-farumasi-700 text-lg">
                 {formatPrice(amountDueNow)}
               </span>
@@ -2153,25 +2159,25 @@ export default function CartPage() {
         )}
         <div className="border-t border-slate-100 pt-3 flex justify-between">
           <span className="font-bold text-slate-900">
-            {deferDeliveryFee && deliveryFee > 0 ? t.cart_charged_now : t.cart_total_charged}
+            {deferDeliveryFee && hasPositiveDeliveryFee ? t.cart_charged_now : t.cart_total_charged}
           </span>
           <span className="font-extrabold text-farumasi-700">{formatPrice(amountDueNow)}</span>
         </div>
-        {deferDeliveryFee && deliveryFee > 0 && (
+        {deferDeliveryFee && hasPositiveDeliveryFee && (
           <div className="flex justify-between text-sm text-slate-500">
             <span>{t.cart_delivery_after}</span>
-            <span className="font-medium">{formatPrice(deliveryFee)}</span>
+            <span className="font-medium">{formatPrice(deliveryFeeAmount)}</span>
           </div>
         )}
       </div>
 
       {/* Deferred delivery fee notice */}
-      {deferDeliveryFee && deliveryFee > 0 && (
+      {deferDeliveryFee && hasPositiveDeliveryFee && (
         <div className="w-full flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 mb-5">
           <Truck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
           <p className="text-xs text-blue-700">
             <span className="font-semibold">{t.cart_defer_banner}</span>{" "}
-            {formatPrice(deliveryFee)} will be charged via Pesapal once your order is delivered.
+            {formatPrice(deliveryFeeAmount)} will be charged via Pesapal once your order is delivered.
           </p>
         </div>
       )}

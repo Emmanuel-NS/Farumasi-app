@@ -1743,6 +1743,8 @@ const translations: Record<LangCode, T> = {
     cart_give_rider: "Mpe dereva akifika",
     cart_your_pharmacy: "Duka Lako la Dawa",
     cart_delivery_in: "Uwasilishaji ~{min} dak",
+    cart_road_distance: "{km} km kutoka kwako",
+    cart_enable_location: "Washa eneo kupata umbali na ada ya uwasilishaji",
     cart_deliver_to: "Wasilisha kwa",
     cart_payment_label: "Malipo",
     cart_insurance_savings: "Akiba ya bima",
