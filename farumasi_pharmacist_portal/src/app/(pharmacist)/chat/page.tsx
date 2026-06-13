@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, type ChangeEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { cn, timeAgo } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import {
@@ -60,6 +61,7 @@ function humanSize(bytes?: number | null): string {
 }
 
 export default function ChatPage() {
+  const searchParams = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const [consultations, setConsultations] = useState<ApiConsultation[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -100,6 +102,14 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => { fetchConsultations(); }, [fetchConsultations]);
+
+  useEffect(() => {
+    const thread = searchParams.get("thread");
+    if (!thread || consultations.length === 0) return;
+    if (consultations.some((c) => c.id === thread)) {
+      setSelected(thread);
+    }
+  }, [searchParams, consultations]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -200,7 +210,7 @@ export default function ChatPage() {
 
   const selectProduct = (p: BackendProduct) => {
     setPending({
-      url: `/inventory/${p.id}`,
+      url: `/store/${p.id}`,
       name: p.name,
       type: "product",
       productId: p.id,
@@ -402,7 +412,9 @@ function AttachmentBubble({ m, isMe }: { m: ApiMessage; isMe: boolean }) {
     );
   }
   if (type === "product") {
-    const productId = m.attachment_url.split("/").pop() ?? "";
+    const productId = m.attachment_url?.match(/\/(?:store|inventory|products)\/([^/?#]+)/i)?.[1]
+      ?? m.attachment_url.split("/").pop()
+      ?? "";
     const href = `/inventory/${productId}`;
     return (
       <a

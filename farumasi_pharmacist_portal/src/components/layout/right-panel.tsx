@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { cn, timeAgo } from "@/lib/utils";
 import { notificationsService, type BackendNotification } from "@/lib/services/notifications.service";
+import { consultationsService, type ConsultationPreview } from "@/lib/services/consultations.service";
 import { openNotification } from "@/lib/notification-links";
+import { useAuthStore } from "@/store/auth-store";
+import { startVisibleInterval } from "@/lib/polling";
 
 interface RightPanelProps {
   activePanel: string;
@@ -97,13 +100,81 @@ function NotificationsPanel() {
 }
 
 function ChatPanel() {
+  const router = useRouter();
+  const myId = useAuthStore((s) => s.user?.id);
+  const [threads, setThreads] = useState<ConsultationPreview[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    consultationsService
+      .list(20, myId)
+      .then(setThreads)
+      .catch(() => setThreads([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+  }, [myId]);
+
+  useEffect(() => {
+    if (!myId) return;
+    return startVisibleInterval(load, 30_000);
+  }, [myId]);
+
+  const totalUnread = threads.reduce((n, t) => n + t.unread, 0);
+
   return (
     <div>
       <div className="px-5 py-3 flex justify-between items-center border-b border-slate-50">
-        <span className="text-xs text-slate-500">Patient consultations</span>
-        <Link href="/chat" className="text-xs text-farumasi-600 font-medium hover:underline">Open chat</Link>
+        <span className="text-xs text-slate-500">
+          {totalUnread > 0 ? `${totalUnread} unread` : "Patient consultations"}
+        </span>
+        <Link href="/chat" className="text-xs text-farumasi-600 font-medium hover:underline">
+          Open chat
+        </Link>
       </div>
-      <div className="py-10 text-center text-xs text-slate-400">No recent conversations</div>
+      {loading ? (
+        <div className="py-10 text-center text-xs text-slate-400">Loading…</div>
+      ) : threads.length === 0 ? (
+        <div className="py-10 text-center text-xs text-slate-400">No recent conversations</div>
+      ) : (
+        threads.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => router.push(`/chat?thread=${t.id}`)}
+            className={cn(
+              "w-full text-left flex gap-3 px-5 py-3.5 border-b border-slate-50 hover:bg-slate-50 transition-colors",
+              t.unread > 0 && "bg-farumasi-50/50",
+            )}
+          >
+            <div className="w-9 h-9 rounded-full bg-farumasi-100 flex items-center justify-center font-bold text-farumasi-700 text-xs shrink-0">
+              {t.patientName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-center gap-2">
+                <p className={cn("text-sm text-slate-900 truncate", t.unread > 0 && "font-bold")}>
+                  {t.patientName}
+                </p>
+                {t.lastAt && (
+                  <p className="text-[10px] text-slate-400 shrink-0">{timeAgo(t.lastAt)}</p>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 truncate">{t.lastMessage}</p>
+            </div>
+            {t.unread > 0 && (
+              <span className="w-5 h-5 rounded-full bg-farumasi-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-1">
+                {t.unread}
+              </span>
+            )}
+          </button>
+        ))
+      )}
     </div>
   );
 }

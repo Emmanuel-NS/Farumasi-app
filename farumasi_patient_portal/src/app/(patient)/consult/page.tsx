@@ -97,6 +97,13 @@ const parseKey = (k: ThreadKey): { phId: string; anon: boolean } => {
   return { phId, anon: anon === "1" };
 };
 
+function consultProductPath(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  const match = url.match(/\/(?:store|inventory|products)\/([^/?#]+)/i);
+  if (match) return `/store/${match[1]}`;
+  return url.startsWith("/") ? url : undefined;
+}
+
 function adaptMessages(raw: ApiMessage[] | undefined, myId: string | undefined): ChatMessage[] {
   return (raw ?? [])
     .map((m) => ({
@@ -106,7 +113,7 @@ function adaptMessages(raw: ApiMessage[] | undefined, myId: string | undefined):
       timestamp: new Date(m.sent_at ?? m.created_at ?? Date.now()),
       isMe: m.sender_id === myId,
       attachmentUrl: m.attachment_type === "product"
-        ? (m.attachment_url ?? undefined)
+        ? consultProductPath(m.attachment_url)
         : mediaUrl(m.attachment_url ?? undefined) || undefined,
       attachmentName: m.attachment_name ?? undefined,
       attachmentType: (m.attachment_type ?? undefined) as
@@ -411,7 +418,7 @@ export default function ConsultPage() {
         timestamp: new Date(data.sent_at ?? data.created_at ?? Date.now()),
         isMe: true,
         attachmentUrl: data.attachment_type === "product"
-          ? (data.attachment_url ?? undefined)
+          ? consultProductPath(data.attachment_url)
           : mediaUrl(data.attachment_url ?? undefined) || undefined,
         attachmentName: data.attachment_name ?? undefined,
         attachmentType: (data.attachment_type ?? undefined) as

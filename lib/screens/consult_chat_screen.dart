@@ -1227,7 +1227,8 @@ class _ConsultProductPickerState extends State<_ConsultProductPicker> {
 
 String? _productIdFromAttachmentUrl(String? url) {
   if (url == null || url.isEmpty) return null;
-  final m = RegExp(r'/store/([^/?#]+)').firstMatch(url);
+  final m = RegExp(r'/(?:store|inventory|products)/([^/?#]+)', caseSensitive: false)
+      .firstMatch(url);
   return m?.group(1);
 }
 

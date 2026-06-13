@@ -8,6 +8,7 @@ import { cn, getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import { PresenceToggle } from "@/components/layout/presence-toggle";
 import { notificationsService } from "@/lib/services/notifications.service";
+import { consultationsService } from "@/lib/services/consultations.service";
 import { startVisibleInterval } from "@/lib/polling";
 import { Menu, Bell, MessageCircle, HelpCircle, LogOut, User, Settings } from "lucide-react";
 
@@ -36,6 +37,7 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
   const [showProfile, setShowProfile] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const [unread, setUnread] = useState(0);
+  const [chatUnread, setChatUnread] = useState(0);
   const { user, logout } = useAuthStore();
 
   useEffect(() => {
@@ -49,11 +51,20 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
   useEffect(() => {
     let cancelled = false;
     return startVisibleInterval(() => {
-      notificationsService.unreadCount()
-        .then((n) => { if (!cancelled) setUnread(n); })
+      notificationsService
+        .unreadCount()
+        .then((n) => {
+          if (!cancelled) setUnread(n);
+        })
+        .catch(() => {});
+      consultationsService
+        .unreadCount(user?.id)
+        .then((n) => {
+          if (!cancelled) setChatUnread(n);
+        })
         .catch(() => {});
     }, 60_000);
-  }, []);
+  }, [user?.id]);
 
   return (
     <header className="h-[72px] bg-farumasi-600 flex items-center gap-3 px-4 shrink-0 z-20">
@@ -92,16 +103,23 @@ export function Topbar({ collapsed, onToggle, onNotifClick, onChatClick, onHelpC
         </div>
 
         {/* Chat */}
-        <button
-          onClick={onChatClick}
-          className={cn(
-            "p-2 rounded-lg transition-colors",
-            activePanel === "chat" ? "bg-white/20 text-white" : "text-white/80 hover:text-white hover:bg-white/10"
+        <div className="relative">
+          <button
+            onClick={onChatClick}
+            className={cn(
+              "p-2 rounded-lg transition-colors",
+              activePanel === "chat" ? "bg-white/20 text-white" : "text-white/80 hover:text-white hover:bg-white/10"
+            )}
+            title="Patient Chat"
+          >
+            <MessageCircle className="w-5 h-5" />
+          </button>
+          {chatUnread > 0 && (
+            <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 pointer-events-none">
+              {chatUnread > 99 ? "99+" : chatUnread}
+            </span>
           )}
-          title="Patient Chat"
-        >
-          <MessageCircle className="w-5 h-5" />
-        </button>
+        </div>
 
         {/* Help */}
         <button
