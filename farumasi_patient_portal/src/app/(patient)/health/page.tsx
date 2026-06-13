@@ -117,6 +117,7 @@ export default function HealthPage() {
   const [savedOnly, setSavedOnly] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | ArticleType>("all");
   const [sortBy, setSortBy] = useState<ArticleSort>("newest");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const fetchArticles = useCallback(() => {
     setLoading(true);
@@ -185,15 +186,15 @@ export default function HealthPage() {
   const gridArticles = articles;
 
   return (
-    <div className="flex flex-col h-full bg-[#F9FAFB]">
-      {/* ── Sticky header ─────────────────────────────────────────────────── */}
-      <div className="bg-white shadow-sm shrink-0 sticky top-0 z-10">
-        <div className="px-5 pt-6 pb-3 flex items-end justify-between">
-          <div>
-            <h1 className="text-[22px] font-bold text-farumasi-700 leading-tight">
+    <div className="flex flex-col min-h-full bg-[#F9FAFB]">
+      {/* Header scrolls with content on mobile; sticky on tablet+ */}
+      <div className="bg-white shadow-sm shrink-0 sm:sticky sm:top-0 sm:z-10">
+        <div className="px-4 sm:px-5 pt-3 sm:pt-6 pb-2 sm:pb-3 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-[22px] font-bold text-farumasi-700 leading-tight truncate">
               {t.health_title}
             </h1>
-            <p className="text-[12px] text-slate-500 mt-0.5">
+            <p className="hidden sm:block text-[12px] text-slate-500 mt-0.5">
               {lang === "rw"
                 ? "Inkuru z'ubuzima zizewe ku Banyarwanda"
                 : lang === "fr"
@@ -201,15 +202,29 @@ export default function HealthPage() {
                 : "Trusted health articles for Rwanda"}
             </p>
           </div>
-          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-farumasi-700 bg-farumasi-50 px-2 py-1 rounded-full font-semibold">
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-farumasi-700 bg-farumasi-50 px-2 py-1 rounded-full font-semibold shrink-0">
             <Sparkles className="w-3 h-3" />
             {articles.length} articles
           </span>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            className={cn(
+              "sm:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-semibold shrink-0 transition-colors",
+              filtersOpen
+                ? "bg-farumasi-600 text-white border-farumasi-600"
+                : "bg-white text-slate-700 border-slate-200",
+            )}
+            aria-expanded={filtersOpen}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Filters
+          </button>
         </div>
 
         {/* Search bar */}
-        <div className="px-5 pb-3">
-          <div className="flex items-center gap-2 bg-[#F3F4F6] rounded-[12px] border border-slate-200 h-[45px] px-3 focus-within:border-farumasi-400 focus-within:bg-white transition-colors">
+        <div className="px-4 sm:px-5 pb-2 sm:pb-3">
+          <div className="flex items-center gap-2 bg-[#F3F4F6] rounded-[10px] sm:rounded-[12px] border border-slate-200 h-10 sm:h-[45px] px-3 focus-within:border-farumasi-400 focus-within:bg-white transition-colors">
             <Search className="w-4 h-4 text-slate-400 shrink-0" />
             <input
               value={searchQuery}
@@ -229,8 +244,13 @@ export default function HealthPage() {
           </div>
         </div>
 
-        {/* Filter / sort row */}
-        <div className="flex flex-wrap items-center gap-2 px-5 pb-3">
+        {/* Filter / sort row — collapsed on mobile until toggled */}
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-2 px-4 sm:px-5 pb-2 sm:pb-3",
+            !filtersOpen && "max-sm:hidden",
+          )}
+        >
           <button
             onClick={() => setSavedOnly((v) => !v)}
             className={cn(
@@ -278,7 +298,7 @@ export default function HealthPage() {
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-5 pb-4">
+        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide px-4 sm:px-5 pb-2.5 sm:pb-4">
           {TABS.map((tab) => {
             const isActive = activeTab === tab;
             return (
@@ -286,7 +306,7 @@ export default function HealthPage() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "shrink-0 px-4 py-1.5 rounded-full border text-[13px] font-semibold transition-all duration-150",
+                  "shrink-0 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border text-[12px] sm:text-[13px] font-semibold transition-all duration-150",
                   isActive
                     ? "bg-farumasi-600 text-white border-farumasi-600 shadow-[0_4px_8px_rgba(30,158,104,0.3)]"
                     : "text-farumasi-700 border-slate-200 bg-white hover:border-farumasi-300 hover:bg-farumasi-50"
@@ -300,7 +320,7 @@ export default function HealthPage() {
       </div>
 
       {/* ── Article list ──────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide px-4 sm:px-5 py-5">
+      <div className="flex-1 scrollbar-hide px-4 sm:px-5 py-3 sm:py-5">
         {!savedOnly && <SponsoredCarousel />}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24">
@@ -332,7 +352,7 @@ export default function HealthPage() {
             </p>
           </div>
         ) : (
-          <div className="max-w-6xl mx-auto space-y-5">
+          <div className="max-w-6xl mx-auto space-y-4 sm:space-y-5">
             {/* Featured rail */}
             {featured.length > 0 && (
               <FeaturedRail
@@ -443,7 +463,7 @@ function FeaturedRailCard({
   return (
     <button
       onClick={() => onSelect(article)}
-      className="group/card relative shrink-0 w-[148px] sm:w-[170px] text-left overflow-hidden rounded-[16px] bg-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.10)] hover:shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-shadow"
+      className="group/card relative shrink-0 w-[120px] sm:w-[170px] text-left overflow-hidden rounded-[14px] sm:rounded-[16px] bg-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.10)] hover:shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-shadow"
       style={{ aspectRatio: "3/4" }}
     >
       {article.imageUrl ? (
