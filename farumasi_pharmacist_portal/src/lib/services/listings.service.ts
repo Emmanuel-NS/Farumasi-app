@@ -26,12 +26,15 @@ export type ListingAvailability = "available" | "unavailable" | "out_of_stock" |
 
 export interface UpdateListingInput {
   price?: number;
+  unit_price?: number | null;
   stock_quantity?: number;
   availability_status?: ListingAvailability;
   expiry_date?: string | null;
   batch_number?: string | null;
   fulfillment_time_minutes?: number;
 }
+
+export interface UpdateMyListingInput extends UpdateListingInput {}
 
 export const listingsService = {
   async getListing(id: string): Promise<BackendListing> {
@@ -48,8 +51,12 @@ export const listingsService = {
   },
 
   async updateListing(id: string, input: UpdateListingInput): Promise<BackendListing> {
-    const { data } = await api.patch<BackendListing>(`/listings/${id}`, input);
+    const { data } = await api.patch<BackendListing>(`/pharmacies/me/listings/${id}`, input);
     return data;
+  },
+
+  async updateMyListing(id: string, input: UpdateMyListingInput): Promise<BackendListing> {
+    return this.updateListing(id, input);
   },
 
   async setAvailability(id: string, availability_status: ListingAvailability): Promise<BackendListing> {

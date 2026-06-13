@@ -187,7 +187,7 @@ async def update_pharmacy(
 
 
 # ---- Phase 3: /me/listings ----
-from app.schemas.product import ProductListingCreate, ProductListingOut
+from app.schemas.product import ProductListingCreate, ProductListingOut, ProductListingUpdate
 from app.services.product_service import ProductService
 
 
@@ -223,6 +223,33 @@ async def create_my_listing(
     pharmacy = await _get_my_pharmacy(db, current_user)
     payload = data.model_copy(update={"pharmacy_id": pharmacy.id, "partner_company_id": None})
     return await ProductService(db).create_listing(payload, current_user)
+
+
+@router.patch("/me/listings/{listing_id}", response_model=ProductListingOut)
+async def update_my_listing(
+    listing_id: str,
+    data: ProductListingUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
+):
+    pharmacy = await _get_my_pharmacy(db, current_user)
+    listing = await ProductService(db).get_listing(listing_id)
+    if listing.pharmacy_id != pharmacy.id:
+        raise AuthorizationError("This listing does not belong to your pharmacy")
+    return await ProductService(db).update_listing(listing_id, data, current_user)
+
+
+@router.delete("/me/listings/{listing_id}", status_code=204)
+async def delete_my_listing(
+    listing_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
+):
+    pharmacy = await _get_my_pharmacy(db, current_user)
+    listing = await ProductService(db).get_listing(listing_id)
+    if listing.pharmacy_id != pharmacy.id:
+        raise AuthorizationError("This listing does not belong to your pharmacy")
+    await ProductService(db).delete_listing(listing_id, current_user)
 
 
 # ---- Phase 6: /me/orders ----

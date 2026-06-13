@@ -45,6 +45,7 @@ export interface BackendListing {
   pharmacy_id?: string | null;
   partner_company_id?: string | null;
   price: number;
+  unit_price?: number | null;
   stock_quantity: number;
   availability_status: string;
   expiry_date?: string | null;
@@ -78,6 +79,16 @@ export interface CreateListingInput {
   unit_price?: number | null;
 }
 
+export interface UpdateListingInput {
+  price?: number;
+  unit_price?: number | null;
+  stock_quantity?: number;
+  availability_status?: "available" | "unavailable" | "out_of_stock";
+  expiry_date?: string | null;
+  batch_number?: string | null;
+  fulfillment_time_minutes?: number;
+}
+
 export const pharmaciesService = {
   async getMyPharmacy(): Promise<BackendPharmacy> {
     const { data } = await api.get<BackendPharmacy>("/pharmacies/me");
@@ -96,6 +107,11 @@ export const pharmaciesService = {
 
   async createMyListing(input: CreateListingInput): Promise<BackendListing> {
     const { data } = await api.post<BackendListing>("/pharmacies/me/listings", input);
+    return data;
+  },
+
+  async updateMyListing(id: string, input: UpdateListingInput): Promise<BackendListing> {
+    const { data } = await api.patch<BackendListing>(`/pharmacies/me/listings/${id}`, input);
     return data;
   },
 

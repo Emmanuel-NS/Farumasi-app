@@ -133,10 +133,10 @@ class ProductService:
             min_partial_quantity=data.min_partial_quantity,
             partial_unit_name=data.partial_unit_name,
         )
-        # Super admin auto-approves, pharmacist puts it under review
+        # Pharmacists list their own stock immediately; super admin approves catalogue entries.
         approval = (
             ProductApprovalStatus.APPROVED
-            if actor.role == UserRole.SUPER_ADMIN
+            if actor.role in (UserRole.SUPER_ADMIN, UserRole.PHARMACIST)
             else ProductApprovalStatus.PENDING_REVIEW
         )
         product = ProductCatalogueItem(
