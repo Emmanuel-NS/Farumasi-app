@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
-import { PAYOUT_METHODS, payoutMethodLabel, selectedPayoutMethod } from "@/lib/payout-methods";
+import { PAYOUT_METHODS, payoutMethodLabel, selectedPayoutMethod, type PayoutMethodValue } from "@/lib/payout-methods";
 import {
   payoutCredentialsService,
   type PayoutCredentials,
@@ -25,7 +25,7 @@ export function PayoutCredentialsEditor({ onUpdated }: Props) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
-  const [payoutMethod, setPayoutMethod] = useState(PAYOUT_METHODS[0].value);
+  const [payoutMethod, setPayoutMethod] = useState<PayoutMethodValue>(PAYOUT_METHODS[0].value);
   const [payoutAccount, setPayoutAccount] = useState("");
   const [payoutAccountName, setPayoutAccountName] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
@@ -178,7 +178,7 @@ export function PayoutCredentialsEditor({ onUpdated }: Props) {
               <Label>Payout method</Label>
               <select
                 value={payoutMethod}
-                onChange={(e) => setPayoutMethod(e.target.value)}
+                onChange={(e) => setPayoutMethod(e.target.value as PayoutMethodValue)}
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
               >
                 {PAYOUT_METHODS.map((m) => (

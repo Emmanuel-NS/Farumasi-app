@@ -358,7 +358,7 @@ export default function ListedProductsPage() {
                     {mediaUrl(p?.image_url) ? (
                       <Image
                         src={mediaUrl(p?.image_url)}
-                        alt={p.name ?? ""}
+                        alt={p?.name ?? ""}
                         width={56}
                         height={56}
                         className="object-cover w-full h-full"

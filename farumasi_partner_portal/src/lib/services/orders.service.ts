@@ -84,7 +84,7 @@ function normItem(raw: BackendOrderItem): BackendOrderItem {
     product_name: name,
     product_image_url: image,
     product: raw.product ?? (productId
-      ? { id: productId, name, image_url: image, prescription_required: raw.product?.prescription_required }
+      ? { id: productId, name, image_url: image }
       : { id: productId ?? raw.id, name, image_url: image }),
   };
 }

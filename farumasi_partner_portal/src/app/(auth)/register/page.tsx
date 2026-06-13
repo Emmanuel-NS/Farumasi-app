@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { authService } from "@/lib/services/auth.service";
 import { partnerService } from "@/lib/services/partner.service";
 import { payoutCredentialsService } from "@/lib/services/payout-credentials.service";
-import { PAYOUT_METHODS, selectedPayoutMethod } from "@/lib/payout-methods";
+import { PAYOUT_METHODS, selectedPayoutMethod, type PayoutMethodValue } from "@/lib/payout-methods";
 import { useAuthStore } from "@/lib/store/auth";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
@@ -28,7 +28,7 @@ export default function RegisterPage() {
   const [address, setAddress] = useState("");
   const [businessPhone, setBusinessPhone] = useState("");
   const [businessEmail, setBusinessEmail] = useState("");
-  const [payoutMethod, setPayoutMethod] = useState(PAYOUT_METHODS[0].value);
+  const [payoutMethod, setPayoutMethod] = useState<PayoutMethodValue>(PAYOUT_METHODS[0].value);
   const [payoutAccount, setPayoutAccount] = useState("");
   const [payoutAccountName, setPayoutAccountName] = useState("");
   const [fullName, setFullName] = useState("");
@@ -79,9 +79,8 @@ export default function RegisterPage() {
         company_type: businessType.toLowerCase(),
         email: (businessEmail || email).trim(),
         phone: businessPhone.trim() || undefined,
-        address: address.trim() || undefined,
+        address: [address.trim(), sector.trim()].filter(Boolean).join(", ") || undefined,
         district: district.trim() || undefined,
-        sector: sector.trim() || undefined,
         business_registration_number: registrationNumber.trim() || undefined,
       });
       const accountValue = payoutAccount.trim();
@@ -228,7 +227,7 @@ export default function RegisterPage() {
                 <Label>Payout method <span className="text-red-500">*</span></Label>
                 <select
                   value={payoutMethod}
-                  onChange={(e) => setPayoutMethod(e.target.value)}
+                  onChange={(e) => setPayoutMethod(e.target.value as PayoutMethodValue)}
                   className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
                 >
                   {PAYOUT_METHODS.map((m) => (
