@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ShoppingCart, FileUp } from "lucide-react";
 import { useCartLineCount } from "@/store/cart-store";
@@ -16,6 +17,16 @@ export function FloatingQuickActions({ onCartClick }: FloatingQuickActionsProps)
   const t = useTranslation();
   const cartCount = useCartLineCount();
   const isGuest = useAuthStore((s) => s.isGuest);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Avoid SSR/client drift from persisted cart, auth, and locale hydration.
+  if (!mounted) {
+    return null;
+  }
 
   if (pathname.startsWith("/auth") || pathname === "/cart") {
     return null;
@@ -31,11 +42,7 @@ export function FloatingQuickActions({ onCartClick }: FloatingQuickActionsProps)
 
   return (
     <div
-      className="fixed z-40 flex flex-col items-center gap-3 pointer-events-none"
-      style={{
-        bottom: "max(1.25rem, env(safe-area-inset-bottom))",
-        right: "max(1rem, env(safe-area-inset-right))",
-      }}
+      className="fixed z-40 flex flex-col items-center gap-3 pointer-events-none bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))]"
       aria-label="Quick actions"
     >
       <button
@@ -57,11 +64,11 @@ export function FloatingQuickActions({ onCartClick }: FloatingQuickActionsProps)
         aria-label={t.nav_cart}
       >
         <ShoppingCart className="w-6 h-6 text-white" />
-        {cartCount > 0 && (
+        {cartCount > 0 ? (
           <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#F6F8FB]">
             {cartCount > 99 ? "99+" : cartCount}
           </span>
-        )}
+        ) : null}
       </button>
     </div>
   );
