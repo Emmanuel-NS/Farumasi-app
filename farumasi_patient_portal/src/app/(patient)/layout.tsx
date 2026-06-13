@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { RightPanel } from "@/components/layout/right-panel";
+import { FloatingQuickActions } from "@/components/layout/floating-quick-actions";
 import { PatientRoleGuard } from "@/components/shared/patient-role-guard";
 import { hydrateLanguage } from "@/store/language-store";
 import { TranslationProvider } from "@/components/providers/translation-provider";
@@ -150,6 +151,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
               className={cn(
                 "flex-1 min-w-0 overflow-y-auto scrollbar-hide bg-[#F6F8FB]",
                 "rounded-tl-[20px] sm:rounded-tl-[32px]",
+                "pb-28 sm:pb-32",
                 activePanel ? "sm:rounded-tr-[24px]" : "",
                 mobileNavOpen && "max-sm:overflow-hidden",
               )}
@@ -164,6 +166,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             )}
           </div>
         </div>
+
+        <FloatingQuickActions onCartClick={() => togglePanel("cart")} />
       </div>
     </PatientRoleGuard>
     </TranslationProvider>

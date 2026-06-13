@@ -152,6 +152,21 @@ export default function HealthPage() {
     "Others":           lang === "rw" ? "Ibindi"                   : lang === "fr" ? "Autres"              : "Others",
   };
 
+  /** Short labels so ~5 category chips fit on a phone row without horizontal scroll. */
+  const TAB_LABELS_MOBILE: Record<Tab, string> = {
+    "All":              TAB_LABELS["All"],
+    "General Health":   lang === "rw" ? "Rusange"    : lang === "fr" ? "Général"   : "General",
+    "Sexual Health":    lang === "rw" ? "Imibonano"  : lang === "fr" ? "Sexuel"    : "Sexual",
+    "Mother & Babies":  lang === "rw" ? "Ababyeyi"   : lang === "fr" ? "Mères"     : "Mothers",
+    "Women's Health":   lang === "rw" ? "Abagore"    : lang === "fr" ? "Femmes"    : "Women",
+    "Men's Health":     lang === "rw" ? "Abagabo"    : lang === "fr" ? "Hommes"    : "Men",
+    "Nutrition":        TAB_LABELS["Nutrition"],
+    "Child Wellness":   lang === "rw" ? "Abana"      : lang === "fr" ? "Enfants"   : "Kids",
+    "Chronic Diseases": lang === "rw" ? "NCDs"       : lang === "fr" ? "Chronique" : "Chronic",
+    "Mental Health":    lang === "rw" ? "Ubwonko"    : lang === "fr" ? "Mental"    : "Mental",
+    "Others":           TAB_LABELS["Others"],
+  };
+
   const articles = useMemo(() => {
     let list = ARTICLES;
     if (activeTab === "Others") {
@@ -297,22 +312,24 @@ export default function HealthPage() {
           </div>
         </div>
 
-        {/* Tab bar */}
-        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide px-4 sm:px-5 pb-2.5 sm:pb-4">
+        {/* Tab bar — 5 columns on mobile so first row shows 5 categories without scrolling */}
+        <div className="grid grid-cols-5 gap-1 px-4 pb-2.5 sm:flex sm:gap-2 sm:overflow-x-auto sm:scrollbar-hide sm:px-5 sm:pb-4">
           {TABS.map((tab) => {
             const isActive = activeTab === tab;
             return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
+                title={TAB_LABELS[tab]}
                 className={cn(
-                  "shrink-0 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border text-[12px] sm:text-[13px] font-semibold transition-all duration-150",
+                  "w-full sm:w-auto sm:shrink-0 px-1 sm:px-4 py-1 sm:py-1.5 rounded-full border text-[10px] sm:text-[13px] font-semibold transition-all duration-150 text-center leading-tight truncate",
                   isActive
                     ? "bg-farumasi-600 text-white border-farumasi-600 shadow-[0_4px_8px_rgba(30,158,104,0.3)]"
                     : "text-farumasi-700 border-slate-200 bg-white hover:border-farumasi-300 hover:bg-farumasi-50"
                 )}
               >
-                {TAB_LABELS[tab]}
+                <span className="sm:hidden">{TAB_LABELS_MOBILE[tab]}</span>
+                <span className="hidden sm:inline">{TAB_LABELS[tab]}</span>
               </button>
             );
           })}

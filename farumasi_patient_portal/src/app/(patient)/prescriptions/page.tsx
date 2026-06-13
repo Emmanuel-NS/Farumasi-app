@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, Suspense } from "react";
 import {
   Upload, Camera, FileText, CheckCircle, X, AlertCircle,
   XCircle, Package, Pill, Plus, CalendarDays,
@@ -8,7 +8,7 @@ import {
   ShoppingCart, Send, ChevronRight, Archive,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { GuestGate } from "@/components/shared/guest-gate";
@@ -61,7 +61,16 @@ function relativeDate(iso: string) {
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PrescriptionsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Loading prescriptions…</div>}>
+      <PrescriptionsPageContent />
+    </Suspense>
+  );
+}
+
+function PrescriptionsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [tab, setTab]             = useState<Tab>("active");
   const [rawList, setRawList]     = useState<BackendPrescription[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -78,6 +87,13 @@ export default function PrescriptionsPage() {
     } catch { /* no-op */ }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
+
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    if (requested === "upload" || requested === "cancelled" || requested === "active") {
+      setTab(requested);
+    }
+  }, [searchParams]);
 
   useEffect(() => { loadPrescriptions(); }, [loadPrescriptions]);
 

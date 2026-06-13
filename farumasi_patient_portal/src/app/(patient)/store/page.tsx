@@ -636,7 +636,7 @@ function StorePageInner() {
               onMouseMove={onCatMouseMove}
               onMouseUp={onCatMouseUp}
               onMouseLeave={onCatMouseUp}
-              className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 pt-1 px-1 cursor-grab"
+              className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-2 pt-1 px-1 cursor-grab"
               style={{ WebkitOverflowScrolling: "touch", scrollBehavior: "smooth", touchAction: "pan-x" }}
             >
               {/* "All" chip always first */}
@@ -650,13 +650,13 @@ function StorePageInner() {
                     onClick={() => toggleCategory(cat.name)}
                     title={getCatLabel(cat.name)}
                     aria-label={getCatLabel(cat.name)}
-                    className="flex flex-col items-center shrink-0 gap-2 hover:opacity-90 transition-opacity"
+                    className="flex flex-col items-center shrink-0 gap-1.5 sm:gap-2 hover:opacity-90 transition-opacity w-[62px] sm:w-[92px]"
                     style={{ touchAction: "pan-x" }}
                   >
                     {/* Circle icon container — matches Flutter 12px padding + shape: circle */}
                     <div
                       className={cn(
-                        "w-[50px] h-[50px] rounded-full flex items-center justify-center transition-all duration-180 border",
+                        "w-11 h-11 sm:w-[50px] sm:h-[50px] rounded-full flex items-center justify-center transition-all duration-180 border",
                         selected
                           ? "bg-farumasi-600 border-farumasi-600 shadow-[0_4px_12px_rgba(34,163,111,0.3)]"
                           : "bg-[#F1F5F9] border-[#D8E1EA]"
@@ -664,7 +664,7 @@ function StorePageInner() {
                     >
                       <Icon
                         className={cn(
-                          "w-[26px] h-[26px]",
+                          "w-5 h-5 sm:w-[26px] sm:h-[26px]",
                           selected ? "text-white" : "text-farumasi-600"
                         )}
                       />
@@ -672,7 +672,7 @@ function StorePageInner() {
                     {/* Label */}
                     <span
                       className={cn(
-                        "w-[92px] text-center text-[12px] leading-tight truncate",
+                        "w-full text-center text-[10px] sm:text-[12px] leading-tight line-clamp-2 sm:truncate",
                         selected
                           ? "font-bold text-[#0F172A]"
                           : "font-medium text-[#334155]"
