@@ -48,12 +48,12 @@ export function FloatingQuickActions({ onCartClick }: FloatingQuickActionsProps)
       <button
         type="button"
         onClick={handleUploadRx}
-        className="pointer-events-auto w-[58px] h-[58px] sm:w-14 sm:h-14 rounded-full bg-blue-600 shadow-[0_4px_14px_rgba(37,99,235,0.35)] flex flex-col items-center justify-center gap-0.5 hover:bg-blue-700 active:scale-95 transition-all"
+        className="pointer-events-auto w-[58px] h-[58px] sm:w-14 sm:h-14 rounded-full bg-yellow-400 shadow-[0_4px_14px_rgba(250,204,21,0.45)] flex flex-col items-center justify-center gap-0.5 hover:bg-yellow-500 active:scale-95 transition-all"
         title={t.nav_upload_rx}
         aria-label={t.nav_upload_rx}
       >
-        <FileUp className="w-5 h-5 text-white" />
-        <span className="text-[8px] font-bold text-white leading-none">Rx</span>
+        <FileUp className="w-5 h-5 text-slate-900" />
+        <span className="text-[8px] font-bold text-slate-900 leading-none">Rx</span>
       </button>
 
       <button
