@@ -162,6 +162,37 @@ function humanSize(bytes?: number): string {
 
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024; // 8 MB
 
+function ChatImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg px-3 py-4 mb-1 bg-slate-100 text-slate-500 text-xs">
+        <ImageIcon className="w-5 h-5 shrink-0" />
+        <span>Image unavailable</span>
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className={className}
+    />
+  );
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 export default function ConsultPage() {
   const t = useTranslation();
@@ -188,6 +219,7 @@ export default function ConsultPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const chatPanelRef = useRef<HTMLElement>(null);
   const stickToBottomRef = useRef(true);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -363,6 +395,40 @@ export default function ConsultPage() {
     if (!stickToBottomRef.current) return;
     requestAnimationFrame(() => scrollMessagesToBottom("auto"));
   }, [messages, scrollMessagesToBottom]);
+
+  // Pin mobile chat panel to the visible viewport (address bar / keyboard)
+  useEffect(() => {
+    if (!selectedKey || typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 1023px)");
+    if (!mq.matches) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const panel = chatPanelRef.current;
+    const vv = window.visualViewport;
+    if (!panel || !vv) {
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+
+    const topbar = 72;
+    const sync = () => {
+      panel.style.top = `${topbar + vv.offsetTop}px`;
+      panel.style.height = `${Math.max(vv.height - topbar, 0)}px`;
+    };
+    sync();
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+      panel.style.top = "";
+      panel.style.height = "";
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [selectedKey]);
 
   // Reset transient chat-scoped UI when the selected thread changes
   useEffect(() => {
@@ -670,7 +736,9 @@ export default function ConsultPage() {
         <aside
           className={cn(
             "w-full lg:w-[360px] xl:w-[380px] flex flex-col shrink-0 border-r border-slate-200/80 bg-white",
-            selectedKey ? "hidden lg:flex" : "flex",
+            selectedKey
+              ? "hidden lg:flex"
+              : "fixed inset-x-0 top-[72px] bottom-0 z-10 flex lg:relative lg:inset-auto lg:z-auto lg:bottom-auto",
           )}
         >
           {/* Header */}
@@ -843,9 +911,12 @@ export default function ConsultPage() {
 
         {/* RIGHT — chat */}
         <section
+          ref={chatPanelRef}
           className={cn(
-            "flex-1 flex flex-col min-w-0 min-h-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
-            selectedKey ? "flex" : "hidden lg:flex",
+            "flex flex-col min-w-0 min-h-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
+            selectedKey
+              ? "fixed inset-x-0 top-[72px] bottom-0 z-20 flex lg:relative lg:inset-auto lg:flex-1 lg:z-auto lg:bottom-auto"
+              : "hidden lg:flex lg:flex-1",
           )}
         >
           {!selectedPh ? (
@@ -869,7 +940,7 @@ export default function ConsultPage() {
               </div>
             </div>
           ) : (
-            <>
+            <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
               {/* Chat header */}
               <div
                 className={cn(
@@ -972,7 +1043,7 @@ export default function ConsultPage() {
               <div
                 ref={messagesContainerRef}
                 onScroll={handleMessagesScroll}
-                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 lg:px-5 space-y-3 bg-[linear-gradient(180deg,#F4F7FA_0%,#E9EEF3_100%)] overscroll-contain"
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 lg:px-5 space-y-3 bg-[#EEF1F5] overscroll-contain"
               >
                 {loadingChat && messages.length === 0 && (
                   <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-8">
@@ -1043,8 +1114,7 @@ export default function ConsultPage() {
                             className="block mb-1 rounded-lg overflow-hidden bg-black/10"
                             style={{ maxWidth: 260 }}
                           >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <ChatImage
                               src={msg.attachmentUrl}
                               alt={msg.attachmentName ?? "attachment"}
                               className="w-full h-auto block max-h-[260px] object-cover"
@@ -1241,7 +1311,7 @@ export default function ConsultPage() {
                   </p>
                 </div>
               ) : (
-                <div className="px-3 md:px-5 py-3 bg-white/95 backdrop-blur-sm shrink-0 border-t border-slate-100">
+                <div className="px-3 md:px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] bg-white shrink-0 border-t border-slate-100">
                   <div className="flex items-end gap-2 max-w-3xl mx-auto w-full">
                   {/* Attachment + menu */}
                   <div className="relative shrink-0">
@@ -1339,7 +1409,7 @@ export default function ConsultPage() {
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </section>
 

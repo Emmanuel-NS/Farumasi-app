@@ -154,7 +154,9 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
               className={cn(
                 "flex-1 min-w-0 overflow-y-auto scrollbar-hide bg-[#F6F8FB]",
                 "rounded-tl-[20px] sm:rounded-tl-[32px]",
-                isConsultPage ? "flex flex-col overflow-hidden pb-0" : "pb-28 sm:pb-32",
+                isConsultPage
+                  ? "flex h-full min-h-0 flex-col overflow-hidden pb-0"
+                  : "pb-28 sm:pb-32",
                 activePanel ? "sm:rounded-tr-[24px]" : "",
                 mobileNavOpen && "max-sm:overflow-hidden",
               )}
