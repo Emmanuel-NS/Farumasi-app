@@ -107,31 +107,69 @@ function consultProductPath(url: string | null | undefined): string | undefined 
   return url.startsWith("/") ? url : undefined;
 }
 
+function isLikelyImageUrl(url: string): boolean {
+  return (
+    /^data:image\//i.test(url) ||
+    /^blob:/i.test(url) ||
+    /\.(png|jpe?g|webp|gif|bmp|svg)(\?.*)?$/i.test(url) ||
+    /\/uploads\/(?:images?|media)\//i.test(url)
+  );
+}
+
+function inferAttachmentType(
+  url: string | null | undefined,
+  declared?: string | null,
+): "image" | "file" | "product" | undefined {
+  if (!url) return undefined;
+  if (consultProductPath(url) || /\/(?:store|inventory|products)\//i.test(url)) {
+    return "product";
+  }
+  if (declared === "product") return "product";
+  if (declared === "image") {
+    return isLikelyImageUrl(url) ? "image" : "file";
+  }
+  if (declared === "file") return "file";
+  if (isLikelyImageUrl(url)) return "image";
+  return "file";
+}
+
 function adaptMessages(raw: ApiMessage[] | undefined, myId: string | undefined): ChatMessage[] {
   return (raw ?? [])
-    .map((m) => ({
-      id: m.id,
-      senderId: m.sender_id,
-      content: m.content ?? "",
-      timestamp: new Date(m.sent_at ?? m.created_at ?? Date.now()),
-      isMe: m.sender_id === myId,
-      attachmentUrl: m.attachment_type === "product"
-        ? consultProductPath(m.attachment_url)
-        : mediaUrl(m.attachment_url ?? undefined) || undefined,
-      attachmentName: m.attachment_name ?? undefined,
-      attachmentType: (m.attachment_type ?? undefined) as
-        | "image"
-        | "file"
-        | "product"
-        | undefined,
-      attachmentSize: m.attachment_size ?? undefined,
-    }))
+    .map((m) => {
+      const attachmentType = inferAttachmentType(m.attachment_url, m.attachment_type);
+      return {
+        id: m.id,
+        senderId: m.sender_id,
+        content: m.content ?? "",
+        timestamp: new Date(m.sent_at ?? m.created_at ?? Date.now()),
+        isMe: m.sender_id === myId,
+        attachmentUrl: attachmentType === "product"
+          ? consultProductPath(m.attachment_url)
+          : mediaUrl(m.attachment_url ?? undefined) || undefined,
+        attachmentName: m.attachment_name ?? undefined,
+        attachmentType,
+        attachmentSize: m.attachment_size ?? undefined,
+      };
+    })
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 }
 
 function dedupeMessages(msgs: ChatMessage[]): ChatMessage[] {
   const byId = new Map<string, ChatMessage>();
-  for (const m of msgs) byId.set(m.id, m);
+  const fingerprints = new Set<string>();
+  for (const m of msgs) {
+    if (byId.has(m.id)) continue;
+    const fp = [
+      m.senderId,
+      m.content,
+      m.attachmentUrl ?? "",
+      m.attachmentType ?? "",
+      Math.floor(m.timestamp.getTime() / 1000),
+    ].join("|");
+    if (fingerprints.has(fp)) continue;
+    fingerprints.add(fp);
+    byId.set(m.id, m);
+  }
   return [...byId.values()].sort(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
   );
@@ -509,21 +547,21 @@ export default function ConsultPage() {
         attachment_type: sentAttachment?.type,
         attachment_size: sentAttachment?.size,
       });
+      const sentType = inferAttachmentType(
+        data.attachment_url,
+        data.attachment_type,
+      );
       const real: ChatMessage = {
         id: data.id,
         senderId: data.sender_id,
         content: data.content ?? "",
         timestamp: new Date(data.sent_at ?? data.created_at ?? Date.now()),
         isMe: true,
-        attachmentUrl: data.attachment_type === "product"
+        attachmentUrl: sentType === "product"
           ? consultProductPath(data.attachment_url)
           : mediaUrl(data.attachment_url ?? undefined) || undefined,
         attachmentName: data.attachment_name ?? undefined,
-        attachmentType: (data.attachment_type ?? undefined) as
-          | "image"
-          | "file"
-          | "product"
-          | undefined,
+        attachmentType: sentType,
         attachmentSize: data.attachment_size ?? undefined,
       };
       setConsultsByKey((prev) => {
@@ -720,7 +758,7 @@ export default function ConsultPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <GuestGate feature="Consult">
-      <div className="flex flex-1 min-h-0 h-full bg-[#EEF2F6] overflow-hidden relative">
+      <div className="flex flex-1 h-0 min-h-0 w-full overflow-hidden bg-[#EEF2F6]">
         {/* LEFT — pharmacist list (hidden on narrow screens when a chat is open) */}
         <aside
           className={cn(
@@ -900,7 +938,7 @@ export default function ConsultPage() {
         {/* RIGHT — chat */}
         <section
           className={cn(
-            "flex flex-col min-w-0 min-h-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
+            "flex flex-col min-w-0 h-0 min-h-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
             selectedKey ? "flex flex-1 w-full" : "hidden lg:flex lg:flex-1",
           )}
         >
@@ -925,7 +963,7 @@ export default function ConsultPage() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+            <div className="flex flex-1 h-0 min-h-0 flex-col overflow-hidden">
               {/* Chat header */}
               <div
                 className={cn(
@@ -1024,11 +1062,12 @@ export default function ConsultPage() {
                 </div>
               )}
 
-              {/* Messages */}
+              {/* Messages + composer */}
+              <div className="grid flex-1 h-0 min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
               <div
                 ref={messagesContainerRef}
                 onScroll={handleMessagesScroll}
-                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 lg:px-5 bg-[#EEF1F5] overscroll-contain isolate"
+                className="min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 lg:px-5 bg-[#EEF1F5] overscroll-contain"
               >
                 {loadingChat && messages.length === 0 && (
                   <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-8">
@@ -1057,7 +1096,7 @@ export default function ConsultPage() {
                       className={cn(
                         "flex items-end gap-2 w-full mb-3 last:mb-0",
                         isPatient ? "justify-end" : "justify-start",
-                        isPending && "opacity-80",
+                        isPending && "ring-1 ring-white/40",
                       )}
                     >
                       {!isPatient && (
@@ -1090,13 +1129,14 @@ export default function ConsultPage() {
                         )}
                       >
                         {/* Image attachment */}
-                        {msg.attachmentType === "image" && msg.attachmentUrl && (
+                        {msg.attachmentType === "image" &&
+                          msg.attachmentUrl &&
+                          isLikelyImageUrl(msg.attachmentUrl) && (
                           <a
                             href={msg.attachmentUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block mb-1 rounded-lg overflow-hidden bg-black/10"
-                            style={{ maxWidth: 260 }}
+                            className="block mb-1 rounded-lg overflow-hidden bg-black/10 max-w-[260px]"
                           >
                             <ChatImage
                               src={msg.attachmentUrl}
@@ -1138,36 +1178,37 @@ export default function ConsultPage() {
                         )}
                         {/* Product attachment */}
                         {msg.attachmentType === "product" && msg.attachmentUrl && (
-                          <Link
+                          <a
                             href={msg.attachmentUrl}
-                            prefetch={false}
                             className={cn(
-                              "flex items-center gap-2 rounded-lg px-3 py-2 mb-1",
+                              "block mb-1 rounded-lg px-3 py-2 no-underline",
                               isPatient
-                                ? "bg-white/15 hover:bg-white/25"
-                                : "bg-slate-100 hover:bg-slate-200",
+                                ? "bg-white text-slate-900"
+                                : "bg-slate-100 text-slate-900 hover:bg-slate-200",
                             )}
                           >
-                            <div
-                              className={cn(
-                                "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
-                                isPatient
-                                  ? "bg-white/20"
-                                  : "bg-farumasi-100 text-farumasi-700",
-                              )}
-                            >
-                              <Package className="w-4 h-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[10px] font-bold uppercase tracking-wide opacity-70">
-                                Product
-                              </p>
-                              <p className="text-xs font-bold truncate">
-                                {msg.attachmentName ?? "View product"}
-                              </p>
-                            </div>
-                            <ExternalLink className="w-4 h-4 shrink-0 opacity-70" />
-                          </Link>
+                            <span className="flex items-center gap-2">
+                              <span
+                                className={cn(
+                                  "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+                                  isPatient
+                                    ? "bg-farumasi-100 text-farumasi-700"
+                                    : "bg-white text-farumasi-700",
+                                )}
+                              >
+                                <Package className="w-4 h-4" />
+                              </span>
+                              <span className="flex-1 min-w-0">
+                                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                  Product
+                                </span>
+                                <span className="block text-xs font-bold truncate">
+                                  {msg.attachmentName ?? "View product"}
+                                </span>
+                              </span>
+                              <ExternalLink className="w-4 h-4 shrink-0 text-slate-400" />
+                            </span>
+                          </a>
                         )}
 
                         {body && (
@@ -1249,6 +1290,7 @@ export default function ConsultPage() {
                 <div ref={messagesEndRef} />
               </div>
 
+              <div className="shrink-0 bg-white border-t border-slate-100 z-10">
               {/* Pending attachment preview */}
               {pendingAttachment && (
                 <div className="px-3 md:px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center gap-3 shrink-0">
@@ -1394,6 +1436,8 @@ export default function ConsultPage() {
                   </div>
                 </div>
               )}
+              </div>
+              </div>
             </div>
           )}
         </section>
