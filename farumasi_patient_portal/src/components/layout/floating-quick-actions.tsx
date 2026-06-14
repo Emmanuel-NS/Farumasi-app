@@ -40,8 +40,6 @@ export function FloatingQuickActions({ onCartClick }: FloatingQuickActionsProps)
     router.push("/prescriptions?tab=upload");
   };
 
-  const uploadLabel = t.nav_upload_rx.replace(/\s*Rx\s*$/i, "").trim() || "Upload";
-
   return (
     <div
       className="fixed z-40 flex flex-col items-center gap-3 pointer-events-none bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))]"
@@ -50,16 +48,11 @@ export function FloatingQuickActions({ onCartClick }: FloatingQuickActionsProps)
       <button
         type="button"
         onClick={handleUploadRx}
-        className="pointer-events-auto flex flex-col items-center justify-center gap-1 min-w-[62px] h-[62px] sm:min-w-[68px] sm:h-[68px] px-2 rounded-2xl bg-yellow-500 ring-2 ring-white shadow-[0_6px_18px_rgba(234,179,8,0.55)] hover:bg-yellow-400 active:scale-95 transition-all"
+        className="pointer-events-auto w-[58px] h-[58px] sm:w-14 sm:h-14 rounded-full bg-yellow-500 ring-2 ring-white shadow-[0_4px_14px_rgba(234,179,8,0.45)] flex items-center justify-center hover:bg-yellow-400 active:scale-95 transition-all"
         title={t.nav_upload_rx}
         aria-label={t.nav_upload_rx}
       >
-        <span className="flex items-center justify-center w-9 h-9 rounded-full bg-white/25">
-          <FileUp className="w-5 h-5 text-white stroke-[2.5]" aria-hidden />
-        </span>
-        <span className="text-[9px] font-extrabold text-white uppercase tracking-wide leading-none">
-          {uploadLabel}
-        </span>
+        <FileUp className="w-6 h-6 text-white stroke-[2.25]" aria-hidden />
       </button>
 
       <button

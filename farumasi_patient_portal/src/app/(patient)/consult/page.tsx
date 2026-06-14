@@ -41,6 +41,9 @@ import {
   Package,
   ExternalLink,
   Loader2,
+  Shield,
+  Users,
+  Sparkles,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -622,27 +625,42 @@ export default function ConsultPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <GuestGate feature="Consult">
-      <div
-        className="flex h-[calc(100dvh-72px)] max-h-[calc(100dvh-72px)] bg-white border border-slate-100 rounded-2xl overflow-hidden relative"
-      >
-        {/* LEFT — list rail */}
+      <div className="flex h-[calc(100dvh-72px)] max-h-[calc(100dvh-72px)] bg-[#EEF2F6] overflow-hidden relative">
+        {/* LEFT — pharmacist list */}
         <aside
           className={cn(
-            "w-full md:w-[340px] md:border-r border-slate-200 flex flex-col shrink-0 bg-white",
+            "w-full md:w-[360px] lg:w-[380px] flex flex-col shrink-0 border-r border-slate-200/80",
             selectedKey ? "hidden md:flex" : "flex",
           )}
         >
-          <div className="px-4 pt-4 pb-3 border-b border-slate-100">
-            <h1 className="text-xl font-extrabold text-slate-900 leading-tight">
-              {t.consult_title}
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
-              {t.consult_subtitle}
-            </p>
+          {/* Header */}
+          <div className="relative overflow-hidden shrink-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-farumasi-700 via-farumasi-600 to-farumasi-500" />
+            <div className="relative px-4 pt-5 pb-4 text-white">
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-lg font-extrabold leading-tight">{t.consult_title}</h1>
+                  <p className="text-[12px] text-white/75 mt-0.5 line-clamp-2">{t.consult_subtitle}</p>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold">
+                  <Users className="w-3.5 h-3.5" />
+                  {pharmacists.length} pharmacists
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-green-300" />
+                  {availableCount} online
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="px-3 py-2 border-b border-slate-100">
-            <div className="flex items-center bg-slate-100 rounded-full px-3 h-10 gap-2">
+          <div className="px-3 py-3 bg-white border-b border-slate-100 shrink-0">
+            <div className="flex items-center bg-slate-100/90 rounded-xl px-3 h-10 gap-2 ring-1 ring-slate-200/60 focus-within:ring-farumasi-300 focus-within:bg-white transition-all">
               <Search className="w-4 h-4 text-slate-400 shrink-0" />
               <input
                 value={searchQ}
@@ -660,50 +678,38 @@ export default function ConsultPage() {
                 </button>
               )}
             </div>
-            <div className="flex gap-1 mt-2 text-[11px] font-bold">
-              <button
-                onClick={() => setFilter("all")}
-                className={cn(
-                  "px-3 py-1 rounded-full transition-all",
-                  filter === "all"
-                    ? "bg-farumasi-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                )}
-              >
-                {t.consult_filter_all} ({pharmacists.length})
-              </button>
-              <button
-                onClick={() => setFilter("available")}
-                className={cn(
-                  "px-3 py-1 rounded-full transition-all",
-                  filter === "available"
-                    ? "bg-farumasi-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                )}
-              >
-                {t.consult_filter_available} ({availableCount})
-              </button>
-              <button
-                onClick={() => setFilter("chats")}
-                className={cn(
-                  "px-3 py-1 rounded-full transition-all",
-                  filter === "chats"
-                    ? "bg-farumasi-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                )}
-              >
-                Chats ({chatsCount})
-              </button>
+            <div className="flex gap-1.5 mt-2.5 overflow-x-auto scrollbar-hide">
+              {(
+                [
+                  { id: "all" as const, label: t.consult_filter_all, count: pharmacists.length },
+                  { id: "available" as const, label: t.consult_filter_available, count: availableCount },
+                  { id: "chats" as const, label: "Chats", count: chatsCount },
+                ] as const
+              ).map(({ id, label, count }) => (
+                <button
+                  key={id}
+                  onClick={() => setFilter(id)}
+                  className={cn(
+                    "shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all",
+                    filter === id
+                      ? "bg-farumasi-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                  )}
+                >
+                  {label} ({count})
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto px-2 py-2 bg-[#F6F8FB]">
             {rail.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                <Search className="w-10 h-10 text-slate-200 mb-2" />
-                <p className="text-slate-500 text-sm font-semibold">
-                  {t.consult_no_results}
-                </p>
+                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-100 flex items-center justify-center mb-3 shadow-sm">
+                  <Search className="w-6 h-6 text-slate-300" />
+                </div>
+                <p className="text-slate-700 text-sm font-semibold">{t.consult_no_results}</p>
+                <p className="text-slate-400 text-xs mt-1">Try another filter or search term</p>
               </div>
             ) : (
               rail.map(({ ph, anon, summary }) => {
@@ -716,8 +722,10 @@ export default function ConsultPage() {
                     key={k}
                     onClick={() => openThread(ph, anon)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 text-left border-b border-slate-50 transition-colors",
-                      isActive ? "bg-farumasi-50" : "hover:bg-slate-50",
+                      "w-full flex items-center gap-3 p-3 mb-2 text-left rounded-2xl border transition-all",
+                      isActive
+                        ? "bg-white border-farumasi-200 shadow-[0_4px_16px_rgba(30,158,104,0.12)] ring-1 ring-farumasi-100"
+                        : "bg-white border-slate-100 hover:border-farumasi-100 hover:shadow-sm",
                     )}
                   >
                     <div className="relative shrink-0">
@@ -793,32 +801,42 @@ export default function ConsultPage() {
           </div>
         </aside>
 
-        {/* RIGHT — chat area */}
+        {/* RIGHT — chat */}
         <section
           className={cn(
-            "flex-1 flex flex-col min-w-0",
+            "flex-1 flex flex-col min-w-0 bg-white md:rounded-l-3xl md:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
             selectedKey ? "flex" : "hidden md:flex",
           )}
         >
           {!selectedPh ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-[#F8FAFB]">
-              <div className="w-20 h-20 rounded-full bg-farumasi-100 flex items-center justify-center mb-4">
-                <MessageCircle className="w-9 h-9 text-farumasi-600" />
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-gradient-to-br from-[#F8FAFC] via-white to-farumasi-50/40">
+              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-farumasi-600 to-farumasi-400 flex items-center justify-center mb-5 shadow-[0_12px_32px_rgba(30,158,104,0.25)]">
+                <MessageCircle className="w-11 h-11 text-white" />
               </div>
-              <p className="text-slate-700 font-bold">
-                Pick a pharmacist to start chatting
-              </p>
-              <p className="text-slate-400 text-sm mt-1 max-w-sm">
+              <p className="text-slate-900 font-extrabold text-lg">Choose a pharmacist</p>
+              <p className="text-slate-500 text-sm mt-2 max-w-md leading-relaxed">
                 {t.consult_disclaimer}
               </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5 text-farumasi-600" />
+                  Licensed professionals
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm">
+                  <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                  Anonymous mode available
+                </span>
+              </div>
             </div>
           ) : (
             <>
               {/* Chat header */}
               <div
                 className={cn(
-                  "flex items-center gap-3 px-3 md:px-4 py-3 shrink-0 shadow-sm",
-                  isAnon ? "bg-slate-900" : "bg-farumasi-600",
+                  "flex items-center gap-3 px-3 md:px-5 py-3 shrink-0",
+                  isAnon
+                    ? "bg-gradient-to-r from-slate-800 to-slate-900"
+                    : "bg-gradient-to-r from-farumasi-700 to-farumasi-600",
                 )}
               >
                 <button
@@ -910,19 +928,18 @@ export default function ConsultPage() {
                 </div>
               )}
 
-              {/* Messages area */}
-              <div
-                className="flex-1 overflow-y-auto py-4 px-3 md:px-4 space-y-2"
-                style={{ backgroundColor: "#E5DDD5" }}
-              >
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto py-4 px-3 md:px-5 space-y-3 bg-[linear-gradient(180deg,#F4F7FA_0%,#E9EEF3_100%)]">
                 {loadingChat && messages.length === 0 && (
-                  <div className="text-center text-xs text-slate-600 py-6">
+                  <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-8">
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Loading conversation…
                   </div>
                 )}
                 {messages.length > 0 && (
-                  <div className="flex justify-center mb-3">
-                    <span className="inline-block text-xs text-slate-600 bg-white/80 rounded-full px-4 py-1.5 shadow-sm">
+                  <div className="flex justify-center mb-2">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 bg-white/90 rounded-full px-3 py-1 shadow-sm border border-slate-100">
+                      <Shield className="w-3 h-3 text-farumasi-600" />
                       {t.consult_disclaimer}
                     </span>
                   </div>
@@ -957,15 +974,15 @@ export default function ConsultPage() {
 
                       <div
                         className={cn(
-                          "max-w-[78%] md:max-w-[60%] px-3 py-2 text-sm leading-relaxed shadow-sm",
+                          "max-w-[78%] md:max-w-[62%] px-3.5 py-2.5 text-sm leading-relaxed shadow-sm",
                           isPatient
-                            ? "bg-farumasi-600 text-white"
-                            : "bg-white text-slate-900 border border-slate-100",
+                            ? "bg-farumasi-600 text-white shadow-[0_2px_8px_rgba(30,158,104,0.2)]"
+                            : "bg-white text-slate-900 border border-slate-100/80",
                         )}
                         style={{
                           borderRadius: isPatient
-                            ? "18px 18px 4px 18px"
-                            : "18px 18px 18px 4px",
+                            ? "20px 20px 6px 20px"
+                            : "20px 20px 20px 6px",
                         }}
                       >
                         {/* Image attachment */}
@@ -1156,7 +1173,8 @@ export default function ConsultPage() {
                   </p>
                 </div>
               ) : (
-                <div className="px-3 md:px-4 py-3 bg-white shrink-0 flex items-center gap-2 border-t border-slate-100 relative">
+                <div className="px-3 md:px-5 py-3 bg-white/95 backdrop-blur-sm shrink-0 border-t border-slate-100">
+                  <div className="flex items-end gap-2 max-w-3xl mx-auto w-full">
                   {/* Attachment + menu */}
                   <div className="relative shrink-0">
                     <button
@@ -1216,7 +1234,7 @@ export default function ConsultPage() {
                     />
                   </div>
 
-                  <div className="flex-1 bg-[#F0F2F5] rounded-[24px] px-4 py-2.5">
+                  <div className="flex-1 bg-slate-100 rounded-[22px] px-4 py-2.5 ring-1 ring-slate-200/60 focus-within:ring-farumasi-300 focus-within:bg-white transition-all">
                     <input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
@@ -1246,10 +1264,11 @@ export default function ConsultPage() {
                       !selectedConsult
                     }
                     aria-label="Send message"
-                    className="w-10 h-10 rounded-full bg-farumasi-600 text-white flex items-center justify-center hover:bg-farumasi-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+                    className="w-10 h-10 rounded-full bg-farumasi-600 text-white flex items-center justify-center hover:bg-farumasi-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 shadow-[0_4px_12px_rgba(30,158,104,0.3)]"
                   >
                     <Send className="w-4 h-4" />
                   </button>
+                  </div>
                 </div>
               )}
             </>
