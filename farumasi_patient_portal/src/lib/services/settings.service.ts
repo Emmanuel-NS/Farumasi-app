@@ -25,10 +25,17 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   events: { orders: true, health_tips: true, promotions: false, app_updates: true, reminders: true },
 };
 
+function mergeNotificationPrefs(raw: NotificationPreferences): NotificationPreferences {
+  return {
+    channels: { ...DEFAULT_NOTIFICATION_PREFERENCES.channels, ...raw.channels },
+    events: { ...DEFAULT_NOTIFICATION_PREFERENCES.events, ...raw.events },
+  };
+}
+
 export const settingsService = {
   async getNotificationPreferences(): Promise<NotificationPreferences> {
     const { data } = await api.get<NotificationPreferences>("/users/me/notification-preferences");
-    return data;
+    return mergeNotificationPrefs(data);
   },
 
   async updateNotificationPreferences(
@@ -38,6 +45,6 @@ export const settingsService = {
       "/users/me/notification-preferences",
       prefs,
     );
-    return data;
+    return mergeNotificationPrefs(data);
   },
 };

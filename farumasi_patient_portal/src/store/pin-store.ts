@@ -17,9 +17,12 @@ interface PinStore {
   activeUserId: string | null;
   pinsByUser: PinByUser;
   pinHash: string | null;
+  /** Server has a PIN but this device has not cached a hash yet. */
+  serverPinRequired: boolean;
   isLocked: boolean;
   isHydrated: boolean;
   setActiveUser: (userId: string | null) => void;
+  syncServerPinStatus: (hasPin: boolean) => void;
   setPin: (pin: string) => Promise<void>;
   changePin: (currentPin: string, newPin: string) => Promise<boolean>;
   verifyPin: (pin: string) => Promise<boolean>;
@@ -32,14 +35,18 @@ interface PinStore {
 function syncActivePin(state: {
   activeUserId: string | null;
   pinsByUser: PinByUser;
+  serverPinRequired?: boolean;
   isLocked?: boolean;
-}): { pinHash: string | null; isLocked: boolean } {
+}): { pinHash: string | null; serverPinRequired: boolean; isLocked: boolean } {
   const pinHash = state.activeUserId
     ? state.pinsByUser[state.activeUserId] ?? null
     : null;
+  const serverPinRequired = pinHash ? false : Boolean(state.serverPinRequired);
+  const protected_ = Boolean(pinHash || serverPinRequired);
   return {
     pinHash,
-    isLocked: pinHash ? (state.isLocked ?? true) : false,
+    serverPinRequired,
+    isLocked: protected_ ? (state.isLocked ?? true) : false,
   };
 }
 
@@ -49,82 +56,136 @@ export const usePinStore = create<PinStore>()(
       activeUserId: null,
       pinsByUser: {},
       pinHash: null,
-      isLocked: true,
+      serverPinRequired: false,
+      isLocked: false,
       isHydrated: false,
       _setHydrated: () => set({ isHydrated: true }),
 
       setActiveUser: (userId) => {
-        const { pinsByUser } = get();
-        const pinHash = userId ? pinsByUser[userId] ?? null : null;
+        const synced = syncActivePin({
+          activeUserId: userId,
+          pinsByUser: get().pinsByUser,
+          serverPinRequired: false,
+          isLocked: true,
+        });
         set({
           activeUserId: userId,
-          pinHash,
-          isLocked: !!pinHash,
+          ...synced,
         });
+      },
+
+      syncServerPinStatus: (hasPin) => {
+        const userId = get().activeUserId;
+        if (!userId) {
+          set({ serverPinRequired: false, isLocked: false });
+          return;
+        }
+        const localHash = get().pinsByUser[userId] ?? null;
+        const serverPinRequired = hasPin && !localHash;
+        set(
+          syncActivePin({
+            activeUserId: userId,
+            pinsByUser: get().pinsByUser,
+            serverPinRequired,
+            isLocked: true,
+          }),
+        );
       },
 
       setPin: async (pin) => {
         const userId = get().activeUserId;
-        if (!userId) return;
+        if (!userId) throw new Error("Sign in to set a PIN.");
         const hash = await sha256(pin);
         const pinsByUser = { ...get().pinsByUser, [userId]: hash };
-        set({ pinsByUser, pinHash: hash, isLocked: false });
-        try {
-          await api.put("/patients/me/pin", { pin });
-        } catch {
-          /* keep local hash; server sync retried on next change */
-        }
+        set({
+          pinsByUser,
+          pinHash: hash,
+          serverPinRequired: false,
+          isLocked: false,
+        });
+        await api.put("/patients/me/pin", { pin });
       },
 
       changePin: async (currentPin, newPin) => {
         const userId = get().activeUserId;
-        const cur = userId ? get().pinsByUser[userId] : null;
-        if (!userId || !cur) return false;
-        const test = await sha256(currentPin);
-        if (test !== cur) return false;
+        if (!userId) return false;
+        const cur = get().pinsByUser[userId];
+        if (cur) {
+          const test = await sha256(currentPin);
+          if (test !== cur) return false;
+        } else if (get().serverPinRequired) {
+          try {
+            await api.post("/patients/me/pin/verify", { pin: currentPin });
+          } catch {
+            return false;
+          }
+        } else {
+          return false;
+        }
         const hash = await sha256(newPin);
         const pinsByUser = { ...get().pinsByUser, [userId]: hash };
-        set({ pinsByUser, pinHash: hash });
-        try {
-          await api.put("/patients/me/pin/change", {
-            current_pin: currentPin,
-            new_pin: newPin,
-          });
-        } catch {
-          /* local hash updated */
-        }
+        set({ pinsByUser, pinHash: hash, serverPinRequired: false });
+        await api.put("/patients/me/pin/change", {
+          current_pin: currentPin,
+          new_pin: newPin,
+        });
         return true;
       },
 
       verifyPin: async (pin) => {
         const cur = get().pinHash;
-        if (!cur) return true;
-        const test = await sha256(pin);
-        const ok = test === cur;
-        if (ok) set({ isLocked: false });
-        return ok;
+        if (cur) {
+          const test = await sha256(pin);
+          if (test === cur) {
+            set({ isLocked: false });
+            return true;
+          }
+          return false;
+        }
+        if (get().serverPinRequired) {
+          try {
+            await api.post("/patients/me/pin/verify", { pin });
+            set({ isLocked: false });
+            return true;
+          } catch {
+            return false;
+          }
+        }
+        set({ isLocked: false });
+        return true;
       },
 
       clearPin: async (pin) => {
         const userId = get().activeUserId;
-        const cur = userId ? get().pinsByUser[userId] : null;
-        if (!userId || !cur) return true;
-        const test = await sha256(pin);
-        if (test !== cur) return false;
+        if (!userId) return false;
+        const cur = get().pinsByUser[userId];
+        if (cur) {
+          const test = await sha256(pin);
+          if (test !== cur) return false;
+        } else if (get().serverPinRequired) {
+          try {
+            await api.post("/patients/me/pin/verify", { pin });
+          } catch {
+            return false;
+          }
+        } else {
+          return true;
+        }
         const pinsByUser = { ...get().pinsByUser };
         delete pinsByUser[userId];
-        set({ pinsByUser, pinHash: null, isLocked: false });
-        try {
-          await api.delete("/patients/me/pin", { data: { pin } });
-        } catch {
-          /* cleared locally */
-        }
+        set({
+          pinsByUser,
+          pinHash: null,
+          serverPinRequired: false,
+          isLocked: false,
+        });
+        await api.delete("/patients/me/pin", { data: { pin } });
         return true;
       },
 
       unlock: () => set({ isLocked: false }),
       lock: () => {
-        if (get().pinHash) set({ isLocked: true });
+        if (get().pinHash || get().serverPinRequired) set({ isLocked: true });
       },
     }),
     {
@@ -137,11 +198,13 @@ export const usePinStore = create<PinStore>()(
         const synced = syncActivePin({
           activeUserId: state.activeUserId,
           pinsByUser: state.pinsByUser ?? {},
+          serverPinRequired: state.serverPinRequired ?? false,
           isLocked: true,
         });
         state.pinHash = synced.pinHash;
+        state.serverPinRequired = synced.serverPinRequired;
         state.isLocked = synced.isLocked;
       },
-    }
-  )
+    },
+  ),
 );

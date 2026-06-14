@@ -21,13 +21,14 @@ import {
   Download, LogOut, Trash2, AlertTriangle, X, ShieldCheck, CheckCircle2, KeyRound,
 } from "lucide-react";
 import { usePinStore } from "@/store/pin-store";
+import { getApiError } from "@/lib/api-error";
 
 type Section = "notifications" | "security" | "data" | "preferences" | "about";
 
 const LANG_OPTIONS: { code: LangCode; native: string }[] = [
   { code: "en", native: "English"     },
   { code: "rw", native: "Kinyarwanda" },
-  { code: "fr", native: "FranÃ§ais"    },
+  { code: "fr", native: "Français"    },
   { code: "sw", native: "Swahili"     },
 ];
 
@@ -94,7 +95,7 @@ export default function SettingsPage() {
         await settingsService.updateNotificationPreferences(next);
         toast.success("Notification preferences saved");
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Could not save preferences");
+        toast.error(getApiError(e, "Could not save preferences"));
       } finally {
         setSavingPrefs(false);
       }
@@ -154,7 +155,7 @@ export default function SettingsPage() {
         >
           {prefsLoading ? (
             <div className="pt-6 pb-4 flex items-center justify-center text-slate-400 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loadingâ€¦
+              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading…
             </div>
           ) : (
             <div className="pt-4 space-y-5">
@@ -246,7 +247,7 @@ export default function SettingsPage() {
                       const res = await authService.requestDataExport();
                       toast.success(res.message);
                     } catch (e) {
-                      toast.error(e instanceof Error ? e.message : "Could not request export");
+                      toast.error(getApiError(e, "Could not request export"));
                     }
                   }}
                 />
@@ -350,7 +351,7 @@ export default function SettingsPage() {
               toast.success("All other sessions have been signed out.");
               setShowSignOutAll(false);
             } catch (e) {
-              toast.error(e instanceof Error ? e.message : "Could not complete request");
+              toast.error(getApiError(e, "Could not complete request"));
             }
           }}
           onClose={() => setShowSignOutAll(false)}
@@ -474,7 +475,7 @@ function GuestRow({ message }: { message: string }) {
     <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
       <p className="text-xs text-slate-500 mb-2">{message}</p>
       <Link href="/auth/login" className="inline-block text-xs font-semibold text-farumasi-600 hover:text-farumasi-700">
-        Sign in â†’
+        Sign in →
       </Link>
     </div>
   );
@@ -573,7 +574,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
       toast.success("Password updated. Sign in again on your other devices.");
       onClose();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not change password");
+      toast.error(getApiError(e, "Could not change password"));
     } finally {
       setLoading(false);
     }
@@ -635,7 +636,7 @@ function DeleteAccountModal({ onClose, onDeleted }: { onClose: () => void; onDel
       await authService.deleteAccount(password, reason || undefined);
       onDeleted();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not delete account");
+      toast.error(getApiError(e, "Could not delete account"));
       setLoading(false);
     }
   };
@@ -689,7 +690,10 @@ function Field({ label, type, value, onChange }: {
 
 /* ── PinManager ──────────────────────────────────────────────────────────── */
 function PinManager() {
+  const isGuest = useAuthStore((s) => s.isGuest);
   const pinHash = usePinStore((s) => s.pinHash);
+  const serverPinRequired = usePinStore((s) => s.serverPinRequired);
+  const pinEnabled = Boolean(pinHash || serverPinRequired);
   const setPin = usePinStore((s) => s.setPin);
   const changePin = usePinStore((s) => s.changePin);
   const clearPin = usePinStore((s) => s.clearPin);
@@ -708,6 +712,10 @@ function PinManager() {
   };
 
   const submitSet = async () => {
+    if (isGuest) {
+      toast.error("Sign in to set a PIN.");
+      return;
+    }
     if (newPin.length < 4 || newPin.length > 8 || !/^\d+$/.test(newPin)) {
       toast.error("PIN must be 4-8 digits.");
       return;
@@ -721,6 +729,8 @@ function PinManager() {
       await setPin(newPin);
       toast.success("PIN set. Orders & Prescriptions are now protected.");
       reset();
+    } catch (e) {
+      toast.error(getApiError(e, "Could not set PIN."));
     } finally {
       setBusy(false);
     }
@@ -766,31 +776,36 @@ function PinManager() {
 
   return (
     <>
+      {isGuest ? (
+        <GuestRow message="Sign in to protect Orders & Prescriptions with a PIN." />
+      ) : (
       <div className="rounded-2xl border border-slate-200 p-3 mb-2 bg-slate-50/50">
         <div className="flex items-center gap-3">
           <div className={cn(
             "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
-            pinHash ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500",
+            pinEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500",
           )}>
             <KeyRound className="w-4 h-4" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-slate-900">Orders & Prescriptions PIN</p>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              {pinHash
-                ? "Protected for your account only. Other patients on this device use their own passcode."
+              {pinEnabled
+                ? serverPinRequired && !pinHash
+                  ? "PIN is active on your account. Enter it once on this device to unlock Orders & Prescriptions."
+                  : "Protected for your account only. Other patients on this device use their own passcode."
                 : "Optional per account. Not shared with other patients on this device."}
             </p>
           </div>
           <span className={cn(
             "text-[10px] font-bold px-2 py-0.5 rounded-full",
-            pinHash ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500",
+            pinEnabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500",
           )}>
-            {pinHash ? "ON" : "OFF"}
+            {pinEnabled ? "ON" : "OFF"}
           </span>
         </div>
         <div className="flex gap-2 mt-3">
-          {pinHash ? (
+          {pinEnabled ? (
             <>
               <button
                 onClick={() => setMode("change")}
@@ -815,6 +830,7 @@ function PinManager() {
           )}
         </div>
       </div>
+      )}
 
       {mode === "set" && (
         <ModalShell title="Set Orders/Prescriptions PIN" onClose={reset}>

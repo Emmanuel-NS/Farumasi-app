@@ -27,6 +27,18 @@ from app.services.user_service import UserService
 router = APIRouter()
 
 
+def _coerce_notification_prefs(raw: dict | None) -> NotificationPreferences:
+    """Merge stored prefs with defaults so partial legacy rows still work."""
+    if not raw:
+        return DEFAULT_NOTIFICATION_PREFERENCES
+    defaults = DEFAULT_NOTIFICATION_PREFERENCES.model_dump()
+    merged = {
+        "channels": {**defaults["channels"], **(raw.get("channels") or {})},
+        "events": {**defaults["events"], **(raw.get("events") or {})},
+    }
+    return NotificationPreferences.model_validate(merged)
+
+
 @router.get("/me", response_model=UserOut)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
@@ -47,9 +59,7 @@ async def get_my_notification_preferences(
     current_user: User = Depends(get_current_user),
 ):
     raw = current_user.notification_prefs
-    if not raw:
-        return DEFAULT_NOTIFICATION_PREFERENCES
-    return NotificationPreferences.model_validate(raw)
+    return _coerce_notification_prefs(raw if isinstance(raw, dict) else None)
 
 
 @router.put("/me/notification-preferences", response_model=NotificationPreferences)
@@ -58,7 +68,8 @@ async def update_my_notification_preferences(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    current_user.notification_prefs = data.model_dump()
+    merged = _coerce_notification_prefs(data.model_dump())
+    current_user.notification_prefs = merged.model_dump()
     await db.flush()
     await AuditService(db).log(
         actor_user_id=current_user.id,
@@ -67,7 +78,7 @@ async def update_my_notification_preferences(
         entity_id=current_user.id,
         new_value=current_user.notification_prefs,
     )
-    return data
+    return merged
 
 
 # ── Data export ────────────────────────────────────────────────────────────

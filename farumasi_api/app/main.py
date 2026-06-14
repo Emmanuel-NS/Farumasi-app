@@ -45,6 +45,12 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE partner_companies ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT true",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) NOT NULL DEFAULT 'en'",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_prefs JSONB",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN NOT NULL DEFAULT false",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT false",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_invalidated_at TIMESTAMPTZ",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
                     "ALTER TABLE patient_profiles ADD COLUMN IF NOT EXISTS pin_hash VARCHAR(128)",
                     "ALTER TABLE digital_prescriptions ADD COLUMN IF NOT EXISTS valid_until TIMESTAMPTZ",
                     """

@@ -16,6 +16,7 @@ interface PinGateProps {
  */
 export function PinGate({ feature, children }: PinGateProps) {
   const pinHash = usePinStore((s) => s.pinHash);
+  const serverPinRequired = usePinStore((s) => s.serverPinRequired);
   const isLocked = usePinStore((s) => s.isLocked);
   const isHydrated = usePinStore((s) => s.isHydrated);
   const verifyPin = usePinStore((s) => s.verifyPin);
@@ -27,7 +28,8 @@ export function PinGate({ feature, children }: PinGateProps) {
   useEffect(() => { setErr(null); }, [pin]);
 
   if (!isHydrated) return null;
-  if (!pinHash || !isLocked) return <>{children}</>;
+  const protected_ = Boolean(pinHash || serverPinRequired);
+  if (!protected_ || !isLocked) return <>{children}</>;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

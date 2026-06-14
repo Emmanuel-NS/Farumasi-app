@@ -14,7 +14,18 @@ export interface PatientAddress {
   created_at: string;
 }
 
+export interface PatientProfile {
+  id: string;
+  user_id: string;
+  has_pin?: boolean;
+}
+
 export const patientsService = {
+  async getMyProfile(): Promise<PatientProfile> {
+    const { data } = await api.get<PatientProfile>("/patients/me");
+    return data;
+  },
+
   async listAddresses(): Promise<PatientAddress[]> {
     const { data } = await api.get<PatientAddress[]>("/patients/me/addresses");
     return data;

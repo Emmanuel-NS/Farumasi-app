@@ -1,8 +1,18 @@
 import { create } from "zustand";
 import { authService } from "@/lib/services/auth.service";
+import { patientsService } from "@/lib/services/patients.service";
 import { isMockMode } from "@/lib/env";
 import type { AuthUser } from "@/types";
 import { usePinStore } from "@/store/pin-store";
+
+async function syncPatientPinStatus(): Promise<void> {
+  try {
+    const profile = await patientsService.getMyProfile();
+    usePinStore.getState().syncServerPinStatus(!!profile.has_pin);
+  } catch {
+    usePinStore.getState().syncServerPinStatus(false);
+  }
+}
 
 interface AuthStore {
   isGuest: boolean;
@@ -51,6 +61,7 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     saveTokens(tokens.access_token, tokens.refresh_token);
     const user = await authService.getMe();
     usePinStore.getState().setActiveUser(user.id);
+    await syncPatientPinStatus();
     set({ isGuest: false, user, accessToken: tokens.access_token });
   },
 
@@ -59,6 +70,7 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     saveTokens(tokens.access_token, tokens.refresh_token);
     const user = await authService.getMe();
     usePinStore.getState().setActiveUser(user.id);
+    await syncPatientPinStatus();
     set({ isGuest: false, user, accessToken: tokens.access_token });
   },
 
@@ -87,6 +99,7 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     try {
       const user = await authService.getMe();
       usePinStore.getState().setActiveUser(user.id);
+      await syncPatientPinStatus();
       set({ user, accessToken: token });
     } catch {
       clearTokens();
