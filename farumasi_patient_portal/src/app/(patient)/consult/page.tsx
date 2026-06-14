@@ -187,6 +187,8 @@ export default function ConsultPage() {
   const [productPickerOpen, setProductPickerOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -266,7 +268,23 @@ export default function ConsultPage() {
           const pending = (cur?.messages ?? []).filter((m) =>
             m.id.startsWith("tmp-"),
           );
-          const merged = [...fresh.messages, ...pending];
+          const serverIds = new Set(fresh.messages.map((m) => m.id));
+          const stillPending = pending.filter((p) => {
+            if (serverIds.has(p.id)) return false;
+            if (
+              p.content &&
+              fresh.messages.some(
+                (s) =>
+                  s.isMe &&
+                  s.content === p.content &&
+                  Math.abs(s.timestamp.getTime() - p.timestamp.getTime()) < 60_000,
+              )
+            ) {
+              return false;
+            }
+            return true;
+          });
+          const merged = [...fresh.messages, ...stillPending];
           next.set(k, {
             ...fresh,
             messages: merged,
@@ -321,10 +339,30 @@ export default function ConsultPage() {
     selectedConsult?.isAnonymous,
   ]);
 
-  // Auto-scroll on new messages
+  const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  }, []);
+
+  const handleMessagesScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 96;
+  }, []);
+
+  // Scroll to bottom when opening a thread
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+    stickToBottomRef.current = true;
+    requestAnimationFrame(() => scrollMessagesToBottom("auto"));
+  }, [selectedKey, scrollMessagesToBottom]);
+
+  // Follow new messages only when the user is already near the bottom
+  useEffect(() => {
+    if (!stickToBottomRef.current) return;
+    requestAnimationFrame(() => scrollMessagesToBottom("auto"));
+  }, [messages, scrollMessagesToBottom]);
 
   // Reset transient chat-scoped UI when the selected thread changes
   useEffect(() => {
@@ -406,6 +444,8 @@ export default function ConsultPage() {
     setInput("");
     setPendingAttachment(null);
     setSending(true);
+    stickToBottomRef.current = true;
+    requestAnimationFrame(() => scrollMessagesToBottom("auto"));
     try {
       const { data } = await api.post(`/consultations/${consultId}/messages`, {
         content: sentContent,
@@ -459,7 +499,7 @@ export default function ConsultPage() {
     } finally {
       setSending(false);
     }
-  }, [input, selectedConsult, selectedPh, sending, myId, pendingAttachment]);
+  }, [input, selectedConsult, selectedPh, sending, myId, pendingAttachment, scrollMessagesToBottom]);
 
   // ── Avatar upload ─────────────────────────────────────────────────────────
   const handleAvatarUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -625,12 +665,12 @@ export default function ConsultPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <GuestGate feature="Consult">
-      <div className="flex h-[calc(100dvh-72px)] max-h-[calc(100dvh-72px)] bg-[#EEF2F6] overflow-hidden relative">
-        {/* LEFT — pharmacist list */}
+      <div className="flex flex-1 min-h-0 h-full bg-[#EEF2F6] overflow-hidden relative">
+        {/* LEFT — pharmacist list (hidden on narrow screens when a chat is open) */}
         <aside
           className={cn(
-            "w-full md:w-[360px] lg:w-[380px] flex flex-col shrink-0 border-r border-slate-200/80",
-            selectedKey ? "hidden md:flex" : "flex",
+            "w-full lg:w-[360px] xl:w-[380px] flex flex-col shrink-0 border-r border-slate-200/80 bg-white",
+            selectedKey ? "hidden lg:flex" : "flex",
           )}
         >
           {/* Header */}
@@ -804,8 +844,8 @@ export default function ConsultPage() {
         {/* RIGHT — chat */}
         <section
           className={cn(
-            "flex-1 flex flex-col min-w-0 bg-white md:rounded-l-3xl md:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
-            selectedKey ? "flex" : "hidden md:flex",
+            "flex-1 flex flex-col min-w-0 min-h-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
+            selectedKey ? "flex" : "hidden lg:flex",
           )}
         >
           {!selectedPh ? (
@@ -842,7 +882,7 @@ export default function ConsultPage() {
                 <button
                   onClick={() => setSelectedKey(null)}
                   aria-label="Back to pharmacist list"
-                  className="md:hidden p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                  className="lg:hidden p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors shrink-0"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
@@ -911,7 +951,7 @@ export default function ConsultPage() {
                 <button
                   onClick={() => setShowProfile(true)}
                   aria-label="Pharmacist info"
-                  className="shrink-0 p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors hidden md:block"
+                  className="shrink-0 p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors hidden lg:block"
                 >
                   <Info className="w-4 h-4" />
                 </button>
@@ -929,7 +969,11 @@ export default function ConsultPage() {
               )}
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto py-4 px-3 md:px-5 space-y-3 bg-[linear-gradient(180deg,#F4F7FA_0%,#E9EEF3_100%)]">
+              <div
+                ref={messagesContainerRef}
+                onScroll={handleMessagesScroll}
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 lg:px-5 space-y-3 bg-[linear-gradient(180deg,#F4F7FA_0%,#E9EEF3_100%)] overscroll-contain"
+              >
                 {loadingChat && messages.length === 0 && (
                   <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-8">
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -947,16 +991,21 @@ export default function ConsultPage() {
                 {messages.map((msg) => {
                   const isPatient = msg.isMe;
                   const isPending = msg.id.startsWith("tmp-");
+                  const body = msg.content?.trim() ?? "";
+                  const hasAttachment = Boolean(
+                    msg.attachmentUrl && msg.attachmentType,
+                  );
                   return (
                     <div
                       key={msg.id}
                       className={cn(
-                        "flex items-end gap-2",
+                        "flex items-end gap-2 w-full",
                         isPatient ? "justify-end" : "justify-start",
+                        isPending && "opacity-80",
                       )}
                     >
                       {!isPatient && (
-                        <div className="w-8 h-8 rounded-full border-2 border-white shadow overflow-hidden bg-farumasi-600 shrink-0 mb-0.5">
+                        <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full border-2 border-white shadow overflow-hidden bg-farumasi-600 shrink-0 mb-0.5">
                           {selectedPh.imageUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -974,10 +1023,10 @@ export default function ConsultPage() {
 
                       <div
                         className={cn(
-                          "max-w-[78%] md:max-w-[62%] px-3.5 py-2.5 text-sm leading-relaxed shadow-sm",
+                          "min-w-[4.5rem] max-w-[calc(100%-2rem)] sm:max-w-[78%] lg:max-w-[62%] px-3.5 py-2.5 text-sm leading-relaxed shadow-sm",
                           isPatient
                             ? "bg-farumasi-600 text-white shadow-[0_2px_8px_rgba(30,158,104,0.2)]"
-                            : "bg-white text-slate-900 border border-slate-100/80",
+                            : "bg-white text-slate-900 border border-slate-200/90",
                         )}
                         style={{
                           borderRadius: isPatient
@@ -1066,9 +1115,28 @@ export default function ConsultPage() {
                           </Link>
                         )}
 
-                        {msg.content && (
-                          <span className="whitespace-pre-wrap break-words">
-                            {msg.content}
+                        {body && (
+                          <span
+                            className={cn(
+                              "whitespace-pre-wrap break-words block",
+                              isPatient ? "text-white" : "text-slate-900",
+                            )}
+                          >
+                            {body}
+                          </span>
+                        )}
+                        {!body && hasAttachment && (
+                          <span
+                            className={cn(
+                              "text-xs italic block",
+                              isPatient ? "text-white/80" : "text-slate-500",
+                            )}
+                          >
+                            {msg.attachmentType === "image"
+                              ? "Photo"
+                              : msg.attachmentType === "product"
+                                ? "Shared product"
+                                : "Attachment"}
                           </span>
                         )}
                         <div
@@ -1089,7 +1157,7 @@ export default function ConsultPage() {
                       </div>
 
                       {isPatient && (
-                        <div className="relative group shrink-0 mb-0.5">
+                        <div className="relative group shrink-0 mb-0.5 hidden sm:block">
                           <input
                             ref={avatarInputRef}
                             type="file"
