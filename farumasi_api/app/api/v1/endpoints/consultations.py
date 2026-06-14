@@ -1,6 +1,8 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, update
+from sqlalchemy import select, func, or_, update, delete
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
@@ -11,6 +13,7 @@ from app.schemas.consultation import (
     ConsultationCreate,
     ConsultationOut,
     ChatMessageCreate,
+    ChatMessageUpdate,
     ChatMessageOut,
 )
 from app.schemas.common import PaginatedResponse
@@ -41,27 +44,56 @@ def _anon_snippet(patient_id: str) -> dict:
     }
 
 
-def _serialize_message(m: ChatMessage, mask_sender_id: str | None) -> dict:
+def _reply_preview(m: ChatMessage | None, mask_sender_id: str | None) -> dict | None:
+    if not m:
+        return None
+    deleted = m.deleted_at is not None
+    if mask_sender_id and m.sender_id == mask_sender_id:
+        sender_name = ANONYMOUS_LABEL
+    else:
+        sender_name = m.sender.full_name if m.sender else ""
+    return {
+        "id": m.id,
+        "sender_id": m.sender_id,
+        "sender_name": sender_name,
+        "content": "" if deleted else (m.content or ""),
+        "attachment_type": None if deleted else m.attachment_type,
+        "attachment_name": None if deleted else m.attachment_name,
+        "is_deleted": deleted,
+    }
+
+
+def _serialize_message(
+    m: ChatMessage,
+    mask_sender_id: str | None,
+    reply_lookup: dict[str, ChatMessage] | None = None,
+) -> dict:
     sender = _user_snippet(m.sender)
     if mask_sender_id and m.sender_id == mask_sender_id:
         sender = _anon_snippet(m.sender_id)
         sender_name = ANONYMOUS_LABEL
     else:
         sender_name = m.sender.full_name if m.sender else ""
+    deleted = m.deleted_at is not None
+    parent = reply_lookup.get(m.reply_to_message_id) if reply_lookup and m.reply_to_message_id else m.reply_to
     return {
         "id": m.id,
         "consultation_id": m.consultation_id,
         "sender_id": m.sender_id,
-        "content": m.content or "",
+        "content": "" if deleted else (m.content or ""),
         "is_read": m.is_read,
         "created_at": m.created_at,
         "sent_at": m.created_at,
         "sender": sender,
         "sender_name": sender_name,
-        "attachment_url": m.attachment_url,
-        "attachment_name": m.attachment_name,
-        "attachment_type": m.attachment_type,
-        "attachment_size": m.attachment_size,
+        "attachment_url": None if deleted else m.attachment_url,
+        "attachment_name": None if deleted else m.attachment_name,
+        "attachment_type": None if deleted else m.attachment_type,
+        "attachment_size": None if deleted else m.attachment_size,
+        "reply_to_message_id": m.reply_to_message_id,
+        "edited_at": m.edited_at,
+        "is_deleted": deleted,
+        "reply_to": _reply_preview(parent, mask_sender_id),
     }
 
 
@@ -78,6 +110,7 @@ def _serialize_consultation(c: Consultation, viewer_id: str) -> dict:
     pharmacist_snip = _user_snippet(c.pharmacist)
     pharmacist_name = c.pharmacist.full_name if c.pharmacist else ""
     mask_sender = c.patient_id if mask else None
+    reply_lookup = {m.id: m for m in (c.messages or [])}
     return {
         "id": c.id,
         "patient_id": c.patient_id,
@@ -89,7 +122,9 @@ def _serialize_consultation(c: Consultation, viewer_id: str) -> dict:
         "pharmacist": pharmacist_snip,
         "patient_name": patient_name,
         "pharmacist_name": pharmacist_name,
-        "messages": [_serialize_message(m, mask_sender) for m in (c.messages or [])],
+        "messages": [
+            _serialize_message(m, mask_sender, reply_lookup) for m in (c.messages or [])
+        ],
     }
 
 
@@ -101,9 +136,44 @@ async def _load_consultation(db: AsyncSession, consultation_id: str) -> Consulta
             selectinload(Consultation.patient),
             selectinload(Consultation.pharmacist),
             selectinload(Consultation.messages).selectinload(ChatMessage.sender),
+            selectinload(Consultation.messages).selectinload(ChatMessage.reply_to).selectinload(ChatMessage.sender),
         )
     )
     return result.scalar_one_or_none()
+
+
+async def _require_consultation_access(
+    db: AsyncSession,
+    consultation_id: str,
+    user: User,
+) -> Consultation:
+    consultation = (
+        await db.execute(select(Consultation).where(Consultation.id == consultation_id))
+    ).scalar_one_or_none()
+    if not consultation:
+        raise HTTPException(status_code=404, detail="Consultation not found")
+    if consultation.patient_id != user.id and consultation.pharmacist_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return consultation
+
+
+async def _get_message_in_consultation(
+    db: AsyncSession,
+    consultation_id: str,
+    message_id: str,
+) -> ChatMessage:
+    result = await db.execute(
+        select(ChatMessage)
+        .where(
+            ChatMessage.id == message_id,
+            ChatMessage.consultation_id == consultation_id,
+        )
+        .options(selectinload(ChatMessage.sender), selectinload(ChatMessage.reply_to))
+    )
+    message = result.scalar_one_or_none()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return message
 
 
 @router.post("/", status_code=201)
@@ -263,6 +333,12 @@ async def send_message(
             (".png", ".jpg", ".jpeg", ".webp", ".gif")
         ) else "file"
 
+    reply_to_id = data.reply_to_message_id
+    if reply_to_id:
+        parent = await _get_message_in_consultation(db, consultation_id, reply_to_id)
+        if parent.deleted_at is not None:
+            raise HTTPException(status_code=400, detail="Cannot reply to a deleted message.")
+
     message = ChatMessage(
         consultation_id=consultation_id,
         sender_id=current_user.id,
@@ -272,6 +348,7 @@ async def send_message(
         attachment_name=data.attachment_name,
         attachment_type=attachment_type,
         attachment_size=data.attachment_size,
+        reply_to_message_id=reply_to_id,
     )
     db.add(message)
     await db.commit()
@@ -279,9 +356,88 @@ async def send_message(
     result = await db.execute(
         select(ChatMessage)
         .where(ChatMessage.id == message.id)
-        .options(selectinload(ChatMessage.sender))
+        .options(
+            selectinload(ChatMessage.sender),
+            selectinload(ChatMessage.reply_to).selectinload(ChatMessage.sender),
+        )
     )
     return result.scalar_one()
+
+
+@router.patch("/{consultation_id}/messages/{message_id}", response_model=ChatMessageOut)
+async def edit_message(
+    consultation_id: str,
+    message_id: str,
+    data: ChatMessageUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Edit the text of your own message."""
+    consultation = await _require_consultation_access(db, consultation_id, current_user)
+    if consultation.status != "open":
+        raise HTTPException(status_code=400, detail="Consultation is closed")
+
+    message = await _get_message_in_consultation(db, consultation_id, message_id)
+    if message.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only edit your own messages.")
+    if message.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="Deleted messages cannot be edited.")
+    if message.attachment_url and not (message.content or "").strip() and not data.content.strip():
+        raise HTTPException(status_code=400, detail="Attachment-only messages need caption text to edit.")
+
+    message.content = data.content.strip()
+    message.edited_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    result = await db.execute(
+        select(ChatMessage)
+        .where(ChatMessage.id == message.id)
+        .options(
+            selectinload(ChatMessage.sender),
+            selectinload(ChatMessage.reply_to).selectinload(ChatMessage.sender),
+        )
+    )
+    return result.scalar_one()
+
+
+@router.delete("/{consultation_id}/messages/{message_id}")
+async def delete_message(
+    consultation_id: str,
+    message_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete your own message."""
+    await _require_consultation_access(db, consultation_id, current_user)
+    message = await _get_message_in_consultation(db, consultation_id, message_id)
+    if message.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete your own messages.")
+    if message.deleted_at is not None:
+        return {"ok": True}
+
+    message.deleted_at = datetime.now(timezone.utc)
+    message.content = None
+    message.attachment_url = None
+    message.attachment_name = None
+    message.attachment_type = None
+    message.attachment_size = None
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/{consultation_id}/messages")
+async def clear_chat(
+    consultation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete all messages in a consultation for both participants."""
+    await _require_consultation_access(db, consultation_id, current_user)
+    await db.execute(
+        delete(ChatMessage).where(ChatMessage.consultation_id == consultation_id)
+    )
+    await db.commit()
+    return {"ok": True}
 
 
 @router.patch("/{consultation_id}/messages/read")

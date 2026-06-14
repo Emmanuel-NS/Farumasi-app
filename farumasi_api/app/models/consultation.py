@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -62,7 +63,15 @@ class ChatMessage(Base, UUIDMixin, TimestampMixin):
     attachment_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     attachment_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     attachment_size: Mapped[Optional[int]] = mapped_column(nullable=True)
+    reply_to_message_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("chat_messages.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    edited_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    reply_to: Mapped[Optional["ChatMessage"]] = relationship(
+        "ChatMessage", remote_side="ChatMessage.id", foreign_keys=[reply_to_message_id]
+    )
     consultation: Mapped["Consultation"] = relationship(
         "Consultation", back_populates="messages"
     )

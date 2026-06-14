@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class UserSnippet(BaseModel):
@@ -11,6 +11,16 @@ class UserSnippet(BaseModel):
     full_name: str
     email: str
     profile_image_url: Optional[str] = None
+
+
+class ChatMessageReplyPreview(BaseModel):
+    id: str
+    sender_id: str
+    sender_name: str = ""
+    content: Optional[str] = ""
+    attachment_type: Optional[str] = None
+    attachment_name: Optional[str] = None
+    is_deleted: bool = False
 
 
 class ChatMessageOut(BaseModel):
@@ -26,6 +36,10 @@ class ChatMessageOut(BaseModel):
     attachment_name: Optional[str] = None
     attachment_type: Optional[str] = None
     attachment_size: Optional[int] = None
+    reply_to_message_id: Optional[str] = None
+    edited_at: Optional[datetime] = None
+    is_deleted: bool = False
+    reply_to: Optional[ChatMessageReplyPreview] = None
 
     @computed_field  # type: ignore[misc]
     @property
@@ -44,6 +58,11 @@ class ChatMessageCreate(BaseModel):
     attachment_name: Optional[str] = None
     attachment_type: Optional[str] = None  # "image" | "file" | "product"
     attachment_size: Optional[int] = None
+    reply_to_message_id: Optional[str] = None
+
+
+class ChatMessageUpdate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=4000)
 
 
 class ConsultationOut(BaseModel):

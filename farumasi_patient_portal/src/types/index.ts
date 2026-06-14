@@ -286,6 +286,16 @@ export interface ChatProductRef {
   pharmacyName?: string;
 }
 
+export interface ChatReplyPreview {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  attachmentType?: "image" | "file" | "product";
+  attachmentName?: string;
+  isDeleted?: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   senderId: string;
@@ -296,6 +306,10 @@ export interface ChatMessage {
   attachmentName?: string;
   attachmentType?: "image" | "file" | "product";
   attachmentSize?: number;
+  replyToMessageId?: string;
+  replyTo?: ChatReplyPreview;
+  editedAt?: Date;
+  isDeleted?: boolean;
   product?: ChatProductRef;
 }
 

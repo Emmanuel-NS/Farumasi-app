@@ -10,13 +10,15 @@ import {
 } from "react";
 import { pharmacistsService } from "@/lib/services/pharmacists.service";
 import { productsService } from "@/lib/services/products.service";
+import { consultationsService } from "@/lib/services/consultations.service";
 import { api, mediaUrl } from "@/lib/api";
 import { toast } from "sonner";
 import { cn, getInitials } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { GuestGate } from "@/components/shared/guest-gate";
+import { ChatMessageRow } from "@/components/consult/chat-message-row";
 import { useAuthStore } from "@/store/auth-store";
-import type { Pharmacist, ChatMessage, Medicine } from "@/types";
+import type { ChatMessage, ChatProductRef, Pharmacist, Medicine } from "@/types";
 import Link from "next/link";
 import {
   Send,
@@ -44,6 +46,10 @@ import {
   Shield,
   Users,
   Sparkles,
+  Trash2,
+  MoreVertical,
+  CornerUpLeft,
+  Pencil,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -68,6 +74,18 @@ interface ApiMessage {
   attachment_name?: string | null;
   attachment_type?: "image" | "file" | "product" | null;
   attachment_size?: number | null;
+  reply_to_message_id?: string | null;
+  edited_at?: string | null;
+  is_deleted?: boolean;
+  reply_to?: {
+    id: string;
+    sender_id: string;
+    sender_name?: string;
+    content?: string;
+    attachment_type?: "image" | "file" | "product" | null;
+    attachment_name?: string | null;
+    is_deleted?: boolean;
+  } | null;
 }
 interface ApiConsultation {
   id: string;
@@ -137,18 +155,39 @@ function adaptMessages(raw: ApiMessage[] | undefined, myId: string | undefined):
   return (raw ?? [])
     .map((m) => {
       const attachmentType = inferAttachmentType(m.attachment_url, m.attachment_type);
+      const replyTo = m.reply_to
+        ? {
+            id: m.reply_to.id,
+            senderId: m.reply_to.sender_id,
+            senderName: m.reply_to.sender_name ?? "",
+            content: m.reply_to.content ?? "",
+            attachmentType: (m.reply_to.attachment_type ?? undefined) as
+              | "image"
+              | "file"
+              | "product"
+              | undefined,
+            attachmentName: m.reply_to.attachment_name ?? undefined,
+            isDeleted: !!m.reply_to.is_deleted,
+          }
+        : undefined;
       return {
         id: m.id,
         senderId: m.sender_id,
         content: m.content ?? "",
         timestamp: new Date(m.sent_at ?? m.created_at ?? Date.now()),
         isMe: m.sender_id === myId,
-        attachmentUrl: attachmentType === "product"
-          ? consultProductPath(m.attachment_url)
-          : mediaUrl(m.attachment_url ?? undefined) || undefined,
-        attachmentName: m.attachment_name ?? undefined,
-        attachmentType,
-        attachmentSize: m.attachment_size ?? undefined,
+        attachmentUrl: m.is_deleted
+          ? undefined
+          : attachmentType === "product"
+            ? consultProductPath(m.attachment_url)
+            : mediaUrl(m.attachment_url ?? undefined) || undefined,
+        attachmentName: m.is_deleted ? undefined : m.attachment_name ?? undefined,
+        attachmentType: m.is_deleted ? undefined : attachmentType,
+        attachmentSize: m.is_deleted ? undefined : m.attachment_size ?? undefined,
+        replyToMessageId: m.reply_to_message_id ?? undefined,
+        replyTo,
+        editedAt: m.edited_at ? new Date(m.edited_at) : undefined,
+        isDeleted: !!m.is_deleted,
       };
     })
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -156,23 +195,16 @@ function adaptMessages(raw: ApiMessage[] | undefined, myId: string | undefined):
 
 function dedupeMessages(msgs: ChatMessage[]): ChatMessage[] {
   const byId = new Map<string, ChatMessage>();
-  const fingerprints = new Set<string>();
-  for (const m of msgs) {
-    if (byId.has(m.id)) continue;
-    const fp = [
-      m.senderId,
-      m.content,
-      m.attachmentUrl ?? "",
-      m.attachmentType ?? "",
-      Math.floor(m.timestamp.getTime() / 1000),
-    ].join("|");
-    if (fingerprints.has(fp)) continue;
-    fingerprints.add(fp);
-    byId.set(m.id, m);
-  }
+  for (const m of msgs) byId.set(m.id, m);
   return [...byId.values()].sort(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
   );
+}
+
+function productIdFromPath(url?: string): string | undefined {
+  if (!url) return undefined;
+  const match = url.match(/\/store\/([^/?#]+)/i);
+  return match?.[1];
 }
 
 function adaptConsultation(
@@ -208,37 +240,6 @@ function humanSize(bytes?: number): string {
 
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024; // 8 MB
 
-function ChatImage({
-  src,
-  alt,
-  className,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg px-3 py-4 mb-1 bg-slate-100 text-slate-500 text-xs">
-        <ImageIcon className="w-5 h-5 shrink-0" />
-        <span>Image unavailable</span>
-      </div>
-    );
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      decoding="async"
-      onError={() => setFailed(true)}
-      className={className}
-    />
-  );
-}
-
 // ── Component ────────────────────────────────────────────────────────────────
 export default function ConsultPage() {
   const t = useTranslation();
@@ -262,6 +263,15 @@ export default function ConsultPage() {
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [productPreviews, setProductPreviews] = useState<Map<string, ChatProductRef>>(
+    new Map(),
+  );
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [clearChatStep, setClearChatStep] = useState<0 | 1 | 2>(0);
+  const [clearConfirmText, setClearConfirmText] = useState("");
+  const [clearingChat, setClearingChat] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -269,6 +279,7 @@ export default function ConsultPage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const loadedProductIdsRef = useRef<Set<string>>(new Set());
 
   // Patient avatar persisted across reloads
   const [patientAvatar, setPatientAvatar] = useState<string | null>(null);
@@ -332,6 +343,121 @@ export default function ConsultPage() {
     [selectedConsult?.messages],
   );
   const lastMessageId = messages[messages.length - 1]?.id;
+
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const m of messages) {
+      if (m.attachmentType === "product") {
+        const id = productIdFromPath(m.attachmentUrl);
+        if (id) ids.add(id);
+      }
+    }
+    if (ids.size === 0) return;
+    let cancelled = false;
+    for (const id of ids) {
+      if (loadedProductIdsRef.current.has(id)) continue;
+      loadedProductIdsRef.current.add(id);
+      productsService
+        .getProductById(id)
+        .then((p) => {
+          if (cancelled) return;
+          setProductPreviews((prev) => {
+            const next = new Map(prev);
+            next.set(id, {
+              id: p.id,
+              name: p.name,
+              imageUrl: p.imageUrl,
+              price: p.price,
+            });
+            return next;
+          });
+        })
+        .catch(() => {
+          loadedProductIdsRef.current.delete(id);
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [messages]);
+
+  const updateConsultMessages = useCallback(
+    (k: ThreadKey, updater: (msgs: ChatMessage[]) => ChatMessage[]) => {
+      setConsultsByKey((prev) => {
+        const next = new Map(prev);
+        const cur = next.get(k);
+        if (!cur) return prev;
+        const updated = updater(cur.messages);
+        next.set(k, {
+          ...cur,
+          messages: updated,
+          lastMessage: updated[updated.length - 1],
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
+  const handleReplyToMessage = useCallback((msg: ChatMessage) => {
+    setReplyingTo(msg);
+    setEditingMessageId(null);
+  }, []);
+
+  const handleEditMessage = useCallback((msg: ChatMessage) => {
+    setEditingMessageId(msg.id);
+    setReplyingTo(null);
+    setInput(msg.content);
+    setPendingAttachment(null);
+  }, []);
+
+  const handleDeleteMessage = useCallback(
+    async (msg: ChatMessage) => {
+      if (!selectedConsult || !selectedKey) return;
+      if (!window.confirm("Delete this message for everyone in this chat?")) return;
+      const k = selectedKey;
+      try {
+        await consultationsService.deleteMessage(selectedConsult.id, msg.id);
+        updateConsultMessages(k, (msgs) =>
+          msgs.map((m) =>
+            m.id === msg.id
+              ? {
+                  ...m,
+                  content: "",
+                  attachmentUrl: undefined,
+                  attachmentName: undefined,
+                  attachmentType: undefined,
+                  attachmentSize: undefined,
+                  isDeleted: true,
+                }
+              : m,
+          ),
+        );
+        toast.success("Message deleted");
+      } catch (e) {
+        toast.error(getErrDetail(e) ?? "Could not delete message.");
+      }
+    },
+    [selectedConsult, selectedKey, updateConsultMessages],
+  );
+
+  const handleClearChat = useCallback(async () => {
+    if (!selectedConsult || !selectedKey) return;
+    setClearingChat(true);
+    try {
+      await consultationsService.clearChat(selectedConsult.id);
+      updateConsultMessages(selectedKey, () => []);
+      setClearChatStep(0);
+      setClearConfirmText("");
+      setReplyingTo(null);
+      setEditingMessageId(null);
+      toast.success("Chat cleared");
+    } catch (e) {
+      toast.error(getErrDetail(e) ?? "Could not clear chat.");
+    } finally {
+      setClearingChat(false);
+    }
+  }, [selectedConsult, selectedKey, updateConsultMessages]);
 
   // ── Poll current chat (10s, pauses when tab hidden) ───────────────────────
   useEffect(() => {
@@ -463,6 +589,11 @@ export default function ConsultPage() {
     setAttachMenuOpen(false);
     setShowProfile(false);
     setInput("");
+    setReplyingTo(null);
+    setEditingMessageId(null);
+    setChatMenuOpen(false);
+    setClearChatStep(0);
+    setClearConfirmText("");
   }, [selectedKey]);
 
   // ── Open or start a thread ────────────────────────────────────────────────
@@ -504,11 +635,50 @@ export default function ConsultPage() {
   const sendMessage = useCallback(async () => {
     const content = input.trim();
     if (!selectedConsult || !selectedPh || sending) return;
-    if (!content && !pendingAttachment) return;
+    if (!content && !pendingAttachment && !editingMessageId) return;
     if (selectedConsult.status !== "open") {
       toast.error("This consultation is closed.");
       return;
     }
+    const k = keyOf(selectedConsult.pharmacistId, selectedConsult.isAnonymous);
+    const consultId = selectedConsult.id;
+
+    if (editingMessageId) {
+      if (!content) {
+        toast.error("Edited message cannot be empty.");
+        return;
+      }
+      setSending(true);
+      try {
+        const { data } = await consultationsService.editMessage(
+          consultId,
+          editingMessageId,
+          content,
+        );
+        const sentType = inferAttachmentType(data.attachment_url, data.attachment_type);
+        updateConsultMessages(k, (msgs) =>
+          msgs.map((m) =>
+            m.id === editingMessageId
+              ? {
+                  ...m,
+                  content: data.content ?? content,
+                  editedAt: data.edited_at ? new Date(data.edited_at) : new Date(),
+                  attachmentType: sentType,
+                }
+              : m,
+          ),
+        );
+        setInput("");
+        setEditingMessageId(null);
+      } catch (e) {
+        toast.error(getErrDetail(e) ?? "Could not edit message.");
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    const replySnapshot = replyingTo;
     const tmpId = `tmp-${Date.now()}`;
     const tmp: ChatMessage = {
       id: tmpId,
@@ -520,9 +690,19 @@ export default function ConsultPage() {
       attachmentName: pendingAttachment?.name,
       attachmentType: pendingAttachment?.type,
       attachmentSize: pendingAttachment?.size,
+      replyToMessageId: replySnapshot?.id,
+      replyTo: replySnapshot
+        ? {
+            id: replySnapshot.id,
+            senderId: replySnapshot.senderId,
+            senderName: replySnapshot.isMe ? "You" : selectedPh.name,
+            content: replySnapshot.content,
+            attachmentType: replySnapshot.attachmentType,
+            attachmentName: replySnapshot.attachmentName,
+            isDeleted: replySnapshot.isDeleted,
+          }
+        : undefined,
     };
-    const k = keyOf(selectedConsult.pharmacistId, selectedConsult.isAnonymous);
-    const consultId = selectedConsult.id;
 
     setConsultsByKey((prev) => {
       const next = new Map(prev);
@@ -534,8 +714,10 @@ export default function ConsultPage() {
     });
     const sentContent = content;
     const sentAttachment = pendingAttachment;
+    const sentReplyId = replySnapshot?.id;
     setInput("");
     setPendingAttachment(null);
+    setReplyingTo(null);
     setSending(true);
     stickToBottomRef.current = true;
     requestAnimationFrame(() => scrollMessagesToBottom("auto"));
@@ -546,6 +728,7 @@ export default function ConsultPage() {
         attachment_name: sentAttachment?.name,
         attachment_type: sentAttachment?.type,
         attachment_size: sentAttachment?.size,
+        reply_to_message_id: sentReplyId,
       });
       const sentType = inferAttachmentType(
         data.attachment_url,
@@ -563,6 +746,10 @@ export default function ConsultPage() {
         attachmentName: data.attachment_name ?? undefined,
         attachmentType: sentType,
         attachmentSize: data.attachment_size ?? undefined,
+        replyToMessageId: data.reply_to_message_id ?? sentReplyId,
+        replyTo: tmp.replyTo,
+        editedAt: data.edited_at ? new Date(data.edited_at) : undefined,
+        isDeleted: !!data.is_deleted,
       };
       setConsultsByKey((prev) => {
         const next = new Map(prev);
@@ -592,7 +779,18 @@ export default function ConsultPage() {
     } finally {
       setSending(false);
     }
-  }, [input, selectedConsult, selectedPh, sending, myId, pendingAttachment, scrollMessagesToBottom]);
+  }, [
+    input,
+    selectedConsult,
+    selectedPh,
+    sending,
+    myId,
+    pendingAttachment,
+    scrollMessagesToBottom,
+    editingMessageId,
+    replyingTo,
+    updateConsultMessages,
+  ]);
 
   // ── Avatar upload ─────────────────────────────────────────────────────────
   const handleAvatarUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -1042,6 +1240,39 @@ export default function ConsultPage() {
                     </>
                   )}
                 </button>
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setChatMenuOpen((v) => !v)}
+                    aria-label="Chat options"
+                    className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  {chatMenuOpen && (
+                    <>
+                      <button
+                        type="button"
+                        className="fixed inset-0 z-10"
+                        aria-label="Close menu"
+                        onClick={() => setChatMenuOpen(false)}
+                      />
+                      <div className="absolute right-0 top-10 z-20 min-w-[170px] rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-sm text-slate-800">
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 text-red-600"
+                          onClick={() => {
+                            setChatMenuOpen(false);
+                            setClearChatStep(1);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Clear chat
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button
                   onClick={() => setShowProfile(true)}
                   aria-label="Pharmacist info"
@@ -1084,213 +1315,66 @@ export default function ConsultPage() {
                   </div>
                 )}
                 {messages.map((msg) => {
-                  const isPatient = msg.isMe;
-                  const isPending = msg.id.startsWith("tmp-");
-                  const body = msg.content?.trim() ?? "";
-                  const hasAttachment = Boolean(
-                    msg.attachmentUrl && msg.attachmentType,
-                  );
+                  const productId = productIdFromPath(msg.attachmentUrl);
                   return (
-                    <div
+                    <ChatMessageRow
                       key={msg.id}
-                      className={cn(
-                        "flex items-end gap-2 w-full mb-3 last:mb-0",
-                        isPatient ? "justify-end" : "justify-start",
-                        isPending && "ring-1 ring-white/40",
-                      )}
-                    >
-                      {!isPatient && (
-                        <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full border-2 border-white shadow overflow-hidden bg-farumasi-600 shrink-0 mb-0.5">
-                          {selectedPh.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={selectedPh.imageUrl}
-                              alt={selectedPh.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white font-bold text-[10px]">
-                              {getInitials(selectedPh.name)}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div
-                        className={cn(
-                          "min-w-[4.5rem] max-w-[calc(100%-2rem)] sm:max-w-[78%] lg:max-w-[62%] px-3.5 py-2.5 text-sm leading-relaxed",
-                          "max-lg:shadow-none lg:shadow-sm",
-                          isPatient
-                            ? "bg-farumasi-600 text-white lg:shadow-[0_2px_8px_rgba(30,158,104,0.2)]"
-                            : "bg-white text-slate-900 border border-slate-200/90",
-                          isPatient
-                            ? "rounded-[20px_20px_6px_20px]"
-                            : "rounded-[20px_20px_20px_6px]",
-                        )}
-                      >
-                        {/* Image attachment */}
-                        {msg.attachmentType === "image" &&
-                          msg.attachmentUrl &&
-                          isLikelyImageUrl(msg.attachmentUrl) && (
-                          <a
-                            href={msg.attachmentUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block mb-1 rounded-lg overflow-hidden bg-black/10 max-w-[260px]"
-                          >
-                            <ChatImage
-                              src={msg.attachmentUrl}
-                              alt={msg.attachmentName ?? "attachment"}
-                              className="w-full h-auto block max-h-[260px] object-cover"
-                            />
-                          </a>
-                        )}
-                        {/* File attachment */}
-                        {msg.attachmentType === "file" && msg.attachmentUrl && (
-                          <a
-                            href={msg.attachmentUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download={msg.attachmentName}
-                            className={cn(
-                              "flex items-center gap-2 rounded-lg px-3 py-2 mb-1 transition-colors",
-                              isPatient
-                                ? "bg-white/15 hover:bg-white/25"
-                                : "bg-slate-100 hover:bg-slate-200",
-                            )}
-                          >
-                            <FileText className="w-5 h-5 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold truncate">
-                                {msg.attachmentName ?? "Document"}
-                              </p>
-                              <p
-                                className={cn(
-                                  "text-[10px]",
-                                  isPatient ? "text-white/70" : "text-slate-500",
-                                )}
-                              >
-                                {humanSize(msg.attachmentSize)}
-                              </p>
-                            </div>
-                            <Download className="w-4 h-4 shrink-0 opacity-70" />
-                          </a>
-                        )}
-                        {/* Product attachment */}
-                        {msg.attachmentType === "product" && msg.attachmentUrl && (
-                          <a
-                            href={msg.attachmentUrl}
-                            className={cn(
-                              "block mb-1 rounded-lg px-3 py-2 no-underline",
-                              isPatient
-                                ? "bg-white text-slate-900"
-                                : "bg-slate-100 text-slate-900 hover:bg-slate-200",
-                            )}
-                          >
-                            <span className="flex items-center gap-2">
-                              <span
-                                className={cn(
-                                  "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
-                                  isPatient
-                                    ? "bg-farumasi-100 text-farumasi-700"
-                                    : "bg-white text-farumasi-700",
-                                )}
-                              >
-                                <Package className="w-4 h-4" />
-                              </span>
-                              <span className="flex-1 min-w-0">
-                                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                                  Product
-                                </span>
-                                <span className="block text-xs font-bold truncate">
-                                  {msg.attachmentName ?? "View product"}
-                                </span>
-                              </span>
-                              <ExternalLink className="w-4 h-4 shrink-0 text-slate-400" />
-                            </span>
-                          </a>
-                        )}
-
-                        {body && (
-                          <span
-                            className={cn(
-                              "whitespace-pre-wrap break-words block",
-                              isPatient ? "text-white" : "text-slate-900",
-                            )}
-                          >
-                            {body}
-                          </span>
-                        )}
-                        {!body && hasAttachment && (
-                          <span
-                            className={cn(
-                              "text-xs italic block",
-                              isPatient ? "text-white/80" : "text-slate-500",
-                            )}
-                          >
-                            {msg.attachmentType === "image"
-                              ? "Photo"
-                              : msg.attachmentType === "product"
-                                ? "Shared product"
-                                : "Attachment"}
-                          </span>
-                        )}
-                        <div
-                          className={cn(
-                            "flex items-center gap-1 mt-1 justify-end",
-                            isPatient ? "text-white/60" : "text-slate-400",
-                          )}
-                        >
-                          <span className="text-[10px]">
-                            {formatTime(msg.timestamp)}
-                          </span>
-                          {isPatient && (
-                            <CheckCheck
-                              className={cn("w-3 h-3", isPending && "opacity-50")}
-                            />
-                          )}
-                        </div>
-                      </div>
-
-                      {isPatient && (
-                        <div className="relative group shrink-0 mb-0.5 hidden sm:block">
-                          <input
-                            ref={avatarInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleAvatarUpload}
-                          />
-                          <button
-                            onClick={() => avatarInputRef.current?.click()}
-                            className="w-8 h-8 rounded-full border-2 border-white shadow overflow-hidden bg-farumasi-100 relative block"
-                            title="Change profile photo"
-                          >
-                            {patientAvatar ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={patientAvatar}
-                                alt="You"
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-farumasi-700 font-bold text-[10px]">
-                                {getInitials(authUser?.name ?? "Me")}
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                              <Camera className="w-3.5 h-3.5 text-white" />
-                            </div>
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                      msg={msg}
+                      selectedPh={selectedPh}
+                      productPreview={productId ? productPreviews.get(productId) : undefined}
+                      formatTime={formatTime}
+                      onReply={handleReplyToMessage}
+                      onEdit={handleEditMessage}
+                      onDelete={handleDeleteMessage}
+                    />
                   );
                 })}
                 <div ref={messagesEndRef} />
               </div>
 
               <div className="shrink-0 bg-white border-t border-slate-100 z-10">
+              {(replyingTo || editingMessageId) && (
+                <div className="px-3 md:px-5 py-2 bg-slate-50 border-b border-slate-200 flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    {editingMessageId ? (
+                      <>
+                        <p className="text-[11px] font-bold text-farumasi-700 flex items-center gap-1">
+                          <Pencil className="w-3.5 h-3.5" /> Editing message
+                        </p>
+                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                          Press send to save changes
+                        </p>
+                      </>
+                    ) : replyingTo ? (
+                      <>
+                        <p className="text-[11px] font-bold text-farumasi-700 flex items-center gap-1">
+                          <CornerUpLeft className="w-3.5 h-3.5" />
+                          Replying to {replyingTo.isMe ? "yourself" : selectedPh.name}
+                        </p>
+                        <p className="text-xs text-slate-600 truncate mt-0.5">
+                          {replyingTo.isDeleted
+                            ? "Message deleted"
+                            : replyingTo.content ||
+                              replyingTo.attachmentName ||
+                              "Attachment"}
+                        </p>
+                      </>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Cancel"
+                    onClick={() => {
+                      setReplyingTo(null);
+                      setEditingMessageId(null);
+                      setInput("");
+                    }}
+                    className="p-1.5 rounded-full text-slate-500 hover:bg-slate-200"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               {/* Pending attachment preview */}
               {pendingAttachment && (
                 <div className="px-3 md:px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center gap-3 shrink-0">
@@ -1344,7 +1428,7 @@ export default function ConsultPage() {
                   <div className="relative shrink-0">
                     <button
                       onClick={() => setAttachMenuOpen((v) => !v)}
-                      disabled={uploading || !selectedConsult}
+                      disabled={uploading || !selectedConsult || !!editingMessageId}
                       aria-label="Attach"
                       className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
@@ -1410,11 +1494,15 @@ export default function ConsultPage() {
                         }
                       }}
                       placeholder={
-                        uploading
-                          ? "Uploading attachment…"
-                          : pendingAttachment
-                            ? "Add a caption…"
-                            : t.consult_placeholder
+                        editingMessageId
+                          ? "Edit your message…"
+                          : uploading
+                            ? "Uploading attachment…"
+                            : pendingAttachment
+                              ? "Add a caption…"
+                              : replyingTo
+                                ? "Write a reply…"
+                                : t.consult_placeholder
                       }
                       disabled={sending || uploading || !selectedConsult}
                       className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none disabled:opacity-60"
@@ -1423,12 +1511,12 @@ export default function ConsultPage() {
                   <button
                     onClick={sendMessage}
                     disabled={
-                      (!input.trim() && !pendingAttachment) ||
+                      (!input.trim() && !pendingAttachment && !editingMessageId) ||
                       sending ||
                       uploading ||
                       !selectedConsult
                     }
-                    aria-label="Send message"
+                    aria-label={editingMessageId ? "Save edit" : "Send message"}
                     className="w-10 h-10 rounded-full bg-farumasi-600 text-white flex items-center justify-center hover:bg-farumasi-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 shadow-[0_4px_12px_rgba(30,158,104,0.3)]"
                   >
                     <Send className="w-4 h-4" />
@@ -1456,6 +1544,77 @@ export default function ConsultPage() {
             onClose={() => setProductPickerOpen(false)}
             onPick={onPickProduct}
           />
+        )}
+
+        {clearChatStep > 0 && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50">
+            <div
+              className="w-full max-w-md rounded-2xl bg-white shadow-2xl p-6"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Clear chat confirmation"
+            >
+              {clearChatStep === 1 ? (
+                <>
+                  <h3 className="text-lg font-bold text-slate-900">Clear this chat?</h3>
+                  <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                    All messages with {selectedPh?.name ?? "this pharmacist"} will be
+                    permanently removed for both of you. This cannot be undone.
+                  </p>
+                  <div className="flex gap-2 mt-6">
+                    <button
+                      type="button"
+                      className="flex-1 h-10 rounded-xl border border-slate-200 text-slate-700 font-semibold"
+                      onClick={() => setClearChatStep(0)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-1 h-10 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700"
+                      onClick={() => setClearChatStep(2)}
+                    >
+                      Continue
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-lg font-bold text-slate-900">Confirm clear chat</h3>
+                  <p className="text-sm text-slate-600 mt-2">
+                    Type <strong>CLEAR</strong> below to confirm you want to delete all
+                    messages.
+                  </p>
+                  <input
+                    value={clearConfirmText}
+                    onChange={(e) => setClearConfirmText(e.target.value)}
+                    placeholder="Type CLEAR"
+                    className="mt-4 w-full h-11 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-red-200"
+                  />
+                  <div className="flex gap-2 mt-6">
+                    <button
+                      type="button"
+                      className="flex-1 h-10 rounded-xl border border-slate-200 text-slate-700 font-semibold"
+                      onClick={() => {
+                        setClearChatStep(0);
+                        setClearConfirmText("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={clearConfirmText.trim() !== "CLEAR" || clearingChat}
+                      className="flex-1 h-10 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-40"
+                      onClick={() => void handleClearChat()}
+                    >
+                      {clearingChat ? "Clearing…" : "Clear chat"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </GuestGate>
