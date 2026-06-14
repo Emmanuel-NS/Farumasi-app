@@ -758,7 +758,7 @@ export default function ConsultPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <GuestGate feature="Consult">
-      <div className="flex flex-1 h-0 min-h-0 w-full overflow-hidden bg-[#EEF2F6]">
+      <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-[#EEF2F6]">
         {/* LEFT — pharmacist list (hidden on narrow screens when a chat is open) */}
         <aside
           className={cn(
@@ -938,7 +938,7 @@ export default function ConsultPage() {
         {/* RIGHT — chat */}
         <section
           className={cn(
-            "flex flex-col min-w-0 h-0 min-h-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
+            "flex min-h-0 flex-col min-w-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
             selectedKey ? "flex flex-1 w-full" : "hidden lg:flex lg:flex-1",
           )}
         >
