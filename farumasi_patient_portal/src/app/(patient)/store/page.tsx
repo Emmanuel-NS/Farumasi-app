@@ -553,78 +553,6 @@ function StorePageInner() {
         </div>
       )}
 
-      {/* ── Filter panel (toggle from topbar search / filter icon) ── */}
-      {showFilters && (
-        <div className="mb-3 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-4">
-          {/* Sort row */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_sort_by}</span>
-            {(
-              [
-                { val: "default", label: t.store_sort_default },
-                { val: "name_asc", label: t.store_sort_name_asc },
-                { val: "name_desc", label: t.store_sort_name_desc },
-              ] as { val: typeof sort; label: string }[]
-            ).map(({ val, label }) => (
-              <button
-                key={val}
-                onClick={() => setSort(val)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
-                  sort === val
-                    ? "bg-farumasi-600 text-white border-farumasi-600"
-                    : "border-slate-200 text-slate-600 hover:border-farumasi-400"
-                )}
-              >
-                <span className={cn("w-3.5 h-3.5 rounded-full border-2 shrink-0", sort === val ? "border-white bg-white/40" : "border-slate-300")} />
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_filter_availability}</span>
-            {(
-              [
-                { val: "all", label: t.store_filter_rx_all },
-                { val: "otc", label: t.store_filter_rx_otc },
-                { val: "rx", label: t.store_filter_rx_required },
-              ] as { val: typeof prescriptionFilter; label: string }[]
-            ).map(({ val, label }) => (
-              <button
-                key={val}
-                onClick={() => setPrescriptionFilter(val)}
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
-                  prescriptionFilter === val
-                    ? "bg-farumasi-600 text-white border-farumasi-600"
-                    : "border-slate-200 text-slate-600 hover:border-farumasi-400"
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {/* Product type row */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium text-slate-600 shrink-0">Type</span>
-            {([{ value: "All", label: "All" }, ...PRODUCT_TYPES] as { value: string; label: string }[]).map((pt) => (
-              <button
-                key={pt.value}
-                onClick={() => setSelectedProductType(pt.value)}
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
-                  selectedProductType === pt.value
-                    ? "bg-farumasi-600 text-white border-farumasi-600"
-                    : "border-slate-200 text-slate-600 hover:border-farumasi-400"
-                )}
-              >
-                {pt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ── Pharmacies & companies we work with — visible when no search/category filter ── */}
       {showPharmacies && (
         <div className="mb-4">
@@ -748,23 +676,87 @@ function StorePageInner() {
 
       {/* ── Categories section — sticks when scrolled to top ── */}
       <div className="sticky top-0 z-50 isolate -mx-4 md:-mx-6 mb-3 bg-[#F6F8FB] border-b border-slate-200 shadow-sm">
-        <div className="px-4 md:px-6 relative py-1">
-          <button
-            type="button"
-            onClick={() => setHideCategories((h) => !h)}
-            className="absolute right-3 md:right-5 top-1 z-20 p-1 rounded-full text-[#64748B] hover:bg-slate-100 transition-colors"
-            aria-label={hideCategories ? t.store_cats_toggle : "Hide categories"}
-            title={hideCategories ? t.store_cats_toggle : "Hide categories"}
-          >
-            {hideCategories ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronUp className="w-4 h-4" />
-            )}
-          </button>
+        <div className="px-4 md:px-6 relative">
+          {showFilters && (
+            <div className="relative z-[55] -mx-4 md:-mx-6 px-4 md:px-6 py-3 border-b border-slate-200 bg-white shadow-sm space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_sort_by}</span>
+                {(
+                  [
+                    { val: "default", label: t.store_sort_default },
+                    { val: "name_asc", label: t.store_sort_name_asc },
+                    { val: "name_desc", label: t.store_sort_name_desc },
+                  ] as { val: typeof sort; label: string }[]
+                ).map(({ val, label }) => (
+                  <button
+                    key={val}
+                    onClick={() => setSort(val)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
+                      sort === val
+                        ? "bg-farumasi-600 text-white border-farumasi-600"
+                        : "border-slate-200 text-slate-600 hover:border-farumasi-400"
+                    )}
+                  >
+                    <span className={cn("w-3.5 h-3.5 rounded-full border-2 shrink-0", sort === val ? "border-white bg-white/40" : "border-slate-300")} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_filter_availability}</span>
+                {(
+                  [
+                    { val: "all", label: t.store_filter_rx_all },
+                    { val: "otc", label: t.store_filter_rx_otc },
+                    { val: "rx", label: t.store_filter_rx_required },
+                  ] as { val: typeof prescriptionFilter; label: string }[]
+                ).map(({ val, label }) => (
+                  <button
+                    key={val}
+                    onClick={() => setPrescriptionFilter(val)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
+                      prescriptionFilter === val
+                        ? "bg-farumasi-600 text-white border-farumasi-600"
+                        : "border-slate-200 text-slate-600 hover:border-farumasi-400"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-medium text-slate-600 shrink-0">Type</span>
+                {([{ value: "All", label: "All" }, ...PRODUCT_TYPES] as { value: string; label: string }[]).map((pt) => (
+                  <button
+                    key={pt.value}
+                    onClick={() => setSelectedProductType(pt.value)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
+                      selectedProductType === pt.value
+                        ? "bg-farumasi-600 text-white border-farumasi-600"
+                        : "border-slate-200 text-slate-600 hover:border-farumasi-400"
+                    )}
+                  >
+                    {pt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
         {!hideCategories && (
-          <div className="relative pr-7">
+          <div className={cn("relative pr-7", showFilters ? "pt-1 pb-1" : "py-1")}>
+            <button
+              type="button"
+              onClick={() => setHideCategories((h) => !h)}
+              className="absolute right-0 top-0.5 z-20 p-1 rounded-full text-[#64748B] hover:bg-slate-100 transition-colors"
+              aria-label={hideCategories ? t.store_cats_toggle : "Hide categories"}
+              title={hideCategories ? t.store_cats_toggle : "Hide categories"}
+            >
+              <ChevronUp className="w-4 h-4" />
+            </button>
             {/* Left scroll arrow */}
             {canScrollLeft && (
               <button
@@ -845,6 +837,19 @@ function StorePageInner() {
                 </div>
               </button>
             )}
+          </div>
+        )}
+        {hideCategories && (
+          <div className="py-1 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setHideCategories(false)}
+              className="p-1 rounded-full text-[#64748B] hover:bg-slate-100 transition-colors"
+              aria-label={t.store_cats_toggle}
+              title={t.store_cats_toggle}
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
           </div>
         )}
         </div>
