@@ -129,6 +129,14 @@ function adaptMessages(raw: ApiMessage[] | undefined, myId: string | undefined):
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 }
 
+function dedupeMessages(msgs: ChatMessage[]): ChatMessage[] {
+  const byId = new Map<string, ChatMessage>();
+  for (const m of msgs) byId.set(m.id, m);
+  return [...byId.values()].sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+  );
+}
+
 function adaptConsultation(
   c: ApiConsultation,
   myId: string | undefined,
@@ -219,7 +227,6 @@ export default function ConsultPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const chatPanelRef = useRef<HTMLElement>(null);
   const stickToBottomRef = useRef(true);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -282,7 +289,11 @@ export default function ConsultPage() {
   );
   const selectedConsult = selectedKey ? consultsByKey.get(selectedKey) ?? null : null;
   const isAnon = selectedParsed?.anon ?? false;
-  const messages = selectedConsult?.messages ?? [];
+  const messages = useMemo(
+    () => dedupeMessages(selectedConsult?.messages ?? []),
+    [selectedConsult?.messages],
+  );
+  const lastMessageId = messages[messages.length - 1]?.id;
 
   // ── Poll current chat (10s, pauses when tab hidden) ───────────────────────
   useEffect(() => {
@@ -316,7 +327,7 @@ export default function ConsultPage() {
             }
             return true;
           });
-          const merged = [...fresh.messages, ...stillPending];
+          const merged = dedupeMessages([...fresh.messages, ...stillPending]);
           next.set(k, {
             ...fresh,
             messages: merged,
@@ -394,38 +405,16 @@ export default function ConsultPage() {
   useEffect(() => {
     if (!stickToBottomRef.current) return;
     requestAnimationFrame(() => scrollMessagesToBottom("auto"));
-  }, [messages, scrollMessagesToBottom]);
+  }, [messages.length, lastMessageId, scrollMessagesToBottom]);
 
-  // Pin mobile chat panel to the visible viewport (address bar / keyboard)
+  // Prevent page scroll behind full-height mobile chat
   useEffect(() => {
     if (!selectedKey || typeof window === "undefined") return;
     const mq = window.matchMedia("(max-width: 1023px)");
     if (!mq.matches) return;
-
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
-    const panel = chatPanelRef.current;
-    const vv = window.visualViewport;
-    if (!panel || !vv) {
-      return () => {
-        document.body.style.overflow = prevOverflow;
-      };
-    }
-
-    const topbar = 72;
-    const sync = () => {
-      panel.style.top = `${topbar + vv.offsetTop}px`;
-      panel.style.height = `${Math.max(vv.height - topbar, 0)}px`;
-    };
-    sync();
-    vv.addEventListener("resize", sync);
-    vv.addEventListener("scroll", sync);
     return () => {
-      vv.removeEventListener("resize", sync);
-      vv.removeEventListener("scroll", sync);
-      panel.style.top = "";
-      panel.style.height = "";
       document.body.style.overflow = prevOverflow;
     };
   }, [selectedKey]);
@@ -735,10 +724,9 @@ export default function ConsultPage() {
         {/* LEFT — pharmacist list (hidden on narrow screens when a chat is open) */}
         <aside
           className={cn(
-            "w-full lg:w-[360px] xl:w-[380px] flex flex-col shrink-0 border-r border-slate-200/80 bg-white",
-            selectedKey
-              ? "hidden lg:flex"
-              : "fixed inset-x-0 top-[72px] bottom-0 z-10 flex lg:relative lg:inset-auto lg:z-auto lg:bottom-auto",
+            "flex flex-col min-h-0 shrink-0 border-r border-slate-200/80 bg-white",
+            "w-full flex-1 lg:flex-none lg:w-[360px] xl:w-[380px]",
+            selectedKey ? "hidden lg:flex" : "flex",
           )}
         >
           {/* Header */}
@@ -911,12 +899,9 @@ export default function ConsultPage() {
 
         {/* RIGHT — chat */}
         <section
-          ref={chatPanelRef}
           className={cn(
             "flex flex-col min-w-0 min-h-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
-            selectedKey
-              ? "fixed inset-x-0 top-[72px] bottom-0 z-20 flex lg:relative lg:inset-auto lg:flex-1 lg:z-auto lg:bottom-auto"
-              : "hidden lg:flex lg:flex-1",
+            selectedKey ? "flex flex-1 w-full" : "hidden lg:flex lg:flex-1",
           )}
         >
           {!selectedPh ? (
@@ -1043,7 +1028,7 @@ export default function ConsultPage() {
               <div
                 ref={messagesContainerRef}
                 onScroll={handleMessagesScroll}
-                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 lg:px-5 space-y-3 bg-[#EEF1F5] overscroll-contain"
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 lg:px-5 bg-[#EEF1F5] overscroll-contain isolate"
               >
                 {loadingChat && messages.length === 0 && (
                   <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-8">
@@ -1070,7 +1055,7 @@ export default function ConsultPage() {
                     <div
                       key={msg.id}
                       className={cn(
-                        "flex items-end gap-2 w-full",
+                        "flex items-end gap-2 w-full mb-3 last:mb-0",
                         isPatient ? "justify-end" : "justify-start",
                         isPending && "opacity-80",
                       )}
@@ -1094,16 +1079,15 @@ export default function ConsultPage() {
 
                       <div
                         className={cn(
-                          "min-w-[4.5rem] max-w-[calc(100%-2rem)] sm:max-w-[78%] lg:max-w-[62%] px-3.5 py-2.5 text-sm leading-relaxed shadow-sm",
+                          "min-w-[4.5rem] max-w-[calc(100%-2rem)] sm:max-w-[78%] lg:max-w-[62%] px-3.5 py-2.5 text-sm leading-relaxed",
+                          "max-lg:shadow-none lg:shadow-sm",
                           isPatient
-                            ? "bg-farumasi-600 text-white shadow-[0_2px_8px_rgba(30,158,104,0.2)]"
+                            ? "bg-farumasi-600 text-white lg:shadow-[0_2px_8px_rgba(30,158,104,0.2)]"
                             : "bg-white text-slate-900 border border-slate-200/90",
+                          isPatient
+                            ? "rounded-[20px_20px_6px_20px]"
+                            : "rounded-[20px_20px_20px_6px]",
                         )}
-                        style={{
-                          borderRadius: isPatient
-                            ? "20px 20px 6px 20px"
-                            : "20px 20px 20px 6px",
-                        }}
                       >
                         {/* Image attachment */}
                         {msg.attachmentType === "image" && msg.attachmentUrl && (
@@ -1156,8 +1140,9 @@ export default function ConsultPage() {
                         {msg.attachmentType === "product" && msg.attachmentUrl && (
                           <Link
                             href={msg.attachmentUrl}
+                            prefetch={false}
                             className={cn(
-                              "flex items-center gap-2 rounded-lg px-3 py-2 mb-1 transition-colors",
+                              "flex items-center gap-2 rounded-lg px-3 py-2 mb-1",
                               isPatient
                                 ? "bg-white/15 hover:bg-white/25"
                                 : "bg-slate-100 hover:bg-slate-200",
