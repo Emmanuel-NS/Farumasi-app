@@ -1,7 +1,5 @@
-from fastapi import APIRouter, Depends, UploadFile, File
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
-from app.core.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.services.upload_service import UploadService
@@ -9,12 +7,19 @@ from app.services.upload_service import UploadService
 router = APIRouter()
 
 
+def _upload_error(exc: ValueError) -> HTTPException:
+    return HTTPException(status_code=400, detail=str(exc))
+
+
 @router.post("/image")
 async def upload_image(
     file: UploadFile = File(...),
     _: User = Depends(get_current_user),
 ):
-    url = await UploadService().upload_image(file)
+    try:
+        url = await UploadService().upload_image(file)
+    except ValueError as exc:
+        raise _upload_error(exc) from exc
     return {"url": url, "file_key": url.split("/")[-1]}
 
 
@@ -23,8 +28,28 @@ async def upload_document(
     file: UploadFile = File(...),
     _: User = Depends(get_current_user),
 ):
-    url = await UploadService().upload_document(file)
+    try:
+        url = await UploadService().upload_document(file)
+    except ValueError as exc:
+        raise _upload_error(exc) from exc
     return {"url": url, "file_key": url.split("/")[-1]}
+
+
+@router.post("/chat")
+async def upload_chat_attachment(
+    file: UploadFile = File(...),
+    _: User = Depends(get_current_user),
+):
+    """Upload an image or document for consult chat (persisted under chat/ folder)."""
+    try:
+        url, attachment_type = await UploadService().upload_chat_file(file)
+    except ValueError as exc:
+        raise _upload_error(exc) from exc
+    return {
+        "url": url,
+        "attachment_type": attachment_type,
+        "file_key": url.split("/")[-1],
+    }
 
 
 @router.post("/prescription")

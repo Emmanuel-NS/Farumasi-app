@@ -63,6 +63,12 @@ class PatientRepository {
 
   static const String productPlaceholderImage =
       'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=80';
+  static const String pharmacyPlaceholderImage =
+      'https://images.unsplash.com/photo-1587854691652-5c140347731d?w=600&q=80';
+  static const String partnerPlaceholderImage =
+      'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=600&q=80';
+  static const String sponsoredPlaceholderImage =
+      'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80';
 
   static String _productImageUrl(Map<String, dynamic> json) {
     for (final key in ['image_url', 'thumbnail_url', 'cover_image_url', 'image', 'logo_url']) {
@@ -212,7 +218,8 @@ class PatientRepository {
     return items
         .map((e) => BackendListing.fromJson(e as Map<String, dynamic>))
         .where((l) {
-          final status = (l.availabilityStatus).toLowerCase();
+          if (l.status.toLowerCase() != 'active') return false;
+          final status = l.availabilityStatus.toLowerCase();
           return status == 'available' || status == 'low_stock';
         })
         .toList();
@@ -239,6 +246,15 @@ class PatientRepository {
   Future<PatientOrder> fetchOrder(String id) async {
     final response = await _client.dio.get('/orders/$id');
     return PatientOrder.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<List<PatientAddress>> listAddresses() async {
+    final response = await _client.dio.get('/patients/me/addresses');
+    final data = response.data;
+    if (data is! List) return [];
+    return data
+        .map((e) => PatientAddress.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<PatientOrder> createOrder(Map<String, dynamic> payload) async {
@@ -304,11 +320,12 @@ class PatientRepository {
   Future<OrderBuildResult> buildOrderPayload({
     required List<CartItem> cartItems,
     required String deliveryMethod,
-    required String deliveryAddress,
+    String? deliveryAddress,
     double? deliveryLatitude,
     double? deliveryLongitude,
     required String patientAccessCode,
     bool deferDeliveryFee = false,
+    String? notes,
     String? pharmacyId,
     String? partnerCompanyId,
   }) async {
@@ -359,11 +376,16 @@ class PatientRepository {
 
     final payload = <String, dynamic>{
       'delivery_method': deliveryMethod,
-      'delivery_address': deliveryAddress,
       'patient_access_code': patientAccessCode,
       'defer_delivery_fee': deferDeliveryFee,
       'items': items,
     };
+    if (deliveryAddress != null && deliveryAddress.trim().isNotEmpty) {
+      payload['delivery_address'] = deliveryAddress.trim();
+    }
+    if (notes != null && notes.trim().isNotEmpty) {
+      payload['notes'] = notes.trim();
+    }
     if (sellerPharmacyId != null) payload['pharmacy_id'] = sellerPharmacyId;
     if (sellerPartnerId != null) {
       payload['partner_company_id'] = sellerPartnerId;
@@ -840,10 +862,16 @@ class PatientRepository {
       id: m['id'] as String,
       title: (m['title'] as String?) ?? 'Sponsored',
       summary: (m['summary'] as String?) ?? (m['excerpt'] as String?) ?? '',
-      imageUrl: resolveMediaUrl(
+      imageUrl: _sellerImageUrl(
         m['cover_image_url'] as String? ?? m['image_url'] as String?,
+        fallback: sponsoredPlaceholderImage,
       ),
     );
+  }
+
+  static String _sellerImageUrl(String? raw, {required String fallback}) {
+    final resolved = _optionalMediaUrl(raw);
+    return resolved.isNotEmpty ? resolved : fallback;
   }
 
   Future<List<PatientPharmacist>> fetchPharmacists({int limit = 50}) async {
@@ -929,31 +957,31 @@ class PatientRepository {
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
     });
-    return _uploadConsultFile(form, '/uploads/image');
+    return _uploadConsultFile(form);
   }
 
   Future<String> uploadConsultImageBytes(List<int> bytes, String filename) async {
     final form = FormData.fromMap({
       'file': MultipartFile.fromBytes(bytes, filename: filename),
     });
-    return _uploadConsultFile(form, '/uploads/image');
+    return _uploadConsultFile(form);
   }
 
   Future<String> uploadConsultDocument(String filePath) async {
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
     });
-    return _uploadConsultFile(form, '/uploads/document');
+    return _uploadConsultFile(form);
   }
 
   Future<String> uploadConsultDocumentBytes(List<int> bytes, String filename) async {
     final form = FormData.fromMap({
       'file': MultipartFile.fromBytes(bytes, filename: filename),
     });
-    return _uploadConsultFile(form, '/uploads/document');
+    return _uploadConsultFile(form);
   }
 
-  Future<String> _uploadConsultFile(FormData form, String endpoint) async {
+  Future<String> _uploadConsultFile(FormData form) async {
     const maxBytes = 8 * 1024 * 1024;
     final file = form.files.firstWhere((e) => e.key == 'file');
     final size = file.value.length;
@@ -961,13 +989,13 @@ class PatientRepository {
       throw Exception('File too large (max 8 MB)');
     }
     final upload = await _client.dio.post(
-      endpoint,
+      '/uploads/chat',
       data: form,
       options: Options(contentType: 'multipart/form-data'),
     );
-    final url = (upload.data as Map<String, dynamic>)['url'] as String?;
+    const url = (upload.data as Map<String, dynamic>)['url'] as String?;
     if (url == null || url.isEmpty) throw Exception('Upload returned no URL');
-    return resolveMediaUrl(url);
+    return url.startsWith('/') ? url : '/$url';
   }
 
   Future<List<Pharmacy>> fetchPharmacies({
@@ -1032,58 +1060,73 @@ class PatientRepository {
   Future<({Set<String> pharmacyIds, Set<String> partnerIds})> fetchActiveSellerIds() async {
     final pharmacyIds = <String>{};
     final partnerIds = <String>{};
-    var offset = 0;
-    const pageSize = 100;
-    for (var page = 0; page < 3; page++) {
-      final response = await _client.dio.get(
-        '/listings/',
-        queryParameters: {'limit': pageSize, 'offset': offset},
-      );
-      final data = response.data as Map<String, dynamic>? ?? {};
-      final items = data['items'] as List? ?? [];
-      for (final raw in items) {
-        if (raw is! Map) continue;
-        final m = Map<String, dynamic>.from(raw);
-        final status = (m['status'] as String?) ?? '';
-        final avail = (m['availability_status'] as String?) ?? '';
-        if (status != 'active') continue;
-        if (avail != 'available' && avail != 'low_stock') continue;
-        final pharmId = m['pharmacy_id'] as String?;
-        final partnerId = m['partner_company_id'] as String?;
-        if (pharmId != null) pharmacyIds.add(pharmId);
-        if (partnerId != null) partnerIds.add(partnerId);
+    try {
+      var offset = 0;
+      const pageSize = 100;
+      for (var page = 0; page < 3; page++) {
+        final response = await _client.dio.get(
+          '/listings/',
+          queryParameters: {'limit': pageSize, 'offset': offset},
+        );
+        final data = response.data as Map<String, dynamic>? ?? {};
+        final items = data['items'] as List? ?? [];
+        for (final raw in items) {
+          if (raw is! Map) continue;
+          final m = Map<String, dynamic>.from(raw);
+          final status = (m['status'] as String?) ?? '';
+          final avail = (m['availability_status'] as String?) ?? '';
+          if (status != 'active') continue;
+          if (avail != 'available' && avail != 'low_stock') continue;
+          final pharmId = m['pharmacy_id'] as String?;
+          final partnerId = m['partner_company_id'] as String?;
+          if (pharmId != null) pharmacyIds.add(pharmId);
+          if (partnerId != null) partnerIds.add(partnerId);
+        }
+        final total = (data['total'] as num?)?.toInt() ?? items.length;
+        if (items.length < pageSize || offset + pageSize >= total) break;
+        offset += pageSize;
       }
-      final total = (data['total'] as num?)?.toInt() ?? items.length;
-      if (items.length < pageSize || offset + pageSize >= total) break;
-      offset += pageSize;
+    } catch (_) {
+      // Return partial IDs if a later page fails (mobile / cold-start timeouts).
     }
     return (pharmacyIds: pharmacyIds, partnerIds: partnerIds);
   }
 
   /// Pharmacies + partner companies with active stock — mirrors portal store carousel.
   Future<StoreSellersResult> fetchStoreSellers() async {
-    var hadError = false;
     List<Pharmacy> pharmacies = [];
     List<StorePartner> partners = [];
-    ({Set<String> pharmacyIds, Set<String> partnerIds}) ids = (
-      pharmacyIds: <String>{},
-      partnerIds: <String>{},
-    );
+    var pharmacyIds = <String>{};
+    var partnerIds = <String>{};
+    var pharmaciesFailed = false;
+    var listingsFailed = false;
 
-    try {
-      final results = await Future.wait([
-        fetchPharmacies(limit: 100, offset: 0, openOnly: true),
-        fetchPublicPartners(limit: 100),
-        fetchActiveSellerIds(),
-      ]);
-      pharmacies = results[0] as List<Pharmacy>;
-      partners = results[1] as List<StorePartner>;
-      ids = results[2] as ({Set<String> pharmacyIds, Set<String> partnerIds});
-    } catch (_) {
-      hadError = true;
-    }
+    await Future.wait([
+      fetchPharmacies(limit: 100, offset: 0, openOnly: true).then((value) {
+        pharmacies = value;
+      }).catchError((_) {
+        pharmaciesFailed = true;
+      }),
+      fetchPublicPartners(limit: 100).then((value) {
+        partners = value;
+      }),
+      fetchActiveSellerIds().then((value) {
+        pharmacyIds = value.pharmacyIds;
+        partnerIds = value.partnerIds;
+      }).catchError((_) {
+        listingsFailed = true;
+      }),
+    ]);
 
-    if (pharmacies.isEmpty && partners.isEmpty && ids.pharmacyIds.isEmpty) {
+    final hadError = pharmaciesFailed &&
+        listingsFailed &&
+        pharmacies.isEmpty &&
+        partners.isEmpty;
+
+    if (pharmacies.isEmpty &&
+        partners.isEmpty &&
+        pharmacyIds.isEmpty &&
+        partnerIds.isEmpty) {
       final cached = await loadCachedStoreSellers();
       return StoreSellersResult(
         sellers: cached,
@@ -1099,12 +1142,14 @@ class PatientRepository {
     }
 
     final withPharm = pharmacies
-        .where((p) => p.isOpen && ids.pharmacyIds.contains(p.id))
+        .where((p) => p.isOpen && pharmacyIds.contains(p.id))
         .map((p) {
           final partnerLogo = partnerLogoByName[p.name.trim().toLowerCase()];
           final logo = p.imageUrl.isNotEmpty
               ? p.imageUrl
-              : (partnerLogo ?? p.imageUrl);
+              : (partnerLogo != null && partnerLogo.isNotEmpty
+                  ? partnerLogo
+                  : pharmacyPlaceholderImage);
           return Pharmacy(
             id: p.id,
             name: p.name,
@@ -1124,7 +1169,7 @@ class PatientRepository {
 
     final pharmNames = withPharm.map((p) => p.name.trim().toLowerCase()).toSet();
     final withPartner = partners
-        .where((p) => p.isOpen && ids.partnerIds.contains(p.id))
+        .where((p) => p.isOpen && partnerIds.contains(p.id))
         .where((p) => (p.companyType ?? '').toLowerCase() != 'pharmacy')
         .where((p) => !pharmNames.contains(p.name.trim().toLowerCase()))
         .map(
@@ -1138,7 +1183,7 @@ class PatientRepository {
             ],
             supportedInsurances: const [],
             isOpen: p.isOpen,
-            imageUrl: p.logoUrl,
+            imageUrl: p.logoUrl.isNotEmpty ? p.logoUrl : partnerPlaceholderImage,
             district: p.district ?? 'Rwanda',
             sellerKind: 'partner',
           ),
@@ -1176,7 +1221,9 @@ class PatientRepository {
       coordinates: [lat, lng],
       supportedInsurances: const [],
       isOpen: m['is_open'] as bool? ?? true,
-      imageUrl: image.isNotEmpty ? image : logo,
+      imageUrl: image.isNotEmpty
+          ? image
+          : (logo.isNotEmpty ? logo : pharmacyPlaceholderImage),
       district: (m['district'] as String?) ?? 'Kigali',
       sellerKind: 'pharmacy',
     );
@@ -1254,8 +1301,13 @@ class BackendListing {
   final double price;
   final double? unitPrice;
   final String availabilityStatus;
+  final String status;
   final String? sellerName;
   final String? sellerImageUrl;
+  final String? sellerDistrict;
+  final double? sellerLat;
+  final double? sellerLng;
+  final bool? sellerIsOpen;
   final int? fulfillmentTimeMinutes;
   final DateTime? expiryDate;
 
@@ -1267,8 +1319,13 @@ class BackendListing {
     this.price = 0,
     this.unitPrice,
     this.availabilityStatus = 'available',
+    this.status = 'active',
     this.sellerName,
     this.sellerImageUrl,
+    this.sellerDistrict,
+    this.sellerLat,
+    this.sellerLng,
+    this.sellerIsOpen,
     this.fulfillmentTimeMinutes,
     this.expiryDate,
   });
@@ -1277,22 +1334,35 @@ class BackendListing {
     final pharmacy = json['pharmacy'] as Map<String, dynamic>?;
     final partner = json['partner_company'] as Map<String, dynamic>?;
     final sellerName = pharmacy?['name'] as String? ?? partner?['name'] as String?;
+    final sellerDistrict = pharmacy?['district'] as String? ??
+        partner?['district'] as String?;
+    final sellerLat = (pharmacy?['latitude'] as num?)?.toDouble() ??
+        (partner?['latitude'] as num?)?.toDouble();
+    final sellerLng = (pharmacy?['longitude'] as num?)?.toDouble() ??
+        (partner?['longitude'] as num?)?.toDouble();
+    final sellerIsOpen = pharmacy?['is_open'] as bool? ?? partner?['is_open'] as bool?;
     final rawImage = pharmacy?['image_url'] as String? ??
         partner?['logo_url'] as String? ??
         partner?['image_url'] as String?;
     final expiryRaw = json['expiry_date'] as String?;
     return BackendListing(
       id: json['id'] as String,
-      pharmacyId: json['pharmacy_id'] as String?,
-      partnerCompanyId: json['partner_company_id'] as String?,
+      pharmacyId: (json['pharmacy_id'] as String?) ?? pharmacy?['id'] as String?,
+      partnerCompanyId:
+          (json['partner_company_id'] as String?) ?? partner?['id'] as String?,
       productId: json['product_id'] as String?,
       price: (json['price'] as num?)?.toDouble() ?? 0,
       unitPrice: (json['unit_price'] as num?)?.toDouble(),
       availabilityStatus: (json['availability_status'] as String?) ?? 'available',
+      status: (json['status'] as String?) ?? 'active',
       sellerName: sellerName,
       sellerImageUrl: rawImage != null && rawImage.isNotEmpty
           ? PatientRepository.resolveMediaUrl(rawImage)
           : null,
+      sellerDistrict: sellerDistrict,
+      sellerLat: sellerLat,
+      sellerLng: sellerLng,
+      sellerIsOpen: sellerIsOpen,
       fulfillmentTimeMinutes: (json['fulfillment_time_minutes'] as num?)?.toInt(),
       expiryDate: expiryRaw != null && expiryRaw.isNotEmpty
           ? DateTime.tryParse(expiryRaw)
@@ -1310,6 +1380,25 @@ class BackendListing {
         return 'Out of Stock';
     }
   }
+
+  Pharmacy? toPharmacySeller() {
+    final id = pharmacyId ?? partnerCompanyId;
+    if (id == null) return null;
+    return Pharmacy(
+      id: id,
+      name: sellerName?.trim().isNotEmpty == true ? sellerName!.trim() : 'Pharmacy',
+      locationName: sellerDistrict ?? 'Rwanda',
+      coordinates: [
+        sellerLat ?? -1.9441,
+        sellerLng ?? 30.0619,
+      ],
+      supportedInsurances: const [],
+      isOpen: sellerIsOpen ?? true,
+      imageUrl: sellerImageUrl ?? '',
+      district: sellerDistrict ?? 'Kigali',
+      sellerKind: pharmacyId != null ? 'pharmacy' : 'partner',
+    );
+  }
 }
 
 class PaginatedPatientOrders {
@@ -1317,6 +1406,38 @@ class PaginatedPatientOrders {
   final int total;
 
   PaginatedPatientOrders({required this.items, required this.total});
+}
+
+class PatientAddress {
+  final String id;
+  final String label;
+  final String line1;
+  final String? line2;
+  final String? district;
+  final String? city;
+  final bool isDefault;
+
+  PatientAddress({
+    required this.id,
+    required this.label,
+    required this.line1,
+    this.line2,
+    this.district,
+    this.city,
+    this.isDefault = false,
+  });
+
+  factory PatientAddress.fromJson(Map<String, dynamic> json) {
+    return PatientAddress(
+      id: json['id'] as String,
+      label: (json['label'] as String?) ?? 'Home',
+      line1: (json['line1'] as String?) ?? '',
+      line2: json['line2'] as String?,
+      district: json['district'] as String?,
+      city: json['city'] as String?,
+      isDefault: json['is_default'] as bool? ?? false,
+    );
+  }
 }
 
 class PatientOrder {

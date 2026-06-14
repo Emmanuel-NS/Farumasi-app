@@ -147,7 +147,7 @@ export default function ChatPage() {
     await fetchMessages(id);
   };
 
-  const upload = async (file: File, kind: "image" | "file") => {
+  const upload = async (file: File) => {
     if (file.size > MAX_ATTACHMENT_BYTES) {
       toast.error(`File too large (max ${humanSize(MAX_ATTACHMENT_BYTES)}).`);
       return;
@@ -156,13 +156,13 @@ export default function ChatPage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const endpoint = kind === "image" ? "/uploads/image" : "/uploads/document";
-      const { data } = await api.post(endpoint, form, {
+      const { data } = await api.post("/uploads/chat", form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       const url: string | undefined = data?.url;
       if (!url) throw new Error("Upload returned no URL");
-      setPending({ url, name: file.name, type: kind, size: file.size });
+      const attachmentType = (data?.attachment_type as "image" | "file" | undefined) ?? "file";
+      setPending({ url, name: file.name, type: attachmentType, size: file.size });
     } catch {
       toast.error("Upload failed. Please try again.");
     } finally {
@@ -173,12 +173,12 @@ export default function ChatPage() {
   const onPickImage = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     e.target.value = "";
-    if (f) void upload(f, "image");
+    if (f) void upload(f);
   };
   const onPickFile = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     e.target.value = "";
-    if (f) void upload(f, "file");
+    if (f) void upload(f);
   };
 
   const send = async (text?: string) => {

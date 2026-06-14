@@ -17,6 +17,7 @@ from app.schemas.consultation import (
     ChatMessageOut,
 )
 from app.schemas.common import PaginatedResponse
+from app.utils.media_urls import normalize_attachment_url
 
 router = APIRouter()
 
@@ -86,7 +87,7 @@ def _serialize_message(
         "sent_at": m.created_at,
         "sender": sender,
         "sender_name": sender_name,
-        "attachment_url": None if deleted else m.attachment_url,
+        "attachment_url": None if deleted else normalize_attachment_url(m.attachment_url),
         "attachment_name": None if deleted else m.attachment_name,
         "attachment_type": None if deleted else m.attachment_type,
         "attachment_size": None if deleted else m.attachment_size,
@@ -328,8 +329,9 @@ async def send_message(
         raise HTTPException(status_code=400, detail="Message must include text or an attachment.")
 
     attachment_type = data.attachment_type
+    normalized_url = normalize_attachment_url(data.attachment_url)
     if has_attachment and attachment_type not in ("image", "file", "product"):
-        attachment_type = "image" if (data.attachment_url or "").lower().endswith(
+        attachment_type = "image" if (normalized_url or "").lower().endswith(
             (".png", ".jpg", ".jpeg", ".webp", ".gif")
         ) else "file"
 
@@ -344,7 +346,7 @@ async def send_message(
         sender_id=current_user.id,
         content=(data.content or "").strip() or None,
         is_read=False,
-        attachment_url=data.attachment_url,
+        attachment_url=normalized_url,
         attachment_name=data.attachment_name,
         attachment_type=attachment_type,
         attachment_size=data.attachment_size,

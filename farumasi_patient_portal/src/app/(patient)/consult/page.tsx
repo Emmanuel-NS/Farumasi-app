@@ -130,7 +130,7 @@ function isLikelyImageUrl(url: string): boolean {
     /^data:image\//i.test(url) ||
     /^blob:/i.test(url) ||
     /\.(png|jpe?g|webp|gif|bmp|svg)(\?.*)?$/i.test(url) ||
-    /\/uploads\/(?:images?|media)\//i.test(url)
+    /\/uploads\/(?:images?|media|chat)\//i.test(url)
   );
 }
 
@@ -728,7 +728,7 @@ export default function ConsultPage() {
       content,
       timestamp: new Date(),
       isMe: true,
-      attachmentUrl: pendingAttachment?.url,
+      attachmentUrl: pendingAttachment?.url ? mediaUrl(pendingAttachment.url) : undefined,
       attachmentName: pendingAttachment?.name,
       attachmentType: pendingAttachment?.type,
       attachmentSize: pendingAttachment?.size,
@@ -859,10 +859,7 @@ export default function ConsultPage() {
   };
 
   // ── Attachment upload ─────────────────────────────────────────────────────
-  const uploadAttachment = async (
-    file: File,
-    kind: "image" | "file",
-  ): Promise<void> => {
+  const uploadAttachment = async (file: File): Promise<void> => {
     if (file.size > MAX_ATTACHMENT_BYTES) {
       toast.error(`File too large (max ${humanSize(MAX_ATTACHMENT_BYTES)}).`);
       return;
@@ -871,16 +868,16 @@ export default function ConsultPage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const endpoint = kind === "image" ? "/uploads/image" : "/uploads/document";
-      const { data } = await api.post(endpoint, form, {
+      const { data } = await api.post("/uploads/chat", form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       const url: string | undefined = data?.url;
       if (!url) throw new Error("Upload returned no URL");
+      const attachmentType = (data?.attachment_type as "image" | "file" | undefined) ?? "file";
       setPendingAttachment({
-        url: mediaUrl(url),
+        url,
         name: file.name,
-        type: kind,
+        type: attachmentType,
         size: file.size,
       });
     } catch (e) {
@@ -895,13 +892,13 @@ export default function ConsultPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     setAttachMenuOpen(false);
-    if (file) void uploadAttachment(file, "image");
+    if (file) void uploadAttachment(file);
   };
   const onPickFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     setAttachMenuOpen(false);
-    if (file) void uploadAttachment(file, "file");
+    if (file) void uploadAttachment(file);
   };
 
   const onPickProduct = (product: Medicine) => {
@@ -1427,7 +1424,7 @@ export default function ConsultPage() {
                   {pendingAttachment.type === "image" ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={pendingAttachment.url}
+                      src={mediaUrl(pendingAttachment.url)}
                       alt={pendingAttachment.name}
                       className="w-12 h-12 rounded-lg object-cover shrink-0"
                     />
