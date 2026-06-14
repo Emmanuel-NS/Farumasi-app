@@ -17,6 +17,11 @@ import { cn, getInitials } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { GuestGate } from "@/components/shared/guest-gate";
 import { ChatMessageRow } from "@/components/consult/chat-message-row";
+import {
+  consultProductPath,
+  inferAttachmentType,
+  productIdFromPath,
+} from "@/lib/consult-attachments";
 import { useAuthStore } from "@/store/auth-store";
 import type { ChatMessage, ChatProductRef, Pharmacist, Medicine } from "@/types";
 import Link from "next/link";
@@ -118,39 +123,6 @@ const parseKey = (k: ThreadKey): { phId: string; anon: boolean } => {
   return { phId, anon: anon === "1" };
 };
 
-function consultProductPath(url: string | null | undefined): string | undefined {
-  if (!url) return undefined;
-  const match = url.match(/\/(?:store|inventory|products)\/([^/?#]+)/i);
-  if (match) return `/store/${match[1]}`;
-  return url.startsWith("/") ? url : undefined;
-}
-
-function isLikelyImageUrl(url: string): boolean {
-  return (
-    /^data:image\//i.test(url) ||
-    /^blob:/i.test(url) ||
-    /\.(png|jpe?g|webp|gif|bmp|svg)(\?.*)?$/i.test(url) ||
-    /\/uploads\/(?:images?|media|chat)\//i.test(url)
-  );
-}
-
-function inferAttachmentType(
-  url: string | null | undefined,
-  declared?: string | null,
-): "image" | "file" | "product" | undefined {
-  if (!url) return undefined;
-  if (consultProductPath(url) || /\/(?:store|inventory|products)\//i.test(url)) {
-    return "product";
-  }
-  if (declared === "product") return "product";
-  if (declared === "image") {
-    return isLikelyImageUrl(url) ? "image" : "file";
-  }
-  if (declared === "file") return "file";
-  if (isLikelyImageUrl(url)) return "image";
-  return "file";
-}
-
 function adaptMessages(raw: ApiMessage[] | undefined, myId: string | undefined): ChatMessage[] {
   return (raw ?? [])
     .map((m) => {
@@ -179,7 +151,7 @@ function adaptMessages(raw: ApiMessage[] | undefined, myId: string | undefined):
         attachmentUrl: m.is_deleted
           ? undefined
           : attachmentType === "product"
-            ? consultProductPath(m.attachment_url)
+            ? consultProductPath(m.attachment_url) ?? undefined
             : mediaUrl(m.attachment_url ?? undefined) || undefined,
         attachmentName: m.is_deleted ? undefined : m.attachment_name ?? undefined,
         attachmentType: m.is_deleted ? undefined : attachmentType,
@@ -200,12 +172,6 @@ function dedupeMessages(msgs: ChatMessage[]): ChatMessage[] {
   return [...byId.values()].sort(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
   );
-}
-
-function productIdFromPath(url?: string): string | undefined {
-  if (!url) return undefined;
-  const match = url.match(/\/store\/([^/?#]+)/i);
-  return match?.[1];
 }
 
 function adaptConsultation(

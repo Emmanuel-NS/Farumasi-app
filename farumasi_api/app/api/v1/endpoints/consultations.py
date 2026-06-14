@@ -17,7 +17,7 @@ from app.schemas.consultation import (
     ChatMessageOut,
 )
 from app.schemas.common import PaginatedResponse
-from app.utils.media_urls import normalize_attachment_url
+from app.utils.media_urls import normalize_attachment_url, resolve_attachment_type
 
 router = APIRouter()
 
@@ -58,7 +58,7 @@ def _reply_preview(m: ChatMessage | None, mask_sender_id: str | None) -> dict | 
         "sender_id": m.sender_id,
         "sender_name": sender_name,
         "content": "" if deleted else (m.content or ""),
-        "attachment_type": None if deleted else m.attachment_type,
+        "attachment_type": None if deleted else resolve_attachment_type(m.attachment_url, m.attachment_type),
         "attachment_name": None if deleted else m.attachment_name,
         "is_deleted": deleted,
     }
@@ -77,6 +77,7 @@ def _serialize_message(
         sender_name = m.sender.full_name if m.sender else ""
     deleted = m.deleted_at is not None
     parent = reply_lookup.get(m.reply_to_message_id) if reply_lookup and m.reply_to_message_id else m.reply_to
+    attachment_type = None if deleted else resolve_attachment_type(m.attachment_url, m.attachment_type)
     return {
         "id": m.id,
         "consultation_id": m.consultation_id,
@@ -89,7 +90,7 @@ def _serialize_message(
         "sender_name": sender_name,
         "attachment_url": None if deleted else normalize_attachment_url(m.attachment_url),
         "attachment_name": None if deleted else m.attachment_name,
-        "attachment_type": None if deleted else m.attachment_type,
+        "attachment_type": attachment_type,
         "attachment_size": None if deleted else m.attachment_size,
         "reply_to_message_id": m.reply_to_message_id,
         "edited_at": m.edited_at,
@@ -328,12 +329,10 @@ async def send_message(
     if not has_text and not has_attachment:
         raise HTTPException(status_code=400, detail="Message must include text or an attachment.")
 
-    attachment_type = data.attachment_type
     normalized_url = normalize_attachment_url(data.attachment_url)
-    if has_attachment and attachment_type not in ("image", "file", "product"):
-        attachment_type = "image" if (normalized_url or "").lower().endswith(
-            (".png", ".jpg", ".jpeg", ".webp", ".gif")
-        ) else "file"
+    attachment_type = resolve_attachment_type(normalized_url, data.attachment_type)
+    if has_attachment and not attachment_type:
+        attachment_type = "file"
 
     reply_to_id = data.reply_to_message_id
     if reply_to_id:

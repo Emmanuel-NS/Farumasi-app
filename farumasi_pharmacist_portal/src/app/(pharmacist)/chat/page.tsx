@@ -396,8 +396,20 @@ export default function ChatPage() {
   );
 }
 
+function effectiveAttachmentType(m: ApiMessage): string | undefined {
+  const url = m.attachment_url ?? "";
+  if (!url) return m.attachment_type ?? undefined;
+  if (url.includes("/uploads/")) {
+    if (m.attachment_type === "image" || m.attachment_type === "file") return m.attachment_type;
+    if (/\.(png|jpe?g|webp|gif|bmp|svg)(\?.*)?$/i.test(url)) return "image";
+    return "file";
+  }
+  if (/\/(?:store|inventory|products)\//i.test(url)) return "product";
+  return m.attachment_type ?? undefined;
+}
+
 function AttachmentBubble({ m, isMe }: { m: ApiMessage; isMe: boolean }) {
-  const type = m.attachment_type;
+  const type = effectiveAttachmentType(m);
   if (!type || !m.attachment_url) return null;
   if (type === "image") {
     return (
