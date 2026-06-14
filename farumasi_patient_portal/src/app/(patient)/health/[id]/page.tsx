@@ -23,6 +23,8 @@ import {
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { ShareArticleMenu } from "@/components/health/share-article-menu";
+import { sortTrendingArticles } from "@/lib/share-article";
 
 const CAT_ACCENT: Record<string, { chip: string; bg: string; bar: string }> = {
   "General Health": { chip: "bg-farumasi-600 text-white", bg: "bg-farumasi-50", bar: "bg-farumasi-500" },
@@ -143,8 +145,11 @@ export default function ArticleDetailPage() {
   useEffect(() => {
     if (!article) return;
     articlesService
-      .listPublished({ category: article.category, limit: 6 })
-      .then((items) => setRelated(items.filter((x) => x.id !== article.id).slice(0, 3)))
+      .listPublished({ sortBy: "views", limit: 24 })
+      .then((items) => {
+        const pool = items.filter((x) => x.id !== article.id);
+        setRelated(sortTrendingArticles(pool).slice(0, 10));
+      })
       .catch(() => setRelated([]));
   }, [article]);
 
@@ -209,21 +214,14 @@ export default function ArticleDetailPage() {
     }
   }, [article, requireAuth]);
 
-  const handleShare = useCallback(async () => {
+  const trackShare = useCallback(async () => {
     if (!article) return;
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title: article.title, url });
-      } else if (url) {
-        await navigator.clipboard.writeText(url);
-        toast.success("Link copied to clipboard");
-      }
-    } catch { /* user cancelled */ }
     try {
       const updated = await articlesService.share(article.id);
       setArticle((prev) => (prev ? { ...prev, shareCount: updated.shareCount } : prev));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [article]);
 
   const handlePostComment = useCallback(async () => {
@@ -296,7 +294,7 @@ export default function ArticleDetailPage() {
           </div>
         </div>
       ) : (
-        <div className="relative w-full overflow-hidden h-56 sm:h-[420px]">
+        <div className="relative w-full overflow-hidden h-44 sm:h-56 lg:h-72">
           {article.imageUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
@@ -327,7 +325,7 @@ export default function ArticleDetailPage() {
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
             <span className="text-[13px] font-semibold">Health</span>
           </button>
-          <div className="absolute bottom-[68px] left-5 right-5 flex items-center gap-2 flex-wrap">
+          <div className="absolute bottom-12 left-5 right-5 flex items-center gap-2 flex-wrap">
             <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider ${accent.chip}`}>
               {article.category}
             </span>
@@ -347,7 +345,7 @@ export default function ArticleDetailPage() {
       <div className={
         ytId
           ? "bg-white min-h-[60vh]"
-          : "relative -mt-14 bg-white rounded-t-[32px] shadow-[0_-4px_30px_rgba(15,23,42,0.12)] min-h-[60vh]"
+          : "relative -mt-10 bg-white rounded-t-[32px] shadow-[0_-4px_30px_rgba(15,23,42,0.12)] min-h-[60vh]"
       }>
         {ytId && (
           <div className="flex items-center gap-3 px-5 sm:px-10 pt-5 pb-4 border-b border-slate-100 flex-wrap">
@@ -366,8 +364,37 @@ export default function ArticleDetailPage() {
           </div>
         )}
 
+        {/* Save & share — immediately after hero */}
+        <div className="max-w-[760px] mx-auto px-5 sm:px-10 pt-5 sm:pt-6 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleToggleLike}
+              className={
+                article.isLiked
+                  ? "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-red-500 text-white text-[13px] font-semibold hover:bg-red-600 transition-colors"
+                  : "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-slate-100 text-slate-700 text-[13px] font-semibold hover:bg-slate-200 transition-colors"
+              }
+            >
+              <Heart className={article.isLiked ? "w-4 h-4 fill-current" : "w-4 h-4"} />
+              {article.isLiked ? "Liked" : "Like"} · {compactNumber(article.likeCount ?? 0)}
+            </button>
+            <button
+              onClick={handleToggleSave}
+              className={
+                article.isSaved
+                  ? "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-amber-500 text-white text-[13px] font-semibold hover:bg-amber-600 transition-colors"
+                  : "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-slate-100 text-slate-700 text-[13px] font-semibold hover:bg-slate-200 transition-colors"
+              }
+            >
+              <Bookmark className={article.isSaved ? "w-4 h-4 fill-current" : "w-4 h-4"} />
+              {article.isSaved ? "Saved" : "Save"}
+            </button>
+            <ShareArticleMenu article={article} onShared={() => void trackShare()} />
+          </div>
+        </div>
+
         <div className="max-w-[760px] mx-auto px-5 sm:px-10">
-          <div className="pt-8 pb-6">
+          <div className="pt-6 pb-6">
             {article.publishedAt && (
               <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-[1.4px] mb-3">
                 {article.publishedAt.toLocaleDateString("en-GB", {
@@ -415,38 +442,6 @@ export default function ArticleDetailPage() {
                 {compactNumber(article.shareCount ?? 0)}
               </span>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 mb-8 flex-wrap">
-            <button
-              onClick={handleToggleLike}
-              className={
-                article.isLiked
-                  ? "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-red-500 text-white text-[13px] font-semibold hover:bg-red-600 transition-colors"
-                  : "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-slate-100 text-slate-700 text-[13px] font-semibold hover:bg-slate-200 transition-colors"
-              }
-            >
-              <Heart className={article.isLiked ? "w-4 h-4 fill-current" : "w-4 h-4"} />
-              {article.isLiked ? "Liked" : "Like"} · {compactNumber(article.likeCount ?? 0)}
-            </button>
-            <button
-              onClick={handleToggleSave}
-              className={
-                article.isSaved
-                  ? "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-amber-500 text-white text-[13px] font-semibold hover:bg-amber-600 transition-colors"
-                  : "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-slate-100 text-slate-700 text-[13px] font-semibold hover:bg-slate-200 transition-colors"
-              }
-            >
-              <Bookmark className={article.isSaved ? "w-4 h-4 fill-current" : "w-4 h-4"} />
-              {article.isSaved ? "Saved" : "Save"}
-            </button>
-            <button
-              onClick={handleShare}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-slate-100 text-slate-700 text-[13px] font-semibold hover:bg-slate-200 transition-colors"
-            >
-              <Share2 className="w-4 h-4" />
-              Share
-            </button>
           </div>
 
           {article.summary && (
@@ -543,15 +538,18 @@ export default function ArticleDetailPage() {
           {related.length > 0 && (
             <div className="mb-12">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-[20px] font-bold text-slate-900">More to read</h2>
+                <div>
+                  <h2 className="text-[20px] font-bold text-slate-900">More to read</h2>
+                  <p className="text-[12px] text-slate-500 mt-0.5">Trending by views &amp; recency</p>
+                </div>
                 <Link
                   href="/health"
-                  className="flex items-center gap-1 text-farumasi-600 text-[13px] font-semibold hover:underline"
+                  className="flex items-center gap-1 text-farumasi-600 text-[13px] font-semibold hover:underline shrink-0"
                 >
                   See all <ChevronRight className="w-4 h-4" />
                 </Link>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {related.map((rel) => {
                   const ra = CAT_ACCENT[rel.category] ?? DEFAULT_ACCENT;
                   return (

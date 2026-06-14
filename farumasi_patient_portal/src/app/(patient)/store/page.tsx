@@ -595,8 +595,8 @@ function StorePageInner() {
         </div>
       )}
 
-      {/* ── Categories section ───────────────────────────── */}
-      <div className="mb-4 bg-[#F6F8FB] rounded-2xl">
+      {/* ── Categories section — sticks when scrolled to top ── */}
+      <div className="sticky top-0 z-20 mb-4 bg-[#F6F8FB] rounded-2xl shadow-[0_2px_10px_rgba(15,23,42,0.06)] border border-slate-100/80">
         <div className="flex items-center justify-end mb-1 pt-1">
           <button
             type="button"

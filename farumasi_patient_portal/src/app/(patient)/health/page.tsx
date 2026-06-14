@@ -202,8 +202,8 @@ export default function HealthPage() {
 
   return (
     <div className="flex flex-col min-h-full bg-[#F9FAFB]">
-      {/* Header scrolls with content on mobile; sticky on tablet+ */}
-      <div className="bg-white shadow-sm shrink-0 sm:sticky sm:top-0 sm:z-10">
+      {/* Header — title & search scroll away; category tabs stick below */}
+      <div className="bg-white shadow-sm shrink-0">
         <div className="px-4 sm:px-5 pt-3 sm:pt-6 pb-2 sm:pb-3 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <h1 className="text-lg sm:text-[22px] font-bold text-farumasi-700 leading-tight truncate">
@@ -312,27 +312,29 @@ export default function HealthPage() {
           </div>
         </div>
 
-        {/* Tab bar — 5 columns on mobile so first row shows 5 categories without scrolling */}
-        <div className="grid grid-cols-5 gap-1 px-4 pb-2.5 sm:flex sm:gap-2 sm:overflow-x-auto sm:scrollbar-hide sm:px-5 sm:pb-4">
-          {TABS.map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                title={TAB_LABELS[tab]}
-                className={cn(
-                  "w-full sm:w-auto sm:shrink-0 px-1 sm:px-4 py-1 sm:py-1.5 rounded-full border text-[10px] sm:text-[13px] font-semibold transition-all duration-150 text-center leading-tight truncate",
-                  isActive
-                    ? "bg-farumasi-600 text-white border-farumasi-600 shadow-[0_4px_8px_rgba(30,158,104,0.3)]"
-                    : "text-farumasi-700 border-slate-200 bg-white hover:border-farumasi-300 hover:bg-farumasi-50"
-                )}
-              >
-                <span className="sm:hidden">{TAB_LABELS_MOBILE[tab]}</span>
-                <span className="hidden sm:inline">{TAB_LABELS[tab]}</span>
-              </button>
-            );
-          })}
+        {/* Category tabs — sticky once scrolled to top of main pane */}
+        <div className="sticky top-0 z-20 bg-white border-t border-slate-100 shadow-[0_2px_8px_rgba(15,23,42,0.06)]">
+          <div className="grid grid-cols-5 gap-1 px-4 py-2.5 sm:flex sm:gap-2 sm:overflow-x-auto sm:scrollbar-hide sm:px-5 sm:py-3">
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  title={TAB_LABELS[tab]}
+                  className={cn(
+                    "w-full sm:w-auto sm:shrink-0 px-1 sm:px-4 py-1 sm:py-1.5 rounded-full border text-[10px] sm:text-[13px] font-semibold transition-all duration-150 text-center leading-tight truncate",
+                    isActive
+                      ? "bg-farumasi-600 text-white border-farumasi-600 shadow-[0_4px_8px_rgba(30,158,104,0.3)]"
+                      : "text-farumasi-700 border-slate-200 bg-white hover:border-farumasi-300 hover:bg-farumasi-50"
+                  )}
+                >
+                  <span className="sm:hidden">{TAB_LABELS_MOBILE[tab]}</span>
+                  <span className="hidden sm:inline">{TAB_LABELS[tab]}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
