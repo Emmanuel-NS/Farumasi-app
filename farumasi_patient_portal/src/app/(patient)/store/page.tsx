@@ -595,8 +595,130 @@ function StorePageInner() {
         </div>
       )}
 
+      {/* ── Pharmacies & companies we work with — visible when no search/category filter ── */}
+      {showPharmacies && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[19px] font-bold text-[#0F172A]">{t.store_pharmacies}</h2>
+            {selectedPharmacy && (
+              <button
+                onClick={() => { setSelectedPharmacy(null); setSelectedPharmacyId(null); setSelectedSellerKind(null); }}
+                className="flex items-center gap-1 text-xs text-farumasi-700 font-semibold bg-farumasi-50 px-3 py-1.5 rounded-full hover:bg-farumasi-100 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Clear: {selectedPharmacy}
+              </button>
+            )}
+          </div>
+          <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
+            {sellersLoading && pharmacies.length === 0 && (
+              <p className="text-sm text-slate-400 py-2">Loading partners…</p>
+            )}
+            {!sellersLoading && pharmacies.length === 0 && (
+              <p className="text-sm text-slate-400 py-2">
+                {sellersError
+                  ? "Could not load sellers. Check your connection and try again."
+                  : "No pharmacies or companies with stock right now."}
+              </p>
+            )}
+            {pharmacies.map((pharmacy) => {
+              const isSelected = selectedPharmacyId === pharmacy.id;
+              const imgSrc = sellerImageSrc(pharmacy);
+              const mapUrl = pharmacy.latitude && pharmacy.longitude
+                ? `https://www.google.com/maps?q=${pharmacy.latitude},${pharmacy.longitude}`
+                : pharmacy.address
+                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pharmacy.name + " " + pharmacy.address)}`
+                : null;
+              return (
+                <div
+                  key={pharmacy.id}
+                  className={cn(
+                    "relative flex bg-white rounded-[14px] border overflow-hidden transition-all shrink-0 w-[220px] sm:w-[250px] h-[96px] sm:h-[106px]",
+                    isSelected
+                      ? "border-farumasi-500 shadow-[0_0_0_2px_rgba(30,158,104,0.25)] shadow-md"
+                      : "border-[#E6EAEE] shadow-[0_5px_10px_rgba(15,23,42,0.07)] hover:shadow-md hover:border-farumasi-300"
+                  )}
+                >
+                  <button
+                    className="absolute inset-0 w-full h-full z-0"
+                    aria-label={`Select ${pharmacy.name}`}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedPharmacy(null);
+                        setSelectedPharmacyId(null);
+                        setSelectedSellerKind(null);
+                      } else {
+                        setSelectedPharmacy(pharmacy.name);
+                        setSelectedPharmacyId(pharmacy.id);
+                        setSelectedSellerKind(pharmacy.sellerKind ?? "pharmacy");
+                      }
+                    }}
+                  />
+                  <div className="w-24 shrink-0 overflow-hidden relative bg-slate-100 flex items-center justify-center z-[1] pointer-events-auto">
+                    {imgSrc ? (
+                      <SellerImageThumb
+                        src={imgSrc}
+                        name={pharmacy.name}
+                        onPreview={setSellerImagePreview}
+                        className="w-full h-full"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-farumasi-50 to-slate-100">
+                        <span className="text-lg font-bold text-farumasi-700">{getInitials(pharmacy.name)}</span>
+                      </div>
+                    )}
+                    {isSelected && (
+                      <div className="absolute inset-0 bg-farumasi-600/30 flex items-center justify-center">
+                        <div className="w-7 h-7 rounded-full bg-farumasi-600 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col justify-center px-3 py-2 min-w-0 flex-1 relative z-[1] pointer-events-none">
+                    <p className={cn(
+                      "text-[14px] font-bold leading-snug line-clamp-2",
+                      isSelected ? "text-farumasi-700" : "text-[#0F172A]"
+                    )}>
+                      {pharmacy.name}
+                    </p>
+                    <p className="text-[11px] text-[#374151] mt-1 leading-tight line-clamp-1">
+                      {pharmacy.district}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-tight line-clamp-1">
+                      {pharmacy.sellerKind === "partner" ? "Healthcare company" : pharmacy.is_open ? "Open now" : "Closed"}
+                      {pharmacy.sellerKind === "pharmacy" && pharmacy.accepts_delivery ? " · Delivers" : ""}
+                    </p>
+                    {isSelected && (
+                      <span className="inline-block mt-1 text-[10px] font-bold text-farumasi-700 bg-farumasi-50 px-2 py-0.5 rounded-full w-fit">
+                        {t.store_viewing}
+                      </span>
+                    )}
+                  </div>
+                  {mapUrl && (
+                    <a
+                      href={mapUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-2 right-2 z-[2] w-7 h-7 rounded-full bg-white/90 shadow-sm border border-slate-200 flex items-center justify-center hover:bg-farumasi-50 hover:border-farumasi-300 transition-colors pointer-events-auto"
+                      title="View on Google Maps"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-farumasi-600" />
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Categories section — sticks when scrolled to top ── */}
-      <div className="sticky top-0 z-20 mb-4 bg-[#F6F8FB] rounded-2xl shadow-[0_2px_10px_rgba(15,23,42,0.06)] border border-slate-100/80">
+      <div className="sticky top-0 z-50 isolate -mx-4 md:-mx-6 mb-4 bg-[#F6F8FB] border-b border-slate-200 shadow-sm">
+        <div className="px-4 md:px-6">
         <div className="flex items-center justify-end mb-1 pt-1">
           <button
             type="button"
@@ -698,132 +820,8 @@ function StorePageInner() {
             )}
           </div>
         )}
-      </div>
-
-      {/* ── Pharmacies & companies we work with — visible when no search/category filter ── */}
-      {showPharmacies && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[19px] font-bold text-[#0F172A]">{t.store_pharmacies}</h2>
-            {selectedPharmacy && (
-              <button
-                onClick={() => { setSelectedPharmacy(null); setSelectedPharmacyId(null); setSelectedSellerKind(null); }}
-                className="flex items-center gap-1 text-xs text-farumasi-700 font-semibold bg-farumasi-50 px-3 py-1.5 rounded-full hover:bg-farumasi-100 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-                Clear: {selectedPharmacy}
-              </button>
-            )}
-          </div>
-          <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
-            {sellersLoading && pharmacies.length === 0 && (
-              <p className="text-sm text-slate-400 py-2">Loading partners…</p>
-            )}
-            {!sellersLoading && pharmacies.length === 0 && (
-              <p className="text-sm text-slate-400 py-2">
-                {sellersError
-                  ? "Could not load sellers. Check your connection and try again."
-                  : "No pharmacies or companies with stock right now."}
-              </p>
-            )}
-            {pharmacies.map((pharmacy) => {
-              const isSelected = selectedPharmacyId === pharmacy.id;
-              const imgSrc = sellerImageSrc(pharmacy);
-              const mapUrl = pharmacy.latitude && pharmacy.longitude
-                ? `https://www.google.com/maps?q=${pharmacy.latitude},${pharmacy.longitude}`
-                : pharmacy.address
-                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pharmacy.name + " " + pharmacy.address)}`
-                : null;
-              return (
-                <div
-                  key={pharmacy.id}
-                  className={cn(
-                    "relative flex bg-white rounded-[14px] border overflow-hidden transition-all shrink-0 w-[220px] sm:w-[250px] h-[96px] sm:h-[106px]",
-                    isSelected
-                      ? "border-farumasi-500 shadow-[0_0_0_2px_rgba(30,158,104,0.25)] shadow-md"
-                      : "border-[#E6EAEE] shadow-[0_5px_10px_rgba(15,23,42,0.07)] hover:shadow-md hover:border-farumasi-300"
-                  )}
-                >
-                  {/* Invisible full-card selection button */}
-                  <button
-                    className="absolute inset-0 w-full h-full z-0"
-                    aria-label={`Select ${pharmacy.name}`}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedPharmacy(null);
-                        setSelectedPharmacyId(null);
-                        setSelectedSellerKind(null);
-                      } else {
-                        setSelectedPharmacy(pharmacy.name);
-                        setSelectedPharmacyId(pharmacy.id);
-                        setSelectedSellerKind(pharmacy.sellerKind ?? "pharmacy");
-                      }
-                    }}
-                  />
-                  {/* Image / placeholder */}
-                  <div className="w-24 shrink-0 overflow-hidden relative bg-slate-100 flex items-center justify-center z-10 pointer-events-auto">
-                    {imgSrc ? (
-                      <SellerImageThumb
-                        src={imgSrc}
-                        name={pharmacy.name}
-                        onPreview={setSellerImagePreview}
-                        className="w-full h-full"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-farumasi-50 to-slate-100">
-                        <span className="text-lg font-bold text-farumasi-700">{getInitials(pharmacy.name)}</span>
-                      </div>
-                    )}
-                    {isSelected && (
-                      <div className="absolute inset-0 bg-farumasi-600/30 flex items-center justify-center">
-                        <div className="w-7 h-7 rounded-full bg-farumasi-600 flex items-center justify-center">
-                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {/* Text panel */}
-                  <div className="flex flex-col justify-center px-3 py-2 min-w-0 flex-1 relative z-10 pointer-events-none">
-                    <p className={cn(
-                      "text-[14px] font-bold leading-snug line-clamp-2",
-                      isSelected ? "text-farumasi-700" : "text-[#0F172A]"
-                    )}>
-                      {pharmacy.name}
-                    </p>
-                    <p className="text-[11px] text-[#374151] mt-1 leading-tight line-clamp-1">
-                      {pharmacy.district}
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5 leading-tight line-clamp-1">
-                      {pharmacy.sellerKind === "partner" ? "Healthcare company" : pharmacy.is_open ? "Open now" : "Closed"}
-                      {pharmacy.sellerKind === "pharmacy" && pharmacy.accepts_delivery ? " · Delivers" : ""}
-                    </p>
-                    {isSelected && (
-                      <span className="inline-block mt-1 text-[10px] font-bold text-farumasi-700 bg-farumasi-50 px-2 py-0.5 rounded-full w-fit">
-                        {t.store_viewing}
-                      </span>
-                    )}
-                  </div>
-                  {/* Map link — z-20 so it sits above the selection button */}
-                  {mapUrl && (
-                    <a
-                      href={mapUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute top-2 right-2 z-20 w-7 h-7 rounded-full bg-white/90 shadow-sm border border-slate-200 flex items-center justify-center hover:bg-farumasi-50 hover:border-farumasi-300 transition-colors"
-                      title="View on Google Maps"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-farumasi-600" />
-                    </a>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </div>
-      )}
+      </div>
 
       {/* ── Section heading — dynamic like Flutter ────────── */}
       <div className="flex items-center justify-between mb-4">

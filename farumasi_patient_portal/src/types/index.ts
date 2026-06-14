@@ -310,6 +310,7 @@ export interface ChatMessage {
   replyTo?: ChatReplyPreview;
   editedAt?: Date;
   isDeleted?: boolean;
+  isRead?: boolean;
   product?: ChatProductRef;
 }
 

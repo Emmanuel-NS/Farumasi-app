@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { productsService, adaptProduct } from "@/lib/services/products.service";
-import { pharmaciesService, sellerImageSrc, type BackendListing, type BackendPharmacy } from "@/lib/services/pharmacies.service";
+import { pharmaciesService, type BackendListing } from "@/lib/services/pharmacies.service";
 import { useLanguageStore } from "@/store/language-store";
-import { cn, formatPrice, getInitials } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
 import { toast } from "sonner";
 import type { Medicine } from "@/types";
@@ -19,12 +19,11 @@ import {
 import { minQuantityForLine } from "@/lib/cart-pricing";
 import {
   SellerImageLightbox,
-  SellerImageThumb,
   type SellerImagePreview,
 } from "@/components/shared/seller-image-lightbox";
 import {
   ArrowLeft, Star, AlertCircle, ShoppingCart, Upload,
-  CheckCircle, XCircle, Clock, ChevronRight,
+  CheckCircle, ChevronRight,
 } from "lucide-react";
 
 function categoryBg(cat?: string): string {
@@ -54,7 +53,6 @@ export default function MedicineDetailPage() {
   const [med, setMed] = useState<Medicine | null>(null);
   const [loading, setLoading] = useState(true);
   const [listings, setListings] = useState<BackendListing[]>([]);
-  const [pharmacyMap, setPharmacyMap] = useState<Map<string, BackendPharmacy>>(new Map());
   const [sellerImagePreview, setSellerImagePreview] = useState<SellerImagePreview | null>(null);
 
   useEffect(() => {
@@ -68,14 +66,7 @@ export default function MedicineDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    pharmaciesService.listingsForProduct(id).then((ls) => {
-      setListings(ls);
-      const pharmIds = [...new Set(ls.map((l) => l.pharmacy_id).filter(Boolean) as string[])];
-      if (pharmIds.length === 0) return;
-      pharmaciesService.listPharmacies(0, 100).then((pharmas) => {
-        setPharmacyMap(new Map(pharmas.map((p) => [p.id, p])));
-      });
-    });
+    pharmaciesService.listingsForProduct(id).then(setListings);
   }, [id]);
 
   useEffect(() => {
@@ -413,57 +404,7 @@ export default function MedicineDetailPage() {
           </div>
         )}
 
-        {/* Pharmacies */}
-        {listings.length > 0 && (
-          <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-3">
-            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Available At</p>
-            {listings.map((l) => {
-              const name =
-                l.partner_company?.name
-                ?? l.pharmacy?.name
-                ?? (l.pharmacy_id ? pharmacyMap.get(l.pharmacy_id)?.name : null)
-                ?? "Seller";
-              const sellerImg = sellerImageSrc({
-                image_url: l.pharmacy?.image_url,
-                logo_url: l.partner_company?.logo_url,
-              });
-              return (
-                <div key={l.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center overflow-hidden shrink-0">
-                      {sellerImg ? (
-                        <SellerImageThumb
-                          src={sellerImg}
-                          name={name}
-                          onPreview={setSellerImagePreview}
-                          className="w-full h-full rounded-xl"
-                          imgClassName="hover:scale-100"
-                        />
-                      ) : (
-                        <span className="text-xs font-bold text-farumasi-700">{getInitials(name)}</span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{name}</p>
-                      {l.price > 0 && (
-                        <p className="text-xs font-bold text-farumasi-700">RWF {l.price.toLocaleString()}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {l.availability_status === "available" ? (
-                      <><CheckCircle className="w-4 h-4 text-farumasi-500" /><span className="text-xs font-medium text-farumasi-700">In Stock</span></>
-                    ) : l.availability_status === "low_stock" ? (
-                      <><Clock className="w-4 h-4 text-amber-500" /><span className="text-xs font-medium text-amber-700">Low Stock</span></>
-                    ) : (
-                      <><XCircle className="w-4 h-4 text-red-400" /><span className="text-xs font-medium text-red-600">Out of Stock</span></>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+
       </div>
       <SellerImageLightbox
         preview={sellerImagePreview}

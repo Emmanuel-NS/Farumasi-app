@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, ShoppingBag } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
+import { fetchMarketplaceStats } from "@/lib/services/platform.service";
 import { toast } from "sonner";
 
 type Tab = "login" | "register";
@@ -24,6 +25,23 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [marketStats, setMarketStats] = useState({ productCount: 0, sellerCount: 0 });
+
+  useEffect(() => {
+    fetchMarketplaceStats()
+      .then(setMarketStats)
+      .catch(() => setMarketStats({ productCount: 0, sellerCount: 0 }));
+  }, []);
+
+  const featureBullets = [
+    marketStats.productCount > 0 && marketStats.sellerCount > 0
+      ? `Browse ${marketStats.productCount.toLocaleString()}+ approved products from ${marketStats.sellerCount.toLocaleString()} pharmacies and healthcare partners`
+      : "Browse approved medicines and healthcare products from trusted partners",
+    "Upload and manage prescriptions",
+    "Consult a licensed pharmacist",
+    "Health tips and awareness content",
+    "Real-time order tracking",
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,11 +80,7 @@ export default function LoginPage() {
             Order medicines, upload prescriptions, and track deliveries — all in one place across Rwanda.
           </p>
           <div className="flex flex-col gap-3 pt-2">
-            {[
-              "Browse 24+ approved medicines",
-              "Upload & manage prescriptions",
-              "Real-time order tracking with QR",
-            ].map((f) => (
+            {featureBullets.map((f) => (
               <div key={f} className="flex items-center gap-2.5 text-white/80 text-sm">
                 <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
                   <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -235,14 +249,6 @@ export default function LoginPage() {
               Browse store without an account
             </Link>
           </div>
-
-          {/* Other portals */}
-          <p className="text-center text-xs text-slate-400 mt-4">
-            Not a patient?{" "}
-            <a href="http://localhost:3003" className="text-farumasi-600 font-medium hover:underline">Pharmacist portal</a>
-            {" · "}
-            <a href="http://localhost:3001" className="text-farumasi-600 font-medium hover:underline">Doctor portal</a>
-          </p>
 
           <p className="text-center text-[11px] text-slate-300 mt-6">
             <Link href="/terms" className="hover:text-slate-500 transition-colors">Terms of Service</Link>

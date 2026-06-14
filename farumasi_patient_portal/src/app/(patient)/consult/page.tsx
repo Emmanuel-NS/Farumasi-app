@@ -188,6 +188,7 @@ function adaptMessages(raw: ApiMessage[] | undefined, myId: string | undefined):
         replyTo,
         editedAt: m.edited_at ? new Date(m.edited_at) : undefined,
         isDeleted: !!m.is_deleted,
+        isRead: !!m.is_read,
       };
     })
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -275,6 +276,7 @@ export default function ConsultPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -552,6 +554,46 @@ export default function ConsultPage() {
     el.scrollTo({ top: el.scrollHeight, behavior });
   }, []);
 
+  const jumpToMessage = useCallback((messageId: string) => {
+    const container = messagesContainerRef.current;
+    const target = document.getElementById(`chat-msg-${messageId}`);
+    if (!container || !target) {
+      toast.message("Original message not found");
+      return;
+    }
+    const containerTop = container.getBoundingClientRect().top;
+    const targetTop = target.getBoundingClientRect().top;
+    const nextTop = container.scrollTop + (targetTop - containerTop) - 72;
+    container.scrollTo({
+      top: Math.max(0, nextTop),
+      behavior: "smooth",
+    });
+    target.classList.add("ring-2", "ring-farumasi-400", "ring-offset-2", "rounded-2xl");
+    window.setTimeout(() => {
+      target.classList.remove("ring-2", "ring-farumasi-400", "ring-offset-2", "rounded-2xl");
+    }, 1400);
+  }, []);
+
+  useEffect(() => {
+    const composer = composerRef.current;
+    const vv = window.visualViewport;
+    if (!composer || !vv) return;
+
+    const syncComposer = () => {
+      const keyboardGap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      composer.style.transform = keyboardGap > 0 ? `translateY(-${keyboardGap}px)` : "";
+    };
+
+    syncComposer();
+    vv.addEventListener("resize", syncComposer);
+    vv.addEventListener("scroll", syncComposer);
+    return () => {
+      composer.style.transform = "";
+      vv.removeEventListener("resize", syncComposer);
+      vv.removeEventListener("scroll", syncComposer);
+    };
+  }, [selectedKey]);
+
   const handleMessagesScroll = useCallback(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
@@ -750,6 +792,7 @@ export default function ConsultPage() {
         replyTo: tmp.replyTo,
         editedAt: data.edited_at ? new Date(data.edited_at) : undefined,
         isDeleted: !!data.is_deleted,
+        isRead: !!data.is_read,
       };
       setConsultsByKey((prev) => {
         const next = new Map(prev);
@@ -1136,8 +1179,10 @@ export default function ConsultPage() {
         {/* RIGHT — chat */}
         <section
           className={cn(
-            "flex min-h-0 flex-col min-w-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
-            selectedKey ? "flex flex-1 w-full" : "hidden lg:flex lg:flex-1",
+            "flex flex-col min-w-0 min-h-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
+            selectedKey
+              ? "flex flex-1 w-full max-lg:fixed max-lg:inset-x-0 max-lg:top-[72px] max-lg:bottom-0 max-lg:z-30"
+              : "hidden lg:flex lg:flex-1",
           )}
         >
           {!selectedPh ? (
@@ -1294,11 +1339,11 @@ export default function ConsultPage() {
               )}
 
               {/* Messages + composer */}
-              <div className="grid flex-1 h-0 min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
+              <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
               <div
                 ref={messagesContainerRef}
                 onScroll={handleMessagesScroll}
-                className="min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 lg:px-5 bg-[#EEF1F5] overscroll-contain"
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 lg:px-5 bg-[#EEF1F5] overscroll-contain"
               >
                 {loadingChat && messages.length === 0 && (
                   <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-8">
@@ -1326,13 +1371,14 @@ export default function ConsultPage() {
                       onReply={handleReplyToMessage}
                       onEdit={handleEditMessage}
                       onDelete={handleDeleteMessage}
+                      onJumpToReply={jumpToMessage}
                     />
                   );
                 })}
                 <div ref={messagesEndRef} />
               </div>
 
-              <div className="shrink-0 bg-white border-t border-slate-100 z-10">
+              <div ref={composerRef} className="relative z-30 shrink-0 bg-white border-t border-slate-100 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
               {(replyingTo || editingMessageId) && (
                 <div className="px-3 md:px-5 py-2 bg-slate-50 border-b border-slate-200 flex items-start gap-2">
                   <div className="flex-1 min-w-0">
