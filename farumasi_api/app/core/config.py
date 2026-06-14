@@ -108,6 +108,42 @@ class Settings(BaseSettings):
         return str(v) if v is not None else ""
 
     @model_validator(mode="after")
+    def _resolve_storage_backend(self) -> "Settings":
+        """Prefer durable object storage in production when credentials are configured."""
+        explicit = (self.STORAGE_BACKEND or "local").lower()
+        has_cloudinary = bool(
+            self.CLOUDINARY_CLOUD_NAME
+            and self.CLOUDINARY_API_KEY
+            and self.CLOUDINARY_API_SECRET
+        )
+        has_s3 = bool(
+            self.AWS_BUCKET_NAME
+            and self.AWS_ACCESS_KEY_ID
+            and self.AWS_SECRET_ACCESS_KEY
+        )
+        env = (self.ENVIRONMENT or "development").lower()
+
+        if explicit in ("s3", "cloudinary"):
+            self.STORAGE_BACKEND = explicit
+        elif has_cloudinary:
+            self.STORAGE_BACKEND = "cloudinary"
+        elif has_s3:
+            self.STORAGE_BACKEND = "s3"
+        else:
+            self.STORAGE_BACKEND = "local"
+
+        if env != "development" and self.STORAGE_BACKEND == "local":
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "STORAGE_BACKEND=local in %s: uploaded chat/media files are stored on "
+                "ephemeral disk and will disappear after redeploy. Set CLOUDINARY_* or "
+                "AWS_* env vars (or STORAGE_BACKEND=cloudinary|s3) for permanent storage.",
+                self.ENVIRONMENT,
+            )
+        return self
+
+    @model_validator(mode="after")
     def _derive_async_database_url(self) -> "Settings":
         """When only DATABASE_URL is set (e.g. Render/Railway), derive asyncpg URL."""
         url = self.DATABASE_URL.replace("postgres://", "postgresql://", 1)

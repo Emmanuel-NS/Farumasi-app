@@ -48,7 +48,7 @@ async def upload_chat_attachment(
     return {
         "url": url,
         "attachment_type": attachment_type,
-        "file_key": url.split("/")[-1],
+        "file_key": url.rsplit("/", 1)[-1],
     }
 
 

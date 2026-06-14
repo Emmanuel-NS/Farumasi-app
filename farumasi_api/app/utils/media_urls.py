@@ -3,6 +3,8 @@ from __future__ import annotations
 from urllib.parse import urlparse
 import re
 
+from app.core.config import settings
+
 _PRODUCT_PATH = re.compile(r"/(?:store|inventory|products)/", re.I)
 _IMAGE_EXT = re.compile(r"\.(png|jpe?g|webp|gif|bmp|svg)(?:\?.*)?$", re.I)
 
@@ -77,3 +79,18 @@ def resolve_attachment_type(
     if _IMAGE_EXT.search(lower) or "res.cloudinary.com/" in lower and "/image/" in lower:
         return "image"
     return "file"
+
+
+def public_media_url(url: str | None) -> str | None:
+    """Return a stable, browser-loadable URL for an attachment or upload path."""
+    if not url:
+        return None
+    normalized = normalize_attachment_url(url) or url
+    if normalized.startswith(("http://", "https://")):
+        return normalized
+    base = (settings.API_PUBLIC_URL or "").rstrip("/")
+    if not base:
+        return normalized
+    if normalized.startswith("/"):
+        return f"{base}{normalized}"
+    return f"{base}/{normalized}"

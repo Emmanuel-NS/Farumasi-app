@@ -29,6 +29,19 @@ class UploadService:
         self.backend = (settings.STORAGE_BACKEND or "local").lower()
         self.local_root = settings.UPLOAD_DIR or "uploads"
 
+    def _require_durable_storage_for_chat(self) -> None:
+        """Chat history outlives server restarts — never rely on ephemeral local disk in prod."""
+        env = (settings.ENVIRONMENT or "development").lower()
+        if env == "development":
+            return
+        if self.backend in ("s3", "cloudinary"):
+            return
+        raise ValueError(
+            "Chat attachments require permanent storage in production. "
+            "Configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET "
+            "on the API (recommended), or set STORAGE_BACKEND=s3 with AWS credentials."
+        )
+
     async def upload_image(self, file: UploadFile, folder: str = "images") -> str:
         return await self._upload(file, folder, allowed_types=ALLOWED_IMAGE_TYPES)
 
@@ -37,6 +50,7 @@ class UploadService:
 
     async def upload_chat_file(self, file: UploadFile) -> tuple[str, str]:
         """Upload a consult chat attachment. Returns (url, attachment_type)."""
+        self._require_durable_storage_for_chat()
         content_type = (file.content_type or "").lower()
         if content_type in ALLOWED_IMAGE_TYPES:
             url = await self._upload(file, "chat", allowed_types=ALLOWED_IMAGE_TYPES)

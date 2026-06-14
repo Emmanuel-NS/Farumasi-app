@@ -17,7 +17,7 @@ from app.schemas.consultation import (
     ChatMessageOut,
 )
 from app.schemas.common import PaginatedResponse
-from app.utils.media_urls import normalize_attachment_url, resolve_attachment_type
+from app.utils.media_urls import normalize_attachment_url, public_media_url, resolve_attachment_type
 
 router = APIRouter()
 
@@ -88,7 +88,7 @@ def _serialize_message(
         "sent_at": m.created_at,
         "sender": sender,
         "sender_name": sender_name,
-        "attachment_url": None if deleted else normalize_attachment_url(m.attachment_url),
+        "attachment_url": None if deleted else public_media_url(normalize_attachment_url(m.attachment_url)),
         "attachment_name": None if deleted else m.attachment_name,
         "attachment_type": attachment_type,
         "attachment_size": None if deleted else m.attachment_size,

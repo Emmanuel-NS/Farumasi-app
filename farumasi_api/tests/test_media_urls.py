@@ -3,6 +3,7 @@
 from app.utils.media_urls import (
     is_product_attachment_url,
     normalize_attachment_url,
+    public_media_url,
     resolve_attachment_type,
 )
 
@@ -43,3 +44,16 @@ def test_store_path_is_product():
     url = "/store/abc-123"
     assert is_product_attachment_url(url) is True
     assert resolve_attachment_type(url, None) == "product"
+
+
+def test_public_media_url_expands_relative():
+    from app.core.config import settings
+
+    rel = "/uploads/chat/abc.jpg"
+    full = public_media_url(rel)
+    assert full == f"{settings.API_PUBLIC_URL.rstrip('/')}{rel}"
+
+
+def test_public_media_url_preserves_cloudinary():
+    url = "https://res.cloudinary.com/demo/image/upload/v1/farumasi/chat/abc.jpg"
+    assert public_media_url(url) == url

@@ -195,6 +195,16 @@ async def lifespan(app: FastAPI):
             f"{settings.ASYNC_DATABASE_URL.split('@')[-1]} ({exc})"
         ) from exc
     await start_background_tasks()
+    backend = (settings.STORAGE_BACKEND or "local").lower()
+    if backend == "cloudinary":
+        logger.info("File storage: Cloudinary (%s)", settings.CLOUDINARY_CLOUD_NAME or "configured")
+    elif backend == "s3":
+        logger.info("File storage: S3 (%s)", settings.AWS_BUCKET_NAME or "configured")
+    else:
+        logger.warning(
+            "File storage: LOCAL disk (%s). Chat/prescription uploads will NOT survive redeploys.",
+            settings.UPLOAD_DIR,
+        )
     yield
     await stop_background_tasks()
     logger.info("FARUMASI API shutting down...")

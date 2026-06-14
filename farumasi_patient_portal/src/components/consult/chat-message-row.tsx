@@ -35,9 +35,21 @@ function ChatImage({
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
-      <div className="flex items-center gap-2 rounded-lg px-3 py-4 bg-slate-100 text-slate-500 text-xs">
-        <ImageIcon className="w-5 h-5 shrink-0" />
-        <span>Image unavailable</span>
+      <div className="flex flex-col gap-2 rounded-lg px-3 py-4 bg-slate-100 text-slate-500 text-xs">
+        <div className="flex items-center gap-2">
+          <ImageIcon className="w-5 h-5 shrink-0" />
+          <span>Image unavailable</span>
+        </div>
+        {src && (
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-farumasi-600 font-semibold hover:underline"
+          >
+            Try opening file
+          </a>
+        )}
       </div>
     );
   }
