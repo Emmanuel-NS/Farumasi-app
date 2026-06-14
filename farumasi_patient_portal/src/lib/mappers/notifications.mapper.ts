@@ -23,13 +23,15 @@ export interface BackendUnreadCount {
 }
 
 const CATEGORY_MAP: Record<string, NotificationCategory> = {
-  order:          "order",
-  prescription:   "health_tip",
-  delivery:       "order_shipped",
-  promo:          "promo",
-  reminder:       "reminder",
-  general:        "general",
-  system:         "general",
+  order: "order",
+  prescription: "prescription",
+  delivery: "delivery",
+  payment: "payment",
+  promo: "promo",
+  reminder: "reminder",
+  general: "general",
+  system: "general",
+  health_tip: "health_tip",
 };
 
 export function adaptNotification(n: BackendNotification): AppNotification {

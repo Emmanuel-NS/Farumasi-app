@@ -105,8 +105,8 @@ export function Topbar({
   return (
     <header
       className={cn(
-        "h-[72px] bg-farumasi-600 flex items-center gap-3 px-4 shrink-0 sticky top-0",
-        mobileNavOpen ? "z-50" : "z-20",
+        "h-[72px] bg-farumasi-600 flex items-center gap-3 px-4 shrink-0 sticky top-0 z-[60]",
+        mobileNavOpen && "z-[100]",
       )}
     >
       {/* Hamburger */}
@@ -261,7 +261,7 @@ export function Topbar({
                 <span className="text-sm font-bold text-[#EFFFB5]">{getInitials(user?.name ?? "Me")}</span>
               </button>
               {showProfile && (
-                <div className="absolute right-0 top-11 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-fade-in">
+                <div className="absolute right-0 top-11 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-[70] animate-fade-in">
                   <div className="px-4 py-2 border-b border-slate-100">
                     <p className="text-sm font-semibold text-slate-900">{user?.name ?? "My Account"}</p>
                     <p className="text-xs text-slate-500">{user?.email ?? ""}</p>

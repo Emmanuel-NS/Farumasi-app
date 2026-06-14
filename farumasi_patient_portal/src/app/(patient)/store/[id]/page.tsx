@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { productsService, adaptProduct } from "@/lib/services/products.service";
 import { pharmaciesService, type BackendListing } from "@/lib/services/pharmacies.service";
+import { useTranslation, tf } from "@/lib/translations";
 import { useLanguageStore } from "@/store/language-store";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/store/cart-store";
@@ -45,6 +46,7 @@ export default function MedicineDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const lang = useLanguageStore((s) => s.lang);
+  const t = useTranslation();
   const [activeInfoTab, setActiveInfoTab] = useState<"overview" | "dosage" | "safety">("overview");
   const [sellMode, setSellMode] = useState<SellMode>("pack");
   const [qty, setQty] = useState(1);
@@ -234,33 +236,46 @@ export default function MedicineDetailPage() {
 
           {/* CTAs */}
           <div className="flex flex-col gap-3">
-            <button
-              onClick={() => {
-                cartAdd(med, qty, sellMode);
-                setAdded(true);
-                const unit = lineUnitLabel(sellMode, med.partialUnitName, med.unitsPerPack);
-                toast.success(`${med.name} ×${qty} ${unit} added to cart`);
-                setTimeout(() => setAdded(false), 2000);
-              }}
-              className={cn(
-                "w-full h-12 rounded-2xl text-white font-bold transition-all flex items-center justify-center gap-2",
-                added ? "bg-farumasi-700 scale-[0.98]" : "bg-farumasi-600 hover:bg-farumasi-700"
-              )}
-            >
-              {added ? (
-                <><CheckCircle className="w-5 h-5" /> Added to Cart {(cartItems[lineKey]?.qty ?? 0) > 0 ? `(×${cartItems[lineKey]?.qty})` : ""}</>
-              ) : (
-                <><ShoppingCart className="w-5 h-5" /> Add to Cart {(cartItems[lineKey]?.qty ?? 0) > 0 ? `(×${cartItems[lineKey]?.qty} in cart)` : ""}</>
-              )}
-            </button>
-            {med.requiresPrescription && (
-              <Link
-                href="/prescriptions"
-                className="w-full h-12 rounded-2xl border-2 border-farumasi-600 text-farumasi-700 font-bold hover:bg-farumasi-50 transition-colors flex items-center justify-center gap-2 text-sm"
+            {med.requiresPrescription ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.error(tf(t.toast_rx_toast, { name: med.name }), { duration: 4000 });
+                  }}
+                  className="w-full h-12 rounded-2xl border-2 border-amber-300 bg-amber-50 text-amber-900 font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+                >
+                  <AlertCircle className="w-5 h-5" />
+                  Prescription required
+                </button>
+                <Link
+                  href="/prescriptions"
+                  className="w-full h-12 rounded-2xl bg-farumasi-600 text-white font-bold hover:bg-farumasi-700 transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload prescription to order
+                </Link>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  cartAdd(med, qty, sellMode);
+                  setAdded(true);
+                  const unit = lineUnitLabel(sellMode, med.partialUnitName, med.unitsPerPack);
+                  toast.success(`${med.name} ×${qty} ${unit} added to cart`);
+                  setTimeout(() => setAdded(false), 2000);
+                }}
+                className={cn(
+                  "w-full h-12 rounded-2xl text-white font-bold transition-all flex items-center justify-center gap-2",
+                  added ? "bg-farumasi-700 scale-[0.98]" : "bg-farumasi-600 hover:bg-farumasi-700"
+                )}
               >
-                <Upload className="w-4 h-4" />
-                Upload Prescription
-              </Link>
+                {added ? (
+                  <><CheckCircle className="w-5 h-5" /> Added to Cart {(cartItems[lineKey]?.qty ?? 0) > 0 ? `(×${cartItems[lineKey]?.qty})` : ""}</>
+                ) : (
+                  <><ShoppingCart className="w-5 h-5" /> Add to Cart {(cartItems[lineKey]?.qty ?? 0) > 0 ? `(×${cartItems[lineKey]?.qty} in cart)` : ""}</>
+                )}
+              </button>
             )}
           </div>
         </div>

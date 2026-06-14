@@ -1,13 +1,18 @@
 import type { HealthArticle } from "@/types";
+import { mediaUrl } from "@/lib/api";
 
 export interface ArticleSharePayload {
   title: string;
   text: string;
   url: string;
+  imageUrl?: string;
 }
 
 export function buildArticleSharePayload(
-  article: Pick<HealthArticle, "title" | "subtitle" | "summary" | "readTimeMin" | "category">,
+  article: Pick<
+    HealthArticle,
+    "title" | "subtitle" | "summary" | "readTimeMin" | "category" | "imageUrl" | "slug"
+  >,
   url: string,
 ): ArticleSharePayload {
   const teaser = (article.summary || article.subtitle || "").trim();
@@ -18,8 +23,10 @@ export function buildArticleSharePayload(
     .filter(Boolean)
     .join(" · ");
 
+  const imageUrl = mediaUrl(article.imageUrl) || undefined;
+
   const lines = [
-    `📖 ${article.title}`,
+    article.title,
     teaser,
     meta,
     "",
@@ -31,7 +38,67 @@ export function buildArticleSharePayload(
     title: article.title,
     text: lines.join("\n"),
     url,
+    imageUrl,
   };
+}
+
+function safeFilename(title: string): string {
+  const base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return `${base || "farumasi-article"}.jpg`;
+}
+
+/** Fetch hero/banner image as a File for native share sheets (mobile). */
+export async function fetchShareImageFile(
+  imageUrl: string,
+  title: string,
+): Promise<File | null> {
+  try {
+    const res = await fetch(imageUrl);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const type = blob.type && blob.type.startsWith("image/") ? blob.type : "image/jpeg";
+    return new File([blob], safeFilename(title), { type });
+  } catch {
+    return null;
+  }
+}
+
+export function canShareWithFiles(files: File[]): boolean {
+  if (typeof navigator === "undefined" || !navigator.canShare) return false;
+  try {
+    return navigator.canShare({ files });
+  } catch {
+    return false;
+  }
+}
+
+/** Prefer sharing banner image + caption; falls back to link-only share. */
+export async function shareArticleNative(payload: ArticleSharePayload): Promise<boolean> {
+  if (typeof navigator === "undefined" || !("share" in navigator)) return false;
+
+  let file: File | null = null;
+  if (payload.imageUrl) {
+    file = await fetchShareImageFile(payload.imageUrl, payload.title);
+  }
+
+  if (file && canShareWithFiles([file])) {
+    const withFiles = { files: [file], text: payload.text, title: payload.title };
+    if (navigator.canShare(withFiles)) {
+      await navigator.share(withFiles);
+      return true;
+    }
+  }
+
+  await navigator.share({
+    title: payload.title,
+    text: payload.text,
+    url: payload.url,
+  });
+  return true;
 }
 
 export function whatsAppShareUrl(text: string): string {

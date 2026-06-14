@@ -5,25 +5,18 @@ import { useRouter } from "next/navigation";
 import { notificationsService } from "@/lib/services/notifications.service";
 import { cn } from "@/lib/utils";
 import { useTranslation, tf, useTimeAgo } from "@/lib/translations";
-import { Bell, Trash2, X } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { AppNotification } from "@/types";
 import { startVisibleInterval } from "@/lib/polling";
 import { openNotification } from "@/lib/notification-links";
 import { useDynamicTranslation } from "@/hooks/use-dynamic-translation";
+import {
+  filterDeletedNotifications,
+  notificationStyle,
+  persistDeletedNotificationId,
+} from "@/lib/notification-ui";
 
 const CAT_FILTERS = ["All", "Order", "Health", "Promo", "Reminder"];
-
-const catIcon: Record<string, string> = {
-  order: "📦",
-  order_shipped: "🚚",
-  delivery: "🚚",
-  payment: "💳",
-  prescription: "💊",
-  health_tip: "💊",
-  promo: "🎁",
-  reminder: "⏰",
-  general: "🔔",
-};
 
 const catMatch: Record<string, string[]> = {
   All: [],
@@ -47,19 +40,7 @@ export default function NotificationsPage() {
       notificationsService.getMyNotifications()
         .then((items) => {
           if (cancelled) return;
-          if (typeof window !== "undefined") {
-            try {
-              const raw = localStorage.getItem("farumasi_deleted_notifs");
-              const ids: string[] = raw ? JSON.parse(raw) : [];
-              if (Array.isArray(ids) && ids.length) {
-                setNotifications(items.filter((n) => !ids.includes(n.id)));
-                return;
-              }
-            } catch {
-              /* ignore */
-            }
-          }
-          setNotifications(items);
+          setNotifications(filterDeletedNotifications(items));
         })
         .catch(() => {});
     };
@@ -103,20 +84,7 @@ export default function NotificationsPage() {
   // Deletion persists across reloads via localStorage.
   const deleteN = (id: string) => {
     setNotifications((p) => p.filter((n) => n.id !== id));
-    if (typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem("farumasi_deleted_notifs");
-        const ids: string[] = raw ? JSON.parse(raw) : [];
-        if (!ids.includes(id)) {
-          localStorage.setItem(
-            "farumasi_deleted_notifs",
-            JSON.stringify([...ids, id]),
-          );
-        }
-      } catch {
-        /* ignore */
-      }
-    }
+    persistDeletedNotificationId(id);
   };
   const markAllRead = () => {
     const snapshot = notifications;
@@ -174,9 +142,11 @@ export default function NotificationsPage() {
 
       {/* List */}
       {filtered.length === 0 ? (
-        <div className="py-24 flex flex-col items-center text-center">
-          <Bell className="w-14 h-14 text-slate-200 mb-3" />
+        <div className="py-24 flex flex-col items-center text-center px-6">
           <p className="text-slate-600 font-semibold">{t.notif_empty}</p>
+          <p className="text-slate-400 text-sm mt-1 max-w-sm">
+            You will be notified when orders move, prescriptions are reviewed, or deliveries arrive.
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -184,7 +154,6 @@ export default function NotificationsPage() {
             <NotificationRow
               key={n.id}
               notification={n}
-              catIcon={catIcon}
               timeAgo={timeAgoLocal(n.time)}
               onOpen={() => void handleOpen(n)}
               onDelete={(e) => { e.stopPropagation(); deleteN(n.id); }}
@@ -198,37 +167,41 @@ export default function NotificationsPage() {
 
 function NotificationRow({
   notification: n,
-  catIcon,
   timeAgo,
   onOpen,
   onDelete,
 }: {
   notification: AppNotification;
-  catIcon: Record<string, string>;
   timeAgo: string;
   onOpen: () => void;
   onDelete: (e: React.MouseEvent) => void;
 }) {
   const title = useDynamicTranslation(n.title, `notification:${n.category}:title`);
   const message = useDynamicTranslation(n.message, `notification:${n.category}:body`);
+  const style = notificationStyle(n.category);
 
   return (
     <div
       onClick={onOpen}
       className={cn(
-        "group flex gap-3 bg-white rounded-2xl border px-4 py-3.5 cursor-pointer hover:shadow-sm transition-all",
-        !n.isRead ? "border-farumasi-100 bg-farumasi-50/50" : "border-slate-100",
+        "group flex gap-3 bg-white rounded-2xl border px-4 py-3.5 cursor-pointer hover:shadow-sm transition-all border-l-4",
+        style.accentClass,
+        !n.isRead ? style.unreadBg : "border-slate-100",
       )}
     >
-      <span className="text-2xl shrink-0">{catIcon[n.category] ?? "🔔"}</span>
       <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className={cn("text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full", style.chipClass)}>
+            {style.label}
+          </span>
+          <span className="text-[10px] text-slate-400 ml-auto">{timeAgo}</span>
+        </div>
         <p className={cn("text-sm text-slate-900", !n.isRead ? "font-bold" : "font-medium")}>
           {title.text}
         </p>
         <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{message.text}</p>
-        <p className="text-[10px] text-slate-400 mt-1.5">{timeAgo}</p>
         {n.actionUrl && (
-          <p className="text-[10px] text-farumasi-600 font-medium mt-0.5">Tap to open →</p>
+          <p className="text-[10px] text-farumasi-600 font-medium mt-1.5">Tap to open →</p>
         )}
       </div>
       <div className="flex flex-col items-end gap-1.5 shrink-0">

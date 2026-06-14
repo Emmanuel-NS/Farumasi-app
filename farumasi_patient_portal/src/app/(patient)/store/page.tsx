@@ -299,6 +299,8 @@ function StorePageInner() {
 
   const sort = useStoreFilterStore((s) => s.sort);
   const setSort = useStoreFilterStore((s) => s.setSort);
+  const prescriptionFilter = useStoreFilterStore((s) => s.prescriptionFilter);
+  const setPrescriptionFilter = useStoreFilterStore((s) => s.setPrescriptionFilter);
   const selectedProductType = useStoreFilterStore((s) => s.selectedProductType);
   const setSelectedProductType = useStoreFilterStore((s) => s.setSelectedProductType);
   const selectedCategoriesArr = useStoreFilterStore((s) => s.selectedCategories);
@@ -420,10 +422,15 @@ function StorePageInner() {
     if (selectedProductType !== "All") {
       list = list.filter((m) => (m.product_type ?? "").toLowerCase() === selectedProductType);
     }
-    if (sort === "price_asc")  list.sort((a, b) => a.price - b.price);
-    if (sort === "price_desc") list.sort((a, b) => b.price - a.price);
+    if (prescriptionFilter === "otc") {
+      list = list.filter((m) => !m.requiresPrescription);
+    } else if (prescriptionFilter === "rx") {
+      list = list.filter((m) => m.requiresPrescription);
+    }
+    if (sort === "name_asc") list.sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "name_desc") list.sort((a, b) => b.name.localeCompare(a.name));
     return list;
-  }, [query, selectedCategories, sort, selectedProductType, medicines, selectedPharmacyId, pharmacyListings]);
+  }, [query, selectedCategories, sort, prescriptionFilter, selectedProductType, medicines, selectedPharmacyId, pharmacyListings]);
 
   // Dynamic heading — mirrors Flutter's conditional title
   const sectionTitle = selectedPharmacy
@@ -554,9 +561,9 @@ function StorePageInner() {
             <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_sort_by}</span>
             {(
               [
-                { val: "default",    label: t.store_sort_default },
-                { val: "price_asc",  label: t.store_sort_price_asc },
-                { val: "price_desc", label: t.store_sort_price_desc },
+                { val: "default", label: t.store_sort_default },
+                { val: "name_asc", label: t.store_sort_name_asc },
+                { val: "name_desc", label: t.store_sort_name_desc },
               ] as { val: typeof sort; label: string }[]
             ).map(({ val, label }) => (
               <button
@@ -570,6 +577,29 @@ function StorePageInner() {
                 )}
               >
                 <span className={cn("w-3.5 h-3.5 rounded-full border-2 shrink-0", sort === val ? "border-white bg-white/40" : "border-slate-300")} />
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_filter_availability}</span>
+            {(
+              [
+                { val: "all", label: t.store_filter_rx_all },
+                { val: "otc", label: t.store_filter_rx_otc },
+                { val: "rx", label: t.store_filter_rx_required },
+              ] as { val: typeof prescriptionFilter; label: string }[]
+            ).map(({ val, label }) => (
+              <button
+                key={val}
+                onClick={() => setPrescriptionFilter(val)}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
+                  prescriptionFilter === val
+                    ? "bg-farumasi-600 text-white border-farumasi-600"
+                    : "border-slate-200 text-slate-600 hover:border-farumasi-400"
+                )}
+              >
                 {label}
               </button>
             ))}
@@ -717,27 +747,24 @@ function StorePageInner() {
       )}
 
       {/* ── Categories section — sticks when scrolled to top ── */}
-      <div className="sticky top-0 z-50 isolate -mx-4 md:-mx-6 mb-4 bg-[#F6F8FB] border-b border-slate-200 shadow-sm">
-        <div className="px-4 md:px-6">
-        <div className="flex items-center justify-end mb-1 pt-1">
+      <div className="sticky top-0 z-50 isolate -mx-4 md:-mx-6 mb-3 bg-[#F6F8FB] border-b border-slate-200 shadow-sm">
+        <div className="px-4 md:px-6 relative py-1">
           <button
             type="button"
             onClick={() => setHideCategories((h) => !h)}
-            className="p-1.5 rounded-full text-[#64748B] hover:bg-slate-100 transition-colors"
+            className="absolute right-3 md:right-5 top-1 z-20 p-1 rounded-full text-[#64748B] hover:bg-slate-100 transition-colors"
             aria-label={hideCategories ? t.store_cats_toggle : "Hide categories"}
             title={hideCategories ? t.store_cats_toggle : "Hide categories"}
           >
             {hideCategories ? (
-              <ChevronDown className="w-5 h-5" />
+              <ChevronDown className="w-4 h-4" />
             ) : (
-              <ChevronUp className="w-5 h-5" />
+              <ChevronUp className="w-4 h-4" />
             )}
           </button>
-        </div>
 
-        {/* Circular icon scroller */}
         {!hideCategories && (
-          <div className="relative">
+          <div className="relative pr-7">
             {/* Left scroll arrow */}
             {canScrollLeft && (
               <button
@@ -758,7 +785,7 @@ function StorePageInner() {
               onMouseMove={onCatMouseMove}
               onMouseUp={onCatMouseUp}
               onMouseLeave={onCatMouseUp}
-              className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-2 pt-1 px-1 cursor-grab"
+              className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-1.5 pt-0.5 px-0.5 cursor-grab"
               style={{ WebkitOverflowScrolling: "touch", scrollBehavior: "smooth", touchAction: "pan-x" }}
             >
               {/* "All" chip always first */}

@@ -346,7 +346,16 @@ export interface HealthArticle {
 }
 
 // ── Notifications ─────────────────────────────
-export type NotificationCategory = "order" | "order_shipped" | "health_tip" | "promo" | "reminder" | "general";
+export type NotificationCategory =
+  | "order"
+  | "order_shipped"
+  | "delivery"
+  | "payment"
+  | "prescription"
+  | "health_tip"
+  | "promo"
+  | "reminder"
+  | "general";
 
 export interface AppNotification {
   id: string;

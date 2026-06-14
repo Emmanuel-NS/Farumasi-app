@@ -1,14 +1,17 @@
 import { create } from "zustand";
 import { useSearchStore } from "@/store/search-store";
 
-export type StoreSort = "default" | "price_asc" | "price_desc";
+export type StoreSort = "default" | "name_asc" | "name_desc";
+export type PrescriptionFilter = "all" | "otc" | "rx";
 
 interface StoreFilterStore {
   sort: StoreSort;
+  prescriptionFilter: PrescriptionFilter;
   selectedProductType: string;
   selectedCategories: string[];
   showFilters: boolean;
   setSort: (sort: StoreSort) => void;
+  setPrescriptionFilter: (filter: PrescriptionFilter) => void;
   setSelectedProductType: (type: string) => void;
   setSelectedCategories: (cats: Iterable<string>) => void;
   toggleCategory: (cat: string) => void;
@@ -19,10 +22,12 @@ interface StoreFilterStore {
 
 export const useStoreFilterStore = create<StoreFilterStore>((set, get) => ({
   sort: "default",
+  prescriptionFilter: "all",
   selectedProductType: "All",
   selectedCategories: [],
   showFilters: false,
   setSort: (sort) => set({ sort }),
+  setPrescriptionFilter: (prescriptionFilter) => set({ prescriptionFilter }),
   setSelectedProductType: (selectedProductType) => set({ selectedProductType }),
   setSelectedCategories: (cats) =>
     set({ selectedCategories: [...new Set([...cats].map((c) => c.toLowerCase()))] }),
@@ -42,6 +47,7 @@ export const useStoreFilterStore = create<StoreFilterStore>((set, get) => ({
     useSearchStore.getState().clear();
     set({
       sort: "default",
+      prescriptionFilter: "all",
       selectedProductType: "All",
       selectedCategories: [],
     });
@@ -49,9 +55,11 @@ export const useStoreFilterStore = create<StoreFilterStore>((set, get) => ({
 }));
 
 export function storeActiveFilterCount(query: string): number {
-  const { sort, selectedProductType, selectedCategories } = useStoreFilterStore.getState();
+  const { sort, prescriptionFilter, selectedProductType, selectedCategories } =
+    useStoreFilterStore.getState();
   return (
     (sort !== "default" ? 1 : 0) +
+    (prescriptionFilter !== "all" ? 1 : 0) +
     (selectedProductType !== "All" ? 1 : 0) +
     (selectedCategories.length > 0 ? 1 : 0) +
     (query.trim() ? 1 : 0)

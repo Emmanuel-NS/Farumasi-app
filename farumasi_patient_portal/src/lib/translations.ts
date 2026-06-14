@@ -88,6 +88,12 @@ export type T = {
   store_sort_price_asc: string;
   store_sort_price_desc: string;
   store_sort_rating: string;
+  store_sort_name_asc: string;
+  store_sort_name_desc: string;
+  store_filter_availability: string;
+  store_filter_rx_all: string;
+  store_filter_rx_otc: string;
+  store_filter_rx_required: string;
   store_available_at: string;
   store_in_stock: string;
   store_low_stock: string;
@@ -477,6 +483,12 @@ const translations: Record<LangCode, T> = {
     store_sort_price_asc: "Price: Low → High",
     store_sort_price_desc: "Price: High → Low",
     store_sort_rating: "Top Rated",
+    store_sort_name_asc: "A → Z",
+    store_sort_name_desc: "Z → A",
+    store_filter_availability: "Availability",
+    store_filter_rx_all: "All products",
+    store_filter_rx_otc: "Over-the-counter (OTC)",
+    store_filter_rx_required: "Prescription required",
     store_available_at: "Available at",
     store_in_stock: "In Stock",
     store_low_stock: "Low Stock",
@@ -851,6 +863,12 @@ const translations: Record<LangCode, T> = {
     store_sort_price_asc: "Igiciro: Hasi → Hejuru",
     store_sort_price_desc: "Igiciro: Hejuru → Hasi",
     store_sort_rating: "Nziza Cyane",
+    store_sort_name_asc: "A → Z",
+    store_sort_name_desc: "Z → A",
+    store_filter_availability: "Kuboneka",
+    store_filter_rx_all: "Ibicuruzwa byose",
+    store_filter_rx_otc: "Bitagomba impapuro (OTC)",
+    store_filter_rx_required: "Bisaba impapuro z'umuganga",
     store_available_at: "Iboneka ku",
     store_in_stock: "Iriho",
     store_low_stock: "Hafi Gurangira",
@@ -1225,6 +1243,12 @@ const translations: Record<LangCode, T> = {
     store_sort_price_asc: "Prix : Croissant",
     store_sort_price_desc: "Prix : Décroissant",
     store_sort_rating: "Mieux notés",
+    store_sort_name_asc: "A → Z",
+    store_sort_name_desc: "Z → A",
+    store_filter_availability: "Disponibilité",
+    store_filter_rx_all: "Tous les produits",
+    store_filter_rx_otc: "Sans ordonnance (OTC)",
+    store_filter_rx_required: "Ordonnance requise",
     store_available_at: "Disponible chez",
     store_in_stock: "En Stock",
     store_low_stock: "Stock Faible",
@@ -1599,6 +1623,12 @@ const translations: Record<LangCode, T> = {
     store_sort_price_asc: "Bei: Chini → Juu",
     store_sort_price_desc: "Bei: Juu → Chini",
     store_sort_rating: "Zilizopigwa Kura Zaidi",
+    store_sort_name_asc: "A → Z",
+    store_sort_name_desc: "Z → A",
+    store_filter_availability: "Upatikanaji",
+    store_filter_rx_all: "Bidhaa zote",
+    store_filter_rx_otc: "Bila cheti cha daktari (OTC)",
+    store_filter_rx_required: "Inahitaji cheti cha daktari",
     store_available_at: "Inapatikana katika",
     store_in_stock: "Ipo Stokuni",
     store_low_stock: "Stoki Chini",

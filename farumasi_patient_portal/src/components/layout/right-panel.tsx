@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { X, Bell, ShoppingCart, HelpCircle, Pill, Clock, Trash2, Package, Truck, Gift, FileText, MessageCircle, Settings, Phone, Mail } from "lucide-react";
+import { X, ShoppingCart, HelpCircle, Trash2, FileText, MessageCircle, Settings, Phone, Mail, Pill } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { useTranslation, tf, useTimeAgo } from "@/lib/translations";
 import { useLanguageStore } from "@/store/language-store";
@@ -14,6 +14,12 @@ import { useAuthStore } from "@/store/auth-store";
 import type { AppNotification } from "@/types";
 import { notificationsService } from "@/lib/services/notifications.service";
 import { startVisibleInterval } from "@/lib/polling";
+import { openNotification } from "@/lib/notification-links";
+import {
+  filterDeletedNotifications,
+  notificationStyle,
+  persistDeletedNotificationId,
+} from "@/lib/notification-ui";
 
 interface RightPanelProps {
   activePanel: string;
@@ -54,6 +60,7 @@ export function RightPanel({ activePanel, onClose, overlay = false }: RightPanel
 }
 
 function NotificationsPanel() {
+  const router = useRouter();
   const t = useTranslation();
   const lang = useLanguageStore((s) => s.lang);
   const timeAgoLocal = useTimeAgo();
@@ -64,7 +71,9 @@ function NotificationsPanel() {
     let cancelled = false;
     const load = () => {
       notificationsService.getMyNotifications()
-        .then((items) => { if (!cancelled) setNotifications(items); })
+        .then((items) => {
+          if (!cancelled) setNotifications(filterDeletedNotifications(items));
+        })
         .catch(() => {})
         .finally(() => { if (!cancelled) setLoading(false); });
     };
@@ -76,19 +85,6 @@ function NotificationsPanel() {
     };
   }, [lang]);
 
-  // Lucide icon + icon colors + unread background per category — mirrors Flutter notification tile
-  const catMeta: Record<string, { Icon: React.ElementType; iconBg: string; iconColor: string; unreadBg: string }> = {
-    order:         { Icon: Package,  iconBg: "bg-farumasi-100", iconColor: "text-farumasi-600", unreadBg: "bg-farumasi-50"  },
-    order_shipped: { Icon: Truck,    iconBg: "bg-indigo-100",   iconColor: "text-indigo-600",   unreadBg: "bg-indigo-50/70" },
-    delivery:      { Icon: Truck,    iconBg: "bg-indigo-100",   iconColor: "text-indigo-600",   unreadBg: "bg-indigo-50/70" },
-    payment:       { Icon: Package,  iconBg: "bg-green-100",    iconColor: "text-green-600",    unreadBg: "bg-green-50/70"  },
-    prescription:  { Icon: Pill,     iconBg: "bg-farumasi-100", iconColor: "text-farumasi-600", unreadBg: "bg-farumasi-50"  },
-    health_tip:    { Icon: Pill,     iconBg: "bg-farumasi-100", iconColor: "text-farumasi-600", unreadBg: "bg-farumasi-50"  },
-    promo:         { Icon: Gift,     iconBg: "bg-purple-100",   iconColor: "text-purple-600",   unreadBg: "bg-purple-50/70" },
-    reminder:      { Icon: Clock,    iconBg: "bg-amber-100",    iconColor: "text-amber-600",    unreadBg: "bg-amber-50/70"  },
-    general:       { Icon: Bell,     iconBg: "bg-slate-100",    iconColor: "text-slate-500",    unreadBg: "bg-slate-50"     },
-  };
-
   const markRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
     void notificationsService.markRead(id).catch(() => {});
@@ -96,6 +92,18 @@ function NotificationsPanel() {
 
   const deleteNotif = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    persistDeletedNotificationId(id);
+  };
+
+  const handleOpen = async (n: AppNotification) => {
+    await openNotification(
+      { id: n.id, read_status: n.isRead, action_url: n.actionUrl },
+      router,
+      async (id) => {
+        setNotifications((prev) => prev.map((row) => (row.id === id ? { ...row, isRead: true } : row)));
+        await notificationsService.markRead(id);
+      },
+    );
   };
 
   const handleMarkAllRead = () => {
@@ -119,53 +127,52 @@ function NotificationsPanel() {
           <div className="w-6 h-6 border-2 border-farumasi-300 border-t-farumasi-600 rounded-full animate-spin mx-auto" />
         </div>
       ) : notifications.length === 0 ? (
-        <div className="py-16 text-center">
-          <Bell className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-          <p className="text-slate-500 text-sm">{t.panel_no_notif}</p>
+        <div className="py-16 text-center px-6">
+          <p className="text-slate-500 text-sm font-medium">{t.panel_no_notif}</p>
+          <p className="text-slate-400 text-xs mt-1">Order updates, prescriptions, and deliveries appear here.</p>
         </div>
       ) : (
         <ul>
           {notifications.map((n) => {
-            const meta = catMeta[n.category] ?? catMeta.general;
-            const { Icon, iconBg, iconColor, unreadBg } = meta;
+            const style = notificationStyle(n.category);
             return (
               <li
                 key={n.id}
                 className={cn(
-                  "group flex gap-3 px-4 py-3.5 border-b border-slate-100 cursor-pointer transition-colors",
-                  n.isRead ? "hover:bg-slate-50" : unreadBg
+                  "group flex gap-3 px-4 py-3.5 border-b border-slate-100 border-l-4 cursor-pointer transition-colors",
+                  style.accentClass,
+                  n.isRead ? "hover:bg-slate-50 bg-white" : style.unreadBg,
                 )}
-                onClick={() => markRead(n.id)}
+                onClick={() => void handleOpen(n)}
               >
-                {/* Category icon circle */}
-                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5", iconBg)}>
-                  <Icon className={cn("w-4.5 h-4.5", iconColor)} strokeWidth={2} />
-                </div>
-
-                {/* Text block */}
                 <div className="flex-1 min-w-0">
-                  {/* Title row: title left, timestamp + delete right */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={cn("text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full", style.chipClass)}>
+                      {style.label}
+                    </span>
+                    <span className="text-[10px] text-slate-400 shrink-0 whitespace-nowrap ml-auto">{timeAgoLocal(n.time)}</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
                     <p className={cn(
-                      "text-[13px] leading-snug flex-1 min-w-0 truncate",
+                      "text-[13px] leading-snug flex-1 min-w-0",
                       n.isRead ? "font-medium text-slate-700" : "font-semibold text-slate-900"
                     )}>
                       {n.title}
                     </p>
-                    <span className="text-[10px] text-slate-400 shrink-0 whitespace-nowrap">{timeAgoLocal(n.time)}</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteNotif(n.id); }}
                       className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 text-slate-300 hover:text-red-400 transition-all"
+                      aria-label="Remove notification"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
-                  {/* Description — 2 lines max, mirrors Flutter */}
                   <p className="text-[11.5px] text-slate-500 mt-0.5 leading-[1.4] line-clamp-2">{n.message}</p>
+                  {n.actionUrl && (
+                    <p className="text-[10px] text-farumasi-600 font-semibold mt-1">Open →</p>
+                  )}
                 </div>
-
-                {/* Unread dot */}
-                {!n.isRead && <div className={cn("w-2 h-2 rounded-full shrink-0 mt-1.5", iconColor.replace("text-", "bg-"))} />}
+                {!n.isRead && <div className="w-2 h-2 rounded-full bg-farumasi-500 shrink-0 mt-1" />}
               </li>
             );
           })}

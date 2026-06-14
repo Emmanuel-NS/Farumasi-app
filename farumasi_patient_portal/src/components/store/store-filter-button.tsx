@@ -30,10 +30,10 @@ export function StoreFilterButton({
   const activeFilterCount = storeActiveFilterCount(query);
 
   const sortLabel =
-    sort === "price_asc"
-      ? t.store_sort_price_asc
-      : sort === "price_desc"
-        ? t.store_sort_price_desc
+    sort === "name_asc"
+      ? t.store_sort_name_asc
+      : sort === "name_desc"
+        ? t.store_sort_name_desc
         : null;
 
   const active = showFilters || activeFilterCount > 0;
