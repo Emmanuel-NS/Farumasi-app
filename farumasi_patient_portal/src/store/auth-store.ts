@@ -26,6 +26,12 @@ interface AuthStore {
   register: (params: { full_name: string; email: string; phone?: string; password: string }) => Promise<{ email: string; expires_minutes: number }>;
   verifyRegistration: (email: string, code: string) => Promise<void>;
   resendRegistrationOtp: (email: string) => Promise<void>;
+  /** Sign in with Google OAuth (creates account if new) */
+  signInWithGoogle: (params: {
+    email: string;
+    full_name: string;
+    google_id: string;
+  }) => Promise<AuthUser>;
   /** Clear session */
   logout: () => void;
   /** Rehydrate tokens from localStorage on client mount */
@@ -83,6 +89,28 @@ export const useAuthStore = create<AuthStore>()((set) => ({
 
   resendRegistrationOtp: async (email) => {
     await authService.resendRegistrationOtp(email);
+  },
+
+  signInWithGoogle: async (params) => {
+    if (isMockMode()) {
+      const mockUser: AuthUser = {
+        id: "mock-google",
+        name: params.full_name,
+        email: params.email,
+        phone: "",
+        role: "patient",
+      };
+      saveTokens("mock-token", "mock-refresh");
+      set({ isGuest: false, user: mockUser, accessToken: "mock-token" });
+      return mockUser;
+    }
+    const tokens = await authService.googleOAuth(params);
+    saveTokens(tokens.access_token, tokens.refresh_token);
+    const user = await authService.getMe();
+    usePinStore.getState().setActiveUser(user.id);
+    await syncPatientPinStatus();
+    set({ isGuest: false, user, accessToken: tokens.access_token });
+    return user;
   },
 
   logout: () => {

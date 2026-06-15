@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FarumasiLogo } from "@/components/shared/farumasi-logo";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { CompleteProfileDialog } from "@/components/auth/complete-profile-dialog";
 import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, ShoppingBag } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { fetchMarketplaceStats } from "@/lib/services/platform.service";
 import { toast } from "sonner";
 import { getApiError } from "@/lib/api-error";
+import type { AuthUser } from "@/types";
 
 type Tab = "login" | "register";
 
@@ -19,7 +22,8 @@ const PENDING_REG_KEY = "farumasi_pending_registration_email";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, register, verifyRegistration, resendRegistrationOtp } = useAuthStore();
+  const { login, register, verifyRegistration, resendRegistrationOtp, signInWithGoogle, setUser } =
+    useAuthStore();
   const [tab, setTab] = useState<Tab>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,6 +36,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [marketStats, setMarketStats] = useState({ productCount: 0, sellerCount: 0 });
+  const [profileUser, setProfileUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     fetchMarketplaceStats()
@@ -90,8 +95,54 @@ export default function LoginPage() {
     }
   };
 
+  const needsPhone = (user: AuthUser) => {
+    const digits = (user.phone ?? "").replace(/\D/g, "");
+    return digits.length < 9;
+  };
+
+  const finishAuth = useCallback(
+    (user: AuthUser) => {
+      if (needsPhone(user)) {
+        setProfileUser(user);
+        return;
+      }
+      router.push("/store");
+    },
+    [router],
+  );
+
+  const handleGoogleSignIn = useCallback(
+    async (params: { email: string; full_name: string; google_id: string }) => {
+      if (!agreedToTerms) {
+        toast.error("Please accept the Terms of Service and Privacy Policy first.");
+        return;
+      }
+      setLoading(true);
+      try {
+        const user = await signInWithGoogle(params);
+        finishAuth(user);
+      } catch (err: unknown) {
+        toast.error(getApiError(err, "Google sign-in failed"));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [agreedToTerms, signInWithGoogle, finishAuth],
+  );
+
   return (
     <div className="min-h-screen flex">
+      {profileUser && (
+        <CompleteProfileDialog
+          user={profileUser}
+          open
+          onComplete={(updated) => {
+            setUser(updated);
+            setProfileUser(null);
+            router.push("/store");
+          }}
+        />
+      )}
       {/* ── Left panel (brand) — hidden on mobile ── */}
       <div className="hidden lg:flex lg:w-[45%] bg-gradient-to-br from-farumasi-600 via-farumasi-700 to-farumasi-900 flex-col justify-between p-12">
         <div className="flex items-center gap-3">
@@ -344,6 +395,27 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          {!pendingEmail && (
+            <>
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">or</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+              <div className="flex justify-center [&>div]:w-full [&_iframe]:!w-full">
+                <GoogleSignInButton
+                  disabled={loading || !agreedToTerms}
+                  onSuccess={handleGoogleSignIn}
+                />
+              </div>
+              {!agreedToTerms && (
+                <p className="text-[11px] text-center text-slate-400 mt-2">
+                  Accept the terms above to use Google sign-in
+                </p>
+              )}
+            </>
+          )}
 
           {/* Guest browse */}
           <div className="mt-5 pt-5 border-t border-slate-100 flex items-center justify-center gap-1.5">

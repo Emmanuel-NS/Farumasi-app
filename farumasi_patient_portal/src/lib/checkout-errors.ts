@@ -60,7 +60,7 @@ function parsePaymentDetail(text: string): string | null {
       "Please contact support or try a smaller order while limits are being raised."
     );
   }
-  const dictMatch = trimmed.match(/\{.*\}/s);
+  const dictMatch = trimmed.match(/\{[\s\S]*\}/);
   if (dictMatch) {
     try {
       const parsed = JSON.parse(dictMatch[0].replace(/'/g, '"')) as {
