@@ -55,7 +55,7 @@ class _WaveHeaderPainter extends CustomPainter {
     drawWave(0.92, 5);
 
     final fillPaint = Paint()
-      ..color = color.withValues(alpha: color.opacity * 0.35)
+      ..color = color.withValues(alpha: color.a * 0.35)
       ..style = PaintingStyle.fill;
 
     final blob = Path()

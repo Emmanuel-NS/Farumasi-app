@@ -64,7 +64,8 @@ class _PinGateState extends State<PinGate> {
   Future<void> _showForgotPinDialog() async {
     final user = await AuthRepository().loadCachedUser();
     if (!mounted) return;
-    if (user?.email == null || user!.email.isEmpty) {
+    final accountEmail = user?.email?.trim();
+    if (accountEmail == null || accountEmail.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Sign in again, then reset your passcode from Settings → Security.'),
@@ -72,6 +73,7 @@ class _PinGateState extends State<PinGate> {
       );
       return;
     }
+    final loginEmail = accountEmail;
 
     final passwordController = TextEditingController();
     final newPinController = TextEditingController();
@@ -161,7 +163,7 @@ class _PinGateState extends State<PinGate> {
                 }
                 try {
                   await AuthRepository().login(
-                    emailOrPhone: user.email,
+                    emailOrPhone: loginEmail,
                     password: password,
                   );
                   await PinService.instance.setPin(newPin);
