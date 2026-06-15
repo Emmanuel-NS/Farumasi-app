@@ -235,10 +235,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ref.read(authProvider).status == AuthStatus.authenticated,
           userId: () => ref.read(authProvider).user?.id,
         );
-        NotificationService().refreshFromApi();
+        NotificationService().refreshFromApi(authenticated: true);
         NotificationService().refreshConsultMessagePushes(
           myUserId: auth.user?.id,
+          authenticated: true,
         );
+      } else {
+        NotificationService().refreshFromApi(authenticated: false);
       }
     });
   }
@@ -249,7 +252,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       final auth = ref.read(authProvider);
       if (auth.status == AuthStatus.authenticated) {
         NotificationService().startPolling();
-        NotificationService().refreshFromApi();
+        NotificationService().refreshFromApi(authenticated: true);
         NotificationService().refreshConsultMessagePushes(
           myUserId: auth.user?.id,
         );
@@ -267,7 +270,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     } else if (state == AppLifecycleState.resumed) {
       final auth = ref.read(authProvider);
       if (auth.status == AuthStatus.authenticated) {
-        NotificationService().refreshFromApi();
+        NotificationService().refreshFromApi(authenticated: true);
         NotificationService().refreshConsultMessagePushes(
           myUserId: auth.user?.id,
         );

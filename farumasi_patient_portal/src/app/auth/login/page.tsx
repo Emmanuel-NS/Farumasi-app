@@ -15,6 +15,8 @@ type Tab = "login" | "register";
 const INPUT_CLS =
   "w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 pl-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 focus:bg-white transition-all";
 
+const PENDING_REG_KEY = "farumasi_pending_registration_email";
+
 export default function LoginPage() {
   const router = useRouter();
   const { login, register, verifyRegistration, resendRegistrationOtp } = useAuthStore();
@@ -35,6 +37,11 @@ export default function LoginPage() {
     fetchMarketplaceStats()
       .then(setMarketStats)
       .catch(() => setMarketStats({ productCount: 0, sellerCount: 0 }));
+    const saved = sessionStorage.getItem(PENDING_REG_KEY);
+    if (saved) {
+      setPendingEmail(saved);
+      setTab("register");
+    }
   }, []);
 
   const featureBullets = [
@@ -53,6 +60,7 @@ export default function LoginPage() {
     try {
       if (pendingEmail) {
         await verifyRegistration(pendingEmail, otp);
+        sessionStorage.removeItem(PENDING_REG_KEY);
         router.push("/store");
         return;
       }
@@ -68,6 +76,7 @@ export default function LoginPage() {
         }
         const pending = await register({ full_name: name, email, password, phone: phone || undefined });
         setPendingEmail(pending.email);
+        sessionStorage.setItem(PENDING_REG_KEY, pending.email);
         toast.success("Verification code sent — check your email or phone.");
       }
     } catch (err: unknown) {
@@ -139,7 +148,8 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Tab switcher */}
+          {/* Tab switcher — hidden during OTP step */}
+          {!pendingEmail && (
           <div className="flex bg-slate-100 rounded-2xl p-1 mb-7">
             {(["login", "register"] as Tab[]).map((t) => (
               <button
@@ -156,24 +166,57 @@ export default function LoginPage() {
               </button>
             ))}
           </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {pendingEmail ? (
               <>
+                <p className="text-sm text-slate-600 text-center">
+                  Code sent to <span className="font-semibold text-slate-800">{pendingEmail}</span>
+                </p>
                 <input
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   required
-                  placeholder="Verification code"
+                  placeholder="000000"
                   inputMode="numeric"
-                  className={INPUT_CLS.replace("pl-11", "px-4")}
+                  maxLength={6}
+                  autoComplete="one-time-code"
+                  className="w-full h-14 rounded-2xl border-2 border-farumasi-200 bg-farumasi-50 px-4 text-2xl text-farumasi-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 transition-all tracking-[0.35em] text-center font-mono font-bold"
                 />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText();
+                      const digits = text.replace(/\D/g, "").slice(0, 6);
+                      if (digits.length === 6) setOtp(digits);
+                      else toast.error("Clipboard does not contain a 6-digit code");
+                    } catch {
+                      toast.error("Paste the code from your email manually");
+                    }
+                  }}
+                  className="w-full text-sm text-farumasi-600 font-semibold hover:underline"
+                >
+                  Paste code from clipboard
+                </button>
                 <button
                   type="button"
                   onClick={() => void resendRegistrationOtp(pendingEmail).then(() => toast.success("Code resent"))}
                   className="text-sm text-farumasi-600 font-semibold hover:underline"
                 >
                   Resend code
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sessionStorage.removeItem(PENDING_REG_KEY);
+                    setPendingEmail(null);
+                    setOtp("");
+                  }}
+                  className="text-xs text-slate-400 hover:text-slate-600"
+                >
+                  Use a different email
                 </button>
               </>
             ) : (
@@ -295,7 +338,7 @@ export default function LoginPage() {
                 </svg>
               ) : (
                 <>
-                  {tab === "login" ? "Sign In" : "Create Account"}
+                  {pendingEmail ? "Verify account" : tab === "login" ? "Sign In" : "Create Account"}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

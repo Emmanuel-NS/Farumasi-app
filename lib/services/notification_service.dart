@@ -24,6 +24,7 @@ class NotificationService extends ChangeNotifier {
   final Set<String> _pushedIds = {};
   final Set<String> _seenConsultMessageIds = {};
   bool _consultPushInitialized = false;
+  bool _notificationsBootstrap = false;
 
   bool _loading = false;
   String? _error;
@@ -155,6 +156,7 @@ class NotificationService extends ChangeNotifier {
       _usesApi = false;
       _error = null;
       _unreadCount = 0;
+      _notificationsBootstrap = false;
       notifyListeners();
       return;
     }
@@ -171,18 +173,27 @@ class NotificationService extends ChangeNotifier {
           .where((n) => !_isExcludedFromInApp(n['category'] as String?))
           .toList();
 
-      for (final n in mapped) {
-        final id = '${n['id']}';
-        final isUnread = n['isRead'] != true;
-        if (isUnread && !previousIds.contains(id) && !_pushedIds.contains(id)) {
-          await _showSystemNotification(
-            id: id.hashCode,
-            title: '${n['title']}',
-            body: '${n['body']}',
-            payload: _payloadForNotification(n),
-            channelId: _androidChannelId,
-          );
-          _pushedIds.add(id);
+      if (!_notificationsBootstrap) {
+        for (final n in mapped) {
+          if (n['isRead'] != true) {
+            _pushedIds.add('${n['id']}');
+          }
+        }
+        _notificationsBootstrap = true;
+      } else {
+        for (final n in mapped) {
+          final id = '${n['id']}';
+          final isUnread = n['isRead'] != true;
+          if (isUnread && !previousIds.contains(id) && !_pushedIds.contains(id)) {
+            await _showSystemNotification(
+              id: id.hashCode,
+              title: '${n['title']}',
+              body: '${n['body']}',
+              payload: _payloadForNotification(n),
+              channelId: _androidChannelId,
+            );
+            _pushedIds.add(id);
+          }
         }
       }
 

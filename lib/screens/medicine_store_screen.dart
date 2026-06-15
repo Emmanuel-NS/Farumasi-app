@@ -24,6 +24,7 @@ import 'cart_screen.dart';
 import '../utils/product_cart_flow.dart';
 import '../models/product_category.dart';
 import '../widgets/store_category_scroller.dart';
+import '../widgets/wave_header_overlay.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/app_refresh.dart';
 import '../widgets/lite_network_image.dart';
@@ -485,9 +486,6 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
     StateService().addListener(_onGlobalSearchChanged);
     PatientCatalogService().addListener(_onCatalogChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      NotificationService().refreshFromApi();
-    });
     if (PatientCatalogService().medicines.isEmpty) {
       PatientCatalogService().refresh(immediate: true);
     } else if (AppLifecycleService.instance.isInForeground) {
@@ -1722,6 +1720,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                     fit: StackFit.expand,
                     children: [
                       const StoreHeroBackground(),
+                      const WaveHeaderOverlay(color: Colors.white, opacity: 0.16),
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(

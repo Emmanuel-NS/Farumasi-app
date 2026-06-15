@@ -46,21 +46,70 @@ def _sender_address() -> str:
     return settings.SMTP_FROM_EMAIL or settings.SMTP_USER or "noreply@farumasi.com"
 
 
+def _verification_email_bodies(
+    *, full_name: str, code: str, purpose_label: str
+) -> tuple[str, str]:
+    minutes = settings.EMAIL_VERIFICATION_EXPIRE_MINUTES
+    text = (
+        f"Hello {full_name},\n\n"
+        f"Your FARUMASI verification code for {purpose_label} is:\n\n"
+        f"  {code}\n\n"
+        f"This code expires in {minutes} minutes. "
+        f"If you did not request this, ignore this email.\n\n"
+        f"— FARUMASI"
+    )
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" style="max-width:480px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,0.08);">
+        <tr><td style="background:linear-gradient(135deg,#1E9E68,#0F5132);padding:28px 24px;text-align:center;">
+          <div style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:1px;">FARUMASI</div>
+          <div style="color:rgba(255,255,255,0.85);font-size:13px;margin-top:6px;">{purpose_label}</div>
+        </td></tr>
+        <tr><td style="padding:28px 24px 12px;text-align:center;">
+          <p style="margin:0 0 8px;color:#64748b;font-size:14px;">Hello {full_name},</p>
+          <p style="margin:0 0 20px;color:#334155;font-size:15px;line-height:1.5;">Your verification code:</p>
+          <div style="display:inline-block;background:#ecfdf5;border:2px dashed #1E9E68;border-radius:16px;padding:20px 32px;margin:0 auto 12px;">
+            <div style="font-size:40px;font-weight:800;letter-spacing:10px;color:#0F5132;font-family:Consolas,Monaco,monospace;user-select:all;-webkit-user-select:all;">{code}</div>
+          </div>
+          <p style="margin:8px 0 0;color:#64748b;font-size:12px;line-height:1.5;">
+            Tap and hold the code to copy it, then paste it in the app.
+          </p>
+        </td></tr>
+        <tr><td style="padding:0 24px 28px;text-align:center;">
+          <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.5;">
+            Expires in <strong>{minutes} minutes</strong>. If you did not request this, you can ignore this email.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+    return text, html
+
+
 def _send_via_brevo_api(
     *,
     to_email: str,
     to_name: str,
     subject: str,
     body: str,
+    html_body: str | None = None,
 ) -> bool:
     if not _brevo_api_configured():
         return False
-    payload = {
+    payload: dict = {
         "sender": {"name": settings.SMTP_FROM_NAME, "email": _sender_address()},
         "to": [{"email": to_email, "name": to_name or to_email}],
         "subject": subject,
         "textContent": body,
     }
+    if html_body:
+        payload["htmlContent"] = html_body
     try:
         with httpx.Client(timeout=15.0) as client:
             response = client.post(
@@ -98,9 +147,15 @@ def _send_smtp_message(msg: EmailMessage) -> bool:
         return False
 
 
-def _send_email(*, to_email: str, to_name: str, subject: str, body: str) -> bool:
+def _send_email(
+    *, to_email: str, to_name: str, subject: str, body: str, html_body: str | None = None
+) -> bool:
     if _brevo_api_configured() and _send_via_brevo_api(
-        to_email=to_email, to_name=to_name, subject=subject, body=body
+        to_email=to_email,
+        to_name=to_name,
+        subject=subject,
+        body=body,
+        html_body=html_body,
     ):
         return True
 
@@ -110,6 +165,8 @@ def _send_email(*, to_email: str, to_name: str, subject: str, body: str) -> bool
         msg["From"] = _sender_address()
         msg["To"] = to_email
         msg.set_content(body)
+        if html_body:
+            msg.add_alternative(html_body, subtype="html")
         if _send_smtp_message(msg):
             return True
 
@@ -119,15 +176,17 @@ def _send_email(*, to_email: str, to_name: str, subject: str, body: str) -> bool
 def send_owner_verification_email(*, to_email: str, full_name: str, code: str, purpose_label: str) -> bool:
     """Send verification email. Returns True if sent, False if email is not configured."""
     subject = f"FARUMASI verification code — {purpose_label}"
-    body = (
-        f"Hello {full_name},\n\n"
-        f"Your FARUMASI verification code is: {code}\n\n"
-        f"This code expires in {settings.EMAIL_VERIFICATION_EXPIRE_MINUTES} minutes. "
-        f"If you did not request this change, ignore this email and contact support.\n\n"
-        f"— FARUMASI"
+    body, html = _verification_email_bodies(
+        full_name=full_name, code=code, purpose_label=purpose_label
     )
 
-    if _send_email(to_email=to_email, to_name=full_name, subject=subject, body=body):
+    if _send_email(
+        to_email=to_email,
+        to_name=full_name,
+        subject=subject,
+        body=body,
+        html_body=html,
+    ):
         logger.info("Sent verification email to %s", to_email)
         return True
 

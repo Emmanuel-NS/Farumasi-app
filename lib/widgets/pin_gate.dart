@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../api/repositories/auth_repository.dart';
 import '../services/pin_service.dart';
 
 /// Matches Next.js `PinGate` — passcode lock for orders / prescriptions.
@@ -57,6 +59,132 @@ class _PinGateState extends State<PinGate> {
         _controller.clear();
       });
     }
+  }
+
+  Future<void> _showForgotPinDialog() async {
+    final user = await AuthRepository().loadCachedUser();
+    if (!mounted) return;
+    if (user?.email == null || user!.email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sign in again, then reset your passcode from Settings → Security.'),
+        ),
+      );
+      return;
+    }
+
+    final passwordController = TextEditingController();
+    final newPinController = TextEditingController();
+    final confirmController = TextEditingController();
+    String? dialogError;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Reset passcode'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Confirm your account password, then choose a new 4–8 digit passcode.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Account password',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newPinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 8,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'New passcode',
+                    counterText: '',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 8,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Confirm passcode',
+                    counterText: '',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                if (dialogError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    dialogError!,
+                    style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final password = passwordController.text;
+                final newPin = newPinController.text;
+                final confirm = confirmController.text;
+                if (password.isEmpty) {
+                  setDialogState(() => dialogError = 'Enter your account password');
+                  return;
+                }
+                if (newPin.length < 4 || newPin.length > 8) {
+                  setDialogState(() => dialogError = 'Passcode must be 4–8 digits');
+                  return;
+                }
+                if (newPin != confirm) {
+                  setDialogState(() => dialogError = 'Passcodes do not match');
+                  return;
+                }
+                try {
+                  await AuthRepository().login(
+                    emailOrPhone: user.email,
+                    password: password,
+                  );
+                  await PinService.instance.setPin(newPin);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Passcode updated')),
+                    );
+                  }
+                } catch (_) {
+                  setDialogState(() => dialogError = 'Incorrect password. Try again.');
+                }
+              },
+              child: const Text('Save new passcode'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    passwordController.dispose();
+    newPinController.dispose();
+    confirmController.dispose();
   }
 
   @override
@@ -190,10 +318,12 @@ class _PinGateState extends State<PinGate> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Forgot your passcode? Reset it from Settings → Security.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    TextButton(
+                      onPressed: _showForgotPinDialog,
+                      child: const Text(
+                        'Forgot passcode?',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
