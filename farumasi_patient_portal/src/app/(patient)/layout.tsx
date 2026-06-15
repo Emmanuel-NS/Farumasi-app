@@ -12,6 +12,7 @@ import { PatientRoleGuard } from "@/components/shared/patient-role-guard";
 import { hydrateLanguage } from "@/store/language-store";
 import { TranslationProvider } from "@/components/providers/translation-provider";
 import { useAuthStore } from "@/store/auth-store";
+import { ConsultNotificationsMount } from "@/components/consult/consult-notifications-mount";
 
 const MOBILE_NAV_MQ = "(max-width: 639px)";
 
@@ -117,6 +118,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   return (
     <TranslationProvider>
     <PatientRoleGuard>
+      <ConsultNotificationsMount />
       <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600">
         <Topbar
           collapsed={collapsed}

@@ -7,6 +7,7 @@ import '../screens/splash_screen.dart';
 import '../screens/auth_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/health_article_detail_screen.dart';
+import '../screens/order_detail_screen.dart';
 import '../screens/rider/rider_dashboard_screen.dart';
 import '../services/deep_link_service.dart';
 import '../services/state_service.dart';
@@ -19,6 +20,7 @@ abstract class AppRoutes {
   static const healthArticle = '/health/:articleId';
   static const consult = '/consult';
   static const store = '/store';
+  static const orderDetail = '/orders/:orderId';
 }
 
 class _RouterNotifier extends ChangeNotifier {
@@ -113,6 +115,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           StateService().requestHomeTab(0);
           return const HomeScreen();
         },
+      ),
+      GoRoute(
+        path: AppRoutes.orderDetail,
+        builder: (_, state) => OrderDetailScreen(
+          orderId: state.pathParameters['orderId']!,
+        ),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

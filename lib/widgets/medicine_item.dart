@@ -34,7 +34,7 @@ class MedicineItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                flex: 13,
+                flex: 11,
                 child: InkWell(
                   onTap: () {
                     if (medicine.requiresPrescription) {
@@ -127,7 +127,7 @@ class MedicineItem extends StatelessWidget {
               Expanded(
                 flex: 10,
                 child: Padding(
-                padding: const EdgeInsets.all(10.0),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -148,21 +148,21 @@ class MedicineItem extends StatelessWidget {
                           return;
                         }
                         onTap();
-                      }, // Text tap -> Toggle Cart
+                      },
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min, // Ensure it takes minimum space
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               medicine.name,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
-                              maxLines: 1, // Strict single line
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 3),
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
@@ -170,110 +170,92 @@ class MedicineItem extends StatelessWidget {
                                 medicine.maxPrice != null && medicine.maxPrice! > medicine.price
                                     ? '${medicine.price.toStringAsFixed(0)} - ${medicine.maxPrice!.toStringAsFixed(0)} RWF'
                                     : '${medicine.price.toStringAsFixed(0)} RWF',
-                                style: TextStyle(
-                                  color: const Color(0xFF1E9E68),
+                                style: const TextStyle(
+                                  color: Color(0xFF1E9E68),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),
                               ),
                             ),
                             if (medicine.allowsPartialSelling &&
-                                medicine.unitPriceFrom != null) ...[
-                              const SizedBox(height: 2),
+                                medicine.unitPriceFrom != null)
                               Text(
                                 'or ${medicine.unitPriceFrom!.toStringAsFixed(0)} RWF/${medicine.partialUnitName ?? 'unit'}',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: Colors.grey.shade600,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
-                            SizedBox(height: 4),
-                          // New Info: Expiry and Dosage removed from grid view to increase image size
-                          // These details are available in the "Read More" dialog.
-
-                          SizedBox(height: 2),
-                          if (medicine.requiresPrescription)
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.description,
-                                  size: 10,
-                                  color: Colors.amber,
+                            if (medicine.requiresPrescription)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 2),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.description,
+                                      size: 10,
+                                      color: Colors.amber,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Rx Required',
+                                      style: TextStyle(
+                                        color: Colors.amber,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Rx Required',
-                                  style: TextStyle(
-                                    color: Colors.amber,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-
-                    // Description Overlay/Toggle
-                    // Using a stateful builder for local toggle if we wanted expansion.
-                    // But per user request "Show as tooltip/overlay", we'll do an inline peek 
-                    // that opens a modal for full text.
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        return InkWell(
-                          onTap: () => _showQuickView(context),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                medicine.description,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey[600],
-                                  height: 1.2,
-                                ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _showQuickView(context),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              medicine.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                                height: 1.15,
                               ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                'Read more...',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: PortalColors.green,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            ),
+                            const Text(
+                              'Read more...',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: PortalColors.green,
+                                fontWeight: FontWeight.w700,
                               ),
-                            ],
-                          ),
-                        );
-                      },
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-
-                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         InkWell(
-                          onTap:
-                              onAboutTap, // Explicit About Tap (Now isolated)
+                          onTap: onAboutTap,
                           borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              0,
-                              8,
-                              12,
-                              8,
-                            ), // Larger hit area
+                          child: const Padding(
+                            padding: EdgeInsets.fromLTRB(0, 4, 12, 4),
                             child: Text(
                               'About >',
                               style: TextStyle(
-                                color: const Color(0xFF1E9E68),
+                                color: Color(0xFF1E9E68),
                                 fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                                fontSize: 14,
                                 decoration: TextDecoration.underline,
                               ),
                             ),
@@ -282,15 +264,13 @@ class MedicineItem extends StatelessWidget {
                         Material(
                           color: medicine.requiresPrescription
                               ? Colors.grey
-                              : (isInCart
-                                    ? const Color(0xFF1E9E68)
-                                    : const Color(0xFF1E9E68)),
+                              : const Color(0xFF1E9E68),
                           borderRadius: BorderRadius.circular(4),
                           child: InkWell(
                             onTap: () => handleProductCartTap(context, medicine),
                             borderRadius: BorderRadius.circular(4),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
                                 horizontal: 8.0,
                                 vertical: 4.0,
                               ),

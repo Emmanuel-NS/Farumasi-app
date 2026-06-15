@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/rider_models.dart';
 import '../../providers/rider_provider.dart';
+import '../../widgets/farumasi_logo.dart';
 
 // Notification type constants
 const _kDelivery = 'delivery';
@@ -160,19 +161,6 @@ class _NotificationTile extends StatelessWidget {
     }
   }
 
-  IconData get _typeIcon {
-    switch (notification.type) {
-      case _kDelivery:
-        return Icons.motorcycle_rounded;
-      case _kPayment:
-        return Icons.account_balance_wallet_rounded;
-      case _kAlert:
-        return Icons.warning_amber_rounded;
-      default:
-        return Icons.info_rounded;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -202,12 +190,13 @@ class _NotificationTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
                 color: _typeColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(_typeIcon, color: _typeColor, size: 18),
+              child: FarumasiLogo(size: 42, color: _typeColor),
             ),
             const SizedBox(width: 14),
             Expanded(

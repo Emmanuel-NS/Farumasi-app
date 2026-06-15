@@ -11,17 +11,30 @@ import {
   FileText,
   Image as ImageIcon,
   MoreVertical,
-  Package,
   Pencil,
   Trash2,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
+import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 import type { ChatMessage, ChatProductRef, Pharmacist } from "@/types";
 
 const SWIPE_REPLY_THRESHOLD = 56;
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE = 18;
 const PLACEHOLDER_PRODUCT = "/pill-placeholder.svg";
+
+function BrandMediaFallback({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-center bg-farumasi-50 text-farumasi-700",
+        className,
+      )}
+    >
+      <FarumasiLogo size={40} />
+    </div>
+  );
+}
 
 function ChatImage({
   src,
@@ -36,8 +49,8 @@ function ChatImage({
   if (failed) {
     return (
       <div className="flex flex-col gap-2 rounded-lg px-3 py-4 bg-slate-100 text-slate-500 text-xs">
-        <div className="flex items-center gap-2">
-          <ImageIcon className="w-5 h-5 shrink-0" />
+        <BrandMediaFallback className="w-full max-w-[240px] h-28 rounded-lg" />
+        <div className="flex items-center gap-2 px-1">
           <span>Image unavailable</span>
         </div>
         {src && (
@@ -45,7 +58,7 @@ function ChatImage({
             href={src}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-farumasi-600 font-semibold hover:underline"
+            className="text-farumasi-600 font-semibold hover:underline px-1"
           >
             Try opening file
           </a>
@@ -455,10 +468,14 @@ export function ChatMessageRow({
                         alt={msg.attachmentName ?? "Product"}
                         className="w-full h-28 object-cover bg-slate-100"
                         loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = PLACEHOLDER_PRODUCT;
+                        }}
                       />
                       <span className="flex items-center gap-2 px-3 py-2">
-                        <span className="w-8 h-8 rounded-lg bg-farumasi-100 text-farumasi-700 flex items-center justify-center shrink-0">
-                          <Package className="w-4 h-4" />
+                        <span className="w-8 h-8 rounded-lg bg-farumasi-50 flex items-center justify-center shrink-0 overflow-hidden">
+                          <FarumasiLogo size={28} />
                         </span>
                         <span className="flex-1 min-w-0">
                           <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -513,6 +530,12 @@ export function ChatMessageRow({
               </div>
             </div>
           </div>
+
+          {isPatient && (
+            <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full border-2 border-white overflow-hidden bg-farumasi-50 shrink-0 flex items-center justify-center">
+              <FarumasiLogo size={28} />
+            </div>
+          )}
         </div>
       </div>
       {actionSheet && mounted ? createPortal(actionSheet, document.body) : null}

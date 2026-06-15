@@ -15,6 +15,7 @@ import {
   notificationStyle,
   persistDeletedNotificationId,
 } from "@/lib/notification-ui";
+import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 
 const CAT_FILTERS = ["All", "Order", "Health", "Promo", "Reminder"];
 
@@ -189,6 +190,9 @@ function NotificationRow({
         !n.isRead ? style.unreadBg : "border-slate-100",
       )}
     >
+      <div className="shrink-0 mt-0.5">
+        <FarumasiLogo size={36} />
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className={cn("text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full", style.chipClass)}>

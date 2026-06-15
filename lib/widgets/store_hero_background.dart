@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'imigongo_africa_painter.dart';
+import 'imigongo_doodle_background.dart';
 
-/// Store sliver hero — hand-drawn imigongo Africa map (no network, data-light).
+/// Store sliver hero — scattered imigongo doodles in platform green (no network).
 class StoreHeroBackground extends StatelessWidget {
   const StoreHeroBackground({
     super.key,
-    this.baseColor = const Color(0xFF1E9E68),
-    this.darkColor = const Color(0xFF167B51),
+    this.baseColor = ImigongoDoodleBackground.heroGreen,
+    this.darkColor = ImigongoDoodleBackground.heroGreenDark,
   });
 
   final Color baseColor;
@@ -15,9 +15,9 @@ class StoreHeroBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ImigongoAfricaHero(
-      baseColor: baseColor,
-      darkColor: darkColor,
+    return ImigongoDoodleBackground(
+      variant: ImigongoDoodleVariant.hero,
+      gradientColors: [baseColor, darkColor, ImigongoDoodleBackground.heroGreenDeep],
     );
   }
 }

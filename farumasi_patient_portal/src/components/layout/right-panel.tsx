@@ -20,6 +20,7 @@ import {
   notificationStyle,
   persistDeletedNotificationId,
 } from "@/lib/notification-ui";
+import { FarumasiLogo } from "@/components/shared/farumasi-logo";
 
 interface RightPanelProps {
   activePanel: string;
@@ -50,7 +51,14 @@ export function RightPanel({ activePanel, onClose, overlay = false }: RightPanel
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div
+        className={cn(
+          "flex-1 min-h-0",
+          activePanel === "notifications"
+            ? "flex flex-col overflow-hidden"
+            : "overflow-y-auto scrollbar-hide",
+        )}
+      >
         {activePanel === "notifications" && <NotificationsPanel />}
         {activePanel === "cart" && <CartPanel onClose={onClose} />}
         {activePanel === "help" && <HelpPanel onClose={onClose} />}
@@ -112,8 +120,8 @@ function NotificationsPanel() {
   };
 
   return (
-    <div>
-      <div className="px-5 py-3 flex items-center justify-between">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="shrink-0 px-5 py-3 flex items-center justify-between border-b border-slate-50">
         <span className="text-xs text-slate-500">{tf(t.panel_unread, { n: notifications.filter(n => !n.isRead).length })}</span>
         <button
           onClick={handleMarkAllRead}
@@ -122,6 +130,7 @@ function NotificationsPanel() {
           {t.panel_mark_all}
         </button>
       </div>
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
       {loading ? (
         <div className="py-16 text-center">
           <div className="w-6 h-6 border-2 border-farumasi-300 border-t-farumasi-600 rounded-full animate-spin mx-auto" />
@@ -145,6 +154,9 @@ function NotificationsPanel() {
                 )}
                 onClick={() => void handleOpen(n)}
               >
+                <div className="shrink-0 mt-0.5">
+                  <FarumasiLogo size={34} />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className={cn("text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full", style.chipClass)}>
@@ -178,8 +190,12 @@ function NotificationsPanel() {
           })}
         </ul>
       )}
-      <div className="p-4">
-        <Link href="/notifications" className="block text-center text-sm text-farumasi-600 font-medium hover:underline">
+      </div>
+      <div className="shrink-0 border-t border-slate-100 bg-white p-4 shadow-[0_-4px_12px_rgba(15,23,42,0.06)]">
+        <Link
+          href="/notifications"
+          className="flex items-center justify-center w-full h-10 rounded-xl bg-farumasi-50 text-sm text-farumasi-700 font-semibold hover:bg-farumasi-100 transition-colors"
+        >
           {t.panel_view_all_notif}
         </Link>
       </div>

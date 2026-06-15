@@ -19,24 +19,6 @@ class AgeDosage {
   });
 }
 
-enum StockStatus {
-  available,
-  lowStock,
-  unavailable,
-}
-
-class MarketingPharmacy {
-  final String pharmacyName;
-  final StockStatus stockStatus;
-  final double price;
-
-  MarketingPharmacy({
-    required this.pharmacyName,
-    required this.stockStatus,
-    required this.price,
-  });
-}
-
 class Medicine {
   final String id;
   final String name;
@@ -46,7 +28,6 @@ class Medicine {
   final String category;
   final String? subCategory;
   final bool requiresPrescription;
-  final double rating;
   final bool isPopular;
   final String dosage;
   final String sideEffects;
@@ -66,7 +47,6 @@ class Medicine {
   final String? doseTimeInterval; // e.g. "Every 8 hours"
   
   final List<AgeDosage> ageDosages;
-  final List<MarketingPharmacy> marketingPharmacies;
 
   // Partial selling — matches patient portal Medicine type
   final String? packagingClass;
@@ -96,7 +76,6 @@ class Medicine {
     required this.price,
     required this.imageUrl,
     required this.category,    this.subCategory,    this.requiresPrescription = false,
-    this.rating = 4.5,
     this.isPopular = false,
     this.dosage = 'Take as directed by physician.',
     this.sideEffects = 'Consult a doctor if adverse reactions occur.',
@@ -111,7 +90,6 @@ class Medicine {
     this.doseEvening,
     this.doseTimeInterval,
     this.ageDosages = const [],
-    this.marketingPharmacies = const [],
     this.packagingClass,
     this.allowsPartialSelling = false,
     this.minPartialQuantity,

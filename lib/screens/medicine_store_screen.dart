@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/gestures.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async'; // For Typewriter animation timer
@@ -12,8 +13,6 @@ import '../services/notification_service.dart';
 import '../api/repositories/patient_repository.dart';
 import '../widgets/auth_helper.dart';
 
-import 'notification_screen.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:farumasi_app/screens/help_screen.dart';
 import 'package:farumasi_app/screens/profile_screen.dart';
@@ -1133,7 +1132,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
       200.0,
       260.0,
     )).toDouble();
-    final desktopCardHeight = (desktopCardWidth * 1.30).toDouble();
+    final desktopCardHeight = (desktopCardWidth * 1.44).toDouble();
     final showHeroHeader = !widget.embeddedInHomeShell;
 
     return GestureDetector(
@@ -1208,17 +1207,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                             },
                           ),
                           const SizedBox(width: 8),
-                          NotificationBadgeIcon(
-                            icon: Icons.notifications_none,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const NotificationScreen(),
-                                ),
-                              );
-                            },
-                          ),
+                          const AuthNotificationBadgeIcon(),
                           ListenableBuilder(
                             listenable: StateService(),
 
@@ -1272,11 +1261,11 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               DecoratedBox(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: [
-                                      const Color(0xFF1E9E68).withOpacity(0.86),
-                                      const Color(0xFF1E9E68).withOpacity(0.55),
-                                      Colors.transparent,
-                                    ],
+                            colors: [
+                              const Color(0xFF1E9E68).withValues(alpha: 0.62),
+                              const Color(0xFF1E9E68).withValues(alpha: 0.38),
+                              Colors.transparent,
+                            ],
                                     begin: Alignment.centerLeft,
                                     end: Alignment.centerRight,
                                   ),
@@ -1573,9 +1562,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
           170.0,
           340.0,
         )).toDouble();
-    final responsiveCardHeight = ((responsiveCardWidth * 1.36).clamp(
-      268.0,
-      410.0,
+    final responsiveCardHeight = ((responsiveCardWidth * 1.52).clamp(
+      292.0,
+      440.0,
     )).toDouble();
     final responsiveGridSpacing = ((responsiveCardWidth * 0.06).clamp(
       10.0,
@@ -1635,15 +1624,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                   ),
                 ),
                 actions: [
-                  NotificationBadgeIcon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const NotificationScreen(),
-                        ),
-                      );
-                    },
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 300),
+                    opacity: _isScrolled ? 1.0 : 0.0,
+                    child: IgnorePointer(
+                      ignoring: !_isScrolled,
+                      child: const AuthNotificationBadgeIcon(),
+                    ),
                   ),
                   AnimatedOpacity(
                     duration: const Duration(milliseconds: 300),
@@ -1739,11 +1726,23 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              const Color(0xFF1E9E68).withOpacity(0.9),
+                              const Color(0xFF1E9E68).withValues(alpha: 0.65),
                               Colors.transparent,
                             ],
                             begin: Alignment.bottomLeft,
                             end: Alignment.topRight,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: MediaQuery.of(context).padding.top + 4,
+                        right: 4,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: _isScrolled ? 0.0 : 1.0,
+                          child: IgnorePointer(
+                            ignoring: _isScrolled,
+                            child: const AuthNotificationBadgeIcon(),
                           ),
                         ),
                       ),

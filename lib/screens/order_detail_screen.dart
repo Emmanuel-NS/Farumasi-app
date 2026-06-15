@@ -284,7 +284,8 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
           _accessCodeCard(order.patientAccessCode!, isPickup),
         if (delivery != null && !isCancelled && !isDelivered && !isOutForDelivery)
           _deliveryTrackingCard(delivery),
-        if (!isPickup && !isCancelled) _deliveryQrSection(),
+        if (!isPickup && !isCancelled && order.patientAccessCode == null)
+          _deliveryQrSection(),
         if (order.deliveryAddress != null && !isPickup)
           _infoCard(
             icon: Icons.location_on_outlined,
@@ -623,7 +624,9 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            isPickup ? 'Show this code at the pharmacy counter.' : 'Share with the rider on delivery.',
+            isPickup
+                ? 'Show this code at the pharmacy to collect your order.'
+                : 'Give this code to the rider to verify and complete delivery.',
             style: const TextStyle(fontSize: 12, color: PortalColors.slate500),
           ),
         ],

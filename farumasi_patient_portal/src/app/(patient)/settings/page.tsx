@@ -102,7 +102,19 @@ export default function SettingsPage() {
     }, 450);
   }, [isGuest]);
 
-  const setChannel = (key: keyof NotificationPreferences["channels"], v: boolean) => {
+  const setChannel = async (key: keyof NotificationPreferences["channels"], v: boolean) => {
+    if (key === "push" && v && typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        const result = await Notification.requestPermission();
+        if (result !== "granted") {
+          toast.message("Enable browser notifications to get pharmacist messages and order updates.");
+          return;
+        }
+      } else if (Notification.permission === "denied") {
+        toast.message("Notifications are blocked in your browser settings.");
+        return;
+      }
+    }
     setPrefs((p) => {
       const next = { ...p, channels: { ...p.channels, [key]: v } };
       schedulePrefsSave(next);

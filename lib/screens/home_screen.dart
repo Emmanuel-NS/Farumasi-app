@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,7 +50,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _isSidebarCollapsed = false;
   double _sidebarWidth = 200.0;
   String? _activeRightSidebar;
-  final Set<int> _mountedTabs = {0};
+  final Set<int> _mountedTabs = {0, 1, 2, 3, 4, 5};
 
   /// Nested navigator key — keeps topbar/sidebar visible on wide screens
   /// while sub-screens (order detail, product detail, etc.) push within
@@ -206,7 +204,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       if (!_mountedTabs.contains(index)) {
         return SizedBox.shrink(key: ValueKey('tab-placeholder-$index'));
       }
-      return KeyedSubtree(
+      return _KeepAliveTab(
         key: ValueKey('tab-$index-$embedStoreInShell'),
         child: pageFor(index),
       );
@@ -232,46 +230,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       if (!AppLifecycleService.instance.isInForeground) return;
       final auth = ref.read(authProvider);
       if (auth.status == AuthStatus.authenticated) {
+        NotificationService().configurePolling(
+          isAuthenticated: () =>
+              ref.read(authProvider).status == AuthStatus.authenticated,
+          userId: () => ref.read(authProvider).user?.id,
+        );
         NotificationService().refreshFromApi();
+        NotificationService().refreshConsultMessagePushes(
+          myUserId: auth.user?.id,
+        );
       }
-      _startNotificationPoll();
     });
   }
-
-  Timer? _notificationPollTimer;
 
   void _onAppLifecycleChanged() {
     if (!mounted) return;
     if (AppLifecycleService.instance.isInForeground) {
-      _startNotificationPoll();
-    } else {
-      _notificationPollTimer?.cancel();
-      _notificationPollTimer = null;
-    }
-  }
-
-  void _startNotificationPoll() {
-    _notificationPollTimer?.cancel();
-    if (!AppLifecycleService.instance.isInForeground) return;
-    _notificationPollTimer = Timer.periodic(const Duration(seconds: 90), (_) {
-      if (!AppLifecycleService.instance.isInForeground) return;
       final auth = ref.read(authProvider);
       if (auth.status == AuthStatus.authenticated) {
+        NotificationService().startPolling();
         NotificationService().refreshFromApi();
+        NotificationService().refreshConsultMessagePushes(
+          myUserId: auth.user?.id,
+        );
       }
-    });
+    } else {
+      // Keep polling while process is alive so consult pushes still arrive.
+      NotificationService().startPolling();
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      _notificationPollTimer?.cancel();
-      _notificationPollTimer = null;
+      // Polling continues in NotificationService for background pushes.
     } else if (state == AppLifecycleState.resumed) {
-      _startNotificationPoll();
       final auth = ref.read(authProvider);
       if (auth.status == AuthStatus.authenticated) {
         NotificationService().refreshFromApi();
+        NotificationService().refreshConsultMessagePushes(
+          myUserId: auth.user?.id,
+        );
       }
     }
   }
@@ -298,7 +297,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     AppLifecycleService.instance.removeListener(_onAppLifecycleChanged);
-    _notificationPollTimer?.cancel();
+    NotificationService().stopPolling();
     StateService().removeListener(_onStateServiceNavigation);
     _hideBottomBarController.dispose();
     _shellPayload.dispose();
@@ -1296,5 +1295,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
+  }
+}
+
+/// Keeps tab subtree alive when switching bottom-nav items (WhatsApp-style retention).
+class _KeepAliveTab extends StatefulWidget {
+  const _KeepAliveTab({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAliveTab> createState() => _KeepAliveTabState();
+}
+
+class _KeepAliveTabState extends State<_KeepAliveTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

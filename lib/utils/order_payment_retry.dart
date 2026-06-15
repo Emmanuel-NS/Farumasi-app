@@ -48,7 +48,7 @@ class OrderPaymentRetry {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Choose how you want to pay. Processing fee is charged to you.',
+                    'Choose how you want to pay. A small Pesapal processing fee is added to your total.',
                     style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                   const SizedBox(height: 14),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/router.dart';
 import '../providers/auth_provider.dart';
 import '../services/notification_service.dart';
+import '../widgets/farumasi_logo.dart';
 import '../widgets/portal/portal_ui.dart';
 import 'health_tips_screen.dart';
 import 'order_detail_screen.dart';
@@ -27,15 +28,6 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
     'Health': ['health_tip'],
     'Promo': ['promo'],
     'Reminder': ['reminder'],
-  };
-
-  static const _catEmoji = {
-    'order': '📦',
-    'order_shipped': '🚚',
-    'health_tip': '💊',
-    'promo': '🎁',
-    'reminder': '⏰',
-    'general': '🔔',
   };
 
   int _readFilter = 0;
@@ -156,6 +148,22 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authed = ref.watch(authProvider).status == AuthStatus.authenticated;
+    if (!authed) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Sign in to view notifications'),
+              const SizedBox(height: 12),
+              TextButton(onPressed: () => context.pop(), child: const Text('Back')),
+            ],
+          ),
+        ),
+      );
+    }
+
     final body = ColoredBox(
       color: PortalColors.pageBg,
       child: ListView(
@@ -258,9 +266,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
   }
 
   Widget _buildRow(Map<String, dynamic> notification) {
-    final category = notification['category'] as String?;
     final isRead = notification['isRead'] == true;
-    final emoji = _catEmoji[category] ?? '🔔';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -281,7 +287,15 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(emoji, style: const TextStyle(fontSize: 24)),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: PortalColors.greenLight,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const FarumasiLogo(size: 44, color: PortalColors.green),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

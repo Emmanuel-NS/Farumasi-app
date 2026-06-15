@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'imigongo_africa_painter.dart';
 import 'farumasi_logo.dart';
+import 'imigongo_doodle_background.dart';
 
 /// Brief branded launch motion — max ~2.6s, only on cold start.
 class AppLaunchOverlay extends StatefulWidget {
@@ -91,20 +91,9 @@ class _AppLaunchOverlayState extends State<AppLaunchOverlay>
                   fit: StackFit.expand,
                   children: [
                     Opacity(
-                      opacity: 0.35 + _mapReveal.value * 0.45,
-                      child: ClipRect(
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          heightFactor: 0.25 + _mapReveal.value * 0.55,
-                          child: CustomPaint(
-                            painter: ImigongoAfricaPainter(
-                              lineColor: Color(0xFFF2E8DA),
-                              accentColor: Color(0xFFB84A1F),
-                              fillColor: Color(0xFF1A1410),
-                            ),
-                            child: SizedBox.expand(),
-                          ),
-                        ),
+                      opacity: 0.35 + _mapReveal.value * 0.55,
+                      child: const ImigongoDoodleBackground(
+                        variant: ImigongoDoodleVariant.hero,
                       ),
                     ),
                     Center(

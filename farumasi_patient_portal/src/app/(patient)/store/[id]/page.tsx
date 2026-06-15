@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { productsService, adaptProduct } from "@/lib/services/products.service";
-import { pharmaciesService, type BackendListing } from "@/lib/services/pharmacies.service";
+import { productsService } from "@/lib/services/products.service";
 import { useTranslation, tf } from "@/lib/translations";
 import { useLanguageStore } from "@/store/language-store";
 import { cn, formatPrice } from "@/lib/utils";
@@ -19,12 +18,8 @@ import {
 } from "@/lib/packaging-classes";
 import { minQuantityForLine } from "@/lib/cart-pricing";
 import {
-  SellerImageLightbox,
-  type SellerImagePreview,
-} from "@/components/shared/seller-image-lightbox";
-import {
-  ArrowLeft, Star, AlertCircle, ShoppingCart, Upload,
-  CheckCircle, ChevronRight,
+  ArrowLeft, AlertCircle, ShoppingCart, Upload,
+  CheckCircle,
 } from "lucide-react";
 
 function categoryBg(cat?: string): string {
@@ -54,8 +49,6 @@ export default function MedicineDetailPage() {
   const { add: cartAdd, items: cartItems } = useCartStore();
   const [med, setMed] = useState<Medicine | null>(null);
   const [loading, setLoading] = useState(true);
-  const [listings, setListings] = useState<BackendListing[]>([]);
-  const [sellerImagePreview, setSellerImagePreview] = useState<SellerImagePreview | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -67,11 +60,6 @@ export default function MedicineDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!id) return;
-    pharmaciesService.listingsForProduct(id).then(setListings);
-  }, [id]);
-
-  useEffect(() => {
     if (!med) return;
     const minQ = minQuantityForLine(med, sellMode);
     setQty((q) => Math.max(minQ, q));
@@ -79,10 +67,6 @@ export default function MedicineDetailPage() {
 
   const lineKey = med ? cartLineKey(med.id, sellMode) : "";
   const minQty = med ? minQuantityForLine(med, sellMode) : 1;
-  const packPrices = listings.map((l) => l.price).filter((p) => p > 0);
-  const partialPrices = listings
-    .map((l) => l.unit_price)
-    .filter((p): p is number => p != null && p > 0);
 
   if (loading) {
     return (
@@ -151,15 +135,6 @@ export default function MedicineDetailPage() {
             <p className="text-sm text-slate-500 mb-3">By <span className="font-medium text-slate-700">{med.manufacturer}</span></p>
           )}
 
-          {med.rating && (
-            <div className="flex items-center gap-1.5 mb-4">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className={`w-4 h-4 ${i < Math.round(med.rating!) ? "fill-amber-400 text-amber-400" : "text-slate-200"}`} />
-              ))}
-              <span className="text-sm font-semibold text-slate-700">{med.rating}</span>
-            </div>
-          )}
-
           {med.packagingClass && (
             <p className="text-xs text-slate-500 mb-2">
               Packaging: <span className="font-medium text-slate-700">{packagingLabel(med.packagingClass)}</span>
@@ -198,16 +173,13 @@ export default function MedicineDetailPage() {
           <p className="text-3xl font-extrabold text-farumasi-700 mb-1">
             {(() => {
               if (sellMode === "partial") {
-                const prices = partialPrices.length > 0 ? partialPrices : (med.unitPriceFrom ? [med.unitPriceFrom] : []);
-                if (prices.length === 0) return "Per-unit price varies";
-                const min = Math.min(...prices), max = Math.max(...prices);
                 const unit = med.partialUnitName ?? "unit";
-                return min === max
-                  ? `${formatPrice(min)} / ${unit}`
-                  : `${formatPrice(min)} – ${formatPrice(max)} / ${unit}`;
+                const from = med.unitPriceFrom;
+                if (from == null) return "Per-unit price varies";
+                return `${formatPrice(from)} / ${unit}`;
               }
-              const prices = packPrices.length > 0 ? packPrices : [med.price];
-              const min = Math.min(...prices), max = Math.max(...prices);
+              const min = med.price;
+              const max = med.maxPrice ?? med.price;
               return min === max ? formatPrice(min) : `${formatPrice(min)} – ${formatPrice(max)}`;
             })()}
             <span className="text-sm font-medium text-slate-500 ml-1">
@@ -421,10 +393,6 @@ export default function MedicineDetailPage() {
 
 
       </div>
-      <SellerImageLightbox
-        preview={sellerImagePreview}
-        onClose={() => setSellerImagePreview(null)}
-      />
     </div>
   );
 }

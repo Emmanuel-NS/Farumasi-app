@@ -1,13 +1,17 @@
 import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Tracks cold-start vs resume and foreground state so the app stays warm in background.
 class AppLifecycleService with WidgetsBindingObserver {
   AppLifecycleService._();
   static final AppLifecycleService instance = AppLifecycleService._();
 
+  static const _launchOverlayKey = 'app_launch_overlay_shown_v1';
+
   bool _initialized = false;
   bool _coldStart = true;
   bool _inForeground = true;
+  bool _launchOverlayPersisted = false;
 
   final List<VoidCallback> _listeners = [];
 
@@ -16,10 +20,28 @@ class AppLifecycleService with WidgetsBindingObserver {
 
   bool get isInForeground => _inForeground;
 
-  void init() {
+  /// Survives process restarts within the same install session.
+  bool get launchOverlayAlreadyShown => _launchOverlayPersisted;
+
+  Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
     WidgetsBinding.instance.addObserver(this);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _launchOverlayPersisted = prefs.getBool(_launchOverlayKey) ?? false;
+    } catch (_) {
+      _launchOverlayPersisted = false;
+    }
+  }
+
+  Future<void> markLaunchOverlayShown() async {
+    _launchOverlayPersisted = true;
+    AppSession.launchOverlayShown = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_launchOverlayKey, true);
+    } catch (_) {}
   }
 
   void dispose() {

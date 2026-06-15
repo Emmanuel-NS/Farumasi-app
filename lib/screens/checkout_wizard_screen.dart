@@ -2065,31 +2065,14 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
             ],
           ),
         _detailsSectionCard(
-          title: 'Access code',
-          subtitle: isPickup
-              ? 'Share this code with the pharmacy when you collect your order. Minimum 4 characters.'
-              : 'Share this code with the rider for secure handoff. Minimum 4 characters.',
+          title: 'Verification code',
+          subtitle:
+              'Choose a short code you will share when receiving your order. It is not generated automatically.',
           children: [
-            _fieldLabel('Your access code', required: true),
-            TextField(
+            AccessCodeInputField(
               controller: _accessCodeController,
-              onChanged: (v) {
-                final upper = v.toUpperCase();
-                if (upper != v) {
-                  _accessCodeController.value = TextEditingValue(
-                    text: upper,
-                    selection: TextSelection.collapsed(offset: upper.length),
-                  );
-                }
-                setState(() {});
-              },
-              textCapitalization: TextCapitalization.characters,
-              decoration: _portalFieldDecoration(hint: 'e.g. LION2025'),
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                letterSpacing: 2,
-                fontWeight: FontWeight.w600,
-              ),
+              isPickup: isPickup,
+              onChanged: (_) => setState(() {}),
             ),
           ],
         ),
@@ -2122,66 +2105,67 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   Widget _buildPaymentStep(List<CartItem> items) {
     final medicines = _medicinesTotal(items);
     final deliveryFee = _deliveryFeeFor(items) ?? 0;
-    final total = medicines + deliveryFee;
-    final dueNow = _amountDueNow(items);
+    final isPickup = _fulfillment != 'delivery';
+    final accessCode = _accessCodeController.text.trim();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Choose payment method',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-        ),
-        const SizedBox(height: 10),
-        PaymentMethodSelector(
-          selected: _paymentChannel,
-          onChanged: (m) => setState(() => _paymentChannel = m),
-        ),
-        const SizedBox(height: 16),
-        if (_paymentChannel.requiresPhone)
-          TextField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              labelText: _paymentChannel == PaymentChannel.airtelMoney
-                  ? 'Airtel Money number'
-                  : 'MTN MoMo number',
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.phone_android),
-              hintText: '078XXXXXXX',
+        _detailsSectionCard(
+          title: 'How would you like to pay?',
+          subtitle: 'Secure checkout opens in Pesapal. You can complete payment on your phone.',
+          children: [
+            PaymentMethodSelector(
+              selected: _paymentChannel,
+              onChanged: (m) => setState(() => _paymentChannel = m),
             ),
+          ],
+        ),
+        if (_paymentChannel.requiresPhone)
+          _detailsSectionCard(
+            title: _paymentChannel == PaymentChannel.airtelMoney
+                ? 'Airtel Money number'
+                : 'MTN MoMo number',
+            subtitle: 'We use this number on the Pesapal checkout page.',
+            children: [
+              TextField(
+                key: ValueKey(_paymentChannel),
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: _portalFieldDecoration(hint: 'e.g. 0781234567'),
+              ),
+            ],
           )
         else
-          TextField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Phone (optional)',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.phone_android),
-              hintText: 'For Pesapal receipt',
+          _detailsSectionCard(
+            title: 'Contact phone',
+            subtitle: 'Optional — for your Pesapal payment receipt.',
+            children: [
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: _portalFieldDecoration(hint: 'e.g. 0781234567'),
+              ),
+            ],
+          ),
+        if (accessCode.length >= 4)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: AccessCodeSummaryCard(
+              code: accessCode,
+              isPickup: isPickup,
+              onEdit: () => setState(() => _step = CheckoutStep.details),
             ),
           ),
-        const SizedBox(height: 12),
         PaymentFeeBreakdown(
           subtotalRwf: medicines.round(),
           deliveryFeeRwf: deliveryFee.round(),
           deferDeliveryFee: _deferDeliveryFee && _fulfillment == 'delivery',
         ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _accessCodeController,
-          obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'Delivery access code',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.lock_outline),
-          ),
-        ),
-        const SizedBox(height: 12),
         if (_fulfillment == 'delivery' && !_deliveryLocationReady)
           Container(
             padding: const EdgeInsets.all(12),
-            margin: const EdgeInsets.only(bottom: 12),
+            margin: const EdgeInsets.only(top: 12),
             decoration: BoxDecoration(
               color: const Color(0xFFFFFBEB),
               borderRadius: BorderRadius.circular(12),
@@ -2207,64 +2191,39 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
             ),
           ),
         if (_fulfillment == 'delivery' && deliveryFee > 0) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Delivery fee', style: TextStyle(fontWeight: FontWeight.w600)),
-                RadioListTile<bool>(
-                  value: false,
-                  groupValue: _deferDeliveryFee,
-                  onChanged: (v) => setState(() => _deferDeliveryFee = v ?? false),
-                  title: Text('Pay now (${deliveryFee.round()} RWF)'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-                RadioListTile<bool>(
-                  value: true,
-                  groupValue: _deferDeliveryFee,
-                  onChanged: (v) => setState(() => _deferDeliveryFee = true),
-                  title: const Text('Pay after delivery'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ],
-            ),
+          const SizedBox(height: 16),
+          _detailsSectionCard(
+            title: 'Delivery fee',
+            children: [
+              RadioListTile<bool>(
+                value: false,
+                groupValue: _deferDeliveryFee,
+                onChanged: (v) => setState(() => _deferDeliveryFee = v ?? false),
+                title: Text('Pay now (${deliveryFee.round()} RWF)'),
+                contentPadding: EdgeInsets.zero,
+              ),
+              RadioListTile<bool>(
+                value: true,
+                groupValue: _deferDeliveryFee,
+                onChanged: (v) => setState(() => _deferDeliveryFee = true),
+                title: const Text('Pay after delivery'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
           ),
         ],
-        const SizedBox(height: 16),
-        if (_selectedPharmacy != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              'Pharmacy ${_selectedPharmacy!.codename} · name revealed after payment',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-          ),
-        Text(
-          'Total: ${total.round()} RWF',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        if (dueNow < total - 0.5)
+        if (_selectedPharmacy != null) ...[
+          const SizedBox(height: 12),
           Text(
-            'Due now: ${dueNow.round()} RWF',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1E9E68)),
-          )
-        else
-          Text(
-            'Due now: ${dueNow.round()} RWF',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            'Pharmacy ${_selectedPharmacy!.codename} · name revealed after payment',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
+        ],
         const SizedBox(height: 20),
         ElevatedButton(
           onPressed: _isSubmitting ? null : () => _submitPayment(items),
           style: _primaryBtn,
-          child: Text(_isSubmitting ? 'Processing…' : 'Pay with Pesapal'),
+          child: Text(_isSubmitting ? 'Processing…' : 'Continue to Pesapal'),
         ),
       ],
     );
@@ -2302,6 +2261,13 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           style: TextStyle(color: Colors.grey.shade600),
           textAlign: TextAlign.center,
         ),
+        if (_accessCodeController.text.trim().length >= 4) ...[
+          const SizedBox(height: 20),
+          AccessCodeSummaryCard(
+            code: _accessCodeController.text.trim(),
+            isPickup: _fulfillment != 'delivery',
+          ),
+        ],
         const SizedBox(height: 32),
         if (_confirmedOrderId != null)
           SizedBox(

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/auth_provider.dart';
+import '../screens/notification_screen.dart';
 import '../services/notification_service.dart';
 
 /// Bell icon with live unread count from [NotificationService].
@@ -62,6 +65,39 @@ class NotificationBadgeIcon extends StatelessWidget {
                 ),
             ],
           ),
+        );
+      },
+    );
+  }
+}
+
+/// Notifications are only available to signed-in patients.
+class AuthNotificationBadgeIcon extends ConsumerWidget {
+  const AuthNotificationBadgeIcon({
+    super.key,
+    this.iconColor = Colors.white,
+    this.icon = Icons.notifications_none,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final Color iconColor;
+  final IconData icon;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(authProvider).status != AuthStatus.authenticated) {
+      return const SizedBox.shrink();
+    }
+
+    return NotificationBadgeIcon(
+      iconColor: iconColor,
+      icon: icon,
+      padding: padding,
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const NotificationScreen()),
         );
       },
     );

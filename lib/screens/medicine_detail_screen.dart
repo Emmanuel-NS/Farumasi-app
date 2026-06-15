@@ -18,7 +18,6 @@ class MedicineDetailScreen extends StatefulWidget {
 
 class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
   Medicine? _med;
-  List<BackendListing> _listings = [];
   bool _loading = true;
   int _quantity = 1;
   SellMode _sellMode = SellMode.pack;
@@ -35,14 +34,10 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
 
   Future<void> _load() async {
     try {
-      final results = await Future.wait([
-        PatientRepository.instance.fetchProductById(widget.medicine.id),
-        PatientRepository.instance.fetchListings(productId: widget.medicine.id, limit: 100),
-      ]);
+      final product = await PatientRepository.instance.fetchProductById(widget.medicine.id);
       if (!mounted) return;
       setState(() {
-        _med = results[0] as Medicine;
-        _listings = results[1] as List<BackendListing>;
+        _med = product;
         _loading = false;
       });
     } catch (_) {
@@ -60,26 +55,18 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
     });
   }
 
-  double get _displayUnitPrice {
-    if (_sellMode == SellMode.partial) {
-      final partialPrices = _listings.map((l) => l.unitPrice).whereType<double>().where((p) => p > 0);
-      if (partialPrices.isNotEmpty) return partialPrices.reduce((a, b) => a < b ? a : b);
-      return _product.unitPriceFrom ?? _product.price;
-    }
-    final packPrices = _listings.map((l) => l.price).where((p) => p > 0);
-    if (packPrices.isNotEmpty) return packPrices.reduce((a, b) => a < b ? a : b);
-    return cartLineUnitPrice(_product, _sellMode);
-  }
+  double get _displayUnitPrice => cartLineUnitPrice(_product, _sellMode);
 
   double? get _maxUnitPrice {
     if (_sellMode == SellMode.partial) {
-      final partialPrices = _listings.map((l) => l.unitPrice).whereType<double>().where((p) => p > 0);
-      if (partialPrices.isEmpty) return null;
-      return partialPrices.reduce((a, b) => a > b ? a : b);
+      return _product.unitPriceFrom != null && _product.unitPriceFrom! > _displayUnitPrice
+          ? _product.unitPriceFrom
+          : null;
     }
-    final packPrices = _listings.map((l) => l.price).where((p) => p > 0);
-    if (packPrices.length < 2) return null;
-    return packPrices.reduce((a, b) => a > b ? a : b);
+    if (_product.maxPrice != null && _product.maxPrice! > _product.price) {
+      return _product.maxPrice;
+    }
+    return null;
   }
 
   int get _cartQty {
@@ -91,11 +78,23 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
   }
 
   void _addToCart() {
-    StateService().addToCart(_product, _quantity, sellMode: _sellMode);
+    final med = _product;
+    if (med.requiresPrescription) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Prescription required for this item.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.amber,
+        ),
+      );
+      return;
+    }
+
+    StateService().addToCart(med, _quantity, sellMode: _sellMode);
     setState(() => _added = true);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Added ${_product.name} to cart'),
+        content: Text('Added ${med.name} to cart'),
         backgroundColor: PortalColors.green,
         behavior: SnackBarBehavior.floating,
       ),
@@ -112,46 +111,35 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: PortalColors.green))
           : SafeArea(
-              child: Column(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      children: [
-                        PortalBackLink(label: 'Back to Store', onTap: () => Navigator.pop(context)),
-                        LayoutBuilder(
-                          builder: (context, c) {
-                            final wide = c.maxWidth >= 900;
-                            if (wide) {
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(width: 320, child: _imageColumn(med)),
-                                  const SizedBox(width: 24),
-                                  Expanded(child: _detailsColumn(med, inCart)),
-                                ],
-                              );
-                            }
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _imageColumn(med),
-                                const SizedBox(height: 20),
-                                _detailsColumn(med, inCart),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        _infoSections(med),
-                        if (_listings.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          _listingsSection(),
+                  PortalBackLink(label: 'Back to Store', onTap: () => Navigator.pop(context)),
+                  LayoutBuilder(
+                    builder: (context, c) {
+                      final wide = c.maxWidth >= 900;
+                      if (wide) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(width: 320, child: _imageColumn(med)),
+                            const SizedBox(width: 24),
+                            Expanded(child: _detailsColumn(med, inCart)),
+                          ],
+                        );
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _imageColumn(med),
+                          const SizedBox(height: 20),
+                          _detailsColumn(med, inCart),
                         ],
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                  _bottomBar(med, inCart),
+                  const SizedBox(height: 24),
+                  _infoSections(med),
                 ],
               ),
             ),
@@ -212,6 +200,8 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
   }
 
   Widget _detailsColumn(Medicine med, int inCart) {
+    final canAdd = !med.requiresPrescription;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -224,20 +214,6 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
         if (med.manufacturer.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text('By ${med.manufacturer}', style: const TextStyle(fontSize: 14, color: PortalColors.slate500)),
-        ],
-        if (med.rating > 0) ...[
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              ...List.generate(5, (i) => Icon(
-                    Icons.star,
-                    size: 16,
-                    color: i < med.rating.round() ? const Color(0xFFFBBF24) : PortalColors.slate200,
-                  )),
-              const SizedBox(width: 6),
-              Text('${med.rating}', style: const TextStyle(fontWeight: FontWeight.w600)),
-            ],
-          ),
         ],
         if (med.packagingClass != null) ...[
           const SizedBox(height: 8),
@@ -271,32 +247,42 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
             style: const TextStyle(fontSize: 11, color: PortalColors.slate400),
           ),
         ],
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            _qtyBtn(Icons.remove, () {
-              final minQ = minQuantityForLine(_sellMode, minPartialQuantity: med.minPartialQuantity);
-              if (_quantity > minQ) setState(() => _quantity--);
-            }),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('$_quantity', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            ),
-            _qtyBtn(Icons.add, () => setState(() => _quantity++)),
-          ],
-        ),
+        if (canAdd) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _qtyBtn(Icons.remove, () {
+                final minQ = minQuantityForLine(_sellMode, minPartialQuantity: med.minPartialQuantity);
+                if (_quantity > minQ) setState(() => _quantity--);
+              }),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text('$_quantity', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              ),
+              _qtyBtn(Icons.add, () => setState(() => _quantity++)),
+            ],
+          ),
+        ],
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _addToCart,
-            icon: Icon(inCart > 0 || _added ? Icons.check_circle : Icons.shopping_cart_outlined),
+            onPressed: canAdd ? _addToCart : null,
+            icon: Icon(canAdd
+                ? (inCart > 0 || _added ? Icons.check_circle : Icons.shopping_cart_outlined)
+                : Icons.description_outlined),
             label: Text(
-              inCart > 0 || _added ? 'Added to Cart (×${inCart > 0 ? inCart : _quantity} in cart)' : 'Add to Cart',
+              med.requiresPrescription
+                  ? 'Prescription required to order'
+                  : (inCart > 0 || _added
+                      ? 'Added to Cart (×${inCart > 0 ? inCart : _quantity} in cart)'
+                      : 'Add to Cart'),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: PortalColors.green,
+              backgroundColor: canAdd ? PortalColors.green : PortalColors.slate300,
               foregroundColor: Colors.white,
+              disabledBackgroundColor: PortalColors.slate200,
+              disabledForegroundColor: PortalColors.slate600,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
@@ -371,7 +357,6 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
       },
     );
   }
-
 
   Widget _overviewCard(Medicine med) {
     return Container(
@@ -532,99 +517,4 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
       ),
     );
   }
-
-  Widget _listingsSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: PortalColors.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Available At (${_listings.length})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: PortalColors.slate900)),
-          const SizedBox(height: 12),
-          ..._listings.map((l) {
-            final tone = l.availabilityStatus == 'available'
-                ? PortalStatusTone.success
-                : l.availabilityStatus == 'low_stock'
-                    ? PortalStatusTone.warning
-                    : PortalStatusTone.danger;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: PortalColors.pageBg,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: PortalColors.cardBorder),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: PortalColors.greenLight,
-                    backgroundImage: l.sellerImageUrl != null ? NetworkImage(l.sellerImageUrl!) : null,
-                    child: l.sellerImageUrl == null
-                        ? Text(
-                            (l.sellerName ?? 'P')[0].toUpperCase(),
-                            style: const TextStyle(color: PortalColors.green, fontWeight: FontWeight.bold),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(l.sellerName ?? 'Seller', style: const TextStyle(fontWeight: FontWeight.w600)),
-                        Text(
-                          '${l.price.toStringAsFixed(0)} RWF',
-                          style: const TextStyle(fontSize: 12, color: PortalColors.green, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PortalStatusBadge(label: l.availabilityLabel, tone: tone),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _bottomBar(Medicine med, int inCart) {
-    final total = _displayUnitPrice * _quantity;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -4))],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            Text('${total.toStringAsFixed(0)} RWF', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: PortalColors.green)),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: _addToCart,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: PortalColors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              child: Text(inCart > 0 ? 'Add more' : 'Add to Cart'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
-
-String formatRwf(double amount) => '${amount.toStringAsFixed(0)} RWF';

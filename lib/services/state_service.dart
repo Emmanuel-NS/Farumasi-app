@@ -37,6 +37,35 @@ class StateService extends ChangeNotifier {
     return v;
   }
 
+  String? pendingConsultPharmacistId;
+  String? pendingConsultId;
+  bool pendingConsultAnonymous = false;
+
+  void requestConsultOpen({
+    required String pharmacistId,
+    String? consultId,
+    bool anonymous = false,
+  }) {
+    pendingConsultPharmacistId = pharmacistId;
+    pendingConsultId = consultId;
+    pendingConsultAnonymous = anonymous;
+    requestHomeTab(2);
+  }
+
+  ({String pharmacistId, String? consultId, bool anonymous})? consumePendingConsultOpen() {
+    final pharmacistId = pendingConsultPharmacistId;
+    if (pharmacistId == null) return null;
+    final req = (
+      pharmacistId: pharmacistId,
+      consultId: pendingConsultId,
+      anonymous: pendingConsultAnonymous,
+    );
+    pendingConsultPharmacistId = null;
+    pendingConsultId = null;
+    pendingConsultAnonymous = false;
+    return req;
+  }
+
   void setSearchQuery(String query) {
     _searchQuery = query;
     notifyListeners();

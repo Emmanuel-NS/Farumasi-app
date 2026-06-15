@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/repositories/patient_repository.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
+import '../services/state_service.dart';
 import '../utils/consult_attachments.dart';
 import '../utils/media_pick_helper.dart';
 import '../widgets/app_refresh.dart';
+import '../widgets/imigongo_doodle_background.dart';
 import '../widgets/lite_network_image.dart';
 import '../widgets/media_attachment_viewer.dart';
 import '../widgets/portal/portal_ui.dart';
@@ -45,12 +47,38 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    StateService().addListener(_onStateServiceChanged);
     _bootstrap();
+  }
+
+  void _onStateServiceChanged() {
+    _tryOpenPendingConsult();
+  }
+
+  Future<void> _tryOpenPendingConsult() async {
+    final pending = StateService().consumePendingConsultOpen();
+    if (pending == null || !mounted) return;
+
+    if (_pharmacists.isEmpty) {
+      try {
+        final list = await PatientRepository.instance.fetchPharmacists();
+        if (!mounted) return;
+        setState(() => _pharmacists = list);
+      } catch (_) {
+        return;
+      }
+    }
+
+    final ph = _pharmacistById(pending.pharmacistId);
+    if (ph != null) {
+      await _openPharmacist(ph, anon: pending.anonymous);
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    StateService().removeListener(_onStateServiceChanged);
     _pollTimer?.cancel();
     _input.dispose();
     _scroll.dispose();
@@ -70,6 +98,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
         _consultations = results[1] as List<PatientConsultation>;
         _loadingList = false;
       });
+      await _tryOpenPendingConsult();
     } catch (_) {
       if (mounted) setState(() => _loadingList = false);
     }
@@ -867,8 +896,8 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
             ),
           ),
         Expanded(
-          child: Container(
-            color: const Color(0xFFECE5DD),
+          child: ImigongoDoodleBackground(
+            variant: ImigongoDoodleVariant.chat,
             child: _loadingChat
                 ? const Center(
                     child: CircularProgressIndicator(color: PortalColors.green),

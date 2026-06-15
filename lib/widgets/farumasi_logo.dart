@@ -33,7 +33,7 @@ class FarumasiLogo extends StatelessWidget {
             : null,
       ),
       child: CustomPaint(
-        painter: _LeafyFPainter(
+        painter: LeafyFIconPainter(
           color: onDark ? const Color(0xFF1E9E68) : color,
         ),
       ),
@@ -41,10 +41,25 @@ class FarumasiLogo extends StatelessWidget {
   }
 }
 
-class _LeafyFPainter extends CustomPainter {
-  _LeafyFPainter({required this.color});
+/// Leafy-F icon — shared by logo widget and imigongo doodle wallpaper.
+class LeafyFIconPainter extends CustomPainter {
+  LeafyFIconPainter({required this.color, this.strokeWidth});
 
   final Color color;
+  final double? strokeWidth;
+
+  static void drawIcon(
+    Canvas canvas,
+    Rect rect,
+    Color color, {
+    double? strokeWidth,
+  }) {
+    canvas.save();
+    canvas.translate(rect.left, rect.top);
+    LeafyFIconPainter(color: color, strokeWidth: strokeWidth)
+        .paint(canvas, rect.size);
+    canvas.restore();
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -58,7 +73,7 @@ class _LeafyFPainter extends CustomPainter {
     final strokePaint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = w * 0.08
+      ..strokeWidth = strokeWidth ?? w * 0.08
       ..strokeCap = StrokeCap.round;
 
     final arcPath = Path()
@@ -81,5 +96,7 @@ class _LeafyFPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant LeafyFIconPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
+  }
 }

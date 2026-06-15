@@ -1532,7 +1532,7 @@ export default function CartPage() {
           </div>
         )}
 
-        {/* Access code — required for pickup and delivery security */}
+        {/* Access code — patient chooses their own verification code */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-3 mb-5">
           <div>
             <h3 className="text-sm font-bold text-slate-700">{t.cart_access_title}</h3>
@@ -1550,9 +1550,19 @@ export default function CartPage() {
             <input
               value={accessCode}
               onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-              placeholder="e.g. LION2025"
-              className="w-full h-11 rounded-2xl border border-slate-200 px-4 text-sm text-slate-800 font-mono tracking-widest outline-none focus:border-farumasi-400 focus:ring-2 focus:ring-farumasi-100 transition-all"
+              placeholder="Type your own code (e.g. LION2025)"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="w-full h-12 rounded-2xl border-2 border-slate-300 bg-slate-50 px-4 text-base text-slate-900 font-bold tracking-widest outline-none focus:border-farumasi-500 focus:ring-2 focus:ring-farumasi-100 transition-all"
             />
+          </div>
+          <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5">
+            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              This is not generated for you. Pick something you will remember and can tell the{" "}
+              {fulfillment === "pickup" ? "pharmacist" : "rider"}.
+            </p>
           </div>
         </div>
 
@@ -1662,53 +1672,83 @@ export default function CartPage() {
           />
         )}
 
-        <div className="bg-white rounded-3xl border-2 border-farumasi-200 bg-farumasi-50/40 shadow-sm p-5 mb-6">
-          <div className="flex items-start gap-4">
-            <div className="w-11 h-11 rounded-2xl bg-orange-100 flex items-center justify-center shrink-0">
-              <CreditCard className="w-5 h-5 text-orange-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-900">{t.cart_momo}</p>
-              <p className="text-xs text-slate-600 mt-1">{t.cart_momo_push}</p>
-              <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
-                <ExternalLink className="w-3 h-3 shrink-0" />
-                Secure checkout opens on Pesapal (card or mobile money).
-              </p>
-            </div>
-          </div>
+        <div className="bg-emerald-50 rounded-2xl border border-emerald-200 px-4 py-3 mb-5 flex items-start gap-3">
+          <ExternalLink className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+          <p className="text-xs text-emerald-900 leading-relaxed">
+            Secure checkout opens on Pesapal. Complete payment with your chosen method below.
+          </p>
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Payment method</p>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">How would you like to pay?</p>
           <div className="space-y-2">
             {([
-              { id: "mtn_momo" as const, label: "MTN MoMo", hint: "Default · Mobile Money" },
-              { id: "airtel_money" as const, label: "Airtel Money", hint: "Mobile Money" },
-              { id: "card" as const, label: "Card", hint: "Visa / Mastercard on Pesapal" },
-            ]).map((m) => (
+              {
+                id: "mtn_momo" as const,
+                label: "MTN MoMo",
+                hint: "Pay with MTN Mobile Money",
+                accent: "border-l-amber-400",
+                iconBg: "bg-amber-100",
+                iconColor: "text-amber-700",
+              },
+              {
+                id: "airtel_money" as const,
+                label: "Airtel Money",
+                hint: "Pay with Airtel Money",
+                accent: "border-l-red-500",
+                iconBg: "bg-red-50",
+                iconColor: "text-red-600",
+              },
+              {
+                id: "card" as const,
+                label: "Card",
+                hint: "Visa or Mastercard via Pesapal",
+                accent: "border-l-blue-500",
+                iconBg: "bg-blue-50",
+                iconColor: "text-blue-600",
+              },
+            ]).map((m) => {
+              const selected = paymentMethod === m.id;
+              return (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => setPaymentMethod(m.id)}
                 className={cn(
-                  "w-full text-left rounded-2xl border px-4 py-3 transition-colors",
-                  paymentMethod === m.id
-                    ? "border-farumasi-500 bg-farumasi-50"
-                    : "border-slate-200 hover:border-slate-300",
+                  "w-full text-left rounded-2xl border-2 border-l-4 px-4 py-3.5 transition-all",
+                  m.accent,
+                  selected
+                    ? "border-farumasi-500 bg-farumasi-50 shadow-sm ring-1 ring-farumasi-200"
+                    : "border-slate-200 bg-white hover:border-slate-300",
                 )}
               >
-                <p className="text-sm font-bold text-slate-900">{m.label}</p>
-                <p className="text-xs text-slate-500">{m.hint}</p>
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", m.iconBg)}>
+                    <CreditCard className={cn("w-5 h-5", m.iconColor)} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-900">{m.label}</p>
+                    <p className="text-xs text-slate-500">{m.hint}</p>
+                  </div>
+                  {selected ? (
+                    <CheckCircle2 className="w-5 h-5 text-farumasi-600 shrink-0" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full border-2 border-slate-300 shrink-0" />
+                  )}
+                </div>
               </button>
-            ))}
+            );
+            })}
           </div>
         </div>
 
         {paymentMethod !== "card" && (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">
-            {t.cart_momo_number} <span className="text-red-400">*</span>
+            {paymentMethod === "airtel_money" ? "Airtel Money number" : t.cart_momo_number}{" "}
+            <span className="text-red-400">*</span>
           </label>
+          <p className="text-[11px] text-slate-500 mb-2">Used on the Pesapal checkout page.</p>
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -1719,16 +1759,40 @@ export default function CartPage() {
         </div>
         )}
 
+        {accessCode.trim().length >= 4 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Your verification code</p>
+              <button
+                type="button"
+                onClick={() => setStep("details")}
+                className="text-xs font-bold text-amber-700 hover:text-amber-900"
+              >
+                Change
+              </button>
+            </div>
+            <p className="text-xl font-extrabold text-amber-950 tracking-[0.2em]">{accessCode.trim()}</p>
+            <p className="text-xs text-amber-700 mt-1.5">
+              {fulfillment === "pickup"
+                ? "Show this at the pharmacy when you collect your order."
+                : "Give this to the rider to verify and complete delivery."}
+            </p>
+          </div>
+        )}
+
         {orderSubtotal > 0 && (
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6 text-sm">
+            <p className="text-sm font-bold text-slate-800 mb-3">Payment summary</p>
             <div className="flex justify-between"><span className="text-slate-500">Order amount</span><span>{formatPrice(orderSubtotal)}</span></div>
             {processingFee > 0 && (
               <div className="flex justify-between mt-2">
-                <span className="text-slate-500">Processing fee ({PAYMENT_FEE_PCT}%)</span>
+                <span className="text-slate-500">Pesapal fee ({PAYMENT_FEE_PCT}%)</span>
                 <span>{formatPrice(processingFee)}</span>
               </div>
             )}
-            <p className="text-[11px] text-slate-400 mt-2">Processing fee is charged to you, not FARUMASI.</p>
+            <p className="text-[11px] text-slate-400 mt-2">
+              Includes a small Pesapal processing fee ({PAYMENT_FEE_PCT}% of the order amount).
+            </p>
             <div className="flex justify-between mt-3 pt-3 border-t font-bold text-farumasi-700">
               <span>Total to pay now</span><span>{formatPrice(totalWithFee)}</span>
             </div>
