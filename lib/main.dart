@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/router.dart';
 import 'theme/app_theme.dart';
+import 'services/app_lifecycle_service.dart';
 import 'services/notification_service.dart';
 import 'services/patient_catalog_service.dart';
+import 'widgets/app_launch_overlay.dart';
 
 // Supabase keys injected via --dart-define at build time
 // dart-define=SUPABASE_URL=https://xxx.supabase.co
@@ -23,6 +25,7 @@ const _supabaseAnonKey = String.fromEnvironment(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppLifecycleService.instance.init();
 
   runApp(
     const ProviderScope(
@@ -53,11 +56,24 @@ Future<void> main() async {
   });
 }
 
-class FarumasiApp extends ConsumerWidget {
+class FarumasiApp extends ConsumerStatefulWidget {
   const FarumasiApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FarumasiApp> createState() => _FarumasiAppState();
+}
+
+class _FarumasiAppState extends ConsumerState<FarumasiApp> {
+  bool _showLaunchOverlay =
+      !AppSession.launchOverlayShown && AppLifecycleService.instance.isColdStart;
+
+  void _dismissLaunchOverlay() {
+    AppSession.launchOverlayShown = true;
+    if (mounted) setState(() => _showLaunchOverlay = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
@@ -65,6 +81,15 @@ class FarumasiApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       routerConfig: router,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            child ?? const SizedBox.shrink(),
+            if (_showLaunchOverlay)
+              AppLaunchOverlay(onFinished: _dismissLaunchOverlay),
+          ],
+        );
+      },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,

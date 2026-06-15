@@ -20,6 +20,7 @@ import 'package:farumasi_app/screens/profile_screen.dart';
 import 'package:farumasi_app/screens/settings_screen.dart';
 import 'package:farumasi_app/screens/terms_conditions_screen.dart';
 import 'package:farumasi_app/services/state_service.dart';
+import 'package:farumasi_app/services/app_lifecycle_service.dart';
 import 'package:farumasi_app/services/notification_service.dart';
 import 'package:farumasi_app/providers/auth_provider.dart';
 import 'package:farumasi_app/core/router.dart';
@@ -38,7 +39,7 @@ class _ShellPayload {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const Color _shellGreen = Color(0xFF1E9E68); // Match category avatars
   static const Color _shellGreenDark = Color(0xFF167B51); // Darker variant
 
@@ -215,6 +216,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    AppLifecycleService.instance.addListener(_onAppLifecycleChanged);
     _pages = _buildPages(false);
     _pagesWide = _buildPages(true);
     _shellPayload = ValueNotifier(_ShellPayload(0, _pagesWide));
@@ -225,17 +228,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
 
     StateService().addListener(_onStateServiceNavigation);
-    // Delay location check slightly to ensure UI is ready
-    Future.delayed(Duration.zero, () {
-      _autoPickLocation();
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!AppLifecycleService.instance.isInForeground) return;
       final auth = ref.read(authProvider);
       if (auth.status == AuthStatus.authenticated) {
         NotificationService().refreshFromApi();
       }
+      _startNotificationPoll();
     });
-    _notificationPollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+  }
+
+  Timer? _notificationPollTimer;
+
+  void _onAppLifecycleChanged() {
+    if (!mounted) return;
+    if (AppLifecycleService.instance.isInForeground) {
+      _startNotificationPoll();
+    } else {
+      _notificationPollTimer?.cancel();
+      _notificationPollTimer = null;
+    }
+  }
+
+  void _startNotificationPoll() {
+    _notificationPollTimer?.cancel();
+    if (!AppLifecycleService.instance.isInForeground) return;
+    _notificationPollTimer = Timer.periodic(const Duration(seconds: 90), (_) {
+      if (!AppLifecycleService.instance.isInForeground) return;
       final auth = ref.read(authProvider);
       if (auth.status == AuthStatus.authenticated) {
         NotificationService().refreshFromApi();
@@ -243,7 +262,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
 
-  Timer? _notificationPollTimer;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _notificationPollTimer?.cancel();
+      _notificationPollTimer = null;
+    } else if (state == AppLifecycleState.resumed) {
+      _startNotificationPoll();
+    }
+  }
 
   void _onStateServiceNavigation() {
     final tab = StateService().consumePendingHomeTab();
@@ -265,61 +292,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    AppLifecycleService.instance.removeListener(_onAppLifecycleChanged);
     _notificationPollTimer?.cancel();
     StateService().removeListener(_onStateServiceNavigation);
     _hideBottomBarController.dispose();
     _shellPayload.dispose();
     super.dispose();
-  }
-
-  Future<void> _autoPickLocation() async {
-    // Attempt to fetch real GPS location
-    try {
-      if (mounted) {
-        // Show a subtle snackbar or indicator if needed,
-        // but for auto-pick we usually do it silently unless it fails.
-      }
-      await StateService().fetchRealLocation();
-      debugPrint(
-        "Location fetched successfully: ${StateService().userCoordinates}",
-      );
-    } catch (e) {
-      debugPrint("Location error: $e");
-      // Fallback/Demo default if permission denied or error
-      if (mounted) {
-        // Handle specific error cases with better UI feedback
-        String errorMessage = "GPS access failed. Using default location.";
-
-        if (e.toString().contains('Location services are disabled')) {
-          errorMessage = "Please enable GPS/Location services on your device.";
-        } else if (e.toString().contains('denied')) {
-          errorMessage =
-              "Location permission is required to detect your address.";
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'Settings',
-              onPressed: () async {
-                // Open relevant settings
-                if (e.toString().contains('Location services are disabled')) {
-                  await StateService().openLocationSettings();
-                } else {
-                  await StateService().openAppSettings();
-                }
-              },
-            ),
-          ),
-        );
-        StateService().setLocation(
-          "Kigali, Rwanda (Default)",
-          "-1.9706, 30.1044",
-        );
-      }
-    }
   }
 
   @override

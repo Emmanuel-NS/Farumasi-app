@@ -7,6 +7,7 @@ import '../widgets/medicine_item.dart';
 import 'medicine_detail_screen.dart';
 import '../services/state_service.dart';
 import '../services/patient_catalog_service.dart';
+import '../services/app_lifecycle_service.dart';
 import '../api/repositories/patient_repository.dart';
 import '../widgets/auth_helper.dart';
 
@@ -535,19 +536,29 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     PatientCatalogService().addListener(_onCatalogChanged);
     if (PatientCatalogService().medicines.isEmpty) {
       PatientCatalogService().refresh(immediate: true);
-    } else {
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          PatientCatalogService().refresh(
-            immediate: true,
-            search: _searchQuery.isEmpty ? null : _searchQuery,
-          );
-        }
+    } else if (AppLifecycleService.instance.isInForeground) {
+      // Cached catalogue — refresh quietly after delay to save mobile data.
+      Future.delayed(const Duration(seconds: 45), () {
+        if (!mounted || !AppLifecycleService.instance.isInForeground) return;
+        PatientCatalogService().refresh(
+          immediate: true,
+          search: _searchQuery.isEmpty ? null : _searchQuery,
+        );
       });
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted) _requestStoreSellers();
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted && AppLifecycleService.instance.isInForeground) {
+          _requestStoreSellers();
+        }
+      });
+      Future.delayed(const Duration(seconds: 4), () {
+        if (!mounted || !AppLifecycleService.instance.isInForeground) return;
+        if (StateService().userCoordinates != null &&
+            StateService().userCoordinates!.isNotEmpty) {
+          return;
+        }
+        StateService().fetchRealLocation().catchError((_) {});
       });
     });
     _searchController = TextEditingController(); // Initialize

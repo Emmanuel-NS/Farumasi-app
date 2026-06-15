@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../api/repositories/patient_repository.dart';
+import '../services/app_lifecycle_service.dart';
 import '../models/models.dart';
 import '../models/product_category.dart';
 
@@ -88,6 +89,11 @@ class PatientCatalogService extends ChangeNotifier {
   }
 
   Future<void> _fetchCatalog({String? search, String? category}) async {
+    if (!AppLifecycleService.instance.isInForeground) {
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
     _loadedFromCache = false;
     try {
       final results = await Future.wait([
