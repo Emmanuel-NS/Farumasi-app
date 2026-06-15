@@ -2,12 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 import '../core/router.dart';
 import '../providers/auth_provider.dart';
+import '../services/google_auth_service.dart';
 import '../widgets/complete_profile_sheet.dart';
 import 'data_privacy_screen.dart';
+import 'forgot_password_screen.dart';
 import 'terms_conditions_screen.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
@@ -158,20 +159,26 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       return;
     }
     try {
-      await Supabase.instance.client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: kIsWeb ? null : 'io.supabase.flutter://login-callback/',
-      );
-      final user = Supabase.instance.client.auth.currentUser;
-      final email = user?.email;
-      if (email == null) return;
-      final name = user?.userMetadata?['full_name'] as String? ??
-          user?.userMetadata?['name'] as String? ??
-          email.split('@').first;
+      final account = await GoogleAuthService.signIn();
+      if (account == null) return;
+
+      final email = account.email.trim();
+      if (email.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google account has no email address.')),
+        );
+        return;
+      }
+
+      final name = account.displayName?.trim().isNotEmpty == true
+          ? account.displayName!.trim()
+          : email.split('@').first;
+
       await ref.read(authProvider.notifier).signInWithGoogle(
             email: email,
             fullName: name,
-            googleId: user?.id,
+            googleId: account.id,
           );
       if (!mounted) return;
       if (ref.read(authProvider).status == AuthStatus.authenticated) {
@@ -181,6 +188,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           if (!mounted || !profileOk) return;
         }
         _completeAuth();
+        return;
+      }
+      final err = ref.read(authProvider).error;
+      if (err != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(err), backgroundColor: Colors.red.shade800),
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -190,13 +204,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
-  bool get _supabaseReady {
-    try {
-      Supabase.instance.client;
-      return true;
-    } catch (_) {
-      return false;
-    }
+  void _openForgotPassword() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+    );
   }
 
   bool _isValidLoginIdentifier(String? v) {
@@ -591,34 +602,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             ),
                     ),
                   ),
-                  if (_supabaseReady) ...[
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: loading ? null : _signInWithGoogle,
-                      icon: Image.network(
-                        'https://www.google.com/favicon.ico',
-                        width: 18,
-                        height: 18,
-                        errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.g_mobiledata, size: 22),
-                      ),
-                      label: const Text('Continue with Google'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF475569),
-                        side: const BorderSide(color: Color(0xFFE2E8F0)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  if (_isLogin)
+                  if (_isLogin) ...[
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: loading ? null : _openForgotPassword,
                         child: const Text(
                           'Forgot password?',
                           style: TextStyle(
@@ -629,6 +617,29 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 4),
+                  ],
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: loading ? null : _signInWithGoogle,
+                    icon: Image.network(
+                      'https://www.google.com/favicon.ico',
+                      width: 18,
+                      height: 18,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.g_mobiledata, size: 22),
+                    ),
+                    label: const Text('Continue with Google'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF475569),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   ],
                   const Divider(height: 32),
                   OutlinedButton.icon(

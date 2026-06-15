@@ -9,6 +9,7 @@ import 'core/router.dart';
 import 'theme/app_theme.dart';
 import 'services/app_lifecycle_service.dart';
 import 'services/notification_service.dart';
+import 'services/google_auth_service.dart';
 import 'services/notification_navigation.dart';
 import 'services/patient_catalog_service.dart';
 import 'widgets/app_launch_overlay.dart';
@@ -44,6 +45,7 @@ Future<void> main() async {
 
   // Warm catalogue from disk without blocking first frame.
   unawaited(PatientCatalogService().hydrateFromCache());
+  unawaited(GoogleAuthService.ensureConfigured());
 
   // Defer non-critical startup work so the first frame paints sooner.
   Future<void>(() async {

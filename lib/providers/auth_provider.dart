@@ -1,7 +1,5 @@
 import 'package:dio/dio.dart';
 
-import 'package:flutter/foundation.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/repositories/auth_repository.dart';
@@ -222,6 +220,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final email = state.pendingVerificationEmail;
     if (email == null) return;
     await _repo.resendRegistrationOtp(email);
+  }
+
+  Future<String?> forgotPassword(String email) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final message = await _repo.forgotPassword(email);
+      state = state.copyWith(isLoading: false);
+      return message;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _parseError(e));
+      return null;
+    }
+  }
+
+  Future<String?> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final message = await _repo.resetPassword(
+        email: email,
+        code: code,
+        newPassword: newPassword,
+      );
+      state = state.copyWith(isLoading: false);
+      return message;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _parseError(e));
+      return null;
+    }
   }
 
   Future<void> signInWithGoogle({

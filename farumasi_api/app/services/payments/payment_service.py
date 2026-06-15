@@ -87,7 +87,42 @@ def _pesapal_user_message(exc: Exception) -> str:
     raw = str(exc).strip()
     if not raw:
         return "Could not start payment. Please try again or use another method."
+
+    parsed: dict | None = None
+    if raw.startswith("{"):
+        import ast
+        import json
+
+        try:
+            maybe = ast.literal_eval(raw)
+            if isinstance(maybe, dict):
+                parsed = maybe
+        except (SyntaxError, ValueError):
+            try:
+                maybe = json.loads(raw.replace("'", '"'))
+                if isinstance(maybe, dict):
+                    parsed = maybe
+            except (json.JSONDecodeError, ValueError):
+                parsed = None
+
+    if parsed:
+        code = str(parsed.get("code") or "").lower()
+        message = parsed.get("message")
+        if code == "amount_exceeds_default_limit":
+            return (
+                "This order exceeds the current Pesapal transaction limit on the FARUMASI "
+                "merchant account. Please contact support — we are working with Pesapal to "
+                "raise the limit. For testing, try a smaller order."
+            )
+        if isinstance(message, str) and message.strip():
+            return f"Payment could not start: {message.strip()}"
+
     low = raw.lower()
+    if "amount_exceeds" in low or "exceeds limit" in low:
+        return (
+            "This order exceeds the current payment limit. Contact FARUMASI support or "
+            "try a smaller order while limits are being raised with Pesapal."
+        )
     if "email" in low:
         return "Payment could not start: check your profile email or try another method."
     if "notification" in low or "ipn" in low:

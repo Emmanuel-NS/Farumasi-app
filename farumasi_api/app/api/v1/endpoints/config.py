@@ -63,10 +63,21 @@ async def delivery_quote(
 
 @router.get("/public")
 async def public_config(db: AsyncSession = Depends(get_db)):
+    from app.core.config import settings
+
     cfg = await PlatformSettingsService(db).get_delivery_config()
     return {
         "delivery": cfg,
         "supported_languages": ["en", "rw", "fr", "sw"],
+        "oauth": {
+            "supabase_url": settings.SUPABASE_URL or None,
+            "supabase_anon_key": settings.SUPABASE_ANON_KEY or None,
+            "google_web_client_id": settings.GOOGLE_WEB_CLIENT_ID or None,
+        },
+        "payments": {
+            "processing_fee_percent": float(settings.PAYMENT_PROCESSING_FEE_PERCENT or 0),
+            "currency": settings.PAYMENT_CURRENCY,
+        },
     }
 
 

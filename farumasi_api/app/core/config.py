@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     API_PUBLIC_URL: str = "http://localhost:8000"
     PATIENT_PORTAL_URL: str = "http://localhost:3002"
 
+    # OAuth (public anon values — exposed via /config/public for mobile clients)
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+    GOOGLE_WEB_CLIENT_ID: str = ""
+
     # ── Translation (Google Cloud Translation API v2) ─────────────────────
     # Set GOOGLE_TRANSLATE_API_KEY from Google Cloud Console (Translation API).
     # Cached strings are stored in PostgreSQL — repeat lookups cost nothing.

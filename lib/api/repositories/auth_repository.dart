@@ -218,6 +218,35 @@ class AuthRepository {
     );
   }
 
+  Future<String> forgotPassword(String email) async {
+    final response = await _client.dio.post(
+      '/auth/forgot-password',
+      data: {'email': email.trim()},
+      options: _authRequestOptions,
+    );
+    final data = response.data as Map<String, dynamic>;
+    return data['message'] as String? ??
+        'If an account exists for that email, a verification code has been sent.';
+  }
+
+  Future<String> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final response = await _client.dio.post(
+      '/auth/reset-password',
+      data: {
+        'email': email.trim(),
+        'code': code.trim(),
+        'new_password': newPassword,
+      },
+      options: _authRequestOptions,
+    );
+    final data = response.data as Map<String, dynamic>;
+    return data['message'] as String? ?? 'Password updated. You can sign in now.';
+  }
+
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,

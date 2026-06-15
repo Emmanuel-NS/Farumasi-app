@@ -2070,7 +2070,7 @@ export default function CartPage() {
         >
           {isPlacingOrder
             ? paymentStepLabel || t.cart_processing
-            : `${t.cart_place_order} · ${formatPrice(amountDueNow)}`}
+            : `${t.cart_place_order} · ${formatPrice(totalWithFee)}`}
         </button>
         {isPlacingOrder && amountDueNow > 0 && (
           <p className="text-center text-xs text-slate-500 mt-2">
