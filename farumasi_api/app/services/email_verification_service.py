@@ -12,7 +12,10 @@ from app.core.exceptions import AuthorizationError, ValidationError
 from app.core.security import hash_password, verify_password
 from app.models.email_verification_challenge import EmailVerificationChallenge
 from app.models.user import User
-from app.services.email_delivery_service import send_owner_verification_email
+from app.services.email_delivery_service import (
+    send_owner_verification_email,
+    smtp_config_issue,
+)
 from app.services.sms_delivery_service import send_verification_sms
 
 PURPOSE_PAYOUT_CREDENTIALS = "payout_credentials_update"
@@ -84,9 +87,15 @@ class EmailVerificationService:
                     code,
                 )
             else:
+                config_issue = smtp_config_issue()
+                if config_issue:
+                    raise ValidationError(
+                        f"Verification code could not be sent: {config_issue}"
+                    )
                 raise ValidationError(
                     "Verification code could not be sent. "
-                    "Configure SMTP or SMS (Africa's Talking) for production."
+                    "Check Brevo: verify SMTP_FROM_EMAIL as a sender, confirm SMTP login/key, "
+                    "and disable IP allowlist for Render."
                 )
         return settings.EMAIL_VERIFICATION_EXPIRE_MINUTES
 

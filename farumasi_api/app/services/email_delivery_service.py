@@ -15,6 +15,17 @@ def _smtp_configured() -> bool:
     return bool(settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD)
 
 
+def smtp_config_issue() -> str | None:
+    """Human-readable hint when SMTP env vars are missing on the server."""
+    if not settings.SMTP_HOST:
+        return "SMTP_HOST is not set on the server."
+    if not settings.SMTP_USER:
+        return "SMTP_USER is not set on the server."
+    if not settings.SMTP_PASSWORD:
+        return "SMTP_PASSWORD is not set on the server."
+    return None
+
+
 def _send_smtp_message(msg: EmailMessage) -> bool:
     if not _smtp_configured():
         return False
