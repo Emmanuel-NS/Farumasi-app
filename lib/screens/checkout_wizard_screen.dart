@@ -631,6 +631,63 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
       );
 
       final order = await PatientRepository.instance.createOrder(build.payload);
+
+      final orderDueRwf = (order.deferDeliveryFee
+              ? order.subtotal
+              : order.totalAmount)
+          .round();
+      final pesapalFee = paymentProcessingFeeRwf(orderDueRwf);
+      final chargeTotal = orderDueRwf + pesapalFee;
+
+      if (!mounted) return;
+      final proceed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Confirm payment amount'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Order ${order.orderCode ?? order.id}'),
+              const SizedBox(height: 12),
+              _confirmAmountRow('Medicines', '${order.subtotal.round()} RWF'),
+              if (order.deliveryFee > 0 && !order.deferDeliveryFee)
+                _confirmAmountRow('Delivery', '${order.deliveryFee.round()} RWF'),
+              if (order.deferDeliveryFee && order.deliveryFee > 0)
+                _confirmAmountRow(
+                  'Delivery',
+                  '${order.deliveryFee.round()} RWF (pay on delivery)',
+                ),
+              if (pesapalFee > 0)
+                _confirmAmountRow(
+                  'Pesapal fee ($paymentProcessingFeePercent%)',
+                  '$pesapalFee RWF',
+                ),
+              const Divider(height: 20),
+              _confirmAmountRow('Total to pay now', '$chargeTotal RWF', bold: true),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Pay now'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) {
+        try {
+          await PatientRepository.instance.cancelOrder(order.id);
+        } catch (_) {}
+        if (mounted) setState(() => _isSubmitting = false);
+        return;
+      }
+
       final init = await PatientRepository.instance.initiatePesapal(
         order.id,
         phone: _phoneController.text.trim(),
@@ -1099,9 +1156,15 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                 ? calcDeliveryFee(cardRoadKm)
                 : 1500.0;
     final cardMedicineDue = opt.priceAfterInsurance;
-    final cardTotal = cardDeliveryFee == null
+    final cardDeliveryDue = cardDeliveryBlocked ? 0.0 : (cardDeliveryFee ?? 0.0);
+    final cardOrderAmount = cardMedicineDue + cardDeliveryDue;
+    final cardTotalToPay = cardDeliveryFee == null
         ? null
-        : cardMedicineDue + (cardDeliveryBlocked ? 0.0 : cardDeliveryFee);
+        : estimatedCheckoutTotalRwf(
+            medicinesRwf: cardMedicineDue.round(),
+            deliveryRwf: cardDeliveryDue.round(),
+            deferDeliveryFee: false,
+          ).toDouble();
 
     final whyParts = <String>[];
     if (isBest) {
@@ -1420,7 +1483,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
-                                  'Estimated total',
+                                  'Estimated total to pay',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -1430,9 +1493,9 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                                 Text(
                                   cardDeliveryBlocked && _fulfillment == 'delivery'
                                       ? '—'
-                                      : cardTotal == null
+                                      : cardTotalToPay == null
                                           ? '—'
-                                          : formatRwf(cardTotal),
+                                          : formatRwf(cardTotalToPay),
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w900,
@@ -1442,6 +1505,17 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                               ],
                             ),
                           ),
+                          if (cardTotalToPay != null && cardOrderAmount > 0)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                              child: Text(
+                                'Includes ~$paymentProcessingFeePercent% Pesapal fee on ${formatRwf(cardOrderAmount)} order',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -2613,6 +2687,34 @@ class _SummaryCard extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _confirmAmountRow(String label, String value, {bool bold = false}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: bold ? 14 : 13,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+              color: bold ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: bold ? 16 : 13,
+            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+            color: bold ? const Color(0xFF1E9E68) : const Color(0xFF334155),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _WizardStep {

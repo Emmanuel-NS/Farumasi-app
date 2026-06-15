@@ -52,6 +52,16 @@ int paymentProcessingFeeRwf(int amountRwf) {
   return (amountRwf * paymentProcessingFeePercent / 100).round();
 }
 
+/// Order amount (medicines + delivery unless deferred) plus Pesapal fee.
+int estimatedCheckoutTotalRwf({
+  required int medicinesRwf,
+  int deliveryRwf = 0,
+  bool deferDeliveryFee = false,
+}) {
+  final orderAmount = medicinesRwf + (deferDeliveryFee ? 0 : deliveryRwf);
+  return orderAmount + paymentProcessingFeeRwf(orderAmount);
+}
+
 class PaymentMethodSelector extends StatelessWidget {
   const PaymentMethodSelector({
     super.key,
@@ -265,9 +275,13 @@ class PaymentFeeBreakdown extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          _row('Medicines & items', '$_orderAmount RWF'),
+          _row('Medicines', '$subtotalRwf RWF'),
+          if (deliveryFeeRwf > 0 && !deferDeliveryFee)
+            _row('Delivery', '$deliveryFeeRwf RWF'),
+          if (deferDeliveryFee && deliveryFeeRwf > 0)
+            _row('Delivery', 'Pay on delivery ($deliveryFeeRwf RWF)', muted: true),
           if (_fee > 0) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             _row(
               'Pesapal fee ($paymentProcessingFeePercent%)',
               '$_fee RWF',

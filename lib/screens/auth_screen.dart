@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 import '../core/router.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/complete_profile_sheet.dart';
 import 'data_privacy_screen.dart';
 import 'terms_conditions_screen.dart';
 
@@ -174,6 +175,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           );
       if (!mounted) return;
       if (ref.read(authProvider).status == AuthStatus.authenticated) {
+        final authUser = ref.read(authProvider).user;
+        if (authUser != null) {
+          final profileOk = await showCompleteProfileSheet(context, user: authUser);
+          if (!mounted || !profileOk) return;
+        }
         _completeAuth();
       }
     } catch (e) {

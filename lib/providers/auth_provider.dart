@@ -239,6 +239,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (result.user != null) {
         _syncLegacySession(result.user);
         state = AuthState.authenticated(result.user!);
+        final fresh = await _repo.getMe();
+        if (fresh != null) {
+          _syncLegacySession(fresh);
+          state = AuthState.authenticated(fresh);
+        }
         return;
       }
       state = state.copyWith(isLoading: false, error: 'Google sign-in failed');
