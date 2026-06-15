@@ -55,6 +55,37 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- App Links: open shared health/store/consult URLs in the app when installed -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="farumasi.com" android:pathPrefix="/health"/>
+                <data android:scheme="https" android:host="www.farumasi.com" android:pathPrefix="/health"/>
+                <data android:scheme="https" android:host="patient.farumasi.com" android:pathPrefix="/health"/>
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="farumasi.com" android:pathPrefix="/consult"/>
+                <data android:scheme="https" android:host="www.farumasi.com" android:pathPrefix="/consult"/>
+                <data android:scheme="https" android:host="patient.farumasi.com" android:pathPrefix="/consult"/>
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="farumasi.com" android:pathPrefix="/store"/>
+                <data android:scheme="https" android:host="www.farumasi.com" android:pathPrefix="/store"/>
+                <data android:scheme="https" android:host="patient.farumasi.com" android:pathPrefix="/store"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="farumasi" android:host="app"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

@@ -6,7 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/repositories/patient_repository.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
+import '../utils/consult_attachments.dart';
 import '../utils/media_pick_helper.dart';
+import '../widgets/app_refresh.dart';
+import '../widgets/lite_network_image.dart';
 import '../widgets/media_attachment_viewer.dart';
 import '../widgets/portal/portal_ui.dart';
 import 'medicine_detail_screen.dart';
@@ -84,7 +87,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
 
   void _startPolling() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) => _refreshChat());
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refreshChat());
   }
 
   Future<void> _refreshChat() async {
@@ -298,20 +301,27 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
     );
   }
 
+  Future<void> _pullRefresh() async {
+    await _bootstrap();
+    if (_activeConsult != null) {
+      await _refreshChat();
+    }
+  }
+
   Future<void> _pickImage() async {
     setState(() => _attachMenuOpen = false);
     try {
       final picked = await pickImageBytes();
       if (picked == null) return;
-      final url = await PatientRepository.instance.uploadConsultImageBytes(
+      final upload = await PatientRepository.instance.uploadConsultAttachmentBytes(
         picked.bytes,
         picked.name,
       );
       if (!mounted) return;
       setState(() {
-        _pendingAttachmentUrl = url;
+        _pendingAttachmentUrl = upload.url;
         _pendingAttachmentName = picked.name;
-        _pendingAttachmentType = 'image';
+        _pendingAttachmentType = upload.attachmentType;
       });
     } catch (e) {
       if (mounted) {
@@ -348,15 +358,15 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
     try {
       final picked = await pickDocumentBytes();
       if (picked == null) return;
-      final url = await PatientRepository.instance.uploadConsultDocumentBytes(
+      final upload = await PatientRepository.instance.uploadConsultAttachmentBytes(
         picked.bytes,
         picked.name,
       );
       if (!mounted) return;
       setState(() {
-        _pendingAttachmentUrl = url;
+        _pendingAttachmentUrl = upload.url;
         _pendingAttachmentName = picked.name;
-        _pendingAttachmentType = 'file';
+        _pendingAttachmentType = upload.attachmentType;
       });
     } catch (e) {
       if (mounted) {
@@ -456,20 +466,32 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.of(context).size.width >= 720;
-    return SizedBox.expand(
-      child: ColoredBox(
-        color: PortalColors.pageBg,
-        child: wide
-            ? Row(
-                children: [
-                  SizedBox(width: 340, child: _buildRail(showBack: false)),
-                  const VerticalDivider(width: 1, color: PortalColors.slate200),
-                  Expanded(child: _buildChatPane()),
-                ],
-              )
-            : _selectedPh == null
-                ? _buildRail(showBack: false)
-                : _buildChatPane(showBack: true),
+    final inMobileChat = !wide && _selectedPh != null;
+    return PopScope(
+      canPop: !inMobileChat,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || !inMobileChat) return;
+        _pollTimer?.cancel();
+        setState(() {
+          _selectedPh = null;
+          _activeConsult = null;
+        });
+      },
+      child: SizedBox.expand(
+        child: ColoredBox(
+          color: PortalColors.pageBg,
+          child: wide
+              ? Row(
+                  children: [
+                    SizedBox(width: 340, child: _buildRail(showBack: false)),
+                    const VerticalDivider(width: 1, color: PortalColors.slate200),
+                    Expanded(child: _buildChatPane()),
+                  ],
+                )
+              : _selectedPh == null
+                  ? _buildRail(showBack: false)
+                  : _buildChatPane(showBack: true),
+        ),
       ),
     );
   }
@@ -541,12 +563,21 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
           ),
           const Divider(height: 1, color: PortalColors.slate100),
           Expanded(
-            child: _filteredRailEntries.isEmpty
-                ? const PortalEmptyState(
-                    icon: Icons.search_off,
-                    message: 'No pharmacists found',
-                  )
-                : ListView.builder(
+            child: AppRefreshScroll(
+              onRefresh: _pullRefresh,
+              child: _filteredRailEntries.isEmpty
+                  ? ListView(
+                      physics: AppRefreshScroll.scrollPhysics(const AlwaysScrollableScrollPhysics()),
+                      children: const [
+                        SizedBox(height: 120),
+                        PortalEmptyState(
+                          icon: Icons.search_off,
+                          message: 'No pharmacists found',
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                    physics: AppRefreshScroll.scrollPhysics(const AlwaysScrollableScrollPhysics()),
                     itemCount: _filteredRailEntries.length,
                     itemBuilder: (context, i) {
                       final entry = _filteredRailEntries[i];
@@ -685,6 +716,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                       );
                     },
                   ),
+            ),
           ),
         ],
       ),
@@ -841,8 +873,11 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                 ? const Center(
                     child: CircularProgressIndicator(color: PortalColors.green),
                   )
-                : ListView.builder(
+                : AppRefreshScroll(
+                    onRefresh: _pullRefresh,
+                    child: ListView.builder(
                     controller: _scroll,
+                    physics: AppRefreshScroll.scrollPhysics(const AlwaysScrollableScrollPhysics()),
                     padding: const EdgeInsets.all(12),
                     itemCount: messages.length + 1,
                     itemBuilder: (context, i) {
@@ -864,6 +899,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                       }
                       return _messageBubble(messages[i - 1]);
                     },
+                  ),
                   ),
           ),
         ),
@@ -1004,6 +1040,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
 
   Widget _messageBubble(PatientConsultMessage msg) {
     final isMe = msg.isFromPatient;
+    final type = inferAttachmentType(msg.attachmentUrl, msg.attachmentType);
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -1031,7 +1068,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            if (msg.attachmentType == 'image' && msg.attachmentUrl != null)
+            if (type == 'image' && msg.attachmentUrl != null)
               GestureDetector(
                 onTap: () => showFullScreenImage(
                   context,
@@ -1043,12 +1080,25 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Image.network(
-                        PatientRepository.resolveMediaUrl(msg.attachmentUrl),
+                      LiteNetworkImage(
+                        url: msg.attachmentUrl,
                         height: 160,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+                        memCacheWidth: 480,
+                        error: Container(
+                          height: 160,
+                          color: PortalColors.slate100,
+                          alignment: Alignment.center,
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.image_not_supported_outlined, color: PortalColors.slate400),
+                              SizedBox(height: 4),
+                              Text('Image unavailable', style: TextStyle(fontSize: 11, color: PortalColors.slate500)),
+                            ],
+                          ),
+                        ),
                       ),
                       Container(
                         padding: const EdgeInsets.all(6),
@@ -1062,13 +1112,13 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                   ),
                 ),
               ),
-            if (msg.attachmentType == 'file' && msg.attachmentUrl != null)
+            if (type == 'file' && msg.attachmentUrl != null)
               AttachmentFileChip(
                 name: msg.attachmentName ?? 'Document',
                 url: msg.attachmentUrl!,
                 isPatientBubble: isMe,
               ),
-            if (msg.attachmentType == 'product')
+            if (type == 'product')
               _ConsultProductAttachmentCard(message: msg),
             if (msg.content.isNotEmpty)
               Text(msg.content, style: const TextStyle(fontSize: 14, color: PortalColors.slate900)),
@@ -1226,10 +1276,7 @@ class _ConsultProductPickerState extends State<_ConsultProductPicker> {
 }
 
 String? _productIdFromAttachmentUrl(String? url) {
-  if (url == null || url.isEmpty) return null;
-  final m = RegExp(r'/(?:store|inventory|products)/([^/?#]+)', caseSensitive: false)
-      .firstMatch(url);
-  return m?.group(1);
+  return productIdFromPath(url);
 }
 
 class _ConsultProductAttachmentCard extends StatefulWidget {

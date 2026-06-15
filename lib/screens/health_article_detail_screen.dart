@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../api/repositories/patient_repository.dart';
 import '../models/health_article.dart';
 import '../providers/auth_provider.dart';
+import '../core/app_navigation.dart';
+import '../widgets/embedded_youtube_player.dart';
+import '../widgets/shimmer_loading.dart';
 import '../widgets/portal/portal_ui.dart';
 
 class CategoryAccent {
@@ -113,10 +115,7 @@ String timeAgo(DateTime d) {
   return '${months ~/ 12}y ago';
 }
 
-String? youtubeId(String url) {
-  final m = RegExp(r'(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})').firstMatch(url);
-  return m?.group(1);
-}
+String? youtubeId(String url) => parseYoutubeVideoId(url);
 
 class HealthArticleDetailScreen extends ConsumerStatefulWidget {
   const HealthArticleDetailScreen({
@@ -340,26 +339,37 @@ class _HealthArticleDetailScreenState extends ConsumerState<HealthArticleDetailS
     });
   }
 
+  void _goBack() => AppNavigation.backToHealth(context);
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: PortalColors.pageBgAlt,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: PortalColors.green),
-              SizedBox(height: 12),
-              Text('Loading article…', style: TextStyle(color: PortalColors.slate400, fontSize: 14)),
-            ],
-          ),
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: const [
+            ShimmerBox(width: double.infinity, height: 200, borderRadius: 16),
+            SizedBox(height: 16),
+            ShimmerBox(width: 120, height: 12, borderRadius: 6),
+            SizedBox(height: 12),
+            ShimmerBox(width: double.infinity, height: 20, borderRadius: 6),
+            SizedBox(height: 8),
+            ShimmerBox(width: double.infinity, height: 14, borderRadius: 6),
+            SizedBox(height: 8),
+            ShimmerBox(width: 260, height: 14, borderRadius: 6),
+          ],
         ),
       );
     }
 
     if (_notFound || _article == null) {
-      return Scaffold(
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _goBack();
+        },
+        child: Scaffold(
         backgroundColor: PortalColors.pageBgAlt,
         body: Center(
           child: Column(
@@ -369,12 +379,13 @@ class _HealthArticleDetailScreenState extends ConsumerState<HealthArticleDetailS
               const SizedBox(height: 16),
               const Text('Article not found', style: TextStyle(fontWeight: FontWeight.w600, color: PortalColors.slate500)),
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: _goBack,
                 child: const Text('← Back to Health', style: TextStyle(color: PortalColors.green, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
         ),
+      ),
       );
     }
 
@@ -383,20 +394,25 @@ class _HealthArticleDetailScreenState extends ConsumerState<HealthArticleDetailS
     final ytId = article.videoUrl != null ? youtubeId(article.videoUrl!) : null;
     final isDyk = article.articleType == 'did_you_know' || article.category == 'Did You Know?';
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack();
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (ytId != null)
-              _VideoHero(ytId: ytId, title: article.title, onBack: () => Navigator.pop(context))
+              _VideoHero(ytId: ytId, title: article.title, onBack: _goBack)
             else
               _ImageHero(
                 article: article,
                 accent: accent,
                 isDyk: isDyk,
-                onBack: () => Navigator.pop(context),
+                onBack: _goBack,
               ),
             Transform.translate(
               offset: ytId != null ? Offset.zero : const Offset(0, -56),
@@ -448,7 +464,7 @@ class _HealthArticleDetailScreenState extends ConsumerState<HealthArticleDetailS
                           ),
                           Center(
                             child: TextButton.icon(
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: _goBack,
                               icon: const Icon(Icons.arrow_back, size: 16, color: PortalColors.green),
                               label: const Text(
                                 'Back to Discover Wellness',
@@ -483,6 +499,7 @@ class _HealthArticleDetailScreenState extends ConsumerState<HealthArticleDetailS
           ],
         ),
       ),
+    ),
     );
   }
 }
@@ -502,29 +519,9 @@ class _VideoHero extends StatelessWidget {
           aspectRatio: 16 / 9,
           child: ColoredBox(
             color: Colors.black,
-            child: InkWell(
-              onTap: () => launchUrl(Uri.parse('https://www.youtube.com/watch?v=$ytId')),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Image.network(
-                    'https://img.youtube.com/vi/$ytId/hqdefault.jpg',
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                  ),
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 40),
-                  ),
-                ],
-              ),
+            child: EmbeddedYoutubePlayer(
+              videoId: ytId,
+              title: title,
             ),
           ),
         ),
@@ -1291,7 +1288,7 @@ class _RelatedSection extends StatelessWidget {
             const Text('More to read', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: PortalColors.slate900)),
             const Spacer(),
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => AppNavigation.backToHealth(context),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

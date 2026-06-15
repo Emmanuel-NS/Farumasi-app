@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../api/repositories/patient_repository.dart';
 import '../services/state_service.dart';
 import '../utils/media_pick_helper.dart';
+import '../widgets/app_refresh.dart';
 import 'order_detail_screen.dart';
 
 enum _RxTab { active, cancelled, upload }
@@ -227,7 +228,10 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
           body: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 720),
-              child: ListView(
+              child: AppRefreshScroll(
+                onRefresh: () => _load(quiet: true),
+                child: ListView(
+                physics: AppRefreshScroll.scrollPhysics(const AlwaysScrollableScrollPhysics()),
                 padding: const EdgeInsets.all(16),
                 children: [
                   Row(
@@ -286,6 +290,7 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                   else
                     _buildList(_active, emptyTitle: 'No prescriptions yet'),
                 ],
+              ),
               ),
             ),
           ),

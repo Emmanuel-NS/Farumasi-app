@@ -23,6 +23,9 @@ const _supabaseAnonKey = String.fromEnvironment(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Warm catalogue from disk before first frame so store tab is instant offline.
+  await PatientCatalogService().hydrateFromCache();
+
   runApp(
     const ProviderScope(
       child: FarumasiApp(),
@@ -46,7 +49,6 @@ Future<void> main() async {
     } catch (e) {
       debugPrint('Failed to init notifications: $e');
     }
-    await PatientCatalogService().hydrateFromCache();
   });
 }
 

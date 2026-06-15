@@ -25,6 +25,7 @@ import {
 import Link from "next/link";
 import { ShareArticleMenu } from "@/components/health/share-article-menu";
 import { sortTrendingArticles } from "@/lib/share-article";
+import { safeBackToHealth } from "@/lib/navigation";
 
 const CAT_ACCENT: Record<string, { chip: string; bg: string; bar: string }> = {
   "General Health": { chip: "bg-farumasi-600 text-white", bg: "bg-farumasi-50", bar: "bg-farumasi-500" },
@@ -259,7 +260,7 @@ export default function ArticleDetailPage() {
         <BookOpen className="w-16 h-16 text-slate-200 mb-4" />
         <p className="font-medium">Article not found</p>
         <button
-          onClick={() => router.back()}
+          onClick={() => safeBackToHealth(router)}
           className="mt-4 text-farumasi-600 font-medium text-sm hover:underline"
         >
           ← Back to Health
@@ -277,7 +278,7 @@ export default function ArticleDetailPage() {
       {ytId ? (
         <div className="relative bg-black w-full">
           <button
-            onClick={() => router.back()}
+            onClick={() => safeBackToHealth(router)}
             className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-black/50 backdrop-blur-md rounded-full pl-2.5 pr-4 py-2 text-white hover:bg-black/70 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -319,7 +320,7 @@ export default function ArticleDetailPage() {
             }}
           />
           <button
-            onClick={() => router.back()}
+            onClick={() => safeBackToHealth(router)}
             className="absolute top-4 left-4 flex items-center gap-2 bg-black/30 backdrop-blur-md rounded-full pl-2.5 pr-4 py-2 text-white hover:bg-black/50 transition-colors group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />

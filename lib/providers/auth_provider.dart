@@ -17,71 +17,45 @@ enum AuthStatus { unknown, authenticated, unauthenticated }
 
 
 class AuthState {
-
   final AuthStatus status;
-
   final AuthUser? user;
-
   final String? error;
-
   final bool isLoading;
-
-
+  final String? pendingVerificationEmail;
 
   const AuthState({
-
     required this.status,
-
     this.user,
-
     this.error,
-
     this.isLoading = false,
-
+    this.pendingVerificationEmail,
   });
 
-
-
   const AuthState.unknown() : this(status: AuthStatus.unknown);
-
   const AuthState.unauthenticated() : this(status: AuthStatus.unauthenticated);
-
   const AuthState.authenticated(AuthUser user)
-
       : this(status: AuthStatus.authenticated, user: user);
-
   const AuthState.error(String message)
-
       : this(status: AuthStatus.unauthenticated, error: message);
 
-
-
   AuthState copyWith({
-
     bool? isLoading,
-
     AuthUser? user,
-
     AuthStatus? status,
-
     String? error,
-
+    String? pendingVerificationEmail,
+    bool clearPendingVerification = false,
   }) {
-
     return AuthState(
-
       status: status ?? this.status,
-
       user: user ?? this.user,
-
-      error: error ?? this.error,
-
+      error: error,
       isLoading: isLoading ?? this.isLoading,
-
+      pendingVerificationEmail: clearPendingVerification
+          ? null
+          : (pendingVerificationEmail ?? this.pendingVerificationEmail),
     );
-
   }
-
 }
 
 
@@ -129,7 +103,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       try {
 
-        final user = await _repo.getMe();
+        final user = await _repo.getMe().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => null,
+        );
 
         if (user != null) {
 
@@ -141,12 +118,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
         }
 
+      } on DioException catch (e) {
+
+        if (e.response?.statusCode == 401) {
+          await _repo.logout();
+        }
+
       } catch (_) {
-
-        await _repo.logout();
-
       }
-
     }
 
     _syncLegacySession(null);
@@ -158,95 +137,112 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 
   Future<void> login({
-
     required String emailOrPhone,
-
     required String password,
-
   }) async {
-
     state = state.copyWith(isLoading: true, error: null);
 
-
-
     try {
-
       final result = await _repo.login(
-
         emailOrPhone: emailOrPhone,
-
         password: password,
-
+      ).timeout(
+        const Duration(seconds: 45),
+        onTimeout: () => throw Exception('Login timed out. Check your connection and try again.'),
       );
 
       if (result.user != null) {
-
         _syncLegacySession(result.user);
-
         state = AuthState.authenticated(result.user!);
-
         return;
-
       }
 
       state = state.copyWith(isLoading: false, error: 'Sign-in failed');
-
     } on DioException catch (e) {
-
       state = state.copyWith(isLoading: false, error: _parseError(e));
-
     } catch (e) {
-
       state = state.copyWith(isLoading: false, error: _parseError(e));
-
     }
-
   }
 
 
 
-  Future<void> register({
-
+  Future<RegistrationPending?> register({
     required String name,
-
     required String password,
-
     String? email,
-
     String? phone,
-
     String role = 'PATIENT',
-
   }) async {
-
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, clearPendingVerification: true);
 
     try {
-
-      final result = await _repo.register(
-
+      final pending = await _repo.register(
         name: name,
-
         email: email,
-
         phone: phone,
-
         password: password,
-
         role: role,
-
       );
 
-      _syncLegacySession(result.user);
-
-      state = AuthState.authenticated(result.user!);
-
+      state = state.copyWith(
+        isLoading: false,
+        pendingVerificationEmail: pending.email,
+      );
+      return pending;
     } catch (e) {
-
       state = state.copyWith(isLoading: false, error: _parseError(e));
-
+      return null;
     }
+  }
 
+  Future<bool> verifyRegistration(String code) async {
+    final email = state.pendingVerificationEmail;
+    if (email == null) return false;
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final result = await _repo.verifyRegistration(email: email, code: code);
+      if (result.user != null) {
+        _syncLegacySession(result.user);
+        state = AuthState.authenticated(result.user!);
+        return true;
+      }
+      state = state.copyWith(isLoading: false, error: 'Verification failed');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _parseError(e));
+      return false;
+    }
+  }
+
+  Future<void> resendRegistrationOtp() async {
+    final email = state.pendingVerificationEmail;
+    if (email == null) return;
+    await _repo.resendRegistrationOtp(email);
+  }
+
+  Future<void> signInWithGoogle({
+    required String email,
+    required String fullName,
+    String? googleId,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final result = await _repo.signInWithGoogle(
+        email: email,
+        fullName: fullName,
+        googleId: googleId,
+      );
+      if (result.user != null) {
+        _syncLegacySession(result.user);
+        state = AuthState.authenticated(result.user!);
+        return;
+      }
+      state = state.copyWith(isLoading: false, error: 'Google sign-in failed');
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _parseError(e));
+    }
   }
 
 

@@ -22,8 +22,10 @@ interface AuthStore {
   accessToken: string | null;
   /** Sign in with email + password; fetches user profile automatically */
   login: (email: string, password: string) => Promise<void>;
-  /** Register new patient account */
-  register: (params: { full_name: string; email: string; phone?: string; password: string }) => Promise<void>;
+  /** Register new patient account — returns pending OTP step */
+  register: (params: { full_name: string; email: string; phone?: string; password: string }) => Promise<{ email: string; expires_minutes: number }>;
+  verifyRegistration: (email: string, code: string) => Promise<void>;
+  resendRegistrationOtp: (email: string) => Promise<void>;
   /** Clear session */
   logout: () => void;
   /** Rehydrate tokens from localStorage on client mount */
@@ -66,12 +68,21 @@ export const useAuthStore = create<AuthStore>()((set) => ({
   },
 
   register: async (params) => {
-    const tokens = await authService.register(params);
+    const pending = await authService.register(params);
+    return { email: pending.email, expires_minutes: pending.expires_minutes };
+  },
+
+  verifyRegistration: async (email, code) => {
+    const tokens = await authService.verifyRegistration(email, code);
     saveTokens(tokens.access_token, tokens.refresh_token);
     const user = await authService.getMe();
     usePinStore.getState().setActiveUser(user.id);
     await syncPatientPinStatus();
     set({ isGuest: false, user, accessToken: tokens.access_token });
+  },
+
+  resendRegistrationOtp: async (email) => {
+    await authService.resendRegistrationOtp(email);
   },
 
   logout: () => {

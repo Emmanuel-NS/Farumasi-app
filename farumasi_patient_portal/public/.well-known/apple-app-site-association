@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.farumasi.farumasiApp",
+        "paths": ["/health/*", "/consult", "/consult/*", "/store", "/store/*"]
+      }
+    ]
+  }
+}

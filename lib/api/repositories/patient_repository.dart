@@ -5,7 +5,8 @@ import '../api_client.dart';
 import '../../models/cache_serializers.dart';
 import '../../models/models.dart';
 import '../../models/product_category.dart';
-import '../../services/offline_cache_service.dart';
+import '../../utils/consult_attachments.dart';
+import '../../utils/upload_url.dart';
 
 /// Patient-facing API — mirrors farumasi_patient_portal services.
 class PatientRepository {
@@ -61,14 +62,10 @@ class PatientRepository {
     return resolveMediaUrl(url);
   }
 
-  static const String productPlaceholderImage =
-      'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&q=80';
-  static const String pharmacyPlaceholderImage =
-      'https://images.unsplash.com/photo-1587854691652-5c140347731d?w=600&q=80';
-  static const String partnerPlaceholderImage =
-      'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=600&q=80';
-  static const String sponsoredPlaceholderImage =
-      'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80';
+  static const String productPlaceholderImage = '';
+  static const String pharmacyPlaceholderImage = '';
+  static const String partnerPlaceholderImage = '';
+  static const String sponsoredPlaceholderImage = '';
 
   static String _productImageUrl(Map<String, dynamic> json) {
     for (final key in ['image_url', 'thumbnail_url', 'cover_image_url', 'image', 'logo_url']) {
@@ -114,7 +111,7 @@ class PatientRepository {
   Future<List<Medicine>> fetchProducts({
     String? search,
     String? category,
-    int limit = 100,
+    int limit = 40,
   }) async {
     final queryParams = <String, dynamic>{
       'only_with_listings': true,
@@ -957,31 +954,45 @@ class PatientRepository {
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
     });
-    return _uploadConsultFile(form);
+    final result = await _uploadConsultFile(form);
+    return result.url;
   }
 
   Future<String> uploadConsultImageBytes(List<int> bytes, String filename) async {
     final form = FormData.fromMap({
       'file': MultipartFile.fromBytes(bytes, filename: filename),
     });
-    return _uploadConsultFile(form);
+    final result = await _uploadConsultFile(form);
+    return result.url;
   }
 
   Future<String> uploadConsultDocument(String filePath) async {
     final form = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath),
     });
-    return _uploadConsultFile(form);
+    final result = await _uploadConsultFile(form);
+    return result.url;
   }
 
   Future<String> uploadConsultDocumentBytes(List<int> bytes, String filename) async {
     final form = FormData.fromMap({
       'file': MultipartFile.fromBytes(bytes, filename: filename),
     });
+    final result = await _uploadConsultFile(form);
+    return result.url;
+  }
+
+  Future<ConsultUploadResult> uploadConsultAttachmentBytes(
+    List<int> bytes,
+    String filename,
+  ) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
     return _uploadConsultFile(form);
   }
 
-  Future<String> _uploadConsultFile(FormData form) async {
+  Future<ConsultUploadResult> _uploadConsultFile(FormData form) async {
     const maxBytes = 8 * 1024 * 1024;
     final file = form.files.firstWhere((e) => e.key == 'file');
     final size = file.value.length;
@@ -993,9 +1004,13 @@ class PatientRepository {
       data: form,
       options: Options(contentType: 'multipart/form-data'),
     );
-    const url = (upload.data as Map<String, dynamic>)['url'] as String?;
-    if (url == null || url.isEmpty) throw Exception('Upload returned no URL');
-    return url.startsWith('/') ? url : '/$url';
+    final data = upload.data as Map<String, dynamic>;
+    final urlRaw = data['url'] as String?;
+    if (urlRaw == null || urlRaw.isEmpty) throw Exception('Upload returned no URL');
+    final url = normalizeUploadUrl(urlRaw);
+    final declared = data['attachment_type'] as String?;
+    final type = inferAttachmentType(url, declared) ?? declared ?? 'file';
+    return ConsultUploadResult(url: url, attachmentType: type);
   }
 
   Future<List<Pharmacy>> fetchPharmacies({
@@ -1819,6 +1834,12 @@ class PatientArticleComment {
   }
 }
 
+class ConsultUploadResult {
+  const ConsultUploadResult({required this.url, required this.attachmentType});
+  final String url;
+  final String attachmentType;
+}
+
 class PatientConsultMessage {
   final String id;
   final String content;
@@ -1860,7 +1881,10 @@ class PatientConsultMessage {
           DateTime.now(),
       attachmentUrl: json['attachment_url'] as String?,
       attachmentName: json['attachment_name'] as String?,
-      attachmentType: json['attachment_type'] as String?,
+      attachmentType: inferAttachmentType(
+        json['attachment_url'] as String?,
+        json['attachment_type'] as String?,
+      ),
     );
   }
 }

@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:farumasi_app/api/repositories/patient_repository.dart';
 import 'package:farumasi_app/models/health_article.dart';
 import 'package:farumasi_app/screens/health_article_detail_screen.dart';
+import 'package:farumasi_app/widgets/app_refresh.dart';
 import 'package:farumasi_app/widgets/sponsored_carousel.dart';
 import 'package:farumasi_app/widgets/portal/portal_ui.dart';
+import 'package:farumasi_app/widgets/shimmer_loading.dart';
 
 String _compactNumber(int n) {
   if (n < 1000) return '$n';
@@ -139,7 +141,18 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
   @override
   void initState() {
     super.initState();
+    _warmFromCache();
     _loadArticlesFromApi();
+  }
+
+  Future<void> _warmFromCache() async {
+    final cached = await PatientRepository.instance.loadCachedArticles();
+    if (!mounted || cached.isEmpty) return;
+    setState(() {
+      _liveArticles = cached.map(HealthArticle.fromPatientArticle).toList();
+      _loading = false;
+      _invalidateArticleCache();
+    });
   }
 
   Future<void> _loadArticlesFromApi() async {
@@ -149,7 +162,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
         sortBy: _sortBy,
         articleType: _typeFilter == 'all' ? null : _typeFilter,
         savedOnly: _savedOnly,
-        limit: 100,
+        limit: 40,
       );
       if (!mounted) return;
       setState(() {
@@ -265,15 +278,14 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
       child: ColoredBox(
         color: PortalColors.pageBgAlt,
         child: _loading
-            ? const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: PortalColors.green),
-                    SizedBox(height: 12),
-                    Text('Loading articlesâ€¦', style: TextStyle(color: PortalColors.slate500)),
-                  ],
-                ),
+            ? ListView(
+                padding: const EdgeInsets.all(16),
+                children: const [
+                  ShimmerArticleCard(),
+                  ShimmerArticleCard(),
+                  ShimmerArticleCard(),
+                  ShimmerArticleCard(),
+                ],
               )
             : articles.isEmpty
                 ? Column(
@@ -287,7 +299,10 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
                       ),
                     ],
                   )
-                : CustomScrollView(
+                : AppRefreshScroll(
+                    onRefresh: _loadArticlesFromApi,
+                    child: CustomScrollView(
+                    physics: AppRefreshScroll.scrollPhysics(const AlwaysScrollableScrollPhysics()),
                     slivers: [
                       SliverToBoxAdapter(child: _buildHeader(articles.length)),
                       if (!_apiLoaded && !_loading && articles.isNotEmpty)
@@ -358,6 +373,7 @@ class _HealthTipsScreenState extends State<HealthTipsScreen> {
                           ),
                         ),
                     ],
+                  ),
                   ),
       ),
     );

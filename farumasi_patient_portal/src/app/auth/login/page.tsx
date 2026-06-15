@@ -16,10 +16,13 @@ const INPUT_CLS =
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, register } = useAuthStore();
+  const { login, register, verifyRegistration, resendRegistrationOtp } = useAuthStore();
   const [tab, setTab] = useState<Tab>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -47,16 +50,28 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      if (pendingEmail) {
+        await verifyRegistration(pendingEmail, otp);
+        router.push("/store");
+        return;
+      }
       if (tab === "login") {
         await login(email, password);
+        router.push("/store");
       } else {
         if (!name.trim()) { toast.error("Full name is required"); setLoading(false); return; }
-        await register({ full_name: name, email, password, phone: phone || undefined });
+        if (password !== confirmPassword) {
+          toast.error("Passwords do not match");
+          setLoading(false);
+          return;
+        }
+        const pending = await register({ full_name: name, email, password, phone: phone || undefined });
+        setPendingEmail(pending.email);
+        toast.success("Verification code sent — check your email or phone.");
       }
-      router.push("/store");
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : tab === "login" ? "Incorrect email or password" : "Registration failed. Try a different email.");
+      toast.error(typeof detail === "string" ? detail : tab === "login" ? "Incorrect email/phone or password" : "Registration failed. Try a different email.");
     } finally {
       setLoading(false);
     }
@@ -109,11 +124,13 @@ export default function LoginPage() {
           {/* Heading */}
           <div className="mb-7">
             <h1 className="text-2xl font-extrabold text-slate-900">
-              {tab === "login" ? "Welcome back" : "Create your account"}
+              {pendingEmail ? "Verify your account" : tab === "login" ? "Welcome back" : "Create your account"}
             </h1>
             <p className="text-slate-500 text-sm mt-1">
-              {tab === "login"
-                ? "Sign in to your patient account"
+              {pendingEmail
+                ? "Enter the code we sent to your email or phone"
+                : tab === "login"
+                ? "Sign in with email or phone number"
                 : "Join Farumasi — it's free"}
             </p>
           </div>
@@ -137,6 +154,26 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {pendingEmail ? (
+              <>
+                <input
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  required
+                  placeholder="Verification code"
+                  inputMode="numeric"
+                  className={INPUT_CLS.replace("pl-11", "px-4")}
+                />
+                <button
+                  type="button"
+                  onClick={() => void resendRegistrationOtp(pendingEmail).then(() => toast.success("Code resent"))}
+                  className="text-sm text-farumasi-600 font-semibold hover:underline"
+                >
+                  Resend code
+                </button>
+              </>
+            ) : (
+            <>
             {tab === "register" && (
               <>
                 <div className="relative">
@@ -167,11 +204,11 @@ export default function LoginPage() {
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
-                type="email"
+                type={tab === "login" ? "text" : "email"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="Email address"
+                placeholder={tab === "login" ? "Email or phone number" : "Email address"}
                 autoComplete="email"
                 className={INPUT_CLS}
               />
@@ -184,6 +221,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={8}
                 placeholder="Password"
                 autoComplete={tab === "login" ? "current-password" : "new-password"}
                 className={`${INPUT_CLS} pr-11`}
@@ -196,6 +234,24 @@ export default function LoginPage() {
                 {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+
+            {tab === "register" && (
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <input
+                  type={showPass ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                  className={INPUT_CLS}
+                />
+              </div>
+            )}
+            </>
+            )}
 
             {tab === "login" && (
               <div className="flex items-center justify-end pt-0.5">

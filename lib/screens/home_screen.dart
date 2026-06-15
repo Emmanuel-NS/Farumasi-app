@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:farumasi_app/screens/health_tips_screen.dart';
+import 'package:farumasi_app/widgets/farumasi_logo.dart';
 import 'package:farumasi_app/screens/medicine_store_screen.dart'
     as store_screen;
 import 'package:farumasi_app/screens/consult_chat_screen.dart'; // Direct consultation
@@ -50,6 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _isSidebarCollapsed = false;
   double _sidebarWidth = 200.0;
   String? _activeRightSidebar;
+  final Set<int> _mountedTabs = {0};
 
   /// Nested navigator key — keeps topbar/sidebar visible on wide screens
   /// while sub-screens (order detail, product detail, etc.) push within
@@ -100,8 +102,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _activeRightSidebar == 'cart' 
-                      ? 'Your Cart' 
+                  _activeRightSidebar == 'cart'
+                      ? 'Checkout'
                       : (_activeRightSidebar == 'help' ? 'Help & Support' : 'Notifications'),
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
@@ -128,6 +130,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
     setState(() {
       _currentIndex = index;
+      _mountedTabs.add(index);
       _shellPayload.value = _ShellPayload(index, _pagesWide);
       if (index == 2 || index == 4) {
         if (!_isBottomBarVisible) {
@@ -157,36 +160,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   List<Widget> _buildPages(bool embedStoreInShell) {
-    return [
-      store_screen.MedicineStoreScreen(
-        key: ValueKey('store-shell-$embedStoreInShell'),
-        embeddedInHomeShell: embedStoreInShell,
-        onUploadPrescription: _goToPrescriptionUpload,
-      ),
-      const HealthTipsScreen(),
-      GuestGate(
-        feature: 'Consult',
-        onBrowseStore: _goToStoreTab,
-        child: const ConsultChatScreen(),
-      ),
-      GuestGate(
-        feature: 'orders',
-        onBrowseStore: _goToStoreTab,
-        child: PinGate(
-          feature: 'orders',
-          child: OrdersScreen(onBrowseStore: _goToStoreTab),
-        ),
-      ),
-      GuestGate(
-        feature: 'prescriptions',
-        onBrowseStore: _goToStoreTab,
-        child: PinGate(
-          feature: 'prescriptions',
-          child: PrescriptionsScreen(openUploadTab: _openPrescriptionUpload),
-        ),
-      ),
-      SettingsScreen(onBack: () => _selectTab(0)),
-    ];
+    Widget pageFor(int index) {
+      switch (index) {
+        case 0:
+          return store_screen.MedicineStoreScreen(
+            key: ValueKey('store-shell-$embedStoreInShell'),
+            embeddedInHomeShell: embedStoreInShell,
+            onUploadPrescription: _goToPrescriptionUpload,
+          );
+        case 1:
+          return const HealthTipsScreen();
+        case 2:
+          return GuestGate(
+            feature: 'Consult',
+            onBrowseStore: _goToStoreTab,
+            child: const ConsultChatScreen(),
+          );
+        case 3:
+          return GuestGate(
+            feature: 'orders',
+            onBrowseStore: _goToStoreTab,
+            child: PinGate(
+              feature: 'orders',
+              child: OrdersScreen(onBrowseStore: _goToStoreTab),
+            ),
+          );
+        case 4:
+          return GuestGate(
+            feature: 'prescriptions',
+            onBrowseStore: _goToStoreTab,
+            child: PinGate(
+              feature: 'prescriptions',
+              child: PrescriptionsScreen(openUploadTab: _openPrescriptionUpload),
+            ),
+          );
+        case 5:
+          return SettingsScreen(onBack: () => _selectTab(0));
+        default:
+          return const SizedBox.shrink();
+      }
+    }
+
+    return List.generate(6, (index) {
+      if (!_mountedTabs.contains(index)) {
+        return const SizedBox.shrink(key: ValueKey('tab-placeholder-$index'));
+      }
+      return KeyedSubtree(
+        key: ValueKey('tab-$index-$embedStoreInShell'),
+        child: pageFor(index),
+      );
+    });
   }
 
   @override
@@ -212,7 +235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         NotificationService().refreshFromApi();
       }
     });
-    _notificationPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+    _notificationPollTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       final auth = ref.read(authProvider);
       if (auth.status == AuthStatus.authenticated) {
         NotificationService().refreshFromApi();
@@ -814,101 +837,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           const SizedBox(height: 10),
-          _buildDrawerItem(
-            context,
-            Icons.store,
-            'Home',
-            0,
-            closeDrawerOnTap: false,
-            collapsed: _isSidebarCollapsed,
-          ),
-          _buildDrawerItem(
-            context,
-            Icons.health_and_safety,
-            'Health',
-            1,
-            closeDrawerOnTap: false,
-            collapsed: _isSidebarCollapsed,
-          ),
-          _buildDrawerItem(
-            context,
-            Icons.chat_bubble_outline,
-            'Consult',
-            2,
-            restricted: !isLoggedIn,
-            restrictedMessage: 'Please log in to consult a pharmacist.',
-            closeDrawerOnTap: false,
-            collapsed: _isSidebarCollapsed,
-          ),
-          _buildDrawerItem(
-            context,
-            Icons.history,
-            'Orders',
-            3,
-            restricted: !isLoggedIn,
-            restrictedMessage: 'Please log in to view your orders.',
-            closeDrawerOnTap: false,
-            collapsed: _isSidebarCollapsed,
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              _isSidebarCollapsed ? 10 : 18,
-              14,
-              _isSidebarCollapsed ? 10 : 18,
-              4,
-            ),
-            child: const Divider(color: Color(0xFF2A6A53), height: 1),
-          ),
-          _buildDrawerItem(
-            context,
-            Icons.description_outlined,
-            'Prescriptions',
-            4,
-            restricted: !isLoggedIn,
-            closeDrawerOnTap: false,
-            collapsed: _isSidebarCollapsed,
-          ),
-          const Spacer(),
-          _buildDrawerItem(
-            context,
-            Icons.notifications_outlined,
-            'Notifications',
-            -1,
-            restricted: false,
-            closeDrawerOnTap: true,
-            collapsed: _isSidebarCollapsed,
-            onTapOverride: () {
-              final wide = MediaQuery.sizeOf(context).width >= 600;
-              if (wide) {
-                setState(() {
-                  _activeRightSidebar =
-                      _activeRightSidebar == 'notifications' ? null : 'notifications';
-                });
-              } else {
-                Navigator.push(
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerItem(
                   context,
-                  MaterialPageRoute(builder: (_) => const NotificationScreen()),
-                );
-              }
-            },
+                  Icons.store,
+                  'Home',
+                  0,
+                  closeDrawerOnTap: false,
+                  collapsed: _isSidebarCollapsed,
+                ),
+                _buildDrawerItem(
+                  context,
+                  Icons.health_and_safety,
+                  'Health',
+                  1,
+                  closeDrawerOnTap: false,
+                  collapsed: _isSidebarCollapsed,
+                ),
+                _buildDrawerItem(
+                  context,
+                  Icons.chat_bubble_outline,
+                  'Consult',
+                  2,
+                  restricted: !isLoggedIn,
+                  restrictedMessage: 'Please log in to consult a pharmacist.',
+                  closeDrawerOnTap: false,
+                  collapsed: _isSidebarCollapsed,
+                ),
+                _buildDrawerItem(
+                  context,
+                  Icons.history,
+                  'Orders',
+                  3,
+                  restricted: !isLoggedIn,
+                  restrictedMessage: 'Please log in to view your orders.',
+                  closeDrawerOnTap: false,
+                  collapsed: _isSidebarCollapsed,
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    _isSidebarCollapsed ? 10 : 18,
+                    14,
+                    _isSidebarCollapsed ? 10 : 18,
+                    4,
+                  ),
+                  child: const Divider(color: Color(0xFF2A6A53), height: 1),
+                ),
+                _buildDrawerItem(
+                  context,
+                  Icons.description_outlined,
+                  'Prescriptions',
+                  4,
+                  restricted: !isLoggedIn,
+                  closeDrawerOnTap: false,
+                  collapsed: _isSidebarCollapsed,
+                ),
+              ],
+            ),
           ),
-          if (isLoggedIn)
-            _buildDrawerItem(
-              context,
-              Icons.logout,
-              'Logout',
-              6,
-              restricted: false,
-              closeDrawerOnTap: false,
-              collapsed: _isSidebarCollapsed,
-              onTapOverride: () {
-                ref.read(authProvider.notifier).logout();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Logged out successfully')),
-                );
-              },
-            )
-          else
+          if (!isLoggedIn)
             _buildDrawerItem(
               context,
               Icons.login,
@@ -921,7 +911,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           if (!_isSidebarCollapsed)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
               child: Center(
                 child: TextButton(
                   onPressed: () {
@@ -975,24 +965,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             },
           ),
           const SizedBox(width: 6),
-          const store_screen.FarumasiLogo(
+          const FarumasiLogo(
             size: 26,
             color: Colors.white,
             onDark: true,
           ),
           const SizedBox(width: 10),
-          if (MediaQuery.of(context).size.width > 800)
-            const Text(
-              'Farumasi',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.0,
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'FARUMASI',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: MediaQuery.sizeOf(context).width >= 900 ? 26 : 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.4,
+                ),
               ),
             ),
+          ),
           const Spacer(),
-          // SEARCH BAR
           Flexible(
             flex: 3,
             child: ConstrainedBox(
@@ -1059,50 +1053,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               setState(() {
                 _activeRightSidebar = _activeRightSidebar == 'help' ? null : 'help';
               });
-            },
-          ),
-          const SizedBox(width: 8),
-          ListenableBuilder(
-            listenable: NotificationService(),
-            builder: (context, _) {
-              final unreadCount = NotificationService()
-                  .notifications
-                  .where((n) => n['isRead'] != true)
-                  .length;
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  _buildShellHeaderIcon(
-                    icon: Icons.notifications_outlined,
-                    tooltip: 'Notifications',
-                    isActive: _activeRightSidebar == 'notifications',
-                    onTap: () {
-                      setState(() {
-                        _activeRightSidebar =
-                            _activeRightSidebar == 'notifications'
-                                ? null
-                                : 'notifications';
-                      });
-                    },
-                  ),
-                  if (unreadCount > 0)
-                    Positioned(
-                      right: -2,
-                      top: -2,
-                      child: CircleAvatar(
-                        radius: 8,
-                        backgroundColor: Colors.red,
-                        child: Text(
-                          unreadCount > 9 ? '9+' : '$unreadCount',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              );
             },
           ),
           const SizedBox(width: 8),
@@ -1182,6 +1132,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     context,
                     MaterialPageRoute(builder: (_) => const ProfileScreen()),
                   );
+                } else if (value == 'notifications') {
+                  setState(() {
+                    _activeRightSidebar =
+                        _activeRightSidebar == 'notifications' ? null : 'notifications';
+                  });
                 } else if (value == 'settings') {
                   _selectTab(5);
                 } else if (value == 'logout') {
@@ -1191,7 +1146,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   );
                 }
               },
-              itemBuilder: (BuildContext context) => [
+              itemBuilder: (BuildContext context) {
+                final unreadCount = NotificationService()
+                    .notifications
+                    .where((n) => n['isRead'] != true)
+                    .length;
+                return [
                 PopupMenuItem(
                   enabled: false,
                   child: Column(
@@ -1237,6 +1197,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ],
                   ),
                 ),
+                PopupMenuItem(
+                  value: 'notifications',
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.notifications_outlined,
+                        color: Color(0xFF1E9E68),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Notifications'),
+                      if (unreadCount > 0) ...[
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            unreadCount > 9 ? '9+' : '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: 'logout',
@@ -1248,7 +1240,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ],
                   ),
                 ),
-              ],
+              ];
+              },
             ),
           ] else ...[
             TextButton(

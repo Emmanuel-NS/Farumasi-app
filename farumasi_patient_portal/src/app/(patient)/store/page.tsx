@@ -43,6 +43,7 @@ import { minQuantityForLine } from "@/lib/cart-pricing";
 import { HEALTHCARE_CATEGORY_ICONS, IconGeneral } from "@/components/icons/CategoryIcons";
 import type { CategoryIconComponent } from "@/components/icons/CategoryIcons";
 import dynamic from "next/dynamic";
+import { ShimmerProductGrid } from "@/components/ui/shimmer";
 import {
   SellerImageLightbox,
   SellerImageThumb,
@@ -864,7 +865,9 @@ function StorePageInner() {
       </div>
 
       {/* ── Medicine Grid — Flutter SliverGrid with MedicineItem card ───────── */}
-      {filtered.length === 0 ? (
+      {loadingProducts ? (
+        <ShimmerProductGrid count={10} />
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24">
           <LayoutGrid className="w-14 h-14 text-slate-200 mb-3" />
           <p className="text-slate-600 font-semibold">{t.store_no_medicines}</p>
@@ -925,7 +928,7 @@ function StorePageInner() {
                     <img
                       src={med.imageUrl}
                       alt={med.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain p-2"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">

@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import '../../models/rider_models.dart';
 import '../../providers/rider_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/farumasi_logo.dart';
 import 'rider_active_delivery_screen.dart';
 import 'rider_notifications_screen.dart';
 import 'rider_payout_screen.dart';
@@ -59,12 +60,7 @@ class _RiderDashboardScreenState extends ConsumerState<RiderDashboardScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(
-              'assets/images/app_logo.png',
-              width: 28,
-              height: 28,
-              fit: BoxFit.contain,
-            ),
+            const FarumasiLogo(size: 28),
             const SizedBox(width: 8),
             const Text(
               'FARUMASI',

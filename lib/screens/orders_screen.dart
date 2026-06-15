@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/repositories/patient_repository.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/app_refresh.dart';
 import '../widgets/portal/portal_ui.dart';
 import 'order_detail_screen.dart';
 
@@ -217,8 +218,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             ),
           ),
           Expanded(
-            child: _loading
+            child: AppRefreshScroll(
+              onRefresh: () => _loadOrders(quiet: true),
+              child: _loading
                 ? ListView.builder(
+                    physics: AppRefreshScroll.scrollPhysics(const AlwaysScrollableScrollPhysics()),
                     padding: const EdgeInsets.all(16),
                     itemCount: 3,
                     itemBuilder: (_, __) => Container(
@@ -241,6 +245,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         ),
                       )
                     : _buildTabContent(),
+            ),
           ),
         ],
       ),
@@ -270,6 +275,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
     return ListView.separated(
       padding: const EdgeInsets.all(16),
+      physics: AppRefreshScroll.scrollPhysics(const AlwaysScrollableScrollPhysics()),
       itemCount: list.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, i) {

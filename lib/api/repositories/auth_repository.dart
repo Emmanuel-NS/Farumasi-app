@@ -1,5 +1,17 @@
 import '../api_client.dart';
 
+class RegistrationPending {
+  final String email;
+  final String message;
+  final int expiresMinutes;
+
+  const RegistrationPending({
+    required this.email,
+    required this.message,
+    required this.expiresMinutes,
+  });
+}
+
 class AuthRepository {
   final _client = FarumasiApiClient.instance;
 
@@ -8,7 +20,7 @@ class AuthRepository {
     required String password,
   }) async {
     final response = await _client.dio.post('/auth/login', data: {
-      'email': emailOrPhone.trim(),
+      'identifier': emailOrPhone.trim(),
       'password': password,
     });
 
@@ -26,7 +38,7 @@ class AuthRepository {
     );
   }
 
-  Future<AuthResult> register({
+  Future<RegistrationPending> register({
     required String name,
     required String password,
     String? email,
@@ -39,6 +51,54 @@ class AuthRepository {
       'phone': phone,
       'password': password,
       'role': role.toLowerCase(),
+    });
+
+    final data = response.data as Map<String, dynamic>;
+    return RegistrationPending(
+      email: data['email'] as String? ?? email ?? '',
+      message: data['message'] as String? ?? 'Verification code sent.',
+      expiresMinutes: data['expires_minutes'] as int? ?? 10,
+    );
+  }
+
+  Future<AuthResult> verifyRegistration({
+    required String email,
+    required String code,
+  }) async {
+    final response = await _client.dio.post('/auth/verify-registration', data: {
+      'email': email.trim(),
+      'code': code.trim(),
+    });
+
+    final data = response.data as Map<String, dynamic>;
+    await _client.saveTokens(
+      accessToken: data['access_token'] as String,
+      refreshToken: data['refresh_token'] as String,
+    );
+
+    final user = await getMe();
+    return AuthResult(
+      accessToken: data['access_token'] as String,
+      refreshToken: data['refresh_token'] as String,
+      user: user,
+    );
+  }
+
+  Future<void> resendRegistrationOtp(String email) async {
+    await _client.dio.post('/auth/resend-registration-otp', data: {
+      'email': email.trim(),
+    });
+  }
+
+  Future<AuthResult> signInWithGoogle({
+    required String email,
+    required String fullName,
+    String? googleId,
+  }) async {
+    final response = await _client.dio.post('/auth/oauth/google', data: {
+      'email': email,
+      'full_name': fullName,
+      if (googleId != null) 'google_id': googleId,
     });
 
     final data = response.data as Map<String, dynamic>;

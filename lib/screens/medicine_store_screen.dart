@@ -8,7 +8,7 @@ import 'medicine_detail_screen.dart';
 import '../services/state_service.dart';
 import '../services/patient_catalog_service.dart';
 import '../api/repositories/patient_repository.dart';
-import 'auth_screen.dart';
+import '../widgets/auth_helper.dart';
 
 import 'notification_screen.dart';
 import 'package:flutter/rendering.dart';
@@ -23,10 +23,17 @@ import 'cart_screen.dart';
 import '../utils/product_cart_flow.dart';
 import '../models/product_category.dart';
 import '../widgets/store_category_scroller.dart';
+import '../widgets/shimmer_loading.dart';
+import '../widgets/app_refresh.dart';
+import '../widgets/lite_network_image.dart';
+import '../widgets/store_hero_background.dart';
 import '../widgets/sponsored_carousel.dart';
+import '../widgets/farumasi_logo.dart';
 import 'prescriptions_screen.dart';
 
-enum _StoreSort { defaultSort, priceAsc, priceDesc }
+enum _StoreSort { defaultSort, nameAsc, nameDesc }
+
+enum _PrescriptionFilter { all, otc, rx }
 
 class _ProductTypeOption {
   final String value;
@@ -257,12 +264,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                     left: Radius.circular(14),
                   ),
                   child: pharmacy.imageUrl.isNotEmpty
-                      ? Image.network(
-                          PatientRepository.resolveMediaUrl(pharmacy.imageUrl),
+                      ? LiteNetworkImage(
+                          url: pharmacy.imageUrl,
                           width: 96,
                           height: 106,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _sellerPlaceholder(pharmacy.name),
+                          memCacheWidth: 192,
+                          error: _sellerPlaceholder(pharmacy.name),
                         )
                       : _sellerPlaceholder(pharmacy.name, width: 96),
                 ),
@@ -393,22 +401,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   Widget _buildCatalogStatusBanner() {
     final catalog = PatientCatalogService();
     if (catalog.isLoading && catalog.medicines.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        color: const Color(0xFFEFF6FF),
-        child: const Row(
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E9E68)),
-            ),
-            SizedBox(width: 10),
-            Text('Loading medicines from server…', style: TextStyle(fontSize: 13, color: Color(0xFF475569))),
-          ],
-        ),
-      );
+      return const SizedBox.shrink();
     }
     if (catalog.loadedFromCache && catalog.medicines.isNotEmpty) {
       return Container(
@@ -540,9 +533,20 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
     StateService().addListener(_onGlobalSearchChanged);
     PatientCatalogService().addListener(_onCatalogChanged);
-    PatientCatalogService().refresh(immediate: true);
+    if (PatientCatalogService().medicines.isEmpty) {
+      PatientCatalogService().refresh(immediate: true);
+    } else {
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          PatientCatalogService().refresh(
+            immediate: true,
+            search: _searchQuery.isEmpty ? null : _searchQuery,
+          );
+        }
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 500), () {
+      Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) _requestStoreSellers();
       });
     });
@@ -595,9 +599,10 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   String _searchQuery = '';
   Set<String> _selectedCategories = {};
   _StoreSort _sort = _StoreSort.defaultSort;
+  _PrescriptionFilter _prescriptionFilter = _PrescriptionFilter.all;
   String _selectedProductType = 'All';
   bool _showFilters = false;
-  bool _showCategories = false; // Collapsed by default
+  bool _showCategories = true; // Match patient portal: visible by default
   bool _hideDesktopCategories = false; // User toggle for desktop shell
   bool _canScrollLeft = false;
   bool _canScrollRight = true;
@@ -610,6 +615,14 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
           _categoryScrollController.offset <
           _categoryScrollController.position.maxScrollExtent;
     });
+  }
+
+  Future<void> _refreshStore() async {
+    await PatientCatalogService().refresh(
+      immediate: true,
+      search: _searchQuery.isEmpty ? null : _searchQuery,
+    );
+    _requestStoreSellers();
   }
 
   List<Medicine> get _filteredMedicines {
@@ -701,7 +714,17 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
           _pharmacyListingPrices.isEmpty ||
           _pharmacyListingPrices.containsKey(m.id);
 
-      return matches && matchesCategory && matchesProductType && matchesPharmacy;
+      final matchesRx = _prescriptionFilter == _PrescriptionFilter.all ||
+          (_prescriptionFilter == _PrescriptionFilter.otc &&
+              !m.requiresPrescription) ||
+          (_prescriptionFilter == _PrescriptionFilter.rx &&
+              m.requiresPrescription);
+
+      return matches &&
+          matchesCategory &&
+          matchesProductType &&
+          matchesPharmacy &&
+          matchesRx;
     }).toList();
   }
 
@@ -821,11 +844,15 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   List<Medicine> get _sortedMedicines {
     final list = List<Medicine>.from(_filteredMedicines);
     switch (_sort) {
-      case _StoreSort.priceAsc:
-        list.sort((a, b) => a.price.compareTo(b.price));
+      case _StoreSort.nameAsc:
+        list.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
         break;
-      case _StoreSort.priceDesc:
-        list.sort((a, b) => b.price.compareTo(a.price));
+      case _StoreSort.nameDesc:
+        list.sort(
+          (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()),
+        );
         break;
       case _StoreSort.defaultSort:
         break;
@@ -833,9 +860,14 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
     return list;
   }
 
+  bool get _catalogLoading =>
+      PatientCatalogService().isLoading &&
+      PatientCatalogService().medicines.isEmpty;
+
   int get _activeFilterCount {
     var count = 0;
     if (_sort != _StoreSort.defaultSort) count++;
+    if (_prescriptionFilter != _PrescriptionFilter.all) count++;
     if (_selectedProductType != 'All') count++;
     if (_selectedCategories.isNotEmpty) count++;
     if (_searchQuery.trim().isNotEmpty) count++;
@@ -852,6 +884,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
       _searchController.clear();
       StateService().setSearchQuery('');
       _sort = _StoreSort.defaultSort;
+      _prescriptionFilter = _PrescriptionFilter.all;
       _selectedProductType = 'All';
       _selectedCategories.clear();
       _showFilters = false;
@@ -929,14 +962,48 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                 onTap: () => setState(() => _sort = _StoreSort.defaultSort),
               ),
               _buildFilterChip(
-                label: 'Price: Low → High',
-                selected: _sort == _StoreSort.priceAsc,
-                onTap: () => setState(() => _sort = _StoreSort.priceAsc),
+                label: 'A → Z',
+                selected: _sort == _StoreSort.nameAsc,
+                onTap: () => setState(() => _sort = _StoreSort.nameAsc),
               ),
               _buildFilterChip(
-                label: 'Price: High → Low',
-                selected: _sort == _StoreSort.priceDesc,
-                onTap: () => setState(() => _sort = _StoreSort.priceDesc),
+                label: 'Z → A',
+                selected: _sort == _StoreSort.nameDesc,
+                onTap: () => setState(() => _sort = _StoreSort.nameDesc),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Prescription',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              _buildFilterChip(
+                label: 'All',
+                selected: _prescriptionFilter == _PrescriptionFilter.all,
+                onTap: () =>
+                    setState(() => _prescriptionFilter = _PrescriptionFilter.all),
+              ),
+              _buildFilterChip(
+                label: 'OTC',
+                selected: _prescriptionFilter == _PrescriptionFilter.otc,
+                onTap: () =>
+                    setState(() => _prescriptionFilter = _PrescriptionFilter.otc),
+              ),
+              _buildFilterChip(
+                label: 'Rx',
+                selected: _prescriptionFilter == _PrescriptionFilter.rx,
+                onTap: () =>
+                    setState(() => _prescriptionFilter = _PrescriptionFilter.rx),
               ),
             ],
           ),
@@ -1113,8 +1180,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
             body: Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: contentWidth),
-                child: CustomScrollView(
+                child: AppRefreshScroll(
+                  onRefresh: _refreshStore,
+                  child: CustomScrollView(
                   controller: _scrollController,
+                  physics: AppRefreshScroll.scrollPhysics(
+                    const AlwaysScrollableScrollPhysics(),
+                  ),
                   slivers: [
                     if (showHeroHeader)
                       SliverAppBar(
@@ -1216,9 +1288,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                           background: Stack(
                             fit: StackFit.expand,
                             children: [
-                              Image.network(
-                                'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&q=80&w=1800',
-                                fit: BoxFit.cover,
+                              const StoreHeroBackground(
+                                baseColor: Color(0xFF1E8E63),
+                                darkColor: Color(0xFF167B51),
                               ),
                               DecoratedBox(
                                 decoration: BoxDecoration(
@@ -1472,7 +1544,14 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                     ),
                     SliverPadding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      sliver: SliverGrid(
+                      sliver: _catalogLoading
+                          ? SliverToBoxAdapter(
+                              child: ShimmerProductGrid(
+                                count: 8,
+                                crossAxisCount: 4,
+                              ),
+                            )
+                          : SliverGrid(
                         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                           maxCrossAxisExtent: desktopCardWidth,
                           mainAxisExtent: desktopCardHeight,
@@ -1497,6 +1576,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 28)),
                   ],
+                ),
                 ),
               ),
             ),
@@ -1534,8 +1614,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
       child: AnimatedBuilder(
         animation: StateService(),
         builder: (context, child) {
-          final storeScrollView = CustomScrollView(
+          final storeScrollView = AppRefreshScroll(
+            onRefresh: _refreshStore,
+            child: CustomScrollView(
             controller: _scrollController,
+            physics: AppRefreshScroll.scrollPhysics(
+              const AlwaysScrollableScrollPhysics(),
+            ),
             slivers: [
               // 1. Unpinned Parallax Header (Brand + Image)
               SliverAppBar(
@@ -1679,10 +1764,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                   background: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.network(
-                        'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&q=80&w=1200',
-                        fit: BoxFit.cover,
-                      ),
+                      const StoreHeroBackground(),
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -1939,12 +2021,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                               : Row(
                                   children: [
                                     TextButton(
-                                      onPressed: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const AuthScreen(),
-                                        ),
-                                      ),
+                                      onPressed: () => promptSignIn(context),
                                       child: const Text(
                                         'Login',
                                         style: TextStyle(
@@ -1956,12 +2033,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                     ),
                                     const SizedBox(width: 4),
                                     ElevatedButton(
-                                      onPressed: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const AuthScreen(),
-                                        ),
-                                      ),
+                                      onPressed: () => promptSignIn(context),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.white,
                                         foregroundColor: const Color(
@@ -2228,6 +2300,14 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
               ),
 
               // Main Grid
+              if (_catalogLoading)
+                SliverToBoxAdapter(
+                  child: ShimmerProductGrid(
+                    count: 6,
+                    crossAxisCount: isDesktop ? 4 : 2,
+                  ),
+                )
+              else
               SliverPadding(
                 padding: EdgeInsets.symmetric(horizontal: isDesktop ? 20 : 12),
                 sliver: SliverGrid(
@@ -2255,6 +2335,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
               SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
+          ),
           );
 
           return Scaffold(
@@ -2276,14 +2357,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                 ),
                                 action: SnackBarAction(
                                   label: 'Login',
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const AuthScreen(),
-                                      ),
-                                    );
-                                  },
+                                  onPressed: () => promptSignIn(context),
                                 ),
                               ),
                             );

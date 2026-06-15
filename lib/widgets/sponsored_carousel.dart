@@ -141,7 +141,9 @@ class _SponsoredCarouselState extends State<SponsoredCarousel> {
                         left: Radius.circular(16),
                       ),
                       child: Image.network(
-                        current.imageUrl,
+                        current.imageUrl.isNotEmpty
+                            ? current.imageUrl
+                            : PatientRepository.sponsoredPlaceholderImage,
                         width: 120,
                         height: 112,
                         fit: BoxFit.cover,

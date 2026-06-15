@@ -36,9 +36,19 @@ export function adaptUser(u: BackendUser): AuthUser {
   };
 }
 
+export interface RegistrationPendingResponse {
+  message: string;
+  email: string;
+  expires_minutes: number;
+  requires_verification: boolean;
+}
+
 export const authService = {
-  async login(email: string, password: string): Promise<TokenResponse> {
-    const { data } = await api.post<TokenResponse>("/auth/login", { email, password });
+  async login(identifier: string, password: string): Promise<TokenResponse> {
+    const { data } = await api.post<TokenResponse>("/auth/login", {
+      identifier: identifier.trim(),
+      password,
+    });
     return data;
   },
 
@@ -47,11 +57,35 @@ export const authService = {
     email: string;
     phone?: string;
     password: string;
-  }): Promise<TokenResponse> {
-    const { data } = await api.post<TokenResponse>("/auth/register", {
+  }): Promise<RegistrationPendingResponse> {
+    const { data } = await api.post<RegistrationPendingResponse>("/auth/register", {
       ...params,
       role: "patient",
     });
+    return data;
+  },
+
+  async verifyRegistration(email: string, code: string): Promise<TokenResponse> {
+    const { data } = await api.post<TokenResponse>("/auth/verify-registration", {
+      email: email.trim(),
+      code: code.trim(),
+    });
+    return data;
+  },
+
+  async resendRegistrationOtp(email: string): Promise<RegistrationPendingResponse> {
+    const { data } = await api.post<RegistrationPendingResponse>("/auth/resend-registration-otp", {
+      email: email.trim(),
+    });
+    return data;
+  },
+
+  async googleOAuth(params: {
+    email: string;
+    full_name: string;
+    google_id?: string;
+  }): Promise<TokenResponse> {
+    const { data } = await api.post<TokenResponse>("/auth/oauth/google", params);
     return data;
   },
 

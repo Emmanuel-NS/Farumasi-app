@@ -383,6 +383,17 @@ _CATEGORY_PRODUCT_IMAGES = {
 }
 _DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80"
 
+_PHARMACY_LOGO_IMAGES = {
+    "Kigali City Pharmacy": "https://images.unsplash.com/photo-1587854691652-5c140347731d?w=600&q=80",
+    "Remera Medicare Pharmacy": "https://images.unsplash.com/photo-1631549916768-4119d9580ad5?w=600&q=80",
+}
+_PARTNER_LOGO_IMAGE = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=600&q=80"
+_SPONSORED_ARTICLE_SLUGS = frozenset({
+    "malaria-prevention-rwanda",
+    "managing-type-2-diabetes",
+    "hypertension-control",
+})
+
 
 def _product_image_url(product_data: dict) -> str:
     if product_data.get("image_url"):
@@ -554,6 +565,7 @@ async def seed():
                 "lat": -1.9441, "lon": 30.0619,
                 "phone": "+250788200001",
                 "email": "info@kigalicitypharm.rw",
+                "logo_url": _PHARMACY_LOGO_IMAGES["Kigali City Pharmacy"],
             },
             {
                 "owner_email": "pharmacy_admin2@farumasi.com",
@@ -563,6 +575,7 @@ async def seed():
                 "lat": -1.9560, "lon": 30.1052,
                 "phone": "+250788200002",
                 "email": "info@remerapharm.rw",
+                "logo_url": _PHARMACY_LOGO_IMAGES["Remera Medicare Pharmacy"],
             },
         ]
         seeded_pharmacies = []
@@ -579,6 +592,7 @@ async def seed():
                     longitude=phd["lon"],
                     phone=phd["phone"],
                     email=phd["email"],
+                    logo_url=phd.get("logo_url"),
                     is_open=True,
                     accepts_delivery=True,
                     status=EntityStatus.ACTIVE,
@@ -588,6 +602,9 @@ async def seed():
                 seeded_pharmacies.append(pharm)
                 print(f"  [+] Pharmacy: {phd['name']}")
             else:
+                if not existing_pharm.logo_url and phd.get("logo_url"):
+                    existing_pharm.logo_url = phd["logo_url"]
+                    print(f"  [update] Pharmacy logo: {phd['name']}")
                 seeded_pharmacies.append(existing_pharm)
                 print(f"  [skip] Pharmacy {phd['name']} exists")
 
@@ -626,6 +643,7 @@ async def seed():
                 longitude=30.0640,
                 phone="+250788300001",
                 email="info@medihub.rw",
+                logo_url=_PARTNER_LOGO_IMAGE,
                 status=EntityStatus.ACTIVE,
             )
             db.add(partner_company)
@@ -636,6 +654,9 @@ async def seed():
             if partner_admin_user and partner_company.owner_user_id != partner_admin_user.id:
                 partner_company.owner_user_id = partner_admin_user.id
                 print(f"  [fix] Partner owner linked to partner_admin@farumasi.com")
+            if not partner_company.logo_url:
+                partner_company.logo_url = _PARTNER_LOGO_IMAGE
+                print("  [update] Partner logo: MediHub Rwanda")
             print(f"  [skip] Partner MediHub Rwanda exists")
 
         # Legacy MVP rows: partner companies named like pharmacies — hide from patient store
@@ -1034,12 +1055,18 @@ Work with your doctor to create a written asthma action plan that tells you what
                     content=article_data["content"],
                     category=article_data["category"],
                     image_url=article_data["image_url"],
+                    is_sponsored=article_data["slug"] in _SPONSORED_ARTICLE_SLUGS,
                     status=ArticleStatus.PUBLISHED,
                     published_at=now,
                 )
                 db.add(article)
                 print(f"  [+] Article: {article_data['title']}")
             else:
+                if not existing_article.image_url and article_data.get("image_url"):
+                    existing_article.image_url = article_data["image_url"]
+                if article_data["slug"] in _SPONSORED_ARTICLE_SLUGS and not existing_article.is_sponsored:
+                    existing_article.is_sponsored = True
+                    print(f"  [update] Sponsored article: {article_data['slug']}")
                 print(f"  [skip] Article already exists: {article_data['slug']}")
 
         # Normalize legacy order statuses from MVP seed data

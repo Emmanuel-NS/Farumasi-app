@@ -4,7 +4,7 @@ import '../api/repositories/patient_repository.dart';
 import '../providers/auth_provider.dart';
 import '../services/state_service.dart';
 import '../models/models.dart';
-import 'auth_screen.dart';
+import '../widgets/auth_helper.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -209,12 +209,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           content: Text('You must be logged in to complete payment.'),
           actions: [
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (c) => const AuthScreen()),
-                );
+                await promptSignIn(context, ref);
               },
               child: Text('Login Now'),
             ),

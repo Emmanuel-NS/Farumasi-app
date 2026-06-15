@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../api/repositories/patient_repository.dart';
 import '../models/models.dart';
 import '../services/state_service.dart';
 import '../utils/product_cart_flow.dart';
+import '../widgets/lite_network_image.dart';
 import '../widgets/portal/portal_ui.dart';
 
 class MedicineItem extends StatelessWidget {
@@ -69,41 +69,16 @@ class MedicineItem extends StatelessWidget {
                               top: Radius.circular(12),
                             ),
                             child: medicine.imageUrl.isNotEmpty
-                                ? Image.network(
-                              PatientRepository.resolveMediaUrl(medicine.imageUrl),
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
-                              cacheWidth: 600, // Optimize memory usage
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF1E9E68)),
+                                ? Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: LiteNetworkImage(
+                                      url: medicine.imageUrl,
+                                      fit: BoxFit.contain,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      memCacheWidth: 400,
                                     ),
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey[100],
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.image_not_supported_outlined,
-                                        size: 32,
-                                        color: Colors.grey.shade400,
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            )
+                                  )
                                 : Container(
                                     color: const Color(0xFFEDFDF6),
                                     child: const Icon(

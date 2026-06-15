@@ -15,6 +15,10 @@ from app.schemas.auth import (
     RefreshRequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
+    VerifyRegistrationRequest,
+    ResendRegistrationOtpRequest,
+    RegistrationPendingResponse,
+    GoogleOAuthRequest,
 )
 from app.schemas.user import ChangePasswordRequest
 from app.services.audit_service import AuditService
@@ -24,16 +28,36 @@ from app.services.password_reset_service import PasswordResetService
 router = APIRouter()
 
 
-@router.post("/register", response_model=TokenResponse, status_code=201)
+@router.post("/register", response_model=RegistrationPendingResponse, status_code=201)
 async def register(data: RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     return await service.register(data, ip_address=request.client.host if request.client else None)
+
+
+@router.post("/verify-registration", response_model=TokenResponse)
+async def verify_registration(data: VerifyRegistrationRequest, db: AsyncSession = Depends(get_db)):
+    service = AuthService(db)
+    return await service.verify_registration(data.email, data.code)
+
+
+@router.post("/resend-registration-otp", response_model=RegistrationPendingResponse)
+async def resend_registration_otp(
+    data: ResendRegistrationOtpRequest, db: AsyncSession = Depends(get_db)
+):
+    service = AuthService(db)
+    return await service.resend_registration_otp(data.email)
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     return await service.login(data, ip_address=request.client.host if request.client else None)
+
+
+@router.post("/oauth/google", response_model=TokenResponse)
+async def google_oauth(data: GoogleOAuthRequest, db: AsyncSession = Depends(get_db)):
+    service = AuthService(db)
+    return await service.google_oauth(data)
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -92,4 +116,3 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
     return await PasswordResetService(db).reset_password(
         data.email, data.code, data.new_password
     )
-

@@ -12,6 +12,7 @@ import '../services/language_service.dart';
 import '../services/pin_service.dart';
 import '../services/state_service.dart';
 import '../widgets/portal/portal_ui.dart';
+import '../widgets/app_refresh.dart';
 import 'data_privacy_screen.dart';
 import 'help_screen.dart';
 import 'terms_conditions_screen.dart';
@@ -140,7 +141,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             )
           : null,
       body: PortalPageShell(
-        child: SingleChildScrollView(
+        child: AppRefreshScroll(
+          onRefresh: () async {
+            await _loadPreferences();
+            await LanguageService.instance.hydrate();
+            if (mounted) setState(() => _language = LanguageService.instance.code);
+          },
+          child: SingleChildScrollView(
+          physics: AppRefreshScroll.scrollPhysics(const AlwaysScrollableScrollPhysics()),
           padding: const EdgeInsets.only(bottom: 96),
           child: Center(
             child: ConstrainedBox(
@@ -420,6 +428,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
           ),
+        ),
         ),
       ),
     );

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { HealthArticle, ArticleType } from "@/types";
 import { articlesService, type ArticleSort } from "@/lib/services/articles.service";
+import { ShimmerArticleList } from "@/components/ui/shimmer";
 import { SponsoredCarousel } from "@/components/health/sponsored-carousel";
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
@@ -342,10 +343,7 @@ export default function HealthPage() {
       <div className="flex-1 scrollbar-hide px-4 sm:px-5 py-3 sm:py-5">
         {!savedOnly && <SponsoredCarousel />}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24">
-            <div className="w-10 h-10 border-2 border-farumasi-600 border-t-transparent rounded-full animate-spin mb-3" />
-            <p className="text-slate-500 text-sm">Loading articles…</p>
-          </div>
+          <ShimmerArticleList count={5} />
         ) : loadError ? (
           <div className="flex flex-col items-center justify-center py-24 text-center gap-3">
             <span className="text-5xl">⚠️</span>

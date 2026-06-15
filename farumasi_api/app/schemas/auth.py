@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import EmailStr, Field, field_validator
+from pydantic import EmailStr, Field, field_validator, model_validator
 
 from app.schemas.common import FarumasiBaseModel
 from app.core.constants import UserRole
@@ -22,8 +22,42 @@ class RegisterRequest(FarumasiBaseModel):
 
 
 class LoginRequest(FarumasiBaseModel):
-    email: EmailStr
+    """Sign in with email or phone. `identifier` is preferred; `email` kept for older clients."""
+
+    identifier: str | None = Field(None, description="Email address or phone number")
+    email: EmailStr | None = None
     password: str
+
+    @model_validator(mode="after")
+    def require_identifier(self) -> "LoginRequest":
+        if not (self.identifier or self.email):
+            raise ValueError("Email or phone is required")
+        return self
+
+    def resolved_identifier(self) -> str:
+        return (self.identifier or str(self.email or "")).strip()
+
+
+class VerifyRegistrationRequest(FarumasiBaseModel):
+    email: EmailStr
+    code: str = Field(min_length=4, max_length=12)
+
+
+class ResendRegistrationOtpRequest(FarumasiBaseModel):
+    email: EmailStr
+
+
+class RegistrationPendingResponse(FarumasiBaseModel):
+    message: str
+    email: str
+    expires_minutes: int
+    requires_verification: bool = True
+
+
+class GoogleOAuthRequest(FarumasiBaseModel):
+    email: EmailStr
+    full_name: str
+    google_id: str | None = None
 
 
 class RefreshRequest(FarumasiBaseModel):
