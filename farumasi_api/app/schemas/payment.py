@@ -6,10 +6,25 @@ from app.schemas.common import FarumasiBaseModel
 
 
 class PesapalPaymentInitiate(FarumasiBaseModel):
-    phone: str
+    phone: str = ""
     email: Optional[str] = None
     name: Optional[str] = None
     redirect_url: Optional[str] = None
+    payment_method: str = "mtn_momo"  # mtn_momo | airtel_money | card
+
+
+class PaymentInitiateOut(FarumasiBaseModel):
+    order_id: str
+    payment_status: str
+    amount: float
+    order_amount: float = 0
+    processing_fee: float = 0
+    currency: str = "RWF"
+    provider: str
+    external_id: Optional[str] = None
+    checkout_url: Optional[str] = None
+    message: str
+    payment_method: Optional[str] = None
 
 
 class PaymentStatusOut(FarumasiBaseModel):
@@ -20,14 +35,4 @@ class PaymentStatusOut(FarumasiBaseModel):
     payment_method: Optional[str] = None
     payment_reference: Optional[str] = None
     message: Optional[str] = None
-
-
-class PaymentInitiateOut(FarumasiBaseModel):
-    order_id: str
-    payment_status: str
-    amount: float
-    currency: str = "RWF"
-    provider: str
-    external_id: Optional[str] = None
-    checkout_url: Optional[str] = None
-    message: str
+    processing_fee: Optional[float] = None

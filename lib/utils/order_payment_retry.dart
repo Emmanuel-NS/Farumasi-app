@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/repositories/patient_repository.dart';
+import '../widgets/payment_method_selector.dart';
 
 /// Retry Pesapal checkout for orders with failed or pending payment.
 class OrderPaymentRetry {
@@ -13,47 +14,94 @@ class OrderPaymentRetry {
     return status == 'failed' || status == 'pending';
   }
 
-  static Future<String?> promptPhone(
+  static Future<PaymentRetryInput?> showPaymentSheet(
     BuildContext context, {
-    String? initial,
+    String? initialPhone,
+    int orderAmountRwf = 0,
   }) async {
-    final controller = TextEditingController(text: initial?.trim() ?? '');
-    return showDialog<String>(
+    var channel = PaymentChannel.mtnMomo;
+    final phoneController = TextEditingController(text: initialPhone?.trim() ?? '');
+
+    return showModalBottomSheet<PaymentRetryInput>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Payment phone number'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.phone,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Mobile money number',
-            hintText: '07XXXXXXXX',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final phone = controller.text.trim();
-              if (phone.isEmpty) return;
-              Navigator.pop(ctx, phone);
-            },
-            child: const Text('Continue to pay'),
-          ),
-        ],
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                20 + MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Try payment again',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Choose how you want to pay. Processing fee is charged to you.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 14),
+                  PaymentMethodSelector(
+                    selected: channel,
+                    onChanged: (m) => setModalState(() => channel = m),
+                  ),
+                  const SizedBox(height: 12),
+                  if (channel.requiresPhone)
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        labelText: channel == PaymentChannel.airtelMoney
+                            ? 'Airtel Money number'
+                            : 'MTN MoMo number',
+                        hintText: '078XXXXXXX',
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  if (orderAmountRwf > 0) ...[
+                    const SizedBox(height: 12),
+                    PaymentFeeBreakdown(subtotalRwf: orderAmountRwf),
+                  ],
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () {
+                      final phone = phoneController.text.trim();
+                      if (channel.requiresPhone && phone.length < 9) return;
+                      Navigator.pop(
+                        ctx,
+                        PaymentRetryInput(channel: channel, phone: phone),
+                      );
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E9E68),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Continue to Pesapal'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
   static Future<bool> retry({
     required BuildContext context,
     required PatientOrder order,
+    required PaymentChannel channel,
     required String phone,
     String? name,
     String? email,
@@ -65,6 +113,7 @@ class OrderPaymentRetry {
         phone: phone,
         name: name,
         email: email,
+        paymentMethod: channel.apiValue,
         redirectUrl:
             '${PatientRepository.apiOrigin}/payment-return?order_id=${order.id}',
       );
@@ -76,11 +125,13 @@ class OrderPaymentRetry {
         }
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'Complete payment in your browser, then pull to refresh this order.',
+                init.message.isNotEmpty
+                    ? init.message
+                    : 'Complete payment in your browser, then pull to refresh.',
               ),
-              duration: Duration(seconds: 6),
+              duration: const Duration(seconds: 6),
             ),
           );
         }
@@ -113,4 +164,11 @@ class OrderPaymentRetry {
       return false;
     }
   }
+}
+
+class PaymentRetryInput {
+  const PaymentRetryInput({required this.channel, required this.phone});
+
+  final PaymentChannel channel;
+  final String phone;
 }

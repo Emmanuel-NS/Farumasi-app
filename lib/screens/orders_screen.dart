@@ -123,18 +123,20 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   Future<void> _retryPayment(PatientOrder order) async {
     final user = ref.read(authProvider).user;
-    final phone = await OrderPaymentRetry.promptPhone(
+    final input = await OrderPaymentRetry.showPaymentSheet(
       context,
-      initial: user?.phone,
+      initialPhone: user?.phone,
+      orderAmountRwf: order.totalAmount.round(),
     );
-    if (phone == null || !mounted) return;
+    if (input == null || !mounted) return;
 
     setState(() => _retryingOrderId = order.id);
     try {
       await OrderPaymentRetry.retry(
         context: context,
         order: order,
-        phone: phone,
+        channel: input.channel,
+        phone: input.phone,
         name: user?.name,
         email: user?.email,
       );

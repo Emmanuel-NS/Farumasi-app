@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     # sandbox = auto-confirm for local/dev E2E; live = Pesapal hosted checkout
     PAYMENT_MODE: str = "sandbox"
     PAYMENT_CURRENCY: str = "RWF"
+    PAYMENT_PROCESSING_FEE_PERCENT: float = 3.5
     PESAPAL_ENV: str = "sandbox"  # sandbox | live
     PESAPAL_CONSUMER_KEY: str = ""
     PESAPAL_CONSUMER_SECRET: str = ""

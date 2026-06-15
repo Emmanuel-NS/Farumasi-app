@@ -400,56 +400,6 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
   }
 
   Widget _buildCatalogStatusBanner() {
-    final catalog = PatientCatalogService();
-    if (catalog.isLoading && catalog.medicines.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    if (catalog.loadedFromCache && catalog.medicines.isNotEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        color: const Color(0xFFEFF6FF),
-        child: Row(
-          children: [
-            const Icon(Icons.offline_bolt, size: 16, color: Color(0xFF1D4ED8)),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Offline — showing your last saved medicines.',
-                style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
-              ),
-            ),
-            TextButton(
-              onPressed: () => PatientCatalogService().refresh(immediate: true),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-    if (!catalog.loadedFromApi && catalog.error != null && catalog.medicines.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        color: const Color(0xFFFFF7ED),
-        child: Row(
-          children: [
-            const Icon(Icons.cloud_off, size: 16, color: Color(0xFF9A3412)),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Could not reach the server. Connect to load medicines.',
-                style: TextStyle(fontSize: 12, color: Color(0xFF9A3412)),
-              ),
-            ),
-            TextButton(
-              onPressed: () => PatientCatalogService().refresh(immediate: true),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
     return const SizedBox.shrink();
   }
 

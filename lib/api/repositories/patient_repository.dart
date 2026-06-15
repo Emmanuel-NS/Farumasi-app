@@ -273,20 +273,22 @@ class PatientRepository {
 
   Future<PaymentInitiateResult> initiatePesapal(
     String orderId, {
-    required String phone,
+    String? phone,
     String? name,
     String? email,
     String? redirectUrl,
+    String paymentMethod = 'mtn_momo',
   }) async {
     try {
       final response = await _client.dio.post(
         '/patients/me/orders/$orderId/payments/pesapal/initiate',
         data: {
-          'phone': phone,
+          if (phone != null && phone.isNotEmpty) 'phone': phone,
           if (name != null && name.isNotEmpty) 'name': name,
           if (email != null && email.isNotEmpty) 'email': email,
           if (redirectUrl != null && redirectUrl.isNotEmpty)
             'redirect_url': redirectUrl,
+          'payment_method': paymentMethod,
         },
       );
       return PaymentInitiateResult.fromJson(
@@ -1645,15 +1647,21 @@ class PaymentInitiateResult {
   final String orderId;
   final String paymentStatus;
   final double amount;
+  final double orderAmount;
+  final double processingFee;
   final String message;
   final String? checkoutUrl;
+  final String? paymentMethod;
 
   PaymentInitiateResult({
     required this.orderId,
     required this.paymentStatus,
     required this.amount,
+    this.orderAmount = 0,
+    this.processingFee = 0,
     required this.message,
     this.checkoutUrl,
+    this.paymentMethod,
   });
 
   factory PaymentInitiateResult.fromJson(Map<String, dynamic> json) {
@@ -1661,8 +1669,11 @@ class PaymentInitiateResult {
       orderId: (json['order_id'] as String?) ?? '',
       paymentStatus: (json['payment_status'] as String?) ?? 'pending',
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      orderAmount: (json['order_amount'] as num?)?.toDouble() ?? 0,
+      processingFee: (json['processing_fee'] as num?)?.toDouble() ?? 0,
       message: (json['message'] as String?) ?? '',
       checkoutUrl: json['checkout_url'] as String?,
+      paymentMethod: json['payment_method'] as String?,
     );
   }
 }

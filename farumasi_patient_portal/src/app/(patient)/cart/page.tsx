@@ -149,6 +149,8 @@ export default function CartPage() {
   const [accessCode, setAccessCode]           = useState("");
   const [isPlacingOrder, setIsPlacingOrder]   = useState(false);
   const [paymentStepLabel, setPaymentStepLabel] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"mtn_momo" | "airtel_money" | "card">("mtn_momo");
+  const PAYMENT_FEE_PCT = 3.5;
   const [confirmedOrderCode, setConfirmedOrderCode] = useState<string>("");
   const [pharmacyList, setPharmacyList]       = useState<Pharmacy[]>([]);
   const [listingsMap, setListingsMap]         = useState<ListingsMap>(new Map());
@@ -1625,7 +1627,13 @@ export default function CartPage() {
 
   // ── STEP 4: Payment ───────────────────────────────────────────
   if (step === "payment") {
-    const canPlace   = phone.trim().length >= 9 && !!selectedOption && deliveryLocationReady;
+    const canPlace   = !!selectedOption && deliveryLocationReady &&
+      (paymentMethod === "card" ? true : phone.trim().length >= 9);
+    const orderSubtotal = Math.round(
+      amountDueNow > 0 ? amountDueNow : medicineSubtotal + (deferDeliveryFee ? 0 : deliveryFeeAmount),
+    );
+    const processingFee = orderSubtotal > 0 ? Math.round(orderSubtotal * PAYMENT_FEE_PCT / 100) : 0;
+    const totalWithFee = orderSubtotal + processingFee;
 
     return (
       <div className="p-4 md:p-6 max-w-2xl mx-auto">
@@ -1671,6 +1679,33 @@ export default function CartPage() {
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Payment method</p>
+          <div className="space-y-2">
+            {([
+              { id: "mtn_momo" as const, label: "MTN MoMo", hint: "Default · Mobile Money" },
+              { id: "airtel_money" as const, label: "Airtel Money", hint: "Mobile Money" },
+              { id: "card" as const, label: "Card", hint: "Visa / Mastercard on Pesapal" },
+            ]).map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setPaymentMethod(m.id)}
+                className={cn(
+                  "w-full text-left rounded-2xl border px-4 py-3 transition-colors",
+                  paymentMethod === m.id
+                    ? "border-farumasi-500 bg-farumasi-50"
+                    : "border-slate-200 hover:border-slate-300",
+                )}
+              >
+                <p className="text-sm font-bold text-slate-900">{m.label}</p>
+                <p className="text-xs text-slate-500">{m.hint}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {paymentMethod !== "card" && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">
             {t.cart_momo_number} <span className="text-red-400">*</span>
           </label>
@@ -1682,8 +1717,24 @@ export default function CartPage() {
             className="w-full h-11 rounded-2xl border border-slate-200 px-4 text-sm text-slate-800 outline-none focus:border-farumasi-400 focus:ring-2 focus:ring-farumasi-100 transition-all"
           />
         </div>
+        )}
 
-        {/* Deferred delivery fee option — delivery only when fee applies */}
+        {orderSubtotal > 0 && (
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6 text-sm">
+            <div className="flex justify-between"><span className="text-slate-500">Order amount</span><span>{formatPrice(orderSubtotal)}</span></div>
+            {processingFee > 0 && (
+              <div className="flex justify-between mt-2">
+                <span className="text-slate-500">Processing fee ({PAYMENT_FEE_PCT}%)</span>
+                <span>{formatPrice(processingFee)}</span>
+              </div>
+            )}
+            <p className="text-[11px] text-slate-400 mt-2">Processing fee is charged to you, not FARUMASI.</p>
+            <div className="flex justify-between mt-3 pt-3 border-t font-bold text-farumasi-700">
+              <span>Total to pay now</span><span>{formatPrice(totalWithFee)}</span>
+            </div>
+          </div>
+        )}
+
         {fulfillment === "delivery" && hasPositiveDeliveryFee && (
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Delivery Fee</p>
@@ -1919,9 +1970,10 @@ export default function CartPage() {
               const redirectUrl = `${window.location.origin}/cart?payment_return=1&order_id=${orderId}`;
               setPaymentStepLabel(t.cart_momo_start);
               const init = await paymentsService.initiatePesapal(orderId, {
-                phone: phone.trim(),
+                phone: phone.trim() || undefined,
                 name: name.trim() || undefined,
                 redirect_url: redirectUrl,
+                payment_method: paymentMethod,
               });
 
               if (init.checkout_url) {

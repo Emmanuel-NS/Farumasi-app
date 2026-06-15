@@ -17,6 +17,7 @@ import '../providers/auth_provider.dart';
 import '../services/state_service.dart';
 import '../widgets/auth_helper.dart';
 import '../widgets/pharmacy_match_details.dart';
+import '../widgets/payment_method_selector.dart';
 import '../widgets/searchable_select.dart';
 import 'order_detail_screen.dart';
 
@@ -73,12 +74,16 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   String? _confirmedOrderCode;
   String? _confirmedOrderId;
   bool _detailsPrefilled = false;
+  PaymentChannel _paymentChannel = PaymentChannel.mtnMomo;
 
   @override
   void initState() {
     super.initState();
     _nameController.text = StateService().userName ?? '';
-    _phoneController.text = '0780000000';
+    final authPhone = ref.read(authProvider).user?.phone;
+    _phoneController.text = authPhone?.trim().isNotEmpty == true
+        ? authPhone!.trim()
+        : '0780000000';
     _hydrateLocationFromState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_step == CheckoutStep.pharmacy ||
@@ -566,8 +571,8 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     if (_accessCodeController.text.trim().length < 4) {
       missing.add('Access code (min 4 characters)');
     }
-    if (_phoneController.text.trim().length < 9) {
-      missing.add('Mobile number for payment');
+    if (_paymentChannel.requiresPhone && _phoneController.text.trim().length < 9) {
+      missing.add('Mobile money number');
     }
 
     if (missing.isNotEmpty) {
@@ -631,6 +636,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         phone: _phoneController.text.trim(),
         name: _nameController.text.trim(),
         email: ref.read(authProvider).user?.email,
+        paymentMethod: _paymentChannel.apiValue,
         redirectUrl:
             '${PatientRepository.apiOrigin}/payment-return?order_id=${order.id}',
       );
@@ -2121,45 +2127,45 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF7ED),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFFED7AA)),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.credit_card, color: Color(0xFFEA580C), size: 32),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Pesapal',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Card, MTN MoMo, or Airtel Money via Pesapal',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        const Text(
+          'Choose payment method',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+        ),
+        const SizedBox(height: 10),
+        PaymentMethodSelector(
+          selected: _paymentChannel,
+          onChanged: (m) => setState(() => _paymentChannel = m),
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: _phoneController,
-          keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(
-            labelText: 'Mobile number for payment',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.phone_android),
-            hintText: '078XXXXXXX',
+        if (_paymentChannel.requiresPhone)
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              labelText: _paymentChannel == PaymentChannel.airtelMoney
+                  ? 'Airtel Money number'
+                  : 'MTN MoMo number',
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.phone_android),
+              hintText: '078XXXXXXX',
+            ),
+          )
+        else
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+              labelText: 'Phone (optional)',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.phone_android),
+              hintText: 'For Pesapal receipt',
+            ),
           ),
+        const SizedBox(height: 12),
+        PaymentFeeBreakdown(
+          subtotalRwf: medicines.round(),
+          deliveryFeeRwf: deliveryFee.round(),
+          deferDeliveryFee: _deferDeliveryFee && _fulfillment == 'delivery',
         ),
         const SizedBox(height: 12),
         TextField(

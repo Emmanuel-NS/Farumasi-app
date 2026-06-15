@@ -61,8 +61,54 @@ def _split_name(full_name: str) -> tuple[str, str]:
 
 def _merchant_reference(order: Order) -> str:
     """Pesapal id: alphanumeric, dash, underscore, dot, colon — max 50 chars."""
-    ref = f"FAR-{order.order_code}-{uuid.uuid4().hex[:8]}"
+    code = re.sub(r"[^A-Za-z0-9]", "", order.order_code or order.id[:12])
+    ref = f"FAR{code}{uuid.uuid4().hex[:10]}"
     return ref[:50]
+
+
+def _safe_payment_email(email: str, order_id: str) -> str:
+    """Pesapal rejects invalid domains (e.g. .local)."""
+    e = (email or "").strip()
+    if "@" in e:
+        domain = e.split("@", 1)[1].lower()
+        if domain not in ("localhost",) and "." in domain and not domain.endswith(".local"):
+            return e
+    return f"patient.{order_id[:8]}@farumasi.rw"
+
+
+def _payment_processing_fee(amount: float) -> float:
+    pct = float(settings.PAYMENT_PROCESSING_FEE_PERCENT or 0)
+    if pct <= 0 or amount <= 0:
+        return 0.0
+    return round(amount * pct / 100.0, 0)
+
+
+def _pesapal_user_message(exc: Exception) -> str:
+    raw = str(exc).strip()
+    if not raw:
+        return "Could not start payment. Please try again or use another method."
+    low = raw.lower()
+    if "email" in low:
+        return "Payment could not start: check your profile email or try another method."
+    if "notification" in low or "ipn" in low:
+        return "Payment service is not fully configured. Contact FARUMASI support."
+    if "callback" in low:
+        return "Payment return link is invalid. Try again from the app."
+    if "phone" in low or "mobile" in low:
+        return "Enter a valid Rwanda mobile number (e.g. 0781234567)."
+    return f"Payment could not start: {raw[:220]}"
+
+
+def _sanitize_callback_url(url: str, order_id: str) -> str:
+    u = (url or "").strip()
+    if u.startswith("https://") and "localhost" not in u and "127.0.0.1" not in u:
+        return u
+    base = _payment_return_base()
+    if "localhost" in base or "127.0.0.1" in base:
+        base = settings.API_PUBLIC_URL.rstrip("/")
+    if base.endswith(".onrender.com") or "/api/" in base:
+        return f"{base}/payment-return?order_id={order_id}"
+    return f"{base}/cart?payment_return=1&order_id={order_id}"
 
 
 def _payment_return_base() -> str:
@@ -117,45 +163,66 @@ class PaymentService:
         email: Optional[str] = None,
         name: Optional[str] = None,
         redirect_url: Optional[str] = None,
+        payment_method: str = "mtn_momo",
     ) -> PaymentInitiateOut:
         order = await self._get_patient_order(order_id, actor)
         if order.payment_status == PaymentStatus.PAID:
             raise BusinessRuleError("This order is already paid")
 
-        try:
-            msisdn = normalize_rwanda_phone(phone)
-        except ValueError as exc:
-            raise ValidationError(str(exc)) from exc
+        method = (payment_method or "mtn_momo").lower().strip()
+        if method not in ("mtn_momo", "airtel_money", "card"):
+            raise ValidationError("Invalid payment method. Choose MTN MoMo, Airtel Money, or card.")
+
+        default_name, default_email, actor_phone = await self._patient_contact(actor, order)
+        customer_name = (name or default_name).strip() or default_name
+        customer_email = _safe_payment_email((email or default_email).strip() or default_email, order.id)
+
+        phone_raw = (phone or actor_phone or "").strip()
+        if method in ("mtn_momo", "airtel_money"):
+            if not phone_raw:
+                raise ValidationError("Enter your mobile money number for this payment method.")
+            try:
+                msisdn = normalize_rwanda_phone(phone_raw)
+            except ValueError as exc:
+                raise ValidationError(str(exc)) from exc
+        else:
+            try:
+                msisdn = normalize_rwanda_phone(phone_raw) if phone_raw else normalize_rwanda_phone(actor_phone or "0780000000")
+            except ValueError:
+                msisdn = "250788000000"
 
         due = amount_due_for_order(order)
-        if due <= 0:
+        processing_fee = _payment_processing_fee(due)
+        charge_amount = round(due + processing_fee, 0)
+
+        if charge_amount <= 0:
             await self._mark_paid(order, reference=f"ZERO-{order.order_code}", method="none")
             await self.db.commit()
             return PaymentInitiateOut(
                 order_id=order.id,
                 payment_status=PaymentStatus.PAID,
                 amount=0,
+                order_amount=0,
+                processing_fee=0,
                 provider="internal",
                 message="No payment required for this order.",
+                payment_method=method,
             )
 
-        default_name, default_email, _ = await self._patient_contact(actor, order)
-        customer_name = (name or default_name).strip() or default_name
-        customer_email = (email or default_email).strip() or default_email
-        display_phone = _display_phone(phone)
+        display_phone = _display_phone(phone_raw or actor_phone or "0780000000")
         first_name, last_name = _split_name(customer_name)
 
         merchant_ref = _merchant_reference(order)
-        order.payment_method = "pesapal"
+        order.payment_method = method
         order.payment_phone = msisdn
         order.payment_status = PaymentStatus.PENDING
 
         txn = PaymentTransaction(
             order_id=order.id,
-            amount=due,
+            amount=charge_amount,
             currency=settings.PAYMENT_CURRENCY,
             provider="pesapal",
-            method="pesapal",
+            method=method,
             phone=msisdn,
             status=_TX_PENDING,
             external_id=merchant_ref,
@@ -171,10 +238,13 @@ class PaymentService:
             return PaymentInitiateOut(
                 order_id=order.id,
                 payment_status=PaymentStatus.PAID,
-                amount=due,
+                amount=charge_amount,
+                order_amount=due,
+                processing_fee=processing_fee,
                 provider="pesapal_sandbox",
                 external_id=merchant_ref,
                 message="Sandbox payment confirmed. Use Pesapal checkout in production.",
+                payment_method=method,
             )
 
         if not self.pesapal.is_configured():
@@ -186,14 +256,20 @@ class PaymentService:
                 "Online payments are not configured. Contact FARUMASI support."
             )
 
-        callback = redirect_url or self._default_payment_return_url(order.id)
+        callback = _sanitize_callback_url(redirect_url or "", order.id)
+
+        method_hint = {
+            "mtn_momo": "MTN MoMo",
+            "airtel_money": "Airtel Money",
+            "card": "Card",
+        }.get(method, "Pesapal")
 
         try:
             result = await self.pesapal.submit_order(
                 merchant_reference=merchant_ref,
-                amount=due,
+                amount=charge_amount,
                 currency=settings.PAYMENT_CURRENCY,
-                description=f"FARUMASI order {order.order_code}",
+                description=f"FARUMASI {order.order_code} ({method_hint})"[:100],
                 callback_url=callback,
                 email=customer_email,
                 phone=display_phone,
@@ -216,26 +292,33 @@ class PaymentService:
                     patient_user_id, order.id, order_code=order.order_code
                 )
             await self.db.commit()
-            raise BusinessRuleError(
-                "Could not start payment. Please try again or use another method."
-            ) from exc
+            raise BusinessRuleError(_pesapal_user_message(exc)) from exc
 
         await AuditService(self.db).log(
             actor_user_id=actor.id,
             action="payment.initiated",
             entity_type="Order",
             entity_id=order.id,
-            new_value={"amount": due, "provider": "pesapal"},
+            new_value={
+                "amount": charge_amount,
+                "order_amount": due,
+                "processing_fee": processing_fee,
+                "provider": "pesapal",
+                "method": method,
+            },
         )
         await self.db.commit()
         return PaymentInitiateOut(
             order_id=order.id,
             payment_status=PaymentStatus.PENDING,
-            amount=due,
+            amount=charge_amount,
+            order_amount=due,
+            processing_fee=processing_fee,
             provider="pesapal",
             external_id=merchant_ref,
             checkout_url=result["redirect_url"],
-            message="Complete payment on the secure Pesapal checkout page.",
+            message=f"Complete {method_hint} payment on the secure Pesapal page.",
+            payment_method=method,
         )
 
     async def get_status(self, order_id: str, actor: User) -> PaymentStatusOut:
