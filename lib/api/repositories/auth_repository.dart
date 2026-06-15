@@ -8,7 +8,7 @@ import '../api_client.dart';
 const _cachedUserKey = 'farumasi_cached_user';
 
 /// Auth calls that send email/SMS need a longer receive window on slow SMTP / cold starts.
-const _authRequestOptions = Options(
+final _authRequestOptions = Options(
   sendTimeout: Duration(seconds: 30),
   receiveTimeout: Duration(seconds: 60),
 );
