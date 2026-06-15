@@ -46,7 +46,9 @@ class _RouterNotifier extends ChangeNotifier {
     }
 
     if (status == AuthStatus.unknown) {
-      return location == AppRoutes.splash ? null : AppRoutes.splash;
+      // Show home immediately; auth resolves in the background.
+      if (location == AppRoutes.splash) return AppRoutes.home;
+      return null;
     }
 
     if (status == AuthStatus.authenticated) {
@@ -72,7 +74,7 @@ class _RouterNotifier extends ChangeNotifier {
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _RouterNotifier(ref);
   final router = GoRouter(
-    initialLocation: AppRoutes.splash,
+    initialLocation: AppRoutes.home,
     refreshListenable: notifier,
     redirect: notifier.redirect,
     routes: [

@@ -21,7 +21,7 @@ services:
       - key: PAYMENT_MODE
         value: live
       - key: PESAPAL_ENV
-        value: sandbox
+        value: live
       - key: RUN_MIGRATIONS
         value: "true"
       - key: PAYMENT_CURRENCY

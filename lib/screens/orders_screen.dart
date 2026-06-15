@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/repositories/patient_repository.dart';
 import '../providers/auth_provider.dart';
+import '../utils/order_payment_retry.dart';
 import '../widgets/app_refresh.dart';
 import '../widgets/portal/portal_ui.dart';
 import 'order_detail_screen.dart';
@@ -34,6 +35,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   bool _loading = true;
   bool _refreshing = false;
   String? _error;
+  String? _retryingOrderId;
+
   @override
   void initState() {
     super.initState();
@@ -115,6 +118,29 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           const SnackBar(content: Text('Could not cancel. The order may already be processing.')),
         );
       }
+    }
+  }
+
+  Future<void> _retryPayment(PatientOrder order) async {
+    final user = ref.read(authProvider).user;
+    final phone = await OrderPaymentRetry.promptPhone(
+      context,
+      initial: user?.phone,
+    );
+    if (phone == null || !mounted) return;
+
+    setState(() => _retryingOrderId = order.id);
+    try {
+      await OrderPaymentRetry.retry(
+        context: context,
+        order: order,
+        phone: phone,
+        name: user?.name,
+        email: user?.email,
+      );
+      if (mounted) await _loadOrders(quiet: true);
+    } finally {
+      if (mounted) setState(() => _retryingOrderId = null);
     }
   }
 
@@ -290,6 +316,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     builder: (_) => OrderDetailScreen(orderId: order.id),
                   ),
                 ),
+                onRetryPayment: OrderPaymentRetry.canRetry(order)
+                    ? () => _retryPayment(order)
+                    : null,
+                retryingPayment: _retryingOrderId == order.id,
               )
             : _PastOrderCard(
                 order: order,
@@ -310,11 +340,15 @@ class _ActiveOrderCard extends StatelessWidget {
     required this.order,
     required this.onCancel,
     required this.onTrack,
+    this.onRetryPayment,
+    this.retryingPayment = false,
   });
 
   final PatientOrder order;
   final VoidCallback onCancel;
   final VoidCallback onTrack;
+  final VoidCallback? onRetryPayment;
+  final bool retryingPayment;
 
   bool get _canCancel {
     final status = order.status.toLowerCase();
@@ -378,6 +412,17 @@ class _ActiveOrderCard extends StatelessWidget {
             style: const TextStyle(fontSize: 12, color: PortalColors.slate400),
           ),
           const SizedBox(height: 12),
+          if (OrderPaymentRetry.canRetry(order)) ...[
+            PortalStatusBadge(
+              label: order.paymentStatus.toLowerCase() == 'failed'
+                  ? 'Payment failed'
+                  : 'Payment pending',
+              tone: order.paymentStatus.toLowerCase() == 'failed'
+                  ? PortalStatusTone.danger
+                  : PortalStatusTone.warning,
+            ),
+            const SizedBox(height: 12),
+          ],
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -417,6 +462,33 @@ class _ActiveOrderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          if (onRetryPayment != null) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: retryingPayment ? null : onRetryPayment,
+                style: FilledButton.styleFrom(
+                  backgroundColor: PortalColors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                icon: retryingPayment
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.payment, size: 18),
+                label: Text(
+                  retryingPayment ? 'Starting payment…' : 'Try payment again',
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               Column(

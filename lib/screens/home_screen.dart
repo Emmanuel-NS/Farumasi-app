@@ -203,7 +203,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return List.generate(6, (index) {
       if (!_mountedTabs.contains(index)) {
-        return const SizedBox.shrink(key: ValueKey('tab-placeholder-$index'));
+        return SizedBox.shrink(key: ValueKey('tab-placeholder-$index'));
       }
       return KeyedSubtree(
         key: ValueKey('tab-$index-$embedStoreInShell'),

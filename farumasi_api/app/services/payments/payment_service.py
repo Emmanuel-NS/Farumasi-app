@@ -65,11 +65,27 @@ def _merchant_reference(order: Order) -> str:
     return ref[:50]
 
 
+def _payment_return_base() -> str:
+    portal = (settings.PATIENT_PORTAL_URL or "").strip().rstrip("/")
+    if portal and not portal.startswith("http://localhost") and "127.0.0.1" not in portal:
+        return portal
+    return settings.API_PUBLIC_URL.rstrip("/")
+
+
 class PaymentService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.orders = OrderRepository(db)
         self.pesapal = PesapalService()
+
+    @staticmethod
+    def _default_payment_return_url(order_id: str) -> str:
+        base = _payment_return_base()
+        if "localhost" in base or "127.0.0.1" in base:
+            base = settings.API_PUBLIC_URL.rstrip("/")
+        if base.endswith(".onrender.com") or "/api/" in base:
+            return f"{base}/payment-return?order_id={order_id}"
+        return f"{base}/cart?payment_return=1&order_id={order_id}"
 
     async def _get_patient_order(self, order_id: str, actor: User) -> Order:
         order = await self.orders.get_by_id(order_id)
@@ -170,9 +186,7 @@ class PaymentService:
                 "Online payments are not configured. Contact FARUMASI support."
             )
 
-        callback = redirect_url or (
-            f"{settings.PATIENT_PORTAL_URL.rstrip('/')}/cart?payment_return=1&order_id={order.id}"
-        )
+        callback = redirect_url or self._default_payment_return_url(order.id)
 
         try:
             result = await self.pesapal.submit_order(

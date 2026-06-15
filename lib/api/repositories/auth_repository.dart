@@ -1,4 +1,10 @@
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../api_client.dart';
+
+const _cachedUserKey = 'farumasi_cached_user';
 
 class RegistrationPending {
   final String email;
@@ -31,6 +37,7 @@ class AuthRepository {
     );
 
     final user = await getMe();
+    if (user != null) await cacheUser(user);
     return AuthResult(
       accessToken: data['access_token'] as String,
       refreshToken: data['refresh_token'] as String,
@@ -77,6 +84,7 @@ class AuthRepository {
     );
 
     final user = await getMe();
+    if (user != null) await cacheUser(user);
     return AuthResult(
       accessToken: data['access_token'] as String,
       refreshToken: data['refresh_token'] as String,
@@ -108,6 +116,7 @@ class AuthRepository {
     );
 
     final user = await getMe();
+    if (user != null) await cacheUser(user);
     return AuthResult(
       accessToken: data['access_token'] as String,
       refreshToken: data['refresh_token'] as String,
@@ -117,6 +126,7 @@ class AuthRepository {
 
   Future<void> logout() async {
     await _client.clearTokens();
+    await clearCachedUser();
   }
 
   Future<bool> get isLoggedIn async {
@@ -124,17 +134,56 @@ class AuthRepository {
     return token != null;
   }
 
+  Future<void> cacheUser(AuthUser user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _cachedUserKey,
+      jsonEncode({
+        'id': user.id,
+        'name': user.name,
+        'email': user.email,
+        'phone': user.phone,
+        'role': user.role,
+      }),
+    );
+  }
+
+  Future<AuthUser?> loadCachedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_cachedUserKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      return AuthUser(
+        id: data['id'] as String,
+        name: data['name'] as String? ?? 'User',
+        email: data['email'] as String?,
+        phone: data['phone'] as String?,
+        role: (data['role'] as String? ?? 'patient').toUpperCase(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> clearCachedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_cachedUserKey);
+  }
+
   Future<AuthUser?> getMe() async {
     try {
       final response = await _client.dio.get('/users/me');
       final data = response.data as Map<String, dynamic>;
-      return AuthUser(
+      final user = AuthUser(
         id: data['id'] as String,
         name: data['full_name'] as String? ?? 'User',
         email: data['email'] as String?,
         phone: data['phone'] as String?,
         role: (data['role'] as String? ?? 'patient').toUpperCase(),
       );
+      await cacheUser(user);
+      return user;
     } catch (_) {
       return null;
     }

@@ -7,7 +7,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
@@ -257,3 +257,26 @@ app = create_application()
 @app.get("/health", tags=["health"])
 async def health_check() -> JSONResponse:
     return JSONResponse({"status": "healthy", "version": settings.APP_VERSION})
+
+
+@app.get("/payment-return", response_class=HTMLResponse, tags=["payments"])
+async def payment_return(order_id: str = "") -> HTMLResponse:
+    """Pesapal redirect target after checkout (mobile app + API fallback)."""
+    oid = order_id or ""
+    return HTMLResponse(
+        f"""<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Payment — FARUMASI</title>
+<style>
+  body{{font-family:system-ui,sans-serif;background:#edfdf6;margin:0;padding:2rem;text-align:center;color:#0f172a}}
+  .card{{max-width:420px;margin:2rem auto;background:#fff;border-radius:16px;padding:2rem;box-shadow:0 8px 30px #0f172a14}}
+  h1{{color:#1e9e68;font-size:1.35rem;margin:0 0 .5rem}}
+  p{{color:#64748b;line-height:1.5}}
+</style></head><body>
+<div class="card">
+  <h1>Thank you!</h1>
+  <p>Your payment is being confirmed. Return to the <strong>FARUMASI</strong> app to see your order status.</p>
+  {f'<p style="font-size:.85rem">Order: {oid}</p>' if oid else ''}
+</div></body></html>"""
+    )

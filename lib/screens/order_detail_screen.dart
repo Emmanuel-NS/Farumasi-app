@@ -1,23 +1,26 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/repositories/patient_repository.dart';
+import '../providers/auth_provider.dart';
+import '../utils/order_payment_retry.dart';
 import '../widgets/delivery_tracking_map.dart';
 import '../widgets/portal/portal_ui.dart';
 
-class OrderDetailScreen extends StatefulWidget {
+class OrderDetailScreen extends ConsumerStatefulWidget {
   const OrderDetailScreen({super.key, required this.orderId});
 
   final String orderId;
 
   @override
-  State<OrderDetailScreen> createState() => _OrderDetailScreenState();
+  ConsumerState<OrderDetailScreen> createState() => _OrderDetailScreenState();
 }
 
-class _OrderDetailScreenState extends State<OrderDetailScreen> {
+class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
   PatientOrder? _order;
   PatientDelivery? _delivery;
   PatientDeliveryQr? _deliveryQr;
@@ -25,6 +28,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _qrLoading = false;
   String? _error;
   bool _cancelling = false;
+  bool _retryingPayment = false;
   Timer? _pollTimer;
 
   static const _deliverySteps = [
@@ -143,6 +147,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return false;
   }
 
+  Future<void> _retryPayment(PatientOrder order) async {
+    final user = ref.read(authProvider).user;
+    final phone = await OrderPaymentRetry.promptPhone(
+      context,
+      initial: user?.phone,
+    );
+    if (phone == null || !mounted) return;
+
+    setState(() => _retryingPayment = true);
+    try {
+      await OrderPaymentRetry.retry(
+        context: context,
+        order: order,
+        phone: phone,
+        name: user?.name,
+        email: user?.email,
+        onPaid: () => _load(quiet: true),
+      );
+      await _load(quiet: true);
+    } finally {
+      if (mounted) setState(() => _retryingPayment = false);
+    }
+  }
+
   Future<void> _cancelOrder() async {
     final order = _order;
     if (order == null) return;
@@ -236,6 +264,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       children: [
         PortalBackLink(label: 'Back to Orders', onTap: () => Navigator.pop(context)),
         _headerCard(order, isPickup),
+        if (OrderPaymentRetry.canRetry(order)) _paymentRetryBanner(order),
         if (isOutForDelivery && delivery != null && delivery.hasMapCoords)
           DeliveryTrackingMap(
             pharmacyName: order.pharmacyName ?? 'Pharmacy',
@@ -330,6 +359,66 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               disabledBackgroundColor: PortalColors.slate100,
             ),
             icon: Icon(Icons.phone, color: phone != null ? PortalColors.green : PortalColors.slate300),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _paymentRetryBanner(PatientOrder order) {
+    final failed = order.paymentStatus.toLowerCase() == 'failed';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: failed ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: failed ? const Color(0xFFFECACA) : const Color(0xFFFDE68A),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                failed ? Icons.error_outline : Icons.schedule,
+                color: failed ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  failed
+                      ? 'Payment failed. Your order is saved — try paying again.'
+                      : 'Payment pending. Complete checkout to confirm your order.',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: failed ? const Color(0xFFDC2626) : const Color(0xFFB45309),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _retryingPayment ? null : () => _retryPayment(order),
+            style: FilledButton.styleFrom(
+              backgroundColor: PortalColors.green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            icon: _retryingPayment
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.payment),
+            label: Text(_retryingPayment ? 'Starting payment…' : 'Try payment again'),
           ),
         ],
       ),

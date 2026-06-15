@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api/repositories/patient_repository.dart';
 import '../providers/auth_provider.dart';
 import '../services/state_service.dart';
@@ -286,7 +287,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final init = await PatientRepository.instance.initiatePesapal(
         order.id,
         phone: _phoneController.text.trim(),
+        redirectUrl:
+            '${PatientRepository.apiOrigin}/payment-return?order_id=${order.id}',
       );
+      if (init.checkoutUrl != null && init.checkoutUrl!.isNotEmpty) {
+        final uri = Uri.parse(init.checkoutUrl!);
+        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+          throw Exception('Could not open Pesapal checkout.');
+        }
+      }
       if (init.paymentStatus != 'paid') {
         await PatientRepository.instance.waitUntilPaid(order.id);
       }

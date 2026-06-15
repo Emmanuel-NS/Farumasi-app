@@ -96,42 +96,44 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 
   Future<void> _checkPersistedSession() async {
-
     final hasToken = await _repo.isLoggedIn;
+    if (!hasToken) {
+      _syncLegacySession(null);
+      state = const AuthState.unauthenticated();
+      return;
+    }
 
-    if (hasToken) {
+    final cached = await _repo.loadCachedUser();
+    if (cached != null) {
+      _syncLegacySession(cached);
+      state = AuthState.authenticated(cached);
+    }
 
-      try {
+    try {
+      final user = await _repo.getMe().timeout(
+        const Duration(seconds: 4),
+        onTimeout: () => null,
+      );
 
-        final user = await _repo.getMe().timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => null,
-        );
-
-        if (user != null) {
-
-          _syncLegacySession(user);
-
-          state = AuthState.authenticated(user);
-
-          return;
-
-        }
-
-      } on DioException catch (e) {
-
-        if (e.response?.statusCode == 401) {
-          await _repo.logout();
-        }
-
-      } catch (_) {
+      if (user != null) {
+        _syncLegacySession(user);
+        state = AuthState.authenticated(user);
+        return;
       }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        await _repo.logout();
+        _syncLegacySession(null);
+        state = const AuthState.unauthenticated();
+        return;
+      }
+      if (cached != null) return;
+    } catch (_) {
+      if (cached != null) return;
     }
 
     _syncLegacySession(null);
-
     state = const AuthState.unauthenticated();
-
   }
 
 

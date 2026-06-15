@@ -4,12 +4,15 @@ import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ordersService } from "@/lib/services/orders.service";
+import { paymentsService } from "@/lib/services/payments.service";
 import { deliveryService, type BackendDelivery, coordsPair, deliveryProgress, estimateDeliveryEtaMinutes } from "@/lib/services/delivery.service";
 import { mediaUrl } from "@/lib/api";
 import type { Order, DeliveryQR } from "@/types";
 import { cn, formatPrice } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useTranslation } from "@/lib/translations";
+import { useAuthStore } from "@/store/auth-store";
+import { toast } from "sonner";
 import {
   ArrowLeft, MapPin, Phone, MessageCircle, Package, Store,
   CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink,
@@ -55,6 +58,8 @@ export default function OrderDetailPage() {
   const [qrLoading, setQrLoading]   = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [retryingPayment, setRetryingPayment] = useState(false);
+  const authUser = useAuthStore((s) => s.user);
 
   const loadOrder = async () => {
     if (!id) return;
@@ -125,6 +130,49 @@ export default function OrderDetailPage() {
     } finally {
       setCancelling(false);
       setShowCancel(false);
+    }
+  };
+
+  const canRetryPayment =
+    order != null &&
+    order.status !== "cancelled" &&
+    (order.paymentStatus === "failed" || order.paymentStatus === "pending");
+
+  const handleRetryPayment = async () => {
+    if (!order) return;
+    const phone = window.prompt(
+      "Enter your mobile money number to retry payment:",
+      authUser?.phone ?? "",
+    );
+    if (!phone?.trim()) return;
+
+    setRetryingPayment(true);
+    try {
+      const redirectUrl = `${window.location.origin}/orders/${order.id}?payment_return=1`;
+      const init = await paymentsService.initiatePesapal(order.id, {
+        phone: phone.trim(),
+        name: authUser?.name,
+        email: authUser?.email,
+        redirect_url: redirectUrl,
+      });
+
+      if (init.checkout_url) {
+        window.location.href = init.checkout_url;
+        return;
+      }
+
+      if (init.payment_status !== "paid") {
+        await paymentsService.waitUntilPaid(order.id);
+      }
+
+      toast.success("Payment confirmed.");
+      await loadOrder();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not start payment. Try again.";
+      toast.error(message);
+    } finally {
+      setRetryingPayment(false);
     }
   };
 
@@ -557,6 +605,17 @@ export default function OrderDetailPage() {
 
       {/* ── Actions ──────────────────────────────────────────────────── */}
       <div className="space-y-3">
+        {canRetryPayment && (
+          <button
+            onClick={handleRetryPayment}
+            disabled={retryingPayment}
+            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors disabled:opacity-60"
+          >
+            <Banknote className="w-4 h-4" />
+            {retryingPayment ? "Starting payment…" : "Try payment again"}
+          </button>
+        )}
+
         {/* Reorder (past / delivered orders) */}
         {isDelivered && itemList.length > 0 && (
           <Link

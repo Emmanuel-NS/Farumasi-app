@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,14 +24,14 @@ const _supabaseAnonKey = String.fromEnvironment(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Warm catalogue from disk before first frame so store tab is instant offline.
-  await PatientCatalogService().hydrateFromCache();
-
   runApp(
     const ProviderScope(
       child: FarumasiApp(),
     ),
   );
+
+  // Warm catalogue from disk without blocking first frame.
+  unawaited(PatientCatalogService().hydrateFromCache());
 
   // Defer non-critical startup work so the first frame paints sooner.
   Future<void>(() async {

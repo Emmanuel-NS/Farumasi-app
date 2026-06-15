@@ -5,6 +5,7 @@ import '../api_client.dart';
 import '../../models/cache_serializers.dart';
 import '../../models/models.dart';
 import '../../models/product_category.dart';
+import '../../services/offline_cache_service.dart';
 import '../../utils/consult_attachments.dart';
 import '../../utils/upload_url.dart';
 
@@ -277,19 +278,42 @@ class PatientRepository {
     String? email,
     String? redirectUrl,
   }) async {
-    final response = await _client.dio.post(
-      '/patients/me/orders/$orderId/payments/pesapal/initiate',
-      data: {
-        'phone': phone,
-        if (name != null && name.isNotEmpty) 'name': name,
-        if (email != null && email.isNotEmpty) 'email': email,
-        if (redirectUrl != null && redirectUrl.isNotEmpty)
-          'redirect_url': redirectUrl,
-      },
-    );
-    return PaymentInitiateResult.fromJson(
-      response.data as Map<String, dynamic>,
-    );
+    try {
+      final response = await _client.dio.post(
+        '/patients/me/orders/$orderId/payments/pesapal/initiate',
+        data: {
+          'phone': phone,
+          if (name != null && name.isNotEmpty) 'name': name,
+          if (email != null && email.isNotEmpty) 'email': email,
+          if (redirectUrl != null && redirectUrl.isNotEmpty)
+            'redirect_url': redirectUrl,
+        },
+      );
+      return PaymentInitiateResult.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      throw Exception(_dioErrorMessage(e));
+    }
+  }
+
+  static String _dioErrorMessage(DioException e) {
+    final data = e.response?.data;
+    if (data is Map) {
+      final detail = data['detail'];
+      if (detail is String && detail.trim().isNotEmpty) return detail.trim();
+      if (detail is List && detail.isNotEmpty) {
+        final first = detail.first;
+        if (first is Map && first['msg'] != null) {
+          return first['msg'].toString();
+        }
+      }
+      final message = data['message'];
+      if (message is String && message.trim().isNotEmpty) return message.trim();
+    }
+    return e.message?.trim().isNotEmpty == true
+        ? e.message!.trim()
+        : 'Could not start payment. Please try again.';
   }
 
   Future<PaymentStatusResult> paymentStatus(String orderId) async {

@@ -15,8 +15,9 @@ _PESAPAL_BASE = {
     "live": "https://pay.pesapal.com/v3/api",
 }
 
-_token_cache: dict[str, Any] = {"token": None, "expires_at": 0.0}
+_token_cache: dict[str, Any] = {"token": None, "expires_at": 0.0, "base": None}
 _ipn_id_cache: Optional[str] = None
+_resolved_base_url: Optional[str] = None
 
 
 class PesapalService:
@@ -25,17 +26,40 @@ class PesapalService:
     def is_configured(self) -> bool:
         return bool(settings.PESAPAL_CONSUMER_KEY and settings.PESAPAL_CONSUMER_SECRET)
 
-    def _base_url(self) -> str:
+    def _candidate_bases(self) -> list[str]:
         env = (settings.PESAPAL_ENV or "sandbox").lower()
-        return _PESAPAL_BASE.get(env, _PESAPAL_BASE["sandbox"])
+        if env == "live":
+            return [_PESAPAL_BASE["live"]]
+        # Many merchant keys only work on live — try sandbox first, then live.
+        return [_PESAPAL_BASE["sandbox"], _PESAPAL_BASE["live"]]
 
-    async def _request_token(self) -> str:
-        now = time.time()
-        cached = _token_cache.get("token")
-        if cached and now < float(_token_cache.get("expires_at") or 0):
-            return cached
+    async def _resolve_base_url(self) -> str:
+        global _resolved_base_url
+        if _resolved_base_url:
+            return _resolved_base_url
 
-        url = f"{self._base_url()}/Auth/RequestToken"
+        last_error = "Pesapal authentication failed"
+        for base in self._candidate_bases():
+            try:
+                token = await self._request_token_for_base(base)
+                _resolved_base_url = base
+                _token_cache["token"] = token
+                _token_cache["expires_at"] = time.time() + 4 * 60
+                _token_cache["base"] = base
+                if base == _PESAPAL_BASE["live"] and (settings.PESAPAL_ENV or "").lower() != "live":
+                    logger.warning(
+                        "Pesapal credentials work on LIVE API but PESAPAL_ENV=%s — set PESAPAL_ENV=live",
+                        settings.PESAPAL_ENV,
+                    )
+                return base
+            except Exception as exc:
+                last_error = str(exc)
+                logger.info("Pesapal auth failed for %s: %s", base, exc)
+
+        raise RuntimeError(last_error)
+
+    async def _request_token_for_base(self, base: str) -> str:
+        url = f"{base}/Auth/RequestToken"
         payload = {
             "consumer_key": settings.PESAPAL_CONSUMER_KEY,
             "consumer_secret": settings.PESAPAL_CONSUMER_SECRET,
@@ -46,14 +70,37 @@ class PesapalService:
                 json=payload,
                 headers={"Accept": "application/json", "Content-Type": "application/json"},
             )
-        data = resp.json()
-        if resp.status_code >= 400 or not data.get("token"):
-            message = data.get("message") or resp.text
-            raise RuntimeError(message or "Pesapal authentication failed")
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            snippet = (resp.text or "")[:200]
+            raise RuntimeError(
+                f"Pesapal auth returned non-JSON (HTTP {resp.status_code}): {snippet}"
+            ) from exc
 
-        _token_cache["token"] = data["token"]
-        _token_cache["expires_at"] = now + 4 * 60  # refresh before 5-min expiry
+        if resp.status_code >= 400 or not data.get("token"):
+            message = data.get("message") or data.get("error") or resp.text
+            raise RuntimeError(message or "Pesapal authentication failed")
         return data["token"]
+
+    async def _request_token(self) -> str:
+        now = time.time()
+        cached = _token_cache.get("token")
+        if cached and now < float(_token_cache.get("expires_at") or 0):
+            return cached
+
+        base = await self._resolve_base_url()
+        token = await self._request_token_for_base(base)
+        _token_cache["token"] = token
+        _token_cache["expires_at"] = now + 4 * 60
+        _token_cache["base"] = base
+        return token
+
+    def _base_url(self) -> str:
+        if _resolved_base_url:
+            return _resolved_base_url
+        env = (settings.PESAPAL_ENV or "sandbox").lower()
+        return _PESAPAL_BASE.get(env, _PESAPAL_BASE["sandbox"])
 
     async def _auth_headers(self) -> dict[str, str]:
         token = await self._request_token()
@@ -64,6 +111,8 @@ class PesapalService:
         }
 
     def _ipn_callback_url(self) -> str:
+        if settings.PESAPAL_IPN_ID and settings.PESAPAL_IPN_URL:
+            return settings.PESAPAL_IPN_URL.rstrip("/")
         if settings.PESAPAL_IPN_URL:
             return settings.PESAPAL_IPN_URL.rstrip("/")
         base = settings.API_PUBLIC_URL.rstrip("/")
@@ -76,6 +125,7 @@ class PesapalService:
         if _ipn_id_cache:
             return _ipn_id_cache
 
+        await self._resolve_base_url()
         headers = await self._auth_headers()
         url = f"{self._base_url()}/URLSetup/RegisterIPN"
         payload = {
@@ -84,13 +134,19 @@ class PesapalService:
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json=payload, headers=headers)
-        data = resp.json()
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise RuntimeError(
+                f"Pesapal IPN registration returned non-JSON: {(resp.text or '')[:200]}"
+            ) from exc
+
         ipn_id = data.get("ipn_id")
         if resp.status_code >= 400 or not ipn_id:
             message = data.get("message") or data.get("error") or resp.text
             raise RuntimeError(
                 f"Pesapal IPN registration failed: {message}. "
-                "Set PESAPAL_IPN_ID in .env after registering your IPN URL in the Pesapal dashboard."
+                "Set PESAPAL_IPN_ID in .env after registering your IPN URL."
             )
         _ipn_id_cache = ipn_id
         logger.info("Pesapal IPN registered (id=%s). Add PESAPAL_IPN_ID=%s to .env", ipn_id, ipn_id)
@@ -110,6 +166,7 @@ class PesapalService:
         last_name: str,
         country_code: str = "RW",
     ) -> dict[str, str]:
+        await self._resolve_base_url()
         notification_id = await self.get_ipn_id()
         headers = await self._auth_headers()
         payload = {
@@ -132,10 +189,16 @@ class PesapalService:
         url = f"{self._base_url()}/Transactions/SubmitOrderRequest"
         async with httpx.AsyncClient(timeout=45.0) as client:
             resp = await client.post(url, json=payload, headers=headers)
-        data = resp.json()
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise RuntimeError(
+                f"Pesapal submit order returned non-JSON: {(resp.text or '')[:300]}"
+            ) from exc
+
         if resp.status_code >= 400 or not data.get("redirect_url"):
-            message = data.get("message") or resp.text
-            logger.error("Pesapal submit order failed: %s", message[:500])
+            message = data.get("message") or data.get("error") or resp.text
+            logger.error("Pesapal submit order failed: %s", str(message)[:500])
             raise RuntimeError(message or "Pesapal could not start checkout")
 
         return {
@@ -145,6 +208,7 @@ class PesapalService:
         }
 
     async def get_transaction_status(self, order_tracking_id: str) -> Optional[dict[str, Any]]:
+        await self._resolve_base_url()
         headers = await self._auth_headers()
         url = f"{self._base_url()}/Transactions/GetTransactionStatus"
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -156,7 +220,10 @@ class PesapalService:
         if resp.status_code >= 400:
             logger.warning("Pesapal status failed for %s: %s", order_tracking_id, resp.text[:300])
             return None
-        body = resp.json()
+        try:
+            body = resp.json()
+        except ValueError:
+            return None
         if str(body.get("status")) != "200":
             return None
         return body

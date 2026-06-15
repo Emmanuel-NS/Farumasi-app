@@ -630,6 +630,9 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         order.id,
         phone: _phoneController.text.trim(),
         name: _nameController.text.trim(),
+        email: ref.read(authProvider).user?.email,
+        redirectUrl:
+            '${PatientRepository.apiOrigin}/payment-return?order_id=${order.id}',
       );
 
       if (init.checkoutUrl != null && init.checkoutUrl!.isNotEmpty) {
