@@ -34,6 +34,7 @@ class MedicineItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
+                flex: 13,
                 child: InkWell(
                   onTap: () {
                     if (medicine.requiresPrescription) {
@@ -69,15 +70,12 @@ class MedicineItem extends StatelessWidget {
                               top: Radius.circular(12),
                             ),
                             child: medicine.imageUrl.isNotEmpty
-                                ? Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: LiteNetworkImage(
-                                      url: medicine.imageUrl,
-                                      fit: BoxFit.contain,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      memCacheWidth: 400,
-                                    ),
+                                ? LiteNetworkImage(
+                                    url: medicine.imageUrl,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    memCacheWidth: 520,
                                   )
                                 : Container(
                                     color: const Color(0xFFEDFDF6),
@@ -126,7 +124,9 @@ class MedicineItem extends StatelessWidget {
                   ),
                 ),
               ),
-              Padding(
+              Expanded(
+                flex: 10,
+                child: Padding(
                 padding: const EdgeInsets.all(10.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,6 +306,7 @@ class MedicineItem extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
               ),
             ],
           ),

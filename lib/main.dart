@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +28,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AppLifecycleService.instance.init();
 
+  if (!kIsWeb) {
+    await NotificationService().init();
+  }
+
   runApp(
     const ProviderScope(
       child: FarumasiApp(),
@@ -47,11 +52,6 @@ Future<void> main() async {
       } catch (e) {
         debugPrint('Failed to init Supabase: $e');
       }
-    }
-    try {
-      await NotificationService().init();
-    } catch (e) {
-      debugPrint('Failed to init notifications: $e');
     }
   });
 }

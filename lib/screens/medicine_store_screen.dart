@@ -8,6 +8,7 @@ import 'medicine_detail_screen.dart';
 import '../services/state_service.dart';
 import '../services/patient_catalog_service.dart';
 import '../services/app_lifecycle_service.dart';
+import '../services/notification_service.dart';
 import '../api/repositories/patient_repository.dart';
 import '../widgets/auth_helper.dart';
 
@@ -28,6 +29,7 @@ import '../widgets/shimmer_loading.dart';
 import '../widgets/app_refresh.dart';
 import '../widgets/lite_network_image.dart';
 import '../widgets/store_hero_background.dart';
+import '../widgets/notification_badge_icon.dart';
 import '../widgets/sponsored_carousel.dart';
 import '../widgets/farumasi_logo.dart';
 import 'prescriptions_screen.dart';
@@ -484,6 +486,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
 
     StateService().addListener(_onGlobalSearchChanged);
     PatientCatalogService().addListener(_onCatalogChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService().refreshFromApi();
+    });
     if (PatientCatalogService().medicines.isEmpty) {
       PatientCatalogService().refresh(immediate: true);
     } else if (AppLifecycleService.instance.isInForeground) {
@@ -1128,7 +1133,7 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
       200.0,
       260.0,
     )).toDouble();
-    final desktopCardHeight = (desktopCardWidth * 1.18).toDouble();
+    final desktopCardHeight = (desktopCardWidth * 1.30).toDouble();
     final showHeroHeader = !widget.embeddedInHomeShell;
 
     return GestureDetector(
@@ -1203,6 +1208,17 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                             },
                           ),
                           const SizedBox(width: 8),
+                          NotificationBadgeIcon(
+                            icon: Icons.notifications_none,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const NotificationScreen(),
+                                ),
+                              );
+                            },
+                          ),
                           ListenableBuilder(
                             listenable: StateService(),
 
@@ -1557,9 +1573,9 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
           170.0,
           340.0,
         )).toDouble();
-    final responsiveCardHeight = ((responsiveCardWidth * 1.24).clamp(
-      250.0,
-      380.0,
+    final responsiveCardHeight = ((responsiveCardWidth * 1.36).clamp(
+      268.0,
+      410.0,
     )).toDouble();
     final responsiveGridSpacing = ((responsiveCardWidth * 0.06).clamp(
       10.0,
@@ -1619,6 +1635,16 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                   ),
                 ),
                 actions: [
+                  NotificationBadgeIcon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotificationScreen(),
+                        ),
+                      );
+                    },
+                  ),
                   AnimatedOpacity(
                     duration: const Duration(milliseconds: 300),
                     opacity: _isScrolled ? 1.0 : 0.0,
@@ -1695,23 +1721,6 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => const HelpScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.notifications_none,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const NotificationScreen(),
                                 ),
                               );
                             },

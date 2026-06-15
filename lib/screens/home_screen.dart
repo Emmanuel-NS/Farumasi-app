@@ -269,6 +269,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _notificationPollTimer = null;
     } else if (state == AppLifecycleState.resumed) {
       _startNotificationPoll();
+      final auth = ref.read(authProvider);
+      if (auth.status == AuthStatus.authenticated) {
+        NotificationService().refreshFromApi();
+      }
     }
   }
 
@@ -1077,7 +1081,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           const SizedBox(width: 16),
           if (isLoggedIn) ...[
-            PopupMenuButton<String>(
+            ListenableBuilder(
+              listenable: NotificationService(),
+              builder: (context, _) {
+                return PopupMenuButton<String>(
               offset: const Offset(0, 48),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -1126,10 +1133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 }
               },
               itemBuilder: (BuildContext context) {
-                final unreadCount = NotificationService()
-                    .notifications
-                    .where((n) => n['isRead'] != true)
-                    .length;
+                final unreadCount = NotificationService().unreadCount;
                 return [
                 PopupMenuItem(
                   enabled: false,
@@ -1220,6 +1224,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
               ];
+              },
+            );
               },
             ),
           ] else ...[
