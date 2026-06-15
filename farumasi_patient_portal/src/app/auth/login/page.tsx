@@ -8,6 +8,7 @@ import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, ShoppingBag } from "l
 import { useAuthStore } from "@/store/auth-store";
 import { fetchMarketplaceStats } from "@/lib/services/platform.service";
 import { toast } from "sonner";
+import { getApiError } from "@/lib/api-error";
 
 type Tab = "login" | "register";
 
@@ -70,8 +71,11 @@ export default function LoginPage() {
         toast.success("Verification code sent — check your email or phone.");
       }
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : tab === "login" ? "Incorrect email/phone or password" : "Registration failed. Try a different email.");
+      const fallback =
+        tab === "login"
+          ? "Incorrect email/phone or password"
+          : "Registration failed. Check your email and try again.";
+      toast.error(getApiError(err, fallback));
     } finally {
       setLoading(false);
     }

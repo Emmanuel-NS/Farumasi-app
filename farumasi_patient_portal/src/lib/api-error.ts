@@ -2,7 +2,7 @@ import axios from "axios";
 
 /** Extract a human-readable message from axios/FastAPI errors. */
 export function getApiError(err: unknown, fallback = "Something went wrong"): string {
-  if (axios.isAxiosError(err)) {
+    if (axios.isAxiosError(err)) {
     const detail = err.response?.data?.detail;
     if (typeof detail === "string" && detail.trim()) return detail;
     if (Array.isArray(detail)) {
@@ -13,6 +13,8 @@ export function getApiError(err: unknown, fallback = "Something went wrong"): st
       if (msg) return msg;
     }
     if (typeof err.response?.data?.message === "string") return err.response.data.message;
+    if (err.code === "ECONNABORTED") return "Request timed out. Check your connection and try again.";
+    if (!err.response) return "Cannot reach the server. Check your connection and try again.";
     if (err.message && !err.message.startsWith("Request failed")) return err.message;
   }
   if (err instanceof Error && err.message) return err.message;

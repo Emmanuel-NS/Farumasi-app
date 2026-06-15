@@ -268,9 +268,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final data = e.response?.data;
 
       if (data is Map && data['detail'] != null) {
+        final detail = data['detail'];
+        if (detail is String && detail.trim().isNotEmpty) return detail;
+        if (detail is List) {
+          final parts = detail
+              .map((d) => d is Map ? (d['msg']?.toString() ?? '') : d.toString())
+              .where((s) => s.isNotEmpty);
+          final msg = parts.join('. ');
+          if (msg.isNotEmpty) return msg;
+        }
+      }
 
-        return data['detail'].toString();
-
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        return 'Request timed out. Check your connection and try again.';
+      }
+      if (e.type == DioExceptionType.connectionError) {
+        return 'Cannot reach the server. Check your connection and try again.';
       }
 
     }

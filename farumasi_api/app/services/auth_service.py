@@ -74,7 +74,21 @@ class AuthService:
                 "Registration is only available for patient and seller business accounts. "
                 "Other staff accounts must be created by an administrator."
             )
-        if await self.user_repo.email_exists(data.email):
+        existing = await self.user_repo.get_by_email(data.email)
+        if existing:
+            if existing.status == UserStatus.PENDING_VERIFICATION:
+                if not verify_password(data.password, existing.password_hash):
+                    raise ConflictError(f"Email '{data.email}' is already registered")
+                minutes = await self.verify_svc.send_code(
+                    existing,
+                    purpose=PURPOSE_REGISTRATION,
+                    purpose_label="account registration",
+                )
+                return RegistrationPendingResponse(
+                    message="Verification code resent. Enter it to activate your account.",
+                    email=existing.email,
+                    expires_minutes=minutes,
+                )
             raise ConflictError(f"Email '{data.email}' is already registered")
         if data.phone and await self.user_repo.phone_exists(data.phone):
             raise ConflictError(f"Phone '{data.phone}' is already registered")

@@ -8,6 +8,31 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+_SMTP_TIMEOUT_SECONDS = 25
+
+
+def _smtp_configured() -> bool:
+    return bool(settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD)
+
+
+def _send_smtp_message(msg: EmailMessage) -> bool:
+    if not _smtp_configured():
+        return False
+    try:
+        with smtplib.SMTP(
+            settings.SMTP_HOST, settings.SMTP_PORT, timeout=_SMTP_TIMEOUT_SECONDS
+        ) as server:
+            server.ehlo()
+            if settings.SMTP_USE_TLS:
+                server.starttls()
+                server.ehlo()
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("SMTP send failed: %s", exc)
+        return False
+
 
 def send_owner_verification_email(*, to_email: str, full_name: str, code: str, purpose_label: str) -> bool:
     """Send verification email. Returns True if sent, False if SMTP is not configured."""
@@ -20,20 +45,15 @@ def send_owner_verification_email(*, to_email: str, full_name: str, code: str, p
         f"— FARUMASI"
     )
 
-    if settings.SMTP_HOST:
+    if _smtp_configured():
         msg = EmailMessage()
         msg["Subject"] = subject
         msg["From"] = settings.SMTP_FROM_EMAIL or settings.SMTP_USER or "noreply@farumasi.com"
         msg["To"] = to_email
         msg.set_content(body)
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            if settings.SMTP_USE_TLS:
-                server.starttls()
-            if settings.SMTP_USER and settings.SMTP_PASSWORD:
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-        logger.info("Sent verification email to %s", to_email)
-        return True
+        if _send_smtp_message(msg):
+            logger.info("Sent verification email to %s", to_email)
+            return True
 
     logger.warning(
         "SMTP not configured — verification code for %s (%s): %s",
@@ -55,20 +75,15 @@ def send_data_export_email(*, to_email: str, full_name: str, download_path: str)
         f"— FARUMASI"
     )
 
-    if settings.SMTP_HOST:
+    if _smtp_configured():
         msg = EmailMessage()
         msg["Subject"] = subject
         msg["From"] = settings.SMTP_FROM_EMAIL or settings.SMTP_USER or "noreply@farumasi.com"
         msg["To"] = to_email
         msg.set_content(body)
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            if settings.SMTP_USE_TLS:
-                server.starttls()
-            if settings.SMTP_USER and settings.SMTP_PASSWORD:
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-        logger.info("Sent data export email to %s", to_email)
-        return True
+        if _send_smtp_message(msg):
+            logger.info("Sent data export email to %s", to_email)
+            return True
 
     logger.warning("SMTP not configured — data export for %s at %s", to_email, download_path)
     return False
