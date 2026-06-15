@@ -33,6 +33,14 @@ api.interceptors.request.use((config) => {
   }
 
   if (config.url) {
+    const authSlowPath =
+      /\/auth\/(register|resend-registration-otp|forgot-password|reset-password|verify-registration)/.test(
+        config.url,
+      );
+    if (authSlowPath) {
+      config.timeout = 60_000;
+    }
+
     const isActionPath = /\/(login|register|refresh|logout|me|read|approve|reject|assign|publish|archive|confirm-qr|mark-all-read|read-all|mark-paid|availability|summary)$/.test(config.url);
     const hasSegmentAfterSlash = /\/[^/]+\/[^/]+$/.test(config.url);
     const isCreateOrder = config.url === "/patients/me/orders";

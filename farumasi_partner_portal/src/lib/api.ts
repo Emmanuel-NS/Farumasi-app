@@ -22,6 +22,14 @@ api.interceptors.request.use((config) => {
   }
   // Ensure list-style paths end with '/' for FastAPI
   if (config.url) {
+    const authSlowPath =
+      /\/auth\/(register|resend-registration-otp|forgot-password|reset-password|verify-registration)/.test(
+        config.url,
+      );
+    if (authSlowPath) {
+      config.timeout = 60_000;
+    }
+
     const isActionPath = /\/(login|register|refresh|logout|me|read|approve|reject|status|review|upload|all|availability|submit|change-password)$/.test(
       config.url,
     );

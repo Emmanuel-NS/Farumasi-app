@@ -8,7 +8,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_SMTP_TIMEOUT_SECONDS = 25
+_SMTP_TIMEOUT_SECONDS = 8
 
 
 def _smtp_configured() -> bool:

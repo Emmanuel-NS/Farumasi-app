@@ -1,10 +1,17 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api_client.dart';
 
 const _cachedUserKey = 'farumasi_cached_user';
+
+/// Auth calls that send email/SMS need a longer receive window on slow SMTP / cold starts.
+const _authRequestOptions = Options(
+  sendTimeout: Duration(seconds: 30),
+  receiveTimeout: Duration(seconds: 60),
+);
 
 class RegistrationPending {
   final String email;
@@ -58,7 +65,7 @@ class AuthRepository {
       'phone': phone,
       'password': password,
       'role': role.toLowerCase(),
-    });
+    }, options: _authRequestOptions);
 
     final data = response.data as Map<String, dynamic>;
     return RegistrationPending(
@@ -95,7 +102,7 @@ class AuthRepository {
   Future<void> resendRegistrationOtp(String email) async {
     await _client.dio.post('/auth/resend-registration-otp', data: {
       'email': email.trim(),
-    });
+    }, options: _authRequestOptions);
   }
 
   Future<AuthResult> signInWithGoogle({

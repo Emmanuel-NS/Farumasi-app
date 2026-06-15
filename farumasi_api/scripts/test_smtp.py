@@ -31,7 +31,7 @@ def main() -> int:
         print("\nWARN: SMTP_PASSWORD looks too short — paste the FULL xsmtpsib-… key from Brevo.")
 
     try:
-        with smtplib.SMTP(host, port, timeout=25) as server:
+        with smtplib.SMTP(host, port, timeout=8) as server:
             server.ehlo()
             if settings.SMTP_USE_TLS:
                 server.starttls()
@@ -58,7 +58,7 @@ def main() -> int:
     )
 
     try:
-        with smtplib.SMTP(host, port, timeout=25) as server:
+        with smtplib.SMTP(host, port, timeout=8) as server:
             server.ehlo()
             if settings.SMTP_USE_TLS:
                 server.starttls()
