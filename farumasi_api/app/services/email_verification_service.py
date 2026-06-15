@@ -14,7 +14,7 @@ from app.models.email_verification_challenge import EmailVerificationChallenge
 from app.models.user import User
 from app.services.email_delivery_service import (
     send_owner_verification_email,
-    smtp_config_issue,
+    email_config_issue,
 )
 from app.services.sms_delivery_service import send_verification_sms
 
@@ -87,15 +87,15 @@ class EmailVerificationService:
                     code,
                 )
             else:
-                config_issue = smtp_config_issue()
+                config_issue = email_config_issue()
                 if config_issue:
                     raise ValidationError(
                         f"Verification code could not be sent: {config_issue}"
                     )
                 raise ValidationError(
                     "Verification code could not be sent. "
-                    "Check Brevo: verify SMTP_FROM_EMAIL as a sender, confirm SMTP login/key, "
-                    "and disable IP allowlist for Render."
+                    "Check Brevo: set BREVO_API_KEY, verify SMTP_FROM_EMAIL as a sender, "
+                    "and confirm the API key can send transactional email."
                 )
         return settings.EMAIL_VERIFICATION_EXPIRE_MINUTES
 

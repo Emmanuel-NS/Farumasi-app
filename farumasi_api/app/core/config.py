@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = ""
     SMTP_USE_TLS: bool = True
+    SMTP_FROM_NAME: str = "FARUMASI"
+    # Brevo HTTP API — works on Render free tier (SMTP port 587 is blocked there).
+    BREVO_API_KEY: str = ""
     EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 10
 
     # ── SMS (verification / password reset fallback) ───────────────────────
