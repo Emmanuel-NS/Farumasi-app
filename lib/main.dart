@@ -34,9 +34,6 @@ Future<void> main() async {
     await NotificationService().init();
   }
 
-  AppSession.launchOverlayShown =
-      AppLifecycleService.instance.launchOverlayAlreadyShown;
-
   runApp(
     const ProviderScope(
       child: FarumasiApp(),
@@ -70,8 +67,8 @@ class FarumasiApp extends ConsumerStatefulWidget {
 }
 
 class _FarumasiAppState extends ConsumerState<FarumasiApp> {
-  bool _showLaunchOverlay =
-      !AppSession.launchOverlayShown && AppLifecycleService.instance.isColdStart;
+  // Show the launch overlay on every cold start (every app launch).
+  bool _showLaunchOverlay = AppLifecycleService.instance.isColdStart;
 
   @override
   void initState() {
@@ -83,7 +80,6 @@ class _FarumasiAppState extends ConsumerState<FarumasiApp> {
   }
 
   void _dismissLaunchOverlay() {
-    AppLifecycleService.instance.markLaunchOverlayShown();
     if (mounted) setState(() => _showLaunchOverlay = false);
   }
 
