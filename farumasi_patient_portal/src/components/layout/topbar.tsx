@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils";
+import { formatNotificationBadge } from "@/lib/badge";
 import { useSearchStore } from "@/store/search-store";
 import { useCartLineCount } from "@/store/cart-store";
 import { useAuthStore } from "@/store/auth-store";
@@ -105,10 +106,11 @@ export function Topbar({
   return (
     <header
       className={cn(
-        "h-[72px] bg-farumasi-600 flex items-center gap-3 px-4 shrink-0 sticky top-0 z-[60]",
+        "relative h-[72px] bg-farumasi-600 shrink-0 sticky top-0 z-[60]",
         mobileNavOpen && "z-[100]",
       )}
     >
+      <div className="h-full w-full max-w-[1920px] mx-auto flex items-center gap-3 px-4">
       {/* Hamburger */}
       <button
         type="button"
@@ -237,7 +239,7 @@ export function Topbar({
           </button>
           {unread > 0 && (
             <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 pointer-events-none">
-              {unread}
+              {formatNotificationBadge(unread)}
             </span>
           )}
         </div>
@@ -322,6 +324,7 @@ export function Topbar({
           </button>
         </div>
       )}
+      </div>
     </header>
   );
 }

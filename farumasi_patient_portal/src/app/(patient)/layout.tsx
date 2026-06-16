@@ -135,7 +135,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
         <div
           className={cn(
-            "flex flex-1 min-h-0 overflow-hidden",
+            "flex flex-1 min-h-0 overflow-hidden w-full max-w-[1920px] mx-auto",
             mobileNavOpen && "max-sm:pointer-events-none max-sm:touch-none",
           )}
         >

@@ -30,15 +30,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppLifecycleService.instance.init();
 
-  if (!kIsWeb) {
-    await NotificationService().init();
-  }
-
   runApp(
     const ProviderScope(
       child: FarumasiApp(),
     ),
   );
+
+  if (!kIsWeb) {
+    unawaited(NotificationService().init());
+  }
 
   // Warm catalogue from disk without blocking first frame.
   unawaited(PatientCatalogService().hydrateFromCache());
@@ -67,18 +67,34 @@ class FarumasiApp extends ConsumerStatefulWidget {
 }
 
 class _FarumasiAppState extends ConsumerState<FarumasiApp> {
-  bool _showLaunchOverlay = true;
+  late bool _showLaunchOverlay = AppLifecycleService.instance.isColdStart;
 
   @override
   void initState() {
     super.initState();
+    AppLifecycleService.instance.addListener(_onLifecycleChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final router = ref.read(routerProvider);
       NotificationNavigation.register(router);
     });
   }
 
+  @override
+  void dispose() {
+    AppLifecycleService.instance.removeListener(_onLifecycleChange);
+    super.dispose();
+  }
+
+  void _onLifecycleChange() {
+    if (!mounted) return;
+    if (AppLifecycleService.instance.shouldShowBrandingAfterLongBackground) {
+      setState(() => _showLaunchOverlay = true);
+    }
+  }
+
   void _dismissLaunchOverlay() {
+    AppLifecycleService.instance.markLongBackgroundHandled();
+    unawaited(AppLifecycleService.instance.markLaunchOverlayShown());
     if (mounted) setState(() => _showLaunchOverlay = false);
   }
 

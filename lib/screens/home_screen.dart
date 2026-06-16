@@ -22,6 +22,7 @@ import 'package:farumasi_app/services/app_lifecycle_service.dart';
 import 'package:farumasi_app/services/notification_service.dart';
 import 'package:farumasi_app/providers/auth_provider.dart';
 import 'package:farumasi_app/core/router.dart';
+import 'package:farumasi_app/utils/badge_format.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -1202,7 +1203,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            unreadCount > 9 ? '9+' : '$unreadCount',
+                            formatBadgeCount(unreadCount),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,

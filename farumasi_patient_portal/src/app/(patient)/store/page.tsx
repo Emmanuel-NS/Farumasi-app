@@ -109,7 +109,7 @@ function getCategoryIcon(cat: string): CategoryIconComponent {
 /** Sponsored strip lives outside search-params Suspense so it always mounts and fetches. */
 function StoreSponsoredStrip() {
   return (
-    <div className="px-4 md:px-6 max-w-[1280px] mx-auto pt-3 pb-1">
+    <div className="px-4 md:px-6 max-w-[1280px] xl:max-w-[1400px] 2xl:max-w-[1520px] mx-auto pt-3 pb-1">
       <SponsoredCarousel className="mb-3" />
     </div>
   );
@@ -448,7 +448,7 @@ function StorePageInner() {
   // Cart count drives topbar badge (via useCartStore in topbar)
 
   return (
-    <div className="px-4 md:px-6 pb-4 md:pb-6 max-w-[1280px] mx-auto">
+    <div className="px-4 md:px-6 pb-4 md:pb-6 max-w-[1280px] xl:max-w-[1400px] 2xl:max-w-[1520px] mx-auto">
       {/* ── Prescription Recommendation Banner ───────────────── */}
       {activePrescription && (
         <div className="mb-5 bg-farumasi-50 border border-farumasi-200 rounded-3xl p-4">

@@ -7,11 +7,14 @@ class AppLifecycleService with WidgetsBindingObserver {
   static final AppLifecycleService instance = AppLifecycleService._();
 
   static const _launchOverlayKey = 'app_launch_overlay_shown_v1';
+  static const longBackgroundThreshold = Duration(minutes: 30);
 
   bool _initialized = false;
   bool _coldStart = true;
   bool _inForeground = true;
   bool _launchOverlayPersisted = false;
+  DateTime? _pausedAt;
+  bool _longBackgroundPending = false;
 
   final List<VoidCallback> _listeners = [];
 
@@ -22,6 +25,9 @@ class AppLifecycleService with WidgetsBindingObserver {
 
   /// Survives process restarts within the same install session.
   bool get launchOverlayAlreadyShown => _launchOverlayPersisted;
+
+  /// True after resume when the app was in background longer than [longBackgroundThreshold].
+  bool get shouldShowBrandingAfterLongBackground => _longBackgroundPending;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -42,6 +48,11 @@ class AppLifecycleService with WidgetsBindingObserver {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_launchOverlayKey, true);
     } catch (_) {}
+  }
+
+  void markLongBackgroundHandled() {
+    _longBackgroundPending = false;
+    _pausedAt = null;
   }
 
   void dispose() {
@@ -65,12 +76,19 @@ class AppLifecycleService with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         _inForeground = true;
+        if (_pausedAt != null) {
+          final away = DateTime.now().difference(_pausedAt!);
+          _longBackgroundPending = away > longBackgroundThreshold;
+        }
+        _pausedAt = null;
         _coldStart = false;
         _notify();
       case AppLifecycleState.inactive:
+        break;
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
         _inForeground = false;
+        _pausedAt = DateTime.now();
         _notify();
       case AppLifecycleState.detached:
         break;

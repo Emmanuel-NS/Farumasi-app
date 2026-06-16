@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../screens/notification_screen.dart';
 import '../services/notification_service.dart';
+import '../utils/badge_format.dart';
 
 /// Bell icon with live unread count from [NotificationService].
 class NotificationBadgeIcon extends StatelessWidget {
@@ -52,7 +53,7 @@ class NotificationBadgeIcon extends StatelessWidget {
                     ),
                     constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                     child: Text(
-                      unread > 99 ? '99+' : '$unread',
+                      formatBadgeCount(unread),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 10,
