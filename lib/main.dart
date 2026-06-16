@@ -67,8 +67,7 @@ class FarumasiApp extends ConsumerStatefulWidget {
 }
 
 class _FarumasiAppState extends ConsumerState<FarumasiApp> {
-  // Show the launch overlay on every cold start (every app launch).
-  bool _showLaunchOverlay = AppLifecycleService.instance.isColdStart;
+  bool _showLaunchOverlay = true;
 
   @override
   void initState() {
@@ -94,10 +93,13 @@ class _FarumasiAppState extends ConsumerState<FarumasiApp> {
       routerConfig: router,
       builder: (context, child) {
         return Stack(
+          fit: StackFit.expand,
           children: [
             child ?? const SizedBox.shrink(),
             if (_showLaunchOverlay)
-              AppLaunchOverlay(onFinished: _dismissLaunchOverlay),
+              Positioned.fill(
+                child: AppLaunchOverlay(onFinished: _dismissLaunchOverlay),
+              ),
           ],
         );
       },
