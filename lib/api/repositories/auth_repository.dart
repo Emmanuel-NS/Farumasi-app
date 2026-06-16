@@ -133,7 +133,7 @@ class AuthRepository {
 
   Future<bool> refreshSession() async {
     final prefs = await SharedPreferences.getInstance();
-    final refreshToken = prefs.getString(_refreshTokenKey);
+    final refreshToken = prefs.getString('farumasi_refresh_token');
     if (refreshToken == null || refreshToken.isEmpty) return false;
     try {
       final refreshDio = Dio(BaseOptions(baseUrl: FarumasiApiClient.baseUrl));
@@ -141,7 +141,7 @@ class AuthRepository {
         'refresh_token': refreshToken,
       });
       final data = response.data as Map<String, dynamic>;
-      await saveTokens(
+      await _client.saveTokens(
         accessToken: data['access_token'] as String,
         refreshToken: data['refresh_token'] as String,
       );
