@@ -22,7 +22,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _isLogin = true;
   String _selectedRole = 'User';
   bool _showPassword = false;
-  bool _agreedToTerms = false;
+  bool _agreedToTerms = true;
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();

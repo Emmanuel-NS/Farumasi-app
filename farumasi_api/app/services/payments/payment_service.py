@@ -20,7 +20,7 @@ from app.repositories.order_repository import OrderRepository
 from app.schemas.payment import PaymentInitiateOut, PaymentStatusOut
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
-from app.services.payments.momo_collection_service import normalize_rwanda_phone
+from app.services.payments.momo_collection_service import MomoCollectionService, normalize_rwanda_phone
 from app.services.payments.pesapal_service import PesapalService
 
 logger = logging.getLogger(__name__)
@@ -158,6 +158,7 @@ class PaymentService:
         self.db = db
         self.orders = OrderRepository(db)
         self.pesapal = PesapalService()
+        self.momo = MomoCollectionService()
 
     @staticmethod
     def _default_payment_return_url(order_id: str) -> str:
@@ -278,7 +279,56 @@ class PaymentService:
                 processing_fee=processing_fee,
                 provider="pesapal_sandbox",
                 external_id=merchant_ref,
-                message="Sandbox payment confirmed. Use Pesapal checkout in production.",
+                message="Sandbox payment confirmed. Use live payments in production.",
+                payment_method=method,
+            )
+
+        # MTN MoMo direct — prompts on the customer's phone (no Pesapal card form).
+        if method == "mtn_momo" and self.momo.is_configured():
+            txn.provider = "mtn_momo"
+            try:
+                await self.momo.request_to_pay(
+                    reference_id=merchant_ref,
+                    amount=charge_amount,
+                    phone=msisdn,
+                    payer_message=f"FARUMASI {order.order_code}"[:160],
+                )
+            except Exception as exc:
+                logger.exception("MTN MoMo initiate failed for order %s", order.id)
+                order.payment_status = PaymentStatus.FAILED
+                txn.status = _TX_FAILED
+                txn.failure_reason = str(exc)[:500]
+                await self.db.commit()
+                raise BusinessRuleError(
+                    "Could not send MTN MoMo payment request. Check your number and try again."
+                ) from exc
+
+            await AuditService(self.db).log(
+                actor_user_id=actor.id,
+                action="payment.initiated",
+                entity_type="Order",
+                entity_id=order.id,
+                new_value={
+                    "amount": charge_amount,
+                    "order_amount": due,
+                    "processing_fee": processing_fee,
+                    "provider": "mtn_momo",
+                    "method": method,
+                },
+            )
+            await self.db.commit()
+            return PaymentInitiateOut(
+                order_id=order.id,
+                payment_status=PaymentStatus.PENDING,
+                amount=charge_amount,
+                order_amount=due,
+                processing_fee=processing_fee,
+                provider="mtn_momo",
+                external_id=merchant_ref,
+                message=(
+                    f"Check your phone ({display_phone}) and approve the MTN MoMo payment. "
+                    "You may need to enter your MoMo PIN."
+                ),
                 payment_method=method,
             )
 
@@ -343,6 +393,13 @@ class PaymentService:
             },
         )
         await self.db.commit()
+        pesapal_messages = {
+            "mtn_momo": (
+                "On the Pesapal page, tap MTN Mobile Money — do not use Card unless you intend to pay by card."
+            ),
+            "airtel_money": "On the Pesapal page, select Airtel Money as your payment method.",
+            "card": "Complete your card payment on the secure Pesapal page.",
+        }
         return PaymentInitiateOut(
             order_id=order.id,
             payment_status=PaymentStatus.PENDING,
@@ -352,7 +409,7 @@ class PaymentService:
             provider="pesapal",
             external_id=merchant_ref,
             checkout_url=result["redirect_url"],
-            message=f"Complete {method_hint} payment on the secure Pesapal page.",
+            message=pesapal_messages.get(method, f"Complete {method_hint} payment on Pesapal."),
             payment_method=method,
         )
 
@@ -360,10 +417,13 @@ class PaymentService:
         order = await self._get_patient_order(order_id, actor)
         due = amount_due_for_order(order)
 
-        if order.payment_status == PaymentStatus.PENDING and self.pesapal.is_configured():
+        if order.payment_status == PaymentStatus.PENDING:
             txn = await self._latest_transaction(order.id)
-            if txn and txn.status == _TX_PENDING and txn.provider == "pesapal":
-                await self._sync_pesapal_transaction(txn, order)
+            if txn and txn.status == _TX_PENDING:
+                if txn.provider == "mtn_momo":
+                    await self._sync_momo_transaction(txn, order)
+                elif txn.provider == "pesapal" and self.pesapal.is_configured():
+                    await self._sync_pesapal_transaction(txn, order)
 
         return PaymentStatusOut(
             order_id=order.id,
@@ -428,6 +488,31 @@ class PaymentService:
             )
             return result.scalar_one_or_none()
         return None
+
+    async def _sync_momo_transaction(
+        self,
+        txn: PaymentTransaction,
+        order: Order,
+    ) -> None:
+        ref = txn.external_id
+        if not ref:
+            return
+        try:
+            status = await self.momo.get_status(ref)
+        except Exception:
+            logger.exception("MTN MoMo status sync failed for %s", ref)
+            return
+        if not status:
+            return
+        normalized = status.upper()
+        if normalized == "SUCCESSFUL":
+            await self._confirm_transaction(txn, order, provider_reference=ref)
+            await self.db.commit()
+        elif normalized in ("FAILED", "TIMEOUT", "REJECTED"):
+            order.payment_status = PaymentStatus.FAILED
+            txn.status = _TX_FAILED
+            txn.failure_reason = normalized.lower()
+            await self.db.commit()
 
     async def _sync_pesapal_transaction(
         self,

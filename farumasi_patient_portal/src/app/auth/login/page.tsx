@@ -34,7 +34,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(true);
   const [marketStats, setMarketStats] = useState({ productCount: 0, sellerCount: 0 });
   const [profileUser, setProfileUser] = useState<AuthUser | null>(null);
 

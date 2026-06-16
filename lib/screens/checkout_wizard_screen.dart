@@ -17,6 +17,7 @@ import '../providers/auth_provider.dart';
 import '../services/state_service.dart';
 import '../widgets/auth_helper.dart';
 import '../widgets/pharmacy_match_details.dart';
+import '../screens/pesapal_checkout_screen.dart';
 import '../widgets/payment_method_selector.dart';
 import '../widgets/searchable_select.dart';
 import 'order_detail_screen.dart';
@@ -699,15 +700,23 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
       );
 
       if (init.checkoutUrl != null && init.checkoutUrl!.isNotEmpty) {
-        final uri = Uri.parse(init.checkoutUrl!);
-        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-          throw Exception('Could not open Pesapal checkout.');
-        }
+        if (!mounted) return;
+        final completed = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => PesapalCheckoutScreen(checkoutUrl: init.checkoutUrl!),
+          ),
+        );
+        if (completed != true && !mounted) return;
+      } else if (init.paymentStatus != 'paid') {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Complete payment in your browser, then return here.'),
-            duration: Duration(seconds: 6),
+          SnackBar(
+            content: Text(
+              init.message.isNotEmpty
+                  ? init.message
+                  : 'Approve the payment on your phone, then wait…',
+            ),
+            duration: const Duration(seconds: 8),
           ),
         );
       }

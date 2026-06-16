@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     # ── JWT ───────────────────────────────────────────────────────────────
     SECRET_KEY: str = _DEFAULT_SECRET_KEY
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days — refreshed silently in clients
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 90
 
     # ── CORS ──────────────────────────────────────────────────────────────
     # Stored as a plain str so pydantic-settings v2 does NOT try json.loads().
@@ -76,6 +76,15 @@ class Settings(BaseSettings):
     PESAPAL_IPN_URL: str = ""
     API_PUBLIC_URL: str = "http://localhost:8000"
     PATIENT_PORTAL_URL: str = "http://localhost:3002"
+
+    # MTN MoMo Collection API — when configured, MTN MoMo payments prompt on phone (no Pesapal form)
+    MTN_MOMO_SUBSCRIPTION_KEY: str = ""
+    MTN_MOMO_API_USER: str = ""
+    MTN_MOMO_API_KEY: str = ""
+    MTN_MOMO_ENV: str = "sandbox"  # sandbox | production
+    MTN_MOMO_CURRENCY: str = "RWF"
+    MTN_MOMO_TARGET_ENVIRONMENT: str = "sandbox"
+    MTN_MOMO_CALLBACK_URL: str = ""
 
     # OAuth (public anon values — exposed via /config/public for mobile clients)
     SUPABASE_URL: str = ""

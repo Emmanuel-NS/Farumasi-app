@@ -1675,7 +1675,7 @@ export default function CartPage() {
         <div className="bg-emerald-50 rounded-2xl border border-emerald-200 px-4 py-3 mb-5 flex items-start gap-3">
           <ExternalLink className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
           <p className="text-xs text-emerald-900 leading-relaxed">
-            Secure checkout opens on Pesapal. Complete payment with your chosen method below.
+            MTN MoMo sends a prompt to your phone — no card form. Airtel and card open Pesapal; choose your method on that page (not Card unless paying by card).
           </p>
         </div>
 
@@ -2042,10 +2042,14 @@ export default function CartPage() {
 
               if (init.checkout_url) {
                 sessionStorage.setItem(`pending_order_code_${orderId}`, orderCode);
+                if (init.message) toast.info(init.message, { duration: 8000 });
                 window.location.href = init.checkout_url;
                 return;
               }
 
+              if (init.message) {
+                toast.info(init.message, { duration: 10000 });
+              }
               if (init.payment_status !== "paid") {
                 setPaymentStepLabel(t.cart_momo_wait);
                 await paymentsService.waitUntilPaid(orderId);

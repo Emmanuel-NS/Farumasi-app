@@ -131,6 +131,26 @@ class AuthRepository {
     );
   }
 
+  Future<bool> refreshSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final refreshToken = prefs.getString(_refreshTokenKey);
+    if (refreshToken == null || refreshToken.isEmpty) return false;
+    try {
+      final refreshDio = Dio(BaseOptions(baseUrl: FarumasiApiClient.baseUrl));
+      final response = await refreshDio.post('/auth/refresh', data: {
+        'refresh_token': refreshToken,
+      });
+      final data = response.data as Map<String, dynamic>;
+      await saveTokens(
+        accessToken: data['access_token'] as String,
+        refreshToken: data['refresh_token'] as String,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     await _client.clearTokens();
     await clearCachedUser();

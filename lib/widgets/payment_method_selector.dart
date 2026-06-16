@@ -21,9 +21,9 @@ extension PaymentChannelX on PaymentChannel {
       };
 
   String get subtitle => switch (this) {
-        PaymentChannel.mtnMomo => 'Pay with MTN Mobile Money',
-        PaymentChannel.airtelMoney => 'Pay with Airtel Money',
-        PaymentChannel.card => 'Visa or Mastercard via Pesapal',
+        PaymentChannel.mtnMomo => 'Approve a payment prompt on your MTN phone',
+        PaymentChannel.airtelMoney => 'Select Airtel Money on the Pesapal page',
+        PaymentChannel.card => 'Pay by Visa or Mastercard on Pesapal',
       };
 
   IconData get icon => switch (this) {

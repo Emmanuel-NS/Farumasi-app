@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import axios from "axios";
 import { authService } from "@/lib/services/auth.service";
 import { patientsService } from "@/lib/services/patients.service";
 import { isMockMode } from "@/lib/env";
@@ -130,16 +131,28 @@ export const useAuthStore = create<AuthStore>()((set) => ({
       return;
     }
     const token = localStorage.getItem("farumasi_access_token");
-    if (!token) { set({ isGuest: true, isHydrating: false }); return; }
+    const refresh = localStorage.getItem("farumasi_refresh_token");
+    if (!token || !refresh) {
+      set({ isGuest: true, isHydrating: false });
+      return;
+    }
 
-    // Unblock UI immediately; validate session in background.
     set({ isGuest: false, isHydrating: false, accessToken: token });
 
     try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+      const { data } = await axios.post(`${apiBase}/auth/refresh`, {
+        refresh_token: refresh,
+      });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("farumasi_access_token", data.access_token);
+        localStorage.setItem("farumasi_refresh_token", data.refresh_token);
+        localStorage.setItem("farumasi_auth", "true");
+      }
       const user = await authService.getMe();
       usePinStore.getState().setActiveUser(user.id);
       await syncPatientPinStatus();
-      set({ user, accessToken: token });
+      set({ user, accessToken: data.access_token });
     } catch {
       clearTokens();
       usePinStore.getState().setActiveUser(null);

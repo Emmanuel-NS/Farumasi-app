@@ -224,8 +224,10 @@ class PesapalService:
             body = resp.json()
         except ValueError:
             return None
-        if str(body.get("status")) != "200":
-            return None
+        if str(body.get("status")) not in ("200", "200.0") and body.get("status") != 200:
+            # Some responses omit HTTP status but include payment fields — still usable.
+            if not body.get("payment_status_description"):
+                return None
         return body
 
     @staticmethod

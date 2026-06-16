@@ -107,6 +107,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState.authenticated(cached);
     }
 
+    // Silently refresh tokens so users stay signed in across app restarts.
+    await _repo.refreshSession();
+
     try {
       final user = await _repo.getMe().timeout(
         const Duration(seconds: 4),

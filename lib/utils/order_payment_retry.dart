@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../api/repositories/patient_repository.dart';
+import '../screens/pesapal_checkout_screen.dart';
 import '../widgets/payment_method_selector.dart';
 
 /// Retry Pesapal checkout for orders with failed or pending payment.
@@ -119,23 +119,24 @@ class OrderPaymentRetry {
       );
 
       if (init.checkoutUrl != null && init.checkoutUrl!.isNotEmpty) {
-        final uri = Uri.parse(init.checkoutUrl!);
-        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-          throw Exception('Could not open Pesapal checkout.');
-        }
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                init.message.isNotEmpty
-                    ? init.message
-                    : 'Complete payment in your browser, then pull to refresh.',
-              ),
-              duration: const Duration(seconds: 6),
+          await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => PesapalCheckoutScreen(checkoutUrl: init.checkoutUrl!),
             ),
           );
         }
-        return true;
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              init.message.isNotEmpty
+                  ? init.message
+                  : 'Approve the payment on your phone, then pull to refresh.',
+            ),
+            duration: const Duration(seconds: 8),
+          ),
+        );
       }
 
       if (init.paymentStatus == 'paid') {
