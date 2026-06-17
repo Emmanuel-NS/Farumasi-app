@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AuthenticationError, ConflictError, ValidationError
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
-from app.core.constants import UserStatus, UserRole, EntityStatus
+from app.core.constants import UserStatus, UserRole, EntityStatus, VerificationStatus
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import (
@@ -282,7 +282,9 @@ class AuthService:
                     name=f"{user.full_name}'s Company",
                     email=user.email,
                     phone=user.phone,
-                    status=EntityStatus.PENDING,
+                    status=EntityStatus.INACTIVE,
+                    verification_status=VerificationStatus.PENDING,
+                    commission_rate_percent=10.0,
                 )
             )
         elif user.role == UserRole.PHARMACY_ADMIN:
@@ -294,7 +296,8 @@ class AuthService:
                     name=f"{user.full_name}'s Pharmacy",
                     email=user.email,
                     phone=user.phone,
-                    status=EntityStatus.PENDING,
+                    status=EntityStatus.INACTIVE,
+                    verification_status=VerificationStatus.PENDING,
                 )
             )
         await self.db.flush()

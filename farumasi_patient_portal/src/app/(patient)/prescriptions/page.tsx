@@ -28,6 +28,26 @@ interface UploadedFile {
   name: string; size: number; type: string; preview: string | null;
 }
 
+/** Camera captures often ship without a useful name or MIME type. */
+function normalizeCaptureFile(file: File): File {
+  const type = file.type || "image/jpeg";
+  const ext =
+    type === "image/png"
+      ? "png"
+      : type === "image/webp"
+        ? "webp"
+        : type === "image/heic" || type === "image/heif"
+          ? "heic"
+          : "jpg";
+  const hasExt = /\.[a-z0-9]+$/i.test(file.name);
+  const name =
+    file.name && file.name !== "image" && hasExt
+      ? file.name
+      : `prescription-${Date.now()}.${ext}`;
+  if (file.name === name && file.type === type) return file;
+  return new File([file], name, { type, lastModified: file.lastModified });
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function decodeSellMode(instructions: string | null | undefined): "pack" | "partial" {
@@ -504,11 +524,20 @@ function UploadPrescription({ onSuccess }: { onSuccess: () => void }) {
   const [uploading, setUploading]   = useState(false);
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const processFile = (f: File) => {
-    const isImage = f.type.startsWith("image/");
-    setFile({ name: f.name, size: f.size, type: f.type, preview: isImage ? URL.createObjectURL(f) : null });
-    setRawFile(f);
+    const normalized = normalizeCaptureFile(f);
+    const isImage =
+      normalized.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(normalized.name);
+    setFile({
+      name: normalized.name,
+      size: normalized.size,
+      type: normalized.type || "image/jpeg",
+      preview: isImage ? URL.createObjectURL(normalized) : null,
+    });
+    setRawFile(normalized);
     setUploadState("preview");
     setUploadError("");
   };
@@ -540,6 +569,7 @@ function UploadPrescription({ onSuccess }: { onSuccess: () => void }) {
     setUploadState("idle"); setFile(null); setRawFile(null);
     setNotes(""); setUploadError("");
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
   if (state === "success") {
@@ -619,11 +649,23 @@ function UploadPrescription({ onSuccess }: { onSuccess: () => void }) {
         <p className="text-xs text-slate-400 mt-3">{t.rx_formats}</p>
       </div>
       <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleFileChange} />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileChange}
+      />
       <div className="relative">
         <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100" /></div>
         <div className="relative flex justify-center"><span className="bg-[#F6F8FB] px-3 text-xs text-slate-400">{t.rx_or}</span></div>
       </div>
-      <button className="w-full h-12 rounded-2xl border-2 border-farumasi-200 text-farumasi-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-farumasi-50 transition-colors">
+      <button
+        type="button"
+        onClick={() => cameraInputRef.current?.click()}
+        className="w-full h-12 rounded-2xl border-2 border-farumasi-200 text-farumasi-700 font-bold text-sm flex items-center justify-center gap-2 hover:bg-farumasi-50 transition-colors"
+      >
         <Camera className="w-5 h-5" />
         {t.rx_take_photo}
       </button>

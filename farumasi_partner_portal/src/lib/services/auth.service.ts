@@ -7,6 +7,13 @@ export interface LoginResponse {
   token_type: string;
 }
 
+export interface RegistrationPendingResponse {
+  message: string;
+  email: string;
+  expires_minutes: number;
+  requires_verification: boolean;
+}
+
 export interface RegisterPayload {
   email: string;
   password: string;
@@ -21,8 +28,23 @@ export const authService = {
     return data;
   },
 
-  async register(payload: RegisterPayload): Promise<LoginResponse> {
-    const { data } = await api.post<LoginResponse>("/auth/register", payload);
+  async register(payload: RegisterPayload): Promise<RegistrationPendingResponse> {
+    const { data } = await api.post<RegistrationPendingResponse>("/auth/register", payload);
+    return data;
+  },
+
+  async verifyRegistration(email: string, code: string): Promise<LoginResponse> {
+    const { data } = await api.post<LoginResponse>("/auth/verify-registration", {
+      email: email.trim(),
+      code: code.trim(),
+    });
+    return data;
+  },
+
+  async resendRegistrationOtp(email: string): Promise<RegistrationPendingResponse> {
+    const { data } = await api.post<RegistrationPendingResponse>("/auth/resend-registration-otp", {
+      email: email.trim(),
+    });
     return data;
   },
 

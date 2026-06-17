@@ -14,6 +14,9 @@ class PartnerCompanyCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     business_registration_number: Optional[str] = None
+    regulatory_authority: Optional[str] = None
+    regulatory_license_number: Optional[str] = None
+    regulatory_license_document_url: Optional[str] = None
     logo_url: Optional[str] = None
     description: Optional[str] = None
     is_open: bool = True
@@ -29,6 +32,9 @@ class PartnerCompanyUpdate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     business_registration_number: Optional[str] = None
+    regulatory_authority: Optional[str] = None
+    regulatory_license_number: Optional[str] = None
+    regulatory_license_document_url: Optional[str] = None
     logo_url: Optional[str] = None
     description: Optional[str] = None
     is_open: Optional[bool] = None
@@ -70,6 +76,9 @@ class PartnerCompanyOut(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     business_registration_number: Optional[str] = None
+    regulatory_authority: Optional[str] = None
+    regulatory_license_number: Optional[str] = None
+    regulatory_license_document_url: Optional[str] = None
     logo_url: Optional[str] = None
     description: Optional[str] = None
     commission_rate_percent: Optional[float] = None

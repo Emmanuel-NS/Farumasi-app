@@ -12,6 +12,9 @@ export interface BackendPartnerCompany {
   latitude?: number | null;
   longitude?: number | null;
   business_registration_number?: string | null;
+  regulatory_authority?: string | null;
+  regulatory_license_number?: string | null;
+  regulatory_license_document_url?: string | null;
   logo_url?: string | null;
   description?: string | null;
   commission_rate_percent?: number | null;
@@ -33,6 +36,9 @@ export interface PartnerCompanyUpdatePayload {
   latitude?: number | null;
   longitude?: number | null;
   business_registration_number?: string | null;
+  regulatory_authority?: string | null;
+  regulatory_license_number?: string | null;
+  regulatory_license_document_url?: string | null;
   logo_url?: string | null;
   description?: string | null;
   is_open?: boolean | null;

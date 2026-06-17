@@ -106,6 +106,15 @@ class SellerFinanceSummary(FarumasiBaseModel):
     wallet_scope: str = "owner"
     wallet_scope_note: Optional[str] = None
     created_at: Optional[datetime] = None
+    verification_status: Optional[str] = None
+    seller_account_status: Optional[str] = None
+    district: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    business_registration_number: Optional[str] = None
+    regulatory_authority: Optional[str] = None
+    regulatory_license_number: Optional[str] = None
+    regulatory_license_document_url: Optional[str] = None
 
 
 class PrescriptionStatusCount(FarumasiBaseModel):

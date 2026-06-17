@@ -45,6 +45,7 @@ import {
 } from "@/lib/services/seller-change-requests.service";
 import { useAuthStore } from "@/lib/store/auth";
 import { authService } from "@/lib/services/auth.service";
+import { uploadService } from "@/lib/services/upload.service";
 
 interface PharmacyProfile {
   id: string;
@@ -85,6 +86,7 @@ export default function SettingsPage() {
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwShow, setPwShow] = useState({ current: false, next: false });
   const [pwSaving, setPwSaving] = useState(false);
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!user?.role) return;
@@ -124,6 +126,9 @@ export default function SettingsPage() {
             district: p.district ?? "",
             company_type: p.company_type ?? "",
             business_registration_number: p.business_registration_number ?? "",
+            regulatory_authority: p.regulatory_authority ?? "",
+            regulatory_license_number: p.regulatory_license_number ?? "",
+            regulatory_license_document_url: p.regulatory_license_document_url ?? "",
             description: p.description ?? "",
             logo_url: p.logo_url ?? "",
             latitude: p.latitude ?? undefined,
@@ -162,12 +167,17 @@ export default function SettingsPage() {
     if (!user?.role) return;
     setSaving(true);
     try {
+      const payload = { ...form };
+      if (!isPharmacyAdmin && licenseFile) {
+        payload.regulatory_license_document_url = await uploadService.uploadLicenseDocument(licenseFile);
+      }
       if (isPharmacyAdmin) {
-        const { data } = await api.patch<PharmacyProfile>(`${getSellerMeBase()}`, form);
+        const { data } = await api.patch<PharmacyProfile>(`${getSellerMeBase()}`, payload);
         setPharmacy(data);
       } else {
-        const updated = await partnerService.updateMine(form);
+        const updated = await partnerService.updateMine(payload);
         setPartner(updated);
+        setLicenseFile(null);
       }
       toast.success("Business profile saved");
     } catch (err: unknown) {
@@ -272,6 +282,54 @@ export default function SettingsPage() {
             profile={commissionProfile}
             pendingRateChange={pendingCommissionChange}
           />
+
+          {!isPharmacyAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ShieldCheck className="w-4 h-4 text-farumasi-600" /> Regulatory license
+                </CardTitle>
+                <CardDescription>RFDA or other authority approval on file</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Authority</Label>
+                    <Input
+                      value={form.regulatory_authority ?? ""}
+                      onChange={(e) => setForm({ ...form, regulatory_authority: e.target.value })}
+                      placeholder="RFDA"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>License number</Label>
+                    <Input
+                      value={form.regulatory_license_number ?? ""}
+                      onChange={(e) => setForm({ ...form, regulatory_license_number: e.target.value })}
+                    />
+                  </div>
+                </div>
+                {form.regulatory_license_document_url && !licenseFile && (
+                  <a
+                    href={mediaUrl(form.regulatory_license_document_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-farumasi-600 font-medium hover:underline"
+                  >
+                    View current license document
+                  </a>
+                )}
+                <div className="space-y-1.5">
+                  <Label>Replace license document</Label>
+                  <Input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => setLicenseFile(e.target.files?.[0] ?? null)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <PayoutCredentialsEditor />
 

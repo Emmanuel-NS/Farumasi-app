@@ -23,11 +23,12 @@ import {
   Modal,
   Input,
 } from "@/components/ui";
-import { ArrowLeft, Building2, DollarSign, Loader2, Pencil, TrendingUp } from "lucide-react";
+import { ArrowLeft, Building2, DollarSign, Loader2, Pencil, TrendingUp, ShieldCheck, ExternalLink } from "lucide-react";
 import {
   adminManagementService,
   type SellerFinanceSummary,
 } from "@/lib/services/admin-management.service";
+import { partnersService } from "@/lib/services/partners.service";
 
 function normalizeRevenue(rev: SellerFinanceSummary["revenue"]) {
   const raw = rev as SellerFinanceSummary["revenue"] & {
@@ -58,6 +59,7 @@ export default function SellerDetailView({ kind }: { kind: "pharmacy" | "partner
   const [adminNote, setAdminNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [modifyError, setModifyError] = useState<string | null>(null);
+  const [approving, setApproving] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -110,6 +112,27 @@ export default function SellerDetailView({ kind }: { kind: "pharmacy" | "partner
     }
   }
 
+  async function approvePartnerApplication() {
+    if (kind !== "partner") return;
+    setApproving(true);
+    try {
+      await partnersService.updatePartner(id, {
+        verification_status: "verified",
+        status: "active",
+      });
+      load();
+    } catch (err) {
+      setError(getApiError(err, "Failed to approve partner"));
+    } finally {
+      setApproving(false);
+    }
+  }
+
+  const needsPartnerApproval =
+    kind === "partner" &&
+    data &&
+    (data.verification_status !== "verified" || data.seller_account_status !== "active");
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -118,6 +141,12 @@ export default function SellerDetailView({ kind }: { kind: "pharmacy" | "partner
         breadcrumb="Platform · Pharmacies & Companies"
       >
         <div className="flex items-center gap-2">
+          {needsPartnerApproval && (
+            <Button variant="primary" size="sm" onClick={() => void approvePartnerApplication()} disabled={approving}>
+              {approving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+              Approve application
+            </Button>
+          )}
           {data && (
             <Button
               variant="primary"
@@ -243,6 +272,51 @@ export default function SellerDetailView({ kind }: { kind: "pharmacy" | "partner
                       {rev.completed_orders} completed / {rev.total_orders} total
                     </p>
                   </div>
+                  {kind === "partner" && (
+                    <>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Verification</p>
+                        <p className="text-slate-700 capitalize">{data.verification_status ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Account status</p>
+                        <p className="text-slate-700 capitalize">{data.seller_account_status ?? "—"}</p>
+                      </div>
+                      {data.district && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase text-slate-400">District</p>
+                          <p className="text-slate-700">{data.district}</p>
+                        </div>
+                      )}
+                      {(data.latitude != null || data.longitude != null) && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Coordinates</p>
+                          <p className="text-slate-700 text-xs font-mono">
+                            {data.latitude ?? "—"}, {data.longitude ?? "—"}
+                          </p>
+                        </div>
+                      )}
+                      <div className="pt-2 border-t border-slate-100 space-y-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Regulatory license</p>
+                        <p className="text-slate-700 text-xs">
+                          {data.regulatory_authority ?? "—"}
+                          {data.regulatory_license_number ? ` · ${data.regulatory_license_number}` : ""}
+                        </p>
+                        {data.regulatory_license_document_url ? (
+                          <a
+                            href={mediaUrl(data.regulatory_license_document_url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-farumasi-700 hover:underline"
+                          >
+                            View license document <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <p className="text-xs text-amber-700">No license document uploaded</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                   <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <p className="text-slate-400">Gross sales</p>

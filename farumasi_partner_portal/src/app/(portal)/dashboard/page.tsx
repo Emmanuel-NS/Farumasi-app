@@ -20,6 +20,7 @@ import {
 import { formatCompactRWF, formatRWF, timeAgo } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store/auth";
 import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
+import { partnerService, type BackendPartnerCompany } from "@/lib/services/partner.service";
 import { listingsService, type BackendListing } from "@/lib/services/listings.service";
 import { revenueService, type BackendRevenueRecord, type BackendRevenueSummary } from "@/lib/services/revenue.service";
 import { buildRevenueChartData } from "@/lib/revenue-utils";
@@ -62,6 +63,12 @@ export default function DashboardPage() {
   const [revenue, setRevenue] = useState<BackendRevenueRecord[]>([]);
   const [revenueSummary, setRevenueSummary] = useState<BackendRevenueSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [partnerProfile, setPartnerProfile] = useState<BackendPartnerCompany | null>(null);
+
+  useEffect(() => {
+    if (user?.role !== "partner_company_admin") return;
+    partnerService.getMine().then(setPartnerProfile).catch(() => setPartnerProfile(null));
+  }, [user?.role]);
 
   // Initial load: listings, revenue summary (not range-dependent)
   useEffect(() => {
@@ -170,6 +177,10 @@ export default function DashboardPage() {
     .filter(l => { const s = uiStatus(l); return s === "low_stock" || s === "out_of_stock"; })
     .slice(0, 4);
 
+  const pendingApproval =
+    partnerProfile &&
+    (partnerProfile.verification_status !== "verified" || partnerProfile.status !== "active");
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -177,6 +188,19 @@ export default function DashboardPage() {
         description={`Welcome back, ${user?.full_name?.split(" ")[0] || "Partner"} — here's your business overview`}
         icon={LayoutDashboard}
       />
+
+      {pendingApproval && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+          <div>
+            <p className="font-semibold">Application under review</p>
+            <p className="text-xs mt-1 text-amber-800">
+              FARUMASI is reviewing your regulatory license and business details. You can set up
+              products and profile settings, but your store will go live after approval.
+            </p>
+          </div>
+        </div>
+      )}
 
       <StoreOpenToggle />
 

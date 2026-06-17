@@ -283,6 +283,15 @@ class AdminManagementService:
             created_at=company.created_at,
             entity_filter=lambda r: r.partner_company_id == company.id,
             partner_company_id=company.id,
+            verification_status=company.verification_status,
+            seller_account_status=company.status,
+            district=company.district,
+            latitude=float(company.latitude) if company.latitude is not None else None,
+            longitude=float(company.longitude) if company.longitude is not None else None,
+            business_registration_number=company.business_registration_number,
+            regulatory_authority=company.regulatory_authority,
+            regulatory_license_number=company.regulatory_license_number,
+            regulatory_license_document_url=company.regulatory_license_document_url,
         )
 
     async def _seller_finance_summary(
@@ -298,6 +307,15 @@ class AdminManagementService:
         entity_filter,
         pharmacy_id: Optional[str] = None,
         partner_company_id: Optional[str] = None,
+        verification_status: Optional[str] = None,
+        seller_account_status: Optional[str] = None,
+        district: Optional[str] = None,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        business_registration_number: Optional[str] = None,
+        regulatory_authority: Optional[str] = None,
+        regulatory_license_number: Optional[str] = None,
+        regulatory_license_document_url: Optional[str] = None,
     ) -> SellerFinanceSummary:
         rev_svc = RevenueService(self.db)
         revenue = await rev_svc.get_summary_for_owner(owner_user_id)
@@ -380,6 +398,15 @@ class AdminManagementService:
             wallet_scope="owner",
             wallet_scope_note=scope_note,
             created_at=created_at,
+            verification_status=verification_status,
+            seller_account_status=seller_account_status,
+            district=district,
+            latitude=latitude,
+            longitude=longitude,
+            business_registration_number=business_registration_number,
+            regulatory_authority=regulatory_authority,
+            regulatory_license_number=regulatory_license_number,
+            regulatory_license_document_url=regulatory_license_document_url,
         )
 
     async def prescription_summary(self) -> PrescriptionAdminSummary:

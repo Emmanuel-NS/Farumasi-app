@@ -100,6 +100,15 @@ export interface SellerFinanceSummary {
   wallet_scope?: string;
   wallet_scope_note?: string | null;
   created_at?: string;
+  verification_status?: string | null;
+  seller_account_status?: string | null;
+  district?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  business_registration_number?: string | null;
+  regulatory_authority?: string | null;
+  regulatory_license_number?: string | null;
+  regulatory_license_document_url?: string | null;
 }
 
 export interface SellerChangeRequest {
