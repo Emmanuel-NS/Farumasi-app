@@ -123,7 +123,7 @@ export default function RegisterPage() {
     });
 
     const me = await authService.getMe();
-    setSession({ access_token: accessToken, refresh_token: refreshToken, token_type: "bearer" }, me);
+    setSession({ access_token: accessToken, refresh_token: refreshToken }, me);
     toast.success("Application submitted. We will review your license and activate your account.");
     router.push("/dashboard");
   };
