@@ -1,0 +1,29 @@
+{
+    "project_info": {
+      "project_number": "738673623948",
+      "project_id": "farumasi-6d5d1",
+      "storage_bucket": "farumasi-6d5d1.firebasestorage.app"
+    },
+    "client": [
+      {
+        "client_info": {
+          "mobilesdk_app_id": "1:738673623948:android:e51de04c518156347f0ca9",
+          "android_client_info": {
+            "package_name": "com.farumasi.farumasi_app"
+          }
+        },
+        "oauth_client": [],
+        "api_key": [
+          {
+            "current_key": "AIzaSyAIgAPGp7UfztYfrnvBhn0gAXHEQEtrHxQ"
+          }
+        ],
+        "services": {
+          "appinvite_service": {
+            "other_platform_oauth_client": []
+          }
+        }
+      }
+    ],
+    "configuration_version": "1"
+  }
