@@ -354,6 +354,26 @@ async def send_message(
     db.add(message)
     await db.commit()
 
+    if current_user.id == consultation.pharmacist_id and consultation.patient_id:
+        preview = (data.content or "").strip()
+        if not preview:
+            if attachment_type == "image":
+                preview = "Sent an image"
+            else:
+                preview = "New consult message"
+        try:
+            from app.services.fcm_service import FcmService
+
+            await FcmService(db).send_consult_message_push(
+                patient_user_id=consultation.patient_id,
+                consultation_id=consultation_id,
+                pharmacist_id=consultation.pharmacist_id,
+                is_anonymous=bool(consultation.is_anonymous),
+                message_preview=preview,
+            )
+        except Exception:
+            pass
+
     result = await db.execute(
         select(ChatMessage)
         .where(ChatMessage.id == message.id)

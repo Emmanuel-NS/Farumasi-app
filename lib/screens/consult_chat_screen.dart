@@ -75,10 +75,15 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
     }
   }
 
+  void _setActiveConsult(PatientConsultation? consult) {
+    StateService().setActiveOpenConsultId(consult?.id);
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     StateService().removeListener(_onStateServiceChanged);
+    StateService().setActiveOpenConsultId(null);
     _pollTimer?.cancel();
     _input.dispose();
     _scroll.dispose();
@@ -130,6 +135,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
       );
       if (!mounted) return;
       setState(() => _activeConsult = fresh);
+      _setActiveConsult(fresh);
       await PatientRepository.instance.markConsultMessagesRead(consult.id);
       _scrollToBottom();
     } catch (_) {}
@@ -236,6 +242,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
           _activeConsult = loaded;
           _loadingChat = false;
         });
+        _setActiveConsult(loaded);
         await PatientRepository.instance.markConsultMessagesRead(loaded.id);
       } catch (_) {
         if (!mounted) return;
@@ -243,6 +250,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
           _activeConsult = existing;
           _loadingChat = false;
         });
+        _setActiveConsult(existing);
       }
       _startPolling();
       _scrollToBottom();
@@ -263,6 +271,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
         _activeConsult = loaded;
         _loadingChat = false;
       });
+      _setActiveConsult(loaded);
       _startPolling();
     } catch (e) {
       if (mounted) {
@@ -505,6 +514,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
           _selectedPh = null;
           _activeConsult = null;
         });
+        _setActiveConsult(null);
       },
       child: SizedBox.expand(
         child: ColoredBox(
@@ -836,6 +846,7 @@ class _ConsultChatScreenState extends ConsumerState<ConsultChatScreen> with Widg
                       _selectedPh = null;
                       _activeConsult = null;
                     });
+                    _setActiveConsult(null);
                   },
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                 ),

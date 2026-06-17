@@ -5,6 +5,11 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// FCM: only apply when Firebase is configured (see docs/FCM_SETUP.md).
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.farumasi.farumasi_app"
     compileSdk = flutter.compileSdkVersion
@@ -46,4 +51,5 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation("androidx.work:work-runtime:2.9.1")
 }

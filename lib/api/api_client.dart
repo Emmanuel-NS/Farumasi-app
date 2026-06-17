@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+
+import '../services/background_poll_core.dart';
 
 /// Central Dio HTTP client for FARUMASI API.
 ///
@@ -32,6 +36,9 @@ class FarumasiApiClient {
   }
 
   FarumasiApiClient._() {
+    if (!kIsWeb) {
+      unawaited(persistApiBaseUrlForBackground(baseUrl));
+    }
     dio = Dio(BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 30),

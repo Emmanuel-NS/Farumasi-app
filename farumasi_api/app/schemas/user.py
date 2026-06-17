@@ -77,6 +77,11 @@ class DeleteAccountRequest(FarumasiBaseModel):
     reason: Optional[str] = None
 
 
+class FcmTokenUpdate(FarumasiBaseModel):
+    token: str = Field(min_length=10, max_length=512)
+    platform: Literal["android", "ios", "web"] = "android"
+
+
 class PinSetRequest(FarumasiBaseModel):
     pin: str = Field(min_length=4, max_length=8)
 

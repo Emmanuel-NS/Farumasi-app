@@ -96,6 +96,14 @@ class NotificationService:
         )
         self.db.add(notif)
         await self.db.flush()
+
+        try:
+            from app.services.fcm_service import FcmService
+
+            await FcmService(self.db).send_notification_push(user_id, notif)
+        except Exception:
+            pass
+
         return notif
 
     # ── Common notification helpers ───────────────────────────────────────

@@ -9,6 +9,8 @@ import 'core/router.dart';
 import 'theme/app_theme.dart';
 import 'services/app_lifecycle_service.dart';
 import 'services/notification_service.dart';
+import 'services/background_polling_service.dart';
+import 'services/fcm_service.dart';
 import 'services/google_auth_service.dart';
 import 'services/notification_navigation.dart';
 import 'services/patient_catalog_service.dart';
@@ -28,7 +30,12 @@ const _supabaseAnonKey = String.fromEnvironment(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AppLifecycleService.instance.init();
+  unawaited(AppLifecycleService.instance.init());
+
+  if (!kIsWeb) {
+    unawaited(initBackgroundNotificationWorker());
+    unawaited(FcmService.instance.init());
+  }
 
   runApp(
     const ProviderScope(
@@ -40,11 +47,9 @@ Future<void> main() async {
     unawaited(NotificationService().init());
   }
 
-  // Warm catalogue from disk without blocking first frame.
   unawaited(PatientCatalogService().hydrateFromCache());
   unawaited(GoogleAuthService.ensureConfigured());
 
-  // Defer non-critical startup work so the first frame paints sooner.
   Future<void>(() async {
     if (_supabaseUrl.isNotEmpty && _supabaseAnonKey.isNotEmpty) {
       try {
@@ -76,6 +81,12 @@ class _FarumasiAppState extends ConsumerState<FarumasiApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final router = ref.read(routerProvider);
       NotificationNavigation.register(router);
+      // Hide splash as soon as the first home frame is ready (caps wait at ~420ms).
+      if (_showLaunchOverlay) {
+        Future<void>.delayed(const Duration(milliseconds: 280), () {
+          if (mounted && _showLaunchOverlay) _dismissLaunchOverlay();
+        });
+      }
     });
   }
 

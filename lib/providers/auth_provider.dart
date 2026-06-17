@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,10 @@ import '../api/repositories/auth_repository.dart';
 import '../services/state_service.dart';
 
 import '../services/pin_service.dart';
+
+import '../services/background_polling_service.dart';
+import '../services/fcm_service.dart';
+import '../services/notification_service.dart';
 
 
 
@@ -77,15 +83,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (user != null) {
 
       StateService().login(user.email ?? user.phone ?? 'user', name: user.name);
-      PinService.instance.hydrate().then((_) async {
+      unawaited(registerBackgroundNotificationPolling());
+      unawaited(FcmService.instance.syncTokenIfLoggedIn());
+      NotificationService().configurePolling(
+        isAuthenticated: () => state.status == AuthStatus.authenticated,
+        userId: () => state.user?.id,
+      );
+      unawaited(PinService.instance.hydrate().then((_) async {
         PinService.instance.setActiveUser(user.id);
         await PinService.instance.syncFromServer();
-      });
+      }));
 
     } else {
 
       StateService().logout();
       PinService.instance.setActiveUser(null);
+      NotificationService().stopPolling();
+      unawaited(cancelBackgroundNotificationPolling());
+      unawaited(FcmService.instance.clearTokenOnLogout());
 
     }
 
@@ -98,6 +113,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (!hasToken) {
       _syncLegacySession(null);
       state = const AuthState.unauthenticated();
+      unawaited(cancelBackgroundNotificationPolling());
       return;
     }
 
@@ -107,12 +123,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState.authenticated(cached);
     }
 
-    // Silently refresh tokens so users stay signed in across app restarts.
-    await _repo.refreshSession();
+    unawaited(_syncSessionInBackground(cached));
+  }
 
+  Future<void> _syncSessionInBackground(AuthUser? cached) async {
     try {
+      await _repo.refreshSession();
       final user = await _repo.getMe().timeout(
-        const Duration(seconds: 4),
+        const Duration(seconds: 6),
         onTimeout: () => null,
       );
 
@@ -126,6 +144,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _repo.logout();
         _syncLegacySession(null);
         state = const AuthState.unauthenticated();
+        await cancelBackgroundNotificationPolling();
         return;
       }
       if (cached != null) return;
@@ -133,8 +152,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (cached != null) return;
     }
 
-    _syncLegacySession(null);
-    state = const AuthState.unauthenticated();
+    if (cached == null) {
+      _syncLegacySession(null);
+      state = const AuthState.unauthenticated();
+      await cancelBackgroundNotificationPolling();
+    }
   }
 
 

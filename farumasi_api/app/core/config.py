@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import List
+import base64
+import json
 
 from pydantic import computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -92,13 +94,17 @@ class Settings(BaseSettings):
     GOOGLE_WEB_CLIENT_ID: str = ""
 
     # ── Translation (Google Cloud Translation API v2) ─────────────────────
-    # Set GOOGLE_TRANSLATE_API_KEY from Google Cloud Console (Translation API).
     # Cached strings are stored in PostgreSQL — repeat lookups cost nothing.
     GOOGLE_TRANSLATE_API_KEY: str = ""
     TRANSLATION_ENABLED: bool = True
     TRANSLATION_DAILY_CHAR_LIMIT: int = 500_000
     TRANSLATION_MAX_BATCH_SIZE: int = 50
     TRANSLATION_MAX_TEXT_LENGTH: int = 5000
+
+    # ── Firebase Cloud Messaging (push when app is killed) ─────────────────
+    FCM_ENABLED: bool = True
+    # Full service-account JSON string, or base64-encoded JSON (Render-friendly).
+    FIREBASE_SERVICE_ACCOUNT_JSON: str = ""
 
     # ── File Storage ──────────────────────────────────────────────────────
     STORAGE_BACKEND: str = "local"  # local | s3 | cloudinary
@@ -200,6 +206,18 @@ class Settings(BaseSettings):
     def cors_origins(self) -> List[str]:
         """Return CORS_ORIGINS as a list, ready for FastAPI CORSMiddleware."""
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    def firebase_service_account(self) -> dict | None:
+        raw = (self.FIREBASE_SERVICE_ACCOUNT_JSON or "").strip()
+        if not raw:
+            return None
+        try:
+            if raw.startswith("{"):
+                return json.loads(raw)
+            decoded = base64.b64decode(raw).decode("utf-8")
+            return json.loads(decoded)
+        except Exception:
+            return None
 
     model_config = SettingsConfigDict(
         env_file=".env",

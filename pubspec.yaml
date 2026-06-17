@@ -42,6 +42,8 @@ dependencies:
   flutter_map_cancellable_tile_provider: ^3.1.1
   geolocator: ^14.0.2
   flutter_local_notifications: ^20.1.0
+  firebase_core: ^3.13.0
+  firebase_messaging: ^15.2.5
   permission_handler: ^12.0.1
   font_awesome_flutter: ^10.12.0
   fl_chart: ^1.1.1
@@ -62,6 +64,7 @@ dependencies:
   riverpod_annotation: ^2.3.5        # Riverpod code-gen annotations
   go_router: ^14.6.1                 # Named routing + deep links
   mobile_scanner: ^6.0.0             # QR / barcode scanning for rider delivery confirmation
+  flutter_background_service: ^5.1.0 # Foreground polling when screen off / app backgrounded
 
   # ── NEW: Supabase (Storage for prescriptions) ───────────────
   google_sign_in: ^6.2.2
@@ -89,14 +92,15 @@ flutter_launcher_icons:
   min_sdk_android: 21
 
 flutter_native_splash:
-  color: "#FFFFFF"
-  image: assets/images/app_logo.png
+  color: "#121212"
+  image: assets/images/splash_logo.png
   branding: assets/images/splash_branding.png
   branding_bottom_padding: 48
   android_12:
-    color: "#FFFFFF"
-    image: assets/images/app_logo.png
+    color: "#121212"
+    image: assets/images/splash_logo.png
     branding: assets/images/splash_branding.png
+    icon_background_color: "#121212"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

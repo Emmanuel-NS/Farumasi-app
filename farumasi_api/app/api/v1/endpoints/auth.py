@@ -96,6 +96,8 @@ async def logout_everywhere(
     current_user: User = Depends(get_current_user),
 ):
     current_user.session_invalidated_at = datetime.now(timezone.utc)
+    current_user.fcm_token = None
+    current_user.fcm_platform = None
     await db.flush()
     await AuditService(db).log(
         actor_user_id=current_user.id,

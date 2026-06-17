@@ -1,12 +1,17 @@
 import 'dart:async';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, ChangeNotifier;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../api/repositories/patient_repository.dart';
 import 'app_lifecycle_service.dart';
+import 'background_polling_service.dart';
 import 'notification_navigation.dart';
+import 'notification_prefs.dart';
+import 'state_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationService extends ChangeNotifier {
   static final NotificationService _instance = NotificationService._internal();
@@ -23,7 +28,7 @@ class NotificationService extends ChangeNotifier {
   final List<Map<String, dynamic>> trash = [];
   final Set<String> _pushedIds = {};
   final Set<String> _seenConsultMessageIds = {};
-  bool _consultPushInitialized = false;
+  bool _consultPrefsLoaded = false;
   bool _notificationsBootstrap = false;
 
   bool _loading = false;
@@ -31,6 +36,9 @@ class NotificationService extends ChangeNotifier {
   bool _usesApi = false;
   int _unreadCount = 0;
   Timer? _pollTimer;
+  Timer? _consultPollTimer;
+  Duration _pollInterval = const Duration(seconds: 60);
+  static const _consultPollInterval = Duration(seconds: 20);
   String? Function()? _userIdResolver;
   bool Function()? _authResolver;
 
@@ -86,7 +94,7 @@ class NotificationService extends ChangeNotifier {
         _consultChannelId,
         'FARUMASI Consult Messages',
         description: 'New messages from your pharmacist',
-        importance: Importance.high,
+        importance: Importance.max,
       ),
     );
 
@@ -115,27 +123,91 @@ class NotificationService extends ChangeNotifier {
   }) {
     _authResolver = isAuthenticated;
     _userIdResolver = userId;
+    if (isAuthenticated()) {
+      unawaited(registerBackgroundNotificationPolling());
+      unawaited(_ensureConsultPrefsLoaded());
+    }
     startPolling();
+    _startConsultPolling();
+    unawaited(refreshConsultMessagePushes(
+      myUserId: userId(),
+      authenticated: isAuthenticated(),
+    ));
   }
 
-  void startPolling() {
+  void adaptPollingForForeground(bool inForeground) {
+    startPolling(
+      interval: inForeground
+          ? const Duration(seconds: 60)
+          : const Duration(minutes: 2),
+    );
+    _startConsultPolling(
+      interval: inForeground
+          ? _consultPollInterval
+          : const Duration(seconds: 45),
+    );
+    if (!inForeground) {
+      unawaited(startBackgroundPolling());
+    } else {
+      unawaited(stopBackgroundPolling());
+    }
+  }
+
+  void _startConsultPolling({Duration? interval}) {
+    final every = interval ?? _consultPollInterval;
+    _consultPollTimer?.cancel();
+    _consultPollTimer = Timer.periodic(every, (_) => _consultPollTick());
+  }
+
+  Future<void> _consultPollTick() async {
+    final authenticated = _authResolver?.call() ?? false;
+    if (!authenticated) return;
+    await refreshConsultMessagePushes(
+      myUserId: _userIdResolver?.call(),
+      authenticated: true,
+    );
+  }
+
+  Future<void> _ensureConsultPrefsLoaded() async {
+    if (_consultPrefsLoaded) return;
+    final prefs = await SharedPreferences.getInstance();
+    _seenConsultMessageIds.addAll(prefs.getStringList(kSeenConsultMessageIdsKey) ?? const []);
+    final lastPollMs = prefs.getInt(kConsultLastPollMsKey);
+    if (lastPollMs == null) {
+      await prefs.setInt(kConsultLastPollMsKey, DateTime.now().millisecondsSinceEpoch);
+    }
+    _consultPrefsLoaded = true;
+  }
+
+  Future<void> _persistSeenConsultIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = _seenConsultMessageIds.toList();
+    if (list.length > 300) {
+      list.removeRange(0, list.length - 300);
+      _seenConsultMessageIds
+        ..clear()
+        ..addAll(list);
+    }
+    await prefs.setStringList(kSeenConsultMessageIdsKey, list);
+  }
+
+  void startPolling({Duration? interval}) {
+    if (interval != null) _pollInterval = interval;
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 60), (_) => _pollTick());
+    _pollTimer = Timer.periodic(_pollInterval, (_) => _pollTick());
   }
 
   void stopPolling() {
     _pollTimer?.cancel();
     _pollTimer = null;
+    _consultPollTimer?.cancel();
+    _consultPollTimer = null;
   }
 
   Future<void> _pollTick() async {
     final authenticated = _authResolver?.call() ?? false;
     if (!authenticated) return;
     await refreshFromApi(authenticated: true);
-    await refreshConsultMessagePushes(
-      myUserId: _userIdResolver?.call(),
-      authenticated: true,
-    );
   }
 
   Future<void> _requestPermissions() async {
@@ -157,6 +229,7 @@ class NotificationService extends ChangeNotifier {
       _error = null;
       _unreadCount = 0;
       _notificationsBootstrap = false;
+      await cancelBackgroundNotificationPolling();
       notifyListeners();
       return;
     }
@@ -213,12 +286,20 @@ class NotificationService extends ChangeNotifier {
     }
   }
 
-  /// Pharmacist consult messages — push only, never listed in-app.
+  /// Pharmacist consult messages — system popup, not listed in the notifications tab.
   Future<void> refreshConsultMessagePushes({
     required String? myUserId,
     bool authenticated = true,
   }) async {
     if (kIsWeb || !authenticated || myUserId == null) return;
+
+    await _ensureConsultPrefsLoaded();
+    final prefs = await SharedPreferences.getInstance();
+    final lastPollMs = prefs.getInt(kConsultLastPollMsKey) ?? 0;
+    final lastPollAt = DateTime.fromMillisecondsSinceEpoch(lastPollMs);
+    final openConsultId = StateService().activeOpenConsultId;
+    final inForeground = AppLifecycleService.instance.isInForeground;
+    var pushedAny = false;
 
     try {
       final consultations = await PatientRepository.instance.fetchConsultations(
@@ -229,19 +310,26 @@ class NotificationService extends ChangeNotifier {
         final pharmacistId = consult.pharmacistId;
         if (pharmacistId == null) continue;
 
+        final viewingThisThread =
+            inForeground && openConsultId != null && openConsultId == consult.id;
+
         for (final message in consult.messages) {
           if (message.isFromPatient || message.isRead) continue;
+          if (_seenConsultMessageIds.contains(message.id)) continue;
 
-          if (!_consultPushInitialized) {
+          // User is actively reading this chat — mark seen, no popup.
+          if (viewingThisThread) {
             _seenConsultMessageIds.add(message.id);
             continue;
           }
 
-          if (_seenConsultMessageIds.contains(message.id)) continue;
-
-          // Skip if user is actively viewing this thread in foreground.
-          if (AppLifecycleService.instance.isInForeground) {
-            // Consult screen marks read on open; still push if not yet seen.
+          // Only alert for messages that arrived since we last polled (or are very recent).
+          final isNewSincePoll = message.createdAt.isAfter(lastPollAt);
+          final isVeryRecent =
+              DateTime.now().difference(message.createdAt) < const Duration(minutes: 3);
+          if (!isNewSincePoll && !isVeryRecent) {
+            _seenConsultMessageIds.add(message.id);
+            continue;
           }
 
           final preview = _consultPreview(message);
@@ -260,9 +348,14 @@ class NotificationService extends ChangeNotifier {
             channelId: _consultChannelId,
           );
           _seenConsultMessageIds.add(message.id);
+          pushedAny = true;
         }
       }
-      _consultPushInitialized = true;
+
+      await prefs.setInt(kConsultLastPollMsKey, DateTime.now().millisecondsSinceEpoch);
+      if (pushedAny || _seenConsultMessageIds.isNotEmpty) {
+        await _persistSeenConsultIds();
+      }
     } catch (_) {}
   }
 
@@ -420,6 +513,9 @@ class NotificationService extends ChangeNotifier {
       showWhen: true,
       color: const Color(0xFF1E9E68),
       icon: '@drawable/ic_notification',
+      channelShowBadge: true,
+      playSound: true,
+      enableVibration: true,
       largeIcon: const DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
       styleInformation: BigTextStyleInformation(
         body,
@@ -443,6 +539,83 @@ class NotificationService extends ChangeNotifier {
       notificationDetails: NotificationDetails(
         android: androidDetails,
         iOS: iosDetails,
+      ),
+      payload: payload,
+    );
+  }
+
+  /// Show a push delivered by Firebase (foreground or background isolate).
+  static Future<void> showFcmMessage(RemoteMessage message) async {
+    if (kIsWeb) return;
+
+    final data = message.data;
+    final title = message.notification?.title ?? 'FARUMASI';
+    final body = message.notification?.body ?? '';
+    if (body.isEmpty && title == 'FARUMASI') return;
+
+    final channelId = data['channel_id'] ?? _androidChannelId;
+    final isConsult = channelId == _consultChannelId;
+
+    String? payload = data['payload'];
+    if (payload == null || payload.isEmpty) {
+      final type = data['t'];
+      if (type != null) {
+        payload = NotificationNavigation.encode(
+          type: type,
+          orderId: data['orderId'],
+          consultId: data['consultId'],
+          pharmacistId: data['pharmacistId'],
+          consultAnonymous: data['anon'] == 'true',
+          homeTab: type == 'tab' ? int.tryParse(data['tab'] ?? '0') : null,
+          actionUrl: data['url'],
+        );
+      }
+    }
+
+    final plugin = FlutterLocalNotificationsPlugin();
+    const androidInit = AndroidInitializationSettings('@drawable/ic_notification');
+    await plugin.initialize(
+      settings: const InitializationSettings(
+        android: androidInit,
+        iOS: DarwinInitializationSettings(),
+      ),
+    );
+
+    final android = plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await android?.createNotificationChannel(
+      AndroidNotificationChannel(
+        _androidChannelId,
+        'FARUMASI Notifications',
+        importance: Importance.max,
+      ),
+    );
+    await android?.createNotificationChannel(
+      AndroidNotificationChannel(
+        _consultChannelId,
+        'FARUMASI Consult Messages',
+        importance: Importance.max,
+      ),
+    );
+
+    final id = (payload ?? title).hashCode;
+    await plugin.show(
+      id: id,
+      title: title,
+      body: body.length > 110 ? '${body.substring(0, 107)}…' : body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          isConsult ? _consultChannelId : _androidChannelId,
+          isConsult ? 'FARUMASI Consult Messages' : 'FARUMASI Notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: '@drawable/ic_notification',
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       ),
       payload: payload,
     );

@@ -50,6 +50,8 @@ class User(Base, UUIDMixin, TimestampMixin):
     preferred_language: Mapped[str] = mapped_column(
         String(10), nullable=False, default="en", server_default="en"
     )
+    fcm_token: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    fcm_platform: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────────────────

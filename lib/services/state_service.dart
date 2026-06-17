@@ -8,6 +8,14 @@ class StateService extends ChangeNotifier {
   factory StateService() => _instance;
   StateService._internal();
 
+  // Consult State — which thread is open in the UI (skip popup only for that thread).
+  String? activeOpenConsultId;
+
+  void setActiveOpenConsultId(String? consultId) {
+    if (activeOpenConsultId == consultId) return;
+    activeOpenConsultId = consultId;
+  }
+
   // Search State
   String _searchQuery = '';
   String get searchQuery => _searchQuery;

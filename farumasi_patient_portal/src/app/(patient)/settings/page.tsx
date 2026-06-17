@@ -16,14 +16,21 @@ import {
 } from "@/lib/services/settings.service";
 import {
   Bell, Shield, Globe, ChevronDown, ChevronUp,
-  Smartphone, Mail, MessageSquare, Phone,
+  Smartphone, Mail, MessageSquare, Phone, MapPin,
   Lock, FileText, HelpCircle, Info, Check, Loader2,
   Download, LogOut, Trash2, AlertTriangle, X, ShieldCheck, CheckCircle2, KeyRound,
 } from "lucide-react";
 import { usePinStore } from "@/store/pin-store";
 import { getApiError } from "@/lib/api-error";
+import {
+  notificationPermissionState,
+  queryGeolocationPermission,
+  requestLocationPermission,
+  requestNotificationPermission,
+  type PermissionState,
+} from "@/lib/permissions";
 
-type Section = "notifications" | "security" | "data" | "preferences" | "about";
+type Section = "notifications" | "permissions" | "security" | "data" | "preferences" | "about";
 
 const LANG_OPTIONS: { code: LangCode; native: string }[] = [
   { code: "en", native: "English"     },
@@ -66,6 +73,14 @@ export default function SettingsPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [showSignOutAll, setShowSignOutAll] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [notifPerm, setNotifPerm] = useState<PermissionState>("default");
+  const [geoPerm, setGeoPerm] = useState<PermissionState>("default");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setNotifPerm(notificationPermissionState());
+    void queryGeolocationPermission().then(setGeoPerm);
+  }, [open]);
 
   useEffect(() => {
     if (isGuest) {
@@ -203,6 +218,63 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </AccordionSection>
+
+        <AccordionSection
+          open={open === "permissions"}
+          onToggle={() => toggle("permissions")}
+          icon={Smartphone}
+          title={t.settings_app_permissions}
+          subtitle="Notifications and location for this browser or installed app"
+        >
+          <div className="pt-4 space-y-3">
+            <ActionRow
+              icon={Bell}
+              label="Browser notifications"
+              description={
+                notifPerm === "granted"
+                  ? "Allowed — you'll get pharmacist messages and order alerts"
+                  : notifPerm === "denied"
+                    ? "Blocked — open Windows Settings → Apps → FARUMASI → Notifications"
+                    : "Not enabled yet — tap to allow"
+              }
+              rightSlot={
+                notifPerm === "granted" ? (
+                  <CheckCircle2 className="w-4 h-4 text-farumasi-600" />
+                ) : null
+              }
+              onClick={async () => {
+                const result = await requestNotificationPermission();
+                setNotifPerm(result);
+                if (result === "granted") toast.success("Notifications enabled");
+                else if (result === "denied") toast.message("Unblock notifications in your browser or Windows app settings.");
+              }}
+              disabled={notifPerm === "granted" || notifPerm === "unsupported"}
+            />
+            <ActionRow
+              icon={MapPin}
+              label="Location"
+              description={
+                geoPerm === "granted"
+                  ? "Allowed — delivery fees use your real distance"
+                  : geoPerm === "denied"
+                    ? "Blocked — allow in browser site settings or Windows Location"
+                    : "Needed at checkout for delivery fee — tap to allow"
+              }
+              rightSlot={
+                geoPerm === "granted" ? (
+                  <CheckCircle2 className="w-4 h-4 text-farumasi-600" />
+                ) : null
+              }
+              onClick={async () => {
+                const result = await requestLocationPermission();
+                setGeoPerm(result);
+                if (result === "granted") toast.success("Location enabled");
+                else if (result === "denied") toast.message("Allow location in your browser or Windows privacy settings.");
+              }}
+              disabled={geoPerm === "granted" || geoPerm === "unsupported"}
+            />
+          </div>
         </AccordionSection>
 
         <AccordionSection

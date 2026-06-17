@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../utils/order_payment_retry.dart';
 import '../widgets/app_refresh.dart';
 import '../widgets/portal/portal_ui.dart';
+import '../widgets/shimmer_loading.dart';
 import 'order_detail_screen.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
@@ -253,14 +254,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     physics: AppRefreshScroll.scrollPhysics(const AlwaysScrollableScrollPhysics()),
                     padding: const EdgeInsets.all(16),
                     itemCount: 3,
-                    itemBuilder: (_, __) => Container(
-                      height: 140,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
+                    itemBuilder: (_, __) => const ShimmerOrderCard(),
                   )
                 : _error != null
                     ? Center(

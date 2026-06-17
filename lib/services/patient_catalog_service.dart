@@ -75,9 +75,12 @@ class PatientCatalogService extends ChangeNotifier {
 
     _lastSearch = normalizedSearch;
     _lastCategory = normalizedCategory;
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+    final showLoading = _medicines.isEmpty;
+    if (showLoading) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
 
     _refreshFuture = _fetchCatalog(
       search: normalizedSearch,

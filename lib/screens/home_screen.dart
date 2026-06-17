@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter/rendering.dart'; // Import for UserScrollNotification
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -236,45 +237,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ref.read(authProvider).status == AuthStatus.authenticated,
           userId: () => ref.read(authProvider).user?.id,
         );
-        NotificationService().refreshFromApi(authenticated: true);
-        NotificationService().refreshConsultMessagePushes(
+        unawaited(NotificationService().refreshFromApi(authenticated: true));
+        unawaited(NotificationService().refreshConsultMessagePushes(
           myUserId: auth.user?.id,
           authenticated: true,
-        );
-      } else {
-        NotificationService().refreshFromApi(authenticated: false);
+        ));
       }
     });
   }
 
   void _onAppLifecycleChanged() {
     if (!mounted) return;
-    if (AppLifecycleService.instance.isInForeground) {
-      final auth = ref.read(authProvider);
-      if (auth.status == AuthStatus.authenticated) {
-        NotificationService().startPolling();
-        NotificationService().refreshFromApi(authenticated: true);
-        NotificationService().refreshConsultMessagePushes(
-          myUserId: auth.user?.id,
-        );
-      }
-    } else {
-      // Keep polling while process is alive so consult pushes still arrive.
+    final lifecycle = AppLifecycleService.instance;
+    NotificationService().adaptPollingForForeground(lifecycle.isInForeground);
+
+    if (!lifecycle.isInForeground) {
       NotificationService().startPolling();
+      return;
+    }
+
+    final away = lifecycle.lastBackgroundDuration;
+    if (away != null && away < const Duration(seconds: 45)) {
+      return;
+    }
+
+    final auth = ref.read(authProvider);
+    if (auth.status == AuthStatus.authenticated) {
+      unawaited(NotificationService().refreshFromApi(authenticated: true));
+      unawaited(NotificationService().refreshConsultMessagePushes(
+        myUserId: auth.user?.id,
+      ));
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      // Polling continues in NotificationService for background pushes.
-    } else if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed) {
+      final away = AppLifecycleService.instance.lastBackgroundDuration;
+      if (away != null && away < const Duration(seconds: 45)) return;
       final auth = ref.read(authProvider);
       if (auth.status == AuthStatus.authenticated) {
-        NotificationService().refreshFromApi(authenticated: true);
-        NotificationService().refreshConsultMessagePushes(
-          myUserId: auth.user?.id,
-        );
+        unawaited(NotificationService().refreshFromApi(authenticated: true));
       }
     }
   }

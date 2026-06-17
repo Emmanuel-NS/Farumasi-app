@@ -99,6 +99,36 @@ class ShimmerProductGrid extends StatelessWidget {
   }
 }
 
+class ShimmerOrderCard extends StatelessWidget {
+  const ShimmerOrderCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 140,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ShimmerBox(width: 120, height: 12, borderRadius: 999),
+          SizedBox(height: 12),
+          ShimmerBox(width: double.infinity, height: 16, borderRadius: 6),
+          SizedBox(height: 8),
+          ShimmerBox(width: 180, height: 14, borderRadius: 6),
+          Spacer(),
+          ShimmerBox(width: 100, height: 28, borderRadius: 999),
+        ],
+      ),
+    );
+  }
+}
+
 class ShimmerArticleCard extends StatelessWidget {
   const ShimmerArticleCard({super.key});
 

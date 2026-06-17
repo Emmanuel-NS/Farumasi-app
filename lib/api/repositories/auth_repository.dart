@@ -152,8 +152,27 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
+    try {
+      await clearFcmToken();
+    } catch (_) {}
     await _client.clearTokens();
     await clearCachedUser();
+  }
+
+  Future<void> registerFcmToken({
+    required String token,
+    required String platform,
+  }) async {
+    await _client.dio.put('/users/me/fcm-token', data: {
+      'token': token,
+      'platform': platform,
+    });
+  }
+
+  Future<void> clearFcmToken() async {
+    try {
+      await _client.dio.delete('/users/me/fcm-token');
+    } catch (_) {}
   }
 
   Future<bool> get isLoggedIn async {

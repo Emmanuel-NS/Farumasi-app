@@ -5,6 +5,7 @@ import { patientsService } from "@/lib/services/patients.service";
 import { isMockMode } from "@/lib/env";
 import type { AuthUser } from "@/types";
 import { usePinStore } from "@/store/pin-store";
+import { clearPermissionBannerDismiss } from "@/lib/permissions";
 
 async function syncPatientPinStatus(): Promise<void> {
   try {
@@ -71,6 +72,7 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     const user = await authService.getMe();
     usePinStore.getState().setActiveUser(user.id);
     await syncPatientPinStatus();
+    clearPermissionBannerDismiss();
     set({ isGuest: false, user, accessToken: tokens.access_token });
   },
 
@@ -85,6 +87,7 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     const user = await authService.getMe();
     usePinStore.getState().setActiveUser(user.id);
     await syncPatientPinStatus();
+    clearPermissionBannerDismiss();
     set({ isGuest: false, user, accessToken: tokens.access_token });
   },
 
@@ -110,6 +113,7 @@ export const useAuthStore = create<AuthStore>()((set) => ({
     const user = await authService.getMe();
     usePinStore.getState().setActiveUser(user.id);
     await syncPatientPinStatus();
+    clearPermissionBannerDismiss();
     set({ isGuest: false, user, accessToken: tokens.access_token });
     return user;
   },

@@ -19,6 +19,7 @@ from app.schemas.user import (
     NotificationPreferences,
     DEFAULT_NOTIFICATION_PREFERENCES,
     DeleteAccountRequest,
+    FcmTokenUpdate,
 )
 from app.schemas.common import PaginatedResponse
 from app.services.audit_service import AuditService
@@ -81,6 +82,27 @@ async def update_my_notification_preferences(
     return merged
 
 
+@router.put("/me/fcm-token", status_code=204)
+async def register_fcm_token(
+    data: FcmTokenUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    current_user.fcm_token = data.token.strip()
+    current_user.fcm_platform = data.platform
+    await db.flush()
+
+
+@router.delete("/me/fcm-token", status_code=204)
+async def clear_fcm_token(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    current_user.fcm_token = None
+    current_user.fcm_platform = None
+    await db.flush()
+
+
 # ── Data export ────────────────────────────────────────────────────────────
 @router.post("/me/export-data", status_code=202)
 async def request_data_export(
@@ -119,6 +141,8 @@ async def delete_my_account(
     current_user.status = UserStatus.ARCHIVED
     current_user.deleted_at = now
     current_user.session_invalidated_at = now
+    current_user.fcm_token = None
+    current_user.fcm_platform = None
 
     # Purge prescription upload URLs for this patient (retain metadata for compliance window).
     from app.models.patient import PatientProfile

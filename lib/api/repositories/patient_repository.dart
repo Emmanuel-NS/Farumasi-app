@@ -1907,7 +1907,7 @@ class PatientConsultMessage {
       isFromPatient: myUserId != null
           ? senderId == myUserId
           : json['sender_role'] == 'patient',
-      isRead: json['is_read'] as bool? ?? true,
+      isRead: json['is_read'] as bool? ?? false,
       createdAt: DateTime.tryParse(
             json['sent_at'] as String? ??
                 json['created_at'] as String? ??

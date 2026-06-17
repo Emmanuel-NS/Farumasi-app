@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'background_polling_service.dart';
 
 /// Tracks cold-start vs resume and foreground state so the app stays warm in background.
 class AppLifecycleService with WidgetsBindingObserver {
@@ -15,6 +20,7 @@ class AppLifecycleService with WidgetsBindingObserver {
   bool _launchOverlayPersisted = false;
   DateTime? _pausedAt;
   bool _longBackgroundPending = false;
+  Duration? _lastBackgroundDuration;
 
   final List<VoidCallback> _listeners = [];
 
@@ -28,6 +34,9 @@ class AppLifecycleService with WidgetsBindingObserver {
 
   /// True after resume when the app was in background longer than [longBackgroundThreshold].
   bool get shouldShowBrandingAfterLongBackground => _longBackgroundPending;
+
+  /// How long the app was in background before the latest resume.
+  Duration? get lastBackgroundDuration => _lastBackgroundDuration;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -78,11 +87,17 @@ class AppLifecycleService with WidgetsBindingObserver {
         _inForeground = true;
         if (_pausedAt != null) {
           final away = DateTime.now().difference(_pausedAt!);
+          _lastBackgroundDuration = away;
           _longBackgroundPending = away > longBackgroundThreshold;
+        } else {
+          _lastBackgroundDuration = Duration.zero;
         }
         _pausedAt = null;
         _coldStart = false;
         _notify();
+        if (!kIsWeb) {
+          unawaited(stopBackgroundPolling());
+        }
       case AppLifecycleState.inactive:
         break;
       case AppLifecycleState.paused:
@@ -90,6 +105,9 @@ class AppLifecycleService with WidgetsBindingObserver {
         _inForeground = false;
         _pausedAt = DateTime.now();
         _notify();
+        if (!kIsWeb) {
+          unawaited(startBackgroundPolling());
+        }
       case AppLifecycleState.detached:
         break;
     }
