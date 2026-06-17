@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Settings,
@@ -18,6 +18,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  Upload,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PendingChangeRequestsCard } from "@/components/shared/pending-change-requests";
@@ -87,6 +88,9 @@ export default function SettingsPage() {
   const [pwShow, setPwShow] = useState({ current: false, next: false });
   const [pwSaving, setPwSaving] = useState(false);
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoLocalPreview, setLogoLocalPreview] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user?.role) return;
@@ -157,7 +161,8 @@ export default function SettingsPage() {
 
   const commissionProfile = isPharmacyAdmin ? pharmacy : partner;
   const displayName = pharmacy?.name ?? partner?.name;
-  const logoPreview = mediaUrl(form.logo_url || pharmacy?.logo_url || partner?.logo_url);
+  const logoPreview =
+    logoLocalPreview || mediaUrl(form.logo_url || pharmacy?.logo_url || partner?.logo_url);
   const isOpen = form.is_open ?? pharmacy?.is_open ?? partner?.is_open ?? true;
   const verificationStatus = partner?.verification_status ?? pharmacy?.verification_status;
   const accountStatus = partner?.status ?? pharmacy?.status;
@@ -171,13 +176,20 @@ export default function SettingsPage() {
       if (!isPharmacyAdmin && licenseFile) {
         payload.regulatory_license_document_url = await uploadService.uploadLicenseDocument(licenseFile);
       }
+      if (logoFile) {
+        payload.logo_url = await uploadService.uploadBrandImage(logoFile);
+      }
       if (isPharmacyAdmin) {
         const { data } = await api.patch<PharmacyProfile>(`${getSellerMeBase()}`, payload);
         setPharmacy(data);
+        setLogoFile(null);
+        setLogoLocalPreview(null);
       } else {
         const updated = await partnerService.updateMine(payload);
         setPartner(updated);
         setLicenseFile(null);
+        setLogoFile(null);
+        setLogoLocalPreview(null);
       }
       toast.success("Business profile saved");
     } catch (err: unknown) {
@@ -351,14 +363,57 @@ export default function SettingsPage() {
                       <ImageIcon className="w-6 h-6 text-slate-300" />
                     )}
                   </div>
-                  <div className="flex-1 space-y-1.5">
-                    <Label>Store image URL</Label>
-                    <Input
-                      value={form.logo_url ?? ""}
-                      onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
-                      placeholder="https://… or /media/…"
-                      className="text-xs"
+                  <div className="flex-1 space-y-2">
+                    <div className="space-y-1.5">
+                      <Label>Logo or storefront photo</Label>
+                      <p className="text-[11px] text-muted-foreground">
+                        Shown on the patient app when customers browse your store.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-center gap-2"
+                      onClick={() => logoInputRef.current?.click()}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      {logoFile ? logoFile.name : "Upload image"}
+                    </Button>
+                    {logoFile && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLogoFile(null);
+                          setLogoLocalPreview(null);
+                          if (logoInputRef.current) logoInputRef.current.value = "";
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Remove selected image
+                      </button>
+                    )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        setLogoFile(f);
+                        setLogoLocalPreview(URL.createObjectURL(f));
+                      }}
                     />
+                    <div className="space-y-1.5 pt-1">
+                      <Label className="text-xs text-muted-foreground">Or paste image URL</Label>
+                      <Input
+                        value={form.logo_url ?? ""}
+                        onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
+                        placeholder="https://… or /uploads/…"
+                        className="text-xs"
+                      />
+                    </div>
                   </div>
                 </div>
 

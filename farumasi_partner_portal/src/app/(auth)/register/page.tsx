@@ -15,6 +15,7 @@ import {
   Upload,
   Loader2,
   Mail,
+  ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,8 @@ export default function RegisterPage() {
   const [licenseNumber, setLicenseNumber] = useState("");
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [licenseFileName, setLicenseFileName] = useState("");
+  const [brandImageFile, setBrandImageFile] = useState<File | null>(null);
+  const [brandImagePreview, setBrandImagePreview] = useState<string | null>(null);
   const [agreedToCommission, setAgreedToCommission] = useState(false);
   const [payoutMethod, setPayoutMethod] = useState<PayoutMethodValue>(PAYOUT_METHODS[0].value);
   const [payoutAccount, setPayoutAccount] = useState("");
@@ -62,6 +65,7 @@ export default function RegisterPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const licenseInputRef = useRef<HTMLInputElement>(null);
+  const brandImageInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
 
@@ -93,8 +97,12 @@ export default function RegisterPage() {
     }
 
     let licenseDocumentUrl: string | undefined;
+    let logoUrl: string | undefined;
     if (licenseFile) {
       licenseDocumentUrl = await uploadService.uploadLicenseDocument(licenseFile);
+    }
+    if (brandImageFile) {
+      logoUrl = await uploadService.uploadBrandImage(brandImageFile);
     }
 
     await partnerService.updateMine({
@@ -110,6 +118,7 @@ export default function RegisterPage() {
       regulatory_authority: regulatoryAuthority.trim() || undefined,
       regulatory_license_number: licenseNumber.trim() || undefined,
       regulatory_license_document_url: licenseDocumentUrl,
+      logo_url: logoUrl,
     });
 
     const accountValue = payoutAccount.trim();
@@ -379,6 +388,57 @@ export default function RegisterPage() {
               <div className="space-y-1.5">
                 <Label>Business Registration Number</Label>
                 <Input placeholder="RCA/xxx/2024" value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Logo or storefront photo</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Shown on the patient app when customers browse your products. Use your logo or a clear photo of your premises.
+                </p>
+                <div className="flex gap-3 items-start">
+                  <div className="w-20 h-20 rounded-xl border bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
+                    {brandImagePreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={brandImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon className="w-7 h-7 text-slate-300" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => brandImageInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-slate-200 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-medium text-slate-600 hover:border-farumasi-400 hover:bg-farumasi-50"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {brandImageFile ? brandImageFile.name : "Upload image"}
+                    </button>
+                    {brandImageFile && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBrandImageFile(null);
+                          setBrandImagePreview(null);
+                          if (brandImageInputRef.current) brandImageInputRef.current.value = "";
+                        }}
+                        className="text-xs text-slate-500 hover:text-slate-700"
+                      >
+                        Remove image
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <input
+                  ref={brandImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    setBrandImageFile(f);
+                    setBrandImagePreview(URL.createObjectURL(f));
+                  }}
+                />
               </div>
             </div>
           )}
