@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { cn, getInitials } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { GuestGate } from "@/components/shared/guest-gate";
-import { FarumasiLogo } from "@/components/shared/farumasi-logo";
+import { FarumasiLogoImage } from "@/components/shared/farumasi-logo-image";
 import { ImigongoChatBackground } from "@/components/shared/imigongo-chat-background";
 import { ChatMessageRow } from "@/components/consult/chat-message-row";
 import {
@@ -976,8 +976,8 @@ export default function ConsultPage() {
             <div className="absolute inset-0 bg-gradient-to-br from-farumasi-700 via-farumasi-600 to-farumasi-500" />
             <div className="relative px-4 pt-5 pb-4 text-white">
               <div className="flex items-start gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
-                  <FarumasiLogo size={32} onDark />
+                <div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center shrink-0 p-1.5">
+                  <FarumasiLogoImage size={32} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-lg font-extrabold leading-tight">{t.consult_title}</h1>
@@ -1150,8 +1150,8 @@ export default function ConsultPage() {
         >
           {!selectedPh ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-gradient-to-br from-[#F8FAFC] via-white to-farumasi-50/40">
-              <div className="mb-5 shadow-[0_12px_32px_rgba(30,158,104,0.25)] rounded-3xl">
-                <FarumasiLogo size={96} onDark />
+              <div className="mb-5 shadow-[0_12px_32px_rgba(30,158,104,0.15)] rounded-3xl bg-white p-3">
+                <FarumasiLogoImage size={96} />
               </div>
               <p className="text-slate-900 font-extrabold text-lg">Choose a pharmacist</p>
               <p className="text-slate-500 text-sm mt-2 max-w-md leading-relaxed">
@@ -1318,7 +1318,7 @@ export default function ConsultPage() {
                 {messages.length > 0 && (
                   <div className="flex justify-center mb-2">
                     <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 bg-white/90 rounded-full px-3 py-1 shadow-sm border border-slate-100">
-                      <FarumasiLogo size={16} />
+                      <FarumasiLogoImage size={16} />
                       {t.consult_disclaimer}
                     </span>
                   </div>
@@ -1398,7 +1398,7 @@ export default function ConsultPage() {
                     />
                   ) : pendingAttachment.type === "product" ? (
                     <div className="w-12 h-12 rounded-lg bg-farumasi-50 flex items-center justify-center shrink-0 overflow-hidden">
-                      <FarumasiLogo size={40} />
+                      <FarumasiLogoImage size={40} />
                     </div>
                   ) : (
                     <div className="w-12 h-12 rounded-lg bg-farumasi-100 text-farumasi-700 flex items-center justify-center shrink-0">
@@ -1882,7 +1882,7 @@ function ProductPicker({
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-farumasi-50">
-                          <FarumasiLogo size={32} />
+                          <FarumasiLogoImage size={32} />
                         </div>
                       )}
                     </div>

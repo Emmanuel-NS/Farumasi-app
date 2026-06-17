@@ -1,5 +1,5 @@
 /** FARUMASI icon for browser Notification API (must be same-origin). */
-export const FARUMASI_NOTIFICATION_ICON = "/icons/icon-192.png";
+export const FARUMASI_NOTIFICATION_ICON = "/logo-icon.png";
 
 export function browserNotificationsSupported(): boolean {
   return typeof window !== "undefined" && "Notification" in window;

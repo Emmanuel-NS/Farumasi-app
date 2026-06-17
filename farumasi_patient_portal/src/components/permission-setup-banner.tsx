@@ -87,7 +87,7 @@ export function PermissionSetupBanner() {
       <div className="rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 overflow-hidden">
         <div className="flex items-start gap-3 p-4 bg-gradient-to-r from-farumasi-50 to-white">
           <Image
-            src="/icons/icon-192.png"
+            src="/logo-icon.png"
             alt="FARUMASI"
             width={44}
             height={44}
