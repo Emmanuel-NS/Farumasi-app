@@ -18,7 +18,7 @@ import {
   adaptPrescription,
   type BackendPrescription,
 } from "@/lib/services/prescriptions.service";
-import { mediaUrl } from "@/lib/api";
+import { apiErrorDetail, mediaUrl } from "@/lib/api";
 import type { DigitalPrescription, DigitalPrescriptionStatus } from "@/types";
 
 type Tab = "active" | "cancelled" | "upload";
@@ -531,8 +531,8 @@ function UploadPrescription({ onSuccess }: { onSuccess: () => void }) {
       await prescriptionsService.createFromUpload(url, notes.trim() || undefined);
       setUploadState("success");
       setTimeout(onSuccess, 1500);
-    } catch {
-      setUploadError("Upload failed. Please try again.");
+    } catch (e) {
+      setUploadError(apiErrorDetail(e) ?? "Upload failed. Please try again.");
     } finally { setUploading(false); }
   };
 

@@ -834,9 +834,7 @@ export default function ConsultPage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const { data } = await api.post("/uploads/chat", form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const { data } = await api.post("/uploads/chat", form);
       const url: string | undefined = data?.url;
       if (!url) throw new Error("Upload returned no URL");
       const attachmentType = (data?.attachment_type as "image" | "file" | undefined) ?? "file";

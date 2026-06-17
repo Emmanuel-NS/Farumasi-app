@@ -117,7 +117,6 @@ export const prescriptionsService = {
     const { data } = await api.post<{ url: string; file_key: string }>(
       "/uploads/prescription",
       form,
-      { headers: { "Content-Type": "multipart/form-data" } }
     );
     return data;
   },

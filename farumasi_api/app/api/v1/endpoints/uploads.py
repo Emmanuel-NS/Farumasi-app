@@ -62,12 +62,11 @@ async def upload_prescription(
     The returned `url` should be passed to `POST /patients/me/prescriptions/upload`
     as `uploaded_file_url` to create the prescription record.
     """
-    content_type = (file.content_type or "").lower()
-    if content_type.startswith("image/"):
-        url = await UploadService().upload_image(file, folder="prescriptions")
-    else:
-        url = await UploadService().upload_document(file, folder="prescriptions")
-    return {"url": url, "file_key": url.split("/")[-1]}
+    try:
+        url = await UploadService().upload_prescription_file(file)
+    except ValueError as exc:
+        raise _upload_error(exc) from exc
+    return {"url": url, "file_key": url.rsplit("/", 1)[-1]}
 
 
 @router.post("/payment-proof")

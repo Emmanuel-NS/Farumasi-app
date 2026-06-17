@@ -17,6 +17,18 @@ export function mediaUrl(url?: string | null): string {
   return `${API_ORIGIN}/${url}`;
 }
 
+/** Extract a human-readable message from a failed API call. */
+export function apiErrorDetail(err: unknown): string | undefined {
+  const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data
+    ?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0] as { msg?: string };
+    if (typeof first?.msg === "string") return first.msg;
+  }
+  return undefined;
+}
+
 export const api = axios.create({
   baseURL: API_BASE,
   headers: { "Content-Type": "application/json" },
@@ -29,6 +41,15 @@ api.interceptors.request.use((config) => {
     const token = localStorage.getItem("farumasi_access_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  // FormData must use the browser-generated multipart boundary.
+  if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+    if (config.headers && typeof config.headers.delete === "function") {
+      config.headers.delete("Content-Type");
+    } else if (config.headers) {
+      delete (config.headers as Record<string, unknown>)["Content-Type"];
     }
   }
 

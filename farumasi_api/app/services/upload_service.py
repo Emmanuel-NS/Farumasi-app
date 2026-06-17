@@ -9,7 +9,14 @@ from fastapi import UploadFile
 from app.core.config import settings
 
 
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "image/heic",
+    "image/heif",
+}
 ALLOWED_DOCUMENT_TYPES = {"application/pdf"}
 CHAT_DOCUMENT_TYPES = {
     "application/pdf",
@@ -20,6 +27,41 @@ CHAT_DOCUMENT_TYPES = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+_EXT_TO_MIME = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+    ".pdf": "application/pdf",
+}
+
+
+def _resolve_content_type(
+    content_type: str | None,
+    filename: str | None,
+    contents: bytes,
+) -> str:
+    """Infer MIME when browsers send empty or generic application/octet-stream."""
+    ct = (content_type or "").lower().split(";")[0].strip()
+    if ct not in ("", "application/octet-stream", "binary/octet-stream"):
+        return ct
+
+    ext = Path(filename or "").suffix.lower()
+    if ext in _EXT_TO_MIME:
+        return _EXT_TO_MIME[ext]
+
+    if len(contents) >= 8 and contents[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if len(contents) >= 3 and contents[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if len(contents) >= 4 and contents[:4] == b"%PDF":
+        return "application/pdf"
+
+    return ct or "application/octet-stream"
 
 
 class UploadService:
@@ -48,6 +90,28 @@ class UploadService:
     async def upload_document(self, file: UploadFile, folder: str = "documents") -> str:
         return await self._upload(file, folder, allowed_types=ALLOWED_DOCUMENT_TYPES)
 
+    async def upload_prescription_file(self, file: UploadFile) -> str:
+        """Upload a patient prescription image or PDF."""
+        contents = await file.read()
+        content_type = _resolve_content_type(file.content_type, file.filename, contents)
+        if content_type.startswith("image/"):
+            allowed = ALLOWED_IMAGE_TYPES
+            folder = "prescriptions"
+        elif content_type == "application/pdf":
+            allowed = ALLOWED_DOCUMENT_TYPES
+            folder = "prescriptions"
+        else:
+            raise ValueError(
+                "Prescription must be an image (JPEG, PNG, WebP, GIF, HEIC) or PDF"
+            )
+        return await self._upload_bytes(
+            contents,
+            file.filename,
+            content_type,
+            folder,
+            allowed,
+        )
+
     async def upload_chat_file(self, file: UploadFile) -> tuple[str, str]:
         """Upload a consult chat attachment. Returns (url, attachment_type)."""
         self._require_durable_storage_for_chat()
@@ -68,22 +132,38 @@ class UploadService:
         folder: str,
         allowed_types: set[str],
     ) -> str:
-        content_type = (file.content_type or "").lower()
-        if content_type not in allowed_types:
-            raise ValueError(f"File type '{file.content_type}' is not allowed")
-
         contents = await file.read()
+        content_type = _resolve_content_type(file.content_type, file.filename, contents)
+        return await self._upload_bytes(
+            contents,
+            file.filename,
+            content_type,
+            folder,
+            allowed_types,
+        )
+
+    async def _upload_bytes(
+        self,
+        contents: bytes,
+        filename: str | None,
+        content_type: str,
+        folder: str,
+        allowed_types: set[str],
+    ) -> str:
+        if content_type not in allowed_types:
+            raise ValueError(f"File type '{content_type}' is not allowed")
+
         if len(contents) > MAX_FILE_SIZE:
             raise ValueError("File exceeds maximum allowed size (10 MB)")
 
-        ext = Path(file.filename or "file").suffix or ".bin"
-        filename = f"{uuid.uuid4().hex}{ext}"
+        ext = Path(filename or "file").suffix or ".bin"
+        dest_filename = f"{uuid.uuid4().hex}{ext}"
 
         if self.backend == "s3":
-            return await self._upload_s3(contents, folder, filename, content_type)
+            return await self._upload_s3(contents, folder, dest_filename, content_type)
         if self.backend == "cloudinary":
-            return await self._upload_cloudinary(contents, folder, filename, content_type)
-        return await self._upload_local(contents, folder, filename)
+            return await self._upload_cloudinary(contents, folder, dest_filename, content_type)
+        return await self._upload_local(contents, folder, dest_filename)
 
     async def _upload_local(self, contents: bytes, folder: str, filename: str) -> str:
         dest_dir = Path(self.local_root) / folder
