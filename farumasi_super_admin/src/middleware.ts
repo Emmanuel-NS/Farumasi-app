@@ -10,6 +10,7 @@ const ALLOWED_PREFIXES = [
   "/prescriptions",
   "/finance",
   "/audit",
+  "/partner-applications",
   "/settings",
   "/login",
   "/forgot-password",
