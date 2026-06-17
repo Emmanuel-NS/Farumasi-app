@@ -7,7 +7,7 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#121212",
+  "background_color": "#1E9E68",
   "theme_color": "#1E9E68",
   "categories": ["health", "medical", "shopping"],
   "icons": [
