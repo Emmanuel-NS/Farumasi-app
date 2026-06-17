@@ -560,6 +560,10 @@ export default function RegisterPage() {
 
           {step === 4 && (
             <div className="space-y-4">
+              <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
+                You may use the same email or phone as your FARUMASI patient account. Partner and patient
+                accounts are separate — only duplicate partner emails are blocked.
+              </p>
               <div className="space-y-1.5">
                 <Label>Full Name <span className="text-red-500">*</span></Label>
                 <Input placeholder="Account administrator name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
@@ -583,7 +587,12 @@ export default function RegisterPage() {
                   checked={agreedToTerms}
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
                 />
-                I agree to FARUMASI&apos;s Terms of Service and Partner Agreement
+                <span>
+                  I agree to FARUMASI&apos;s{" "}
+                  <Link href="/terms" target="_blank" className="text-farumasi-600 font-medium hover:underline">
+                    Partner Terms & Agreement
+                  </Link>
+                </span>
               </label>
             </div>
           )}
@@ -608,6 +617,8 @@ export default function RegisterPage() {
         <p className="text-sm text-center text-muted-foreground mt-6">
           Already have an account?{" "}
           <Link href="/login" className="text-farumasi-600 font-medium hover:underline">Sign in</Link>
+          {" · "}
+          <Link href="/terms" className="text-farumasi-600 font-medium hover:underline">Partner Terms</Link>
         </p>
       </div>
     </div>

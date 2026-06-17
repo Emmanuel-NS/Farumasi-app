@@ -19,6 +19,7 @@ import {
   Stethoscope,
   Bike,
   Shield,
+  ClipboardList,
 } from "lucide-react";
 
 interface NavChild {
@@ -86,7 +87,10 @@ function buildNav(isSuperAdmin: boolean): NavSection[] {
   },
   {
     title: "COMPLIANCE",
-    items: [{ label: "Audit Logs", href: "/audit", icon: Shield }],
+    items: [
+      { label: "Partner Applications", href: "/partner-applications", icon: ClipboardList },
+      { label: "Audit Logs", href: "/audit", icon: Shield },
+    ],
   },
   {
     title: "SYSTEM",

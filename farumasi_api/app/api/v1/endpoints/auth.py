@@ -37,7 +37,7 @@ async def register(data: RegisterRequest, request: Request, db: AsyncSession = D
 @router.post("/verify-registration", response_model=TokenResponse)
 async def verify_registration(data: VerifyRegistrationRequest, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
-    return await service.verify_registration(data.email, data.code)
+    return await service.verify_registration(data.email, data.code, data.role)
 
 
 @router.post("/resend-registration-otp", response_model=RegistrationPendingResponse)
@@ -45,7 +45,7 @@ async def resend_registration_otp(
     data: ResendRegistrationOtpRequest, db: AsyncSession = Depends(get_db)
 ):
     service = AuthService(db)
-    return await service.resend_registration_otp(data.email)
+    return await service.resend_registration_otp(data.email, data.role)
 
 
 @router.post("/login", response_model=TokenResponse)

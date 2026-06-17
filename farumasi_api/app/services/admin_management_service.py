@@ -97,8 +97,8 @@ class AdminManagementService:
             if actor.role != UserRole.SUPER_ADMIN:
                 raise AuthorizationError("Only super admins can create admin accounts")
 
-        if await self.user_repo.email_exists(data.email):
-            raise ConflictError(f"Email '{data.email}' is already registered")
+        if await self.user_repo.email_exists_for_role(data.email, data.role.value):
+            raise ConflictError(f"Email '{data.email}' is already registered for this role")
 
         temp_password = data.temporary_password or _generate_temp_password()
         user = await self.user_repo.create(
@@ -133,8 +133,12 @@ class AdminManagementService:
     async def onboard_pharmacy(
         self, data: OnboardPharmacyRequest, actor: User
     ) -> OnboardSellerResponse:
-        if await self.user_repo.email_exists(data.owner_email):
-            raise ConflictError(f"Email '{data.owner_email}' is already registered")
+        if await self.user_repo.email_exists_for_role(
+            data.owner_email, UserRole.PHARMACY_ADMIN.value
+        ):
+            raise ConflictError(
+                f"Email '{data.owner_email}' is already registered as a pharmacy account"
+            )
 
         temp_password = data.temporary_password or _generate_temp_password()
         owner = await self.user_repo.create(
@@ -186,8 +190,12 @@ class AdminManagementService:
     async def onboard_partner(
         self, data: OnboardPartnerRequest, actor: User
     ) -> OnboardSellerResponse:
-        if await self.user_repo.email_exists(data.owner_email):
-            raise ConflictError(f"Email '{data.owner_email}' is already registered")
+        if await self.user_repo.email_exists_for_role(
+            data.owner_email, UserRole.PARTNER_COMPANY_ADMIN.value
+        ):
+            raise ConflictError(
+                f"Email '{data.owner_email}' is already registered as a partner account"
+            )
 
         temp_password = data.temporary_password or _generate_temp_password()
         owner = await self.user_repo.create(

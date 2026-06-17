@@ -48,6 +48,7 @@ export const authService = {
     const { data } = await api.post<TokenResponse>("/auth/login", {
       identifier: identifier.trim(),
       password,
+      role: "patient",
     });
     return data;
   },
@@ -69,6 +70,7 @@ export const authService = {
     const { data } = await api.post<TokenResponse>("/auth/verify-registration", {
       email: email.trim(),
       code: code.trim(),
+      role: "patient",
     });
     return data;
   },
@@ -76,6 +78,7 @@ export const authService = {
   async resendRegistrationOtp(email: string): Promise<RegistrationPendingResponse> {
     const { data } = await api.post<RegistrationPendingResponse>("/auth/resend-registration-otp", {
       email: email.trim(),
+      role: "patient",
     });
     return data;
   },

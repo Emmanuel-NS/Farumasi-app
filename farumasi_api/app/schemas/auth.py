@@ -27,6 +27,14 @@ class LoginRequest(FarumasiBaseModel):
     identifier: str | None = Field(None, description="Email address or phone number")
     email: EmailStr | None = None
     password: str
+    role: UserRole | None = Field(
+        None,
+        description="Restrict sign-in to this account role (e.g. patient vs partner).",
+    )
+    portal: str | None = Field(
+        None,
+        description="Portal hint: 'patient' or 'partner' when the same email exists on multiple roles.",
+    )
 
     @model_validator(mode="after")
     def require_identifier(self) -> "LoginRequest":
@@ -41,10 +49,12 @@ class LoginRequest(FarumasiBaseModel):
 class VerifyRegistrationRequest(FarumasiBaseModel):
     email: EmailStr
     code: str = Field(min_length=4, max_length=12)
+    role: UserRole | None = None
 
 
 class ResendRegistrationOtpRequest(FarumasiBaseModel):
     email: EmailStr
+    role: UserRole | None = None
 
 
 class RegistrationPendingResponse(FarumasiBaseModel):

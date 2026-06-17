@@ -14,10 +14,15 @@ export interface BackendPartner {
   email?: string | null;
   phone?: string | null;
   district?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   verification_status: string;
   status: string;
   is_open?: boolean;
+  regulatory_authority?: string | null;
   regulatory_license_number?: string | null;
+  regulatory_license_document_url?: string | null;
+  commission_rate_percent?: number | null;
   created_at: string;
 }
 
@@ -31,6 +36,13 @@ export const partnersService = {
   async getPartners(params?: { offset?: number; limit?: number }): Promise<{ items: BackendPartner[]; total: number }> {
     const { data } = await api.get<PaginatedPartners>("/partners/", {
       params: { limit: 50, ...params },
+    });
+    return { items: data.items, total: data.total };
+  },
+
+  async listApplications(params?: { offset?: number; limit?: number }): Promise<{ items: BackendPartner[]; total: number }> {
+    const { data } = await api.get<PaginatedPartners>("/partners/", {
+      params: { applications_only: true, limit: 50, ...params },
     });
     return { items: data.items, total: data.total };
   },

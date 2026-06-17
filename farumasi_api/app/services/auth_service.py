@@ -30,6 +30,12 @@ _PUBLIC_REGISTER_ROLES = frozenset({
     UserRole.RIDER,
 })
 
+_PARTNER_PORTAL_LOGIN_ROLES = (
+    UserRole.PARTNER_COMPANY_ADMIN,
+    UserRole.PHARMACY_ADMIN,
+    UserRole.PHARMACIST,
+)
+
 
 def _looks_like_phone(value: str) -> bool:
     value = value.strip()
@@ -56,8 +62,19 @@ class AuthService:
         self.user_repo = UserRepository(db)
         self.verify_svc = EmailVerificationService(db)
 
-    async def _find_user_by_identifier(self, identifier: str) -> User | None:
+    async def _find_user_by_identifier(
+        self, identifier: str, role: str | None = None
+    ) -> User | None:
         ident = identifier.strip()
+        if role:
+            if _looks_like_phone(ident):
+                phone = _normalize_phone(ident)
+                user = await self.user_repo.get_by_phone_and_role(phone, role)
+                if user:
+                    return user
+                return await self.user_repo.get_by_phone_and_role(ident, role)
+            return await self.user_repo.get_by_email_and_role(ident.lower(), role)
+
         if _looks_like_phone(ident):
             phone = _normalize_phone(ident)
             user = await self.user_repo.get_by_phone(phone)
@@ -65,6 +82,20 @@ class AuthService:
                 return user
             return await self.user_repo.get_by_phone(ident)
         return await self.user_repo.get_by_email(ident.lower())
+
+    async def _resolve_login_user(self, data: LoginRequest) -> User | None:
+        ident = data.resolved_identifier()
+        portal = (data.portal or "").strip().lower()
+        if data.role:
+            return await self._find_user_by_identifier(ident, data.role.value)
+        if portal == "partner":
+            return await self.user_repo.find_by_identifier_and_roles(
+                ident,
+                [r.value for r in _PARTNER_PORTAL_LOGIN_ROLES],
+            )
+        if portal == "patient":
+            return await self._find_user_by_identifier(ident, UserRole.PATIENT.value)
+        return await self._find_user_by_identifier(ident)
 
     async def register(
         self, data: RegisterRequest, ip_address: str | None = None
@@ -74,11 +105,15 @@ class AuthService:
                 "Registration is only available for patient and seller business accounts. "
                 "Other staff accounts must be created by an administrator."
             )
-        existing = await self.user_repo.get_by_email(data.email)
+        role_value = data.role.value
+        normalized_phone = _normalize_phone(data.phone) if data.phone else None
+        existing = await self.user_repo.get_by_email_and_role(data.email, role_value)
         if existing:
             if existing.status == UserStatus.PENDING_VERIFICATION:
                 if not verify_password(data.password, existing.password_hash):
-                    raise ConflictError(f"Email '{data.email}' is already registered")
+                    raise ConflictError(
+                        f"A pending {role_value.replace('_', ' ')} account already uses this email"
+                    )
                 minutes = await self.verify_svc.send_code(
                     existing,
                     purpose=PURPOSE_REGISTRATION,
@@ -89,14 +124,20 @@ class AuthService:
                     email=existing.email,
                     expires_minutes=minutes,
                 )
-            raise ConflictError(f"Email '{data.email}' is already registered")
-        if data.phone and await self.user_repo.phone_exists(data.phone):
-            raise ConflictError(f"Phone '{data.phone}' is already registered")
+            raise ConflictError(
+                f"This email is already registered as a {role_value.replace('_', ' ')} account"
+            )
+        if normalized_phone and await self.user_repo.phone_exists_for_role(
+            normalized_phone, role_value
+        ):
+            raise ConflictError(
+                f"This phone is already registered as a {role_value.replace('_', ' ')} account"
+            )
 
         user = await self.user_repo.create(
             full_name=data.full_name,
-            email=data.email,
-            phone=data.phone,
+            email=data.email.lower(),
+            phone=normalized_phone,
             password_hash=hash_password(data.password),
             role=data.role,
             status=UserStatus.PENDING_VERIFICATION,
@@ -124,8 +165,14 @@ class AuthService:
             expires_minutes=minutes,
         )
 
-    async def verify_registration(self, email: str, code: str) -> TokenResponse:
-        user = await self.user_repo.get_by_email(email)
+    async def verify_registration(
+        self, email: str, code: str, role: UserRole | None = None
+    ) -> TokenResponse:
+        user = (
+            await self.user_repo.get_by_email_and_role(email, role.value)
+            if role
+            else await self.user_repo.get_by_email(email)
+        )
         if not user:
             raise ValidationError("No account found for that email")
         if user.status == UserStatus.ACTIVE:
@@ -148,8 +195,14 @@ class AuthService:
         )
         return await self._issue_tokens(user)
 
-    async def resend_registration_otp(self, email: str) -> RegistrationPendingResponse:
-        user = await self.user_repo.get_by_email(email)
+    async def resend_registration_otp(
+        self, email: str, role: UserRole | None = None
+    ) -> RegistrationPendingResponse:
+        user = (
+            await self.user_repo.get_by_email_and_role(email, role.value)
+            if role
+            else await self.user_repo.get_by_email(email)
+        )
         if not user:
             raise ValidationError("No account found for that email")
         if user.status == UserStatus.ACTIVE:
@@ -168,7 +221,7 @@ class AuthService:
 
     async def login(self, data: LoginRequest, ip_address: str | None = None) -> TokenResponse:
         ident = data.resolved_identifier()
-        user = await self._find_user_by_identifier(ident)
+        user = await self._resolve_login_user(data)
 
         if not user or not verify_password(data.password, user.password_hash):
             raise AuthenticationError("Invalid email/phone or password")

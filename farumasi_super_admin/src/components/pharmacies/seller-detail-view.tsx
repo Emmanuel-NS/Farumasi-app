@@ -128,6 +128,23 @@ export default function SellerDetailView({ kind }: { kind: "pharmacy" | "partner
     }
   }
 
+  async function rejectPartnerApplication() {
+    if (kind !== "partner") return;
+    if (!window.confirm("Reject this partner application?")) return;
+    setApproving(true);
+    try {
+      await partnersService.updatePartner(id, {
+        verification_status: "rejected",
+        status: "inactive",
+      });
+      load();
+    } catch (err) {
+      setError(getApiError(err, "Failed to reject partner"));
+    } finally {
+      setApproving(false);
+    }
+  }
+
   const needsPartnerApproval =
     kind === "partner" &&
     data &&
@@ -142,10 +159,15 @@ export default function SellerDetailView({ kind }: { kind: "pharmacy" | "partner
       >
         <div className="flex items-center gap-2">
           {needsPartnerApproval && (
-            <Button variant="primary" size="sm" onClick={() => void approvePartnerApplication()} disabled={approving}>
-              {approving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-              Approve application
-            </Button>
+            <>
+              <Button variant="primary" size="sm" onClick={() => void approvePartnerApplication()} disabled={approving}>
+                {approving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                Approve application
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void rejectPartnerApplication()} disabled={approving}>
+                Reject
+              </Button>
+            </>
           )}
           {data && (
             <Button

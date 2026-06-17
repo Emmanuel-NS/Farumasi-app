@@ -24,7 +24,11 @@ export interface RegisterPayload {
 
 export const authService = {
   async login(email: string, password: string): Promise<LoginResponse> {
-    const { data } = await api.post<LoginResponse>("/auth/login", { email, password });
+    const { data } = await api.post<LoginResponse>("/auth/login", {
+      email,
+      password,
+      portal: "partner",
+    });
     return data;
   },
 
@@ -37,6 +41,7 @@ export const authService = {
     const { data } = await api.post<LoginResponse>("/auth/verify-registration", {
       email: email.trim(),
       code: code.trim(),
+      role: "partner_company_admin",
     });
     return data;
   },
@@ -44,6 +49,7 @@ export const authService = {
   async resendRegistrationOtp(email: string): Promise<RegistrationPendingResponse> {
     const { data } = await api.post<RegistrationPendingResponse>("/auth/resend-registration-otp", {
       email: email.trim(),
+      role: "partner_company_admin",
     });
     return data;
   },

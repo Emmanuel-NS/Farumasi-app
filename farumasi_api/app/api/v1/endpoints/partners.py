@@ -148,6 +148,9 @@ async def get_public_partner(partner_id: str, db: AsyncSession = Depends(get_db)
 async def list_partners(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    verification_status: str | None = Query(None),
+    status: str | None = Query(None),
+    applications_only: bool = Query(False, description="Self-service partner applications awaiting review"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(
         require_roles(
@@ -158,14 +161,34 @@ async def list_partners(
         )
     ),
 ):
-    total = (await db.execute(select(func.count(PartnerCompany.id)))).scalar_one()
-    result = await db.execute(
-        select(PartnerCompany)
-        .order_by(PartnerCompany.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    return PaginatedResponse(items=list(result.scalars().all()), total=total, offset=offset, limit=limit)
+    from app.core.constants import VerificationStatus
+
+    conds = []
+    if verification_status:
+        conds.append(PartnerCompany.verification_status == verification_status)
+    if status:
+        conds.append(PartnerCompany.status == status)
+    if applications_only:
+        conds.append(
+            and_(
+                PartnerCompany.status == EntityStatus.INACTIVE,
+                PartnerCompany.verification_status.in_(
+                    [VerificationStatus.PENDING, VerificationStatus.UNVERIFIED]
+                ),
+            )
+        )
+    filter_cond = and_(*conds) if conds else None
+
+    count_q = select(func.count(PartnerCompany.id))
+    list_q = select(PartnerCompany).order_by(PartnerCompany.created_at.desc()).offset(offset).limit(limit)
+    if filter_cond is not None:
+        count_q = count_q.where(filter_cond)
+        list_q = list_q.where(filter_cond)
+
+    total = (await db.execute(count_q)).scalar_one()
+    result = await db.execute(list_q)
+    items = [_partner_out(p) for p in result.scalars().all()]
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
 @router.get("/{partner_id}", response_model=PartnerCompanyOut)
