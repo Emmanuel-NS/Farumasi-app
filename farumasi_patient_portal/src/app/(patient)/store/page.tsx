@@ -265,7 +265,7 @@ function StorePageInner() {
     }
     toast.info("Complete checkout and payment on the next screen.");
     const seller = rec.providerId;
-    const kind = rec.providerKind ?? "pharmacy";
+    const kind = rec.providerType ?? "pharmacy";
     router.push(
       `/cart?rx=${encodeURIComponent(prescriptionId)}&rec=${encodeURIComponent(rec.id)}&seller=${encodeURIComponent(seller)}&sellerKind=${kind}`,
     );
