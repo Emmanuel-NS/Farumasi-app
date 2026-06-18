@@ -6,8 +6,16 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "FARUMASI — Rider App",
+  title: {
+    template: "%s | FARUMASI Rider",
+    default: "FARUMASI — Rider App",
+  },
   description: "Manage your deliveries with FARUMASI",
+  themeColor: "#1E9E68",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
