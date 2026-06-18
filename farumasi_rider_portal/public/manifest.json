@@ -1,0 +1,33 @@
+{
+  "id": "/",
+  "name": "FARUMASI — Rider",
+  "short_name": "FARUMASI Rider",
+  "description": "Accept deliveries, navigate pickups, and confirm drop-offs for FARUMASI",
+  "start_url": "/login",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#1E9E68",
+  "categories": ["health", "medical", "navigation"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
