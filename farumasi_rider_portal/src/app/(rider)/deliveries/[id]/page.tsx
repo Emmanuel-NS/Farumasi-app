@@ -15,7 +15,7 @@ import {
   Timer,
 } from "lucide-react";
 import { riderService, type RiderDelivery } from "@/lib/services/rider.service";
-import { RiderBottomNav } from "../page";
+import { RiderBottomNav } from "@/components/rider-bottom-nav";
 
 const STEPS = [
   { key: "pickup", label: "Go to\nPharmacy", statuses: ["assigned", "accepted", "going_to_pickup"] },

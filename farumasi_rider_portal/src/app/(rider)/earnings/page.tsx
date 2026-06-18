@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Wallet, TrendingUp, Calendar } from "lucide-react";
 import { riderService, type RiderEarnings } from "@/lib/services/rider.service";
-import { RiderBottomNav } from "../deliveries/page";
+import { RiderBottomNav } from "@/components/rider-bottom-nav";
 
 export default function EarningsPage() {
   const [data, setData] = useState<RiderEarnings | null>(null);
