@@ -6,16 +6,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { RightPanel } from "@/components/layout/right-panel";
-import { LayoutDashboard, FileText, ShoppingBag, Package, Heart, Settings } from "lucide-react";
+import { LayoutDashboard, FileText, ShoppingBag, Package, Heart, Settings, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 
 const mobileNavItems = [
   { label: "Overview",  href: "/overview",  icon: LayoutDashboard },
   { label: "Requests",  href: "/requests",  icon: FileText },
+  { label: "Chat",      href: "/chat",      icon: MessageCircle },
   { label: "Orders",    href: "/orders",    icon: ShoppingBag },
-  { label: "Inventory", href: "/inventory", icon: Package },
-  { label: "Health",    href: "/health",    icon: Heart },
+  { label: "More",      href: "/settings",  icon: Settings },
 ];
 
 const ALLOWED_ROLES = new Set(["pharmacist", "super_admin"]);

@@ -415,6 +415,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <p className="text-xs text-blue-600">Rider must show this code to collect the medicines.</p>
                 </div>
               )}
+              {order.is_delivery && order.status === "ready_for_pickup" && (
+                <div className="border border-emerald-100 rounded-xl p-3 bg-emerald-50 text-xs text-emerald-800">
+                  Order is ready. A FARUMASI rider will be assigned to collect and deliver to the patient.
+                  Share the rider access code above when they arrive at your pharmacy.
+                </div>
+              )}
               {canReject && (
                 <Button
                   variant="outline"

@@ -81,4 +81,12 @@ export const pharmaciesService = {
     const { data } = await api.get<BackendPharmacy>(`/pharmacies/${id}`);
     return adapt(data);
   },
+
+  async updatePharmacyAdmin(
+    id: string,
+    payload: { verification_status?: string; status?: string },
+  ): Promise<BackendPharmacy> {
+    const { data } = await api.patch<BackendPharmacy>(`/pharmacies/${id}/admin`, payload);
+    return data;
+  },
 };

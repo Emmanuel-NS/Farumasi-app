@@ -216,7 +216,13 @@ async def update_partner(
     partner_id: str,
     data: PartnerCompanyAdminUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN)),
+    current_user: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.OPERATIONS_ADMIN,
+            UserRole.COMPLIANCE_ADMIN,
+        )
+    ),
 ):
     result = await db.execute(select(PartnerCompany).where(PartnerCompany.id == partner_id))
     partner = result.scalar_one_or_none()
@@ -226,7 +232,7 @@ async def update_partner(
         setattr(partner, field, value)
     await db.commit()
     await db.refresh(partner)
-    return partner
+    return _partner_out(partner)
 
 # ---- Phase 3: /me/listings ----
 from app.schemas.product import ProductListingCreate, ProductListingOut, ProductListingUpdate

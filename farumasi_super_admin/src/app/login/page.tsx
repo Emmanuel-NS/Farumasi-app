@@ -8,7 +8,12 @@ import { authService, getApiError } from "@/lib/services/auth.service";
 import { TOKEN_KEY } from "@/lib/api";
 import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 
-const ALLOWED_ROLES = new Set(["super_admin"]);
+const ALLOWED_ROLES = new Set([
+  "super_admin",
+  "finance_admin",
+  "operations_admin",
+  "compliance_admin",
+]);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,7 +36,7 @@ export default function LoginPage() {
       const me = await authService.getMe();
       if (!ALLOWED_ROLES.has(me.role)) {
         localStorage.removeItem(TOKEN_KEY);
-        setError("Access denied. Super Admin credentials required.");
+        setError("Access denied. Admin portal credentials required.");
         return;
       }
       setSession(tokens, {

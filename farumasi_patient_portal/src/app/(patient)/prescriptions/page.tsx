@@ -18,6 +18,7 @@ import {
   adaptPrescription,
   type BackendPrescription,
 } from "@/lib/services/prescriptions.service";
+import { ordersService } from "@/lib/services/orders.service";
 import { apiErrorDetail, mediaUrl } from "@/lib/api";
 import type { DigitalPrescription, DigitalPrescriptionStatus } from "@/types";
 
@@ -93,6 +94,7 @@ function PrescriptionsPageContent() {
   const searchParams = useSearchParams();
   const [tab, setTab]             = useState<Tab>("active");
   const [rawList, setRawList]     = useState<BackendPrescription[]>([]);
+  const [rxOrderMap, setRxOrderMap] = useState<Record<string, string>>({});
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
@@ -102,8 +104,17 @@ function PrescriptionsPageContent() {
   const loadPrescriptions = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true); else setRefreshing(true);
     try {
-      const raw = await prescriptionsService.getMyPrescriptionsRaw();
+      const [raw, ordersPage] = await Promise.all([
+        prescriptionsService.getMyPrescriptionsRaw(),
+        ordersService.getMyOrders(0, 100).catch(() => ({ items: [], total: 0, offset: 0, limit: 0 })),
+      ]);
+      const byRx: Record<string, string> = {};
+      for (const o of ordersPage.items) {
+        const pid = (o as { prescription_id?: string }).prescription_id;
+        if (pid && !byRx[pid]) byRx[pid] = o.id;
+      }
       setRawList(raw);
+      setRxOrderMap(byRx);
     } catch { /* no-op */ }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
@@ -117,7 +128,10 @@ function PrescriptionsPageContent() {
 
   useEffect(() => { loadPrescriptions(); }, [loadPrescriptions]);
 
-  const prescriptions = rawList.map(adaptPrescription);
+  const prescriptions = rawList.map((p) => ({
+    ...adaptPrescription(p),
+    orderId: rxOrderMap[p.id],
+  }));
   const active     = prescriptions.filter((rx) => rx.status !== "cancelled" && rx.status !== "expired");
   const cancelled  = prescriptions.filter((rx) => rx.status === "cancelled" || rx.status === "expired");
 

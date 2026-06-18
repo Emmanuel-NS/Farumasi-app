@@ -109,6 +109,22 @@ services:
       - key: NEXT_PUBLIC_API_URL
         sync: false
 
+  - type: web
+    name: farumasi-rider-portal
+    runtime: node
+    plan: free
+    rootDir: farumasi_rider_portal
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    buildFilter:
+      paths:
+        - farumasi_rider_portal/**
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
 databases:
   - name: farumasi-db
     plan: free

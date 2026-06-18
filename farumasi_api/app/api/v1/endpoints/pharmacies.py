@@ -10,7 +10,7 @@ from app.dependencies.roles import require_roles
 from app.core.constants import EntityStatus, UserRole
 from app.models.user import User
 from app.models.pharmacy import Pharmacy
-from app.schemas.pharmacy import PharmacyOut, PharmacyCreate, PharmacyUpdate
+from app.schemas.pharmacy import PharmacyOut, PharmacyCreate, PharmacyUpdate, PharmacyAdminUpdate
 from app.schemas.common import PaginatedResponse
 from app.core.exceptions import NotFoundError, AuthorizationError, AuthenticationError
 
@@ -71,6 +71,22 @@ async def create_pharmacy(
     return pharmacy
 
 
+async def _load_pharmacy_out(db: AsyncSession, pharmacy_id: str) -> PharmacyOut:
+    """Eager-load relationships to avoid async lazy-load 500s in PharmacyOut."""
+    result = await db.execute(
+        select(Pharmacy)
+        .options(
+            selectinload(Pharmacy.accepted_insurances),
+            selectinload(Pharmacy.owner),
+        )
+        .where(Pharmacy.id == pharmacy_id)
+    )
+    pharmacy = result.scalar_one_or_none()
+    if not pharmacy:
+        raise NotFoundError("Pharmacy")
+    return _pharmacy_out(pharmacy)
+
+
 @router.get("/me", response_model=PharmacyOut)
 async def get_my_pharmacy(
     db: AsyncSession = Depends(get_db),
@@ -81,7 +97,7 @@ async def get_my_pharmacy(
     pharmacy = await resolve_user_pharmacy(db, current_user)
     if not pharmacy:
         raise NotFoundError("Pharmacy")
-    return _pharmacy_out(pharmacy)
+    return await _load_pharmacy_out(db, pharmacy.id)
 
 
 @router.patch("/me", response_model=PharmacyOut)
@@ -98,8 +114,7 @@ async def update_my_pharmacy(
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(pharmacy, field, value)
     await db.commit()
-    await db.refresh(pharmacy)
-    return _pharmacy_out(pharmacy)
+    return await _load_pharmacy_out(db, pharmacy.id)
 
 
 @router.get("/", response_model=PaginatedResponse[PharmacyOut])
@@ -183,6 +198,26 @@ async def update_pharmacy(
     await db.commit()
     await db.refresh(pharmacy)
     return pharmacy
+
+
+@router.patch(
+    "/{pharmacy_id}/admin",
+    response_model=PharmacyOut,
+    dependencies=[Depends(require_roles(*_ADMIN_PHARMACY_ROLES))],
+)
+async def admin_update_pharmacy(
+    pharmacy_id: str,
+    data: PharmacyAdminUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Pharmacy).where(Pharmacy.id == pharmacy_id))
+    pharmacy = result.scalar_one_or_none()
+    if not pharmacy:
+        raise NotFoundError("Pharmacy", pharmacy_id)
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(pharmacy, field, value)
+    await db.commit()
+    return await _load_pharmacy_out(db, pharmacy_id)
 
 
 

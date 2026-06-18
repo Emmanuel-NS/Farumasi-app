@@ -1,10 +1,12 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { formatDate } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, FilterTabs, StatCard, Button } from "@/components/ui";
 import { BadgeCheck, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
 import api from "@/lib/api";
+import { pharmaciesService } from "@/lib/services/pharmacies.service";
+import { toast } from "sonner";
 
 interface BackendPharmacy {
   id: string;
@@ -23,15 +25,53 @@ export default function VerificationPage() {
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<FilterStatus>("All");
   const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
     api
       .get<{ items: BackendPharmacy[]; total: number }>("/pharmacies/", { params: { limit: 100, offset: 0 } })
       .then((r) => { setPharmacies(r.data.items); setTotal(r.data.total); })
-      .catch(() => {})
+      .catch(() => toast.error("Failed to load pharmacies"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const approve = async (id: string) => {
+    setActingId(id);
+    try {
+      await pharmaciesService.updatePharmacyAdmin(id, {
+        verification_status: "verified",
+        status: "active",
+      });
+      toast.success("Pharmacy verified");
+      load();
+    } catch {
+      toast.error("Could not approve pharmacy");
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const reject = async (id: string) => {
+    if (!window.confirm("Reject this pharmacy verification?")) return;
+    setActingId(id);
+    try {
+      await pharmaciesService.updatePharmacyAdmin(id, {
+        verification_status: "rejected",
+        status: "inactive",
+      });
+      toast.success("Pharmacy rejected");
+      load();
+    } catch {
+      toast.error("Could not reject pharmacy");
+    } finally {
+      setActingId(null);
+    }
+  };
 
   const filtered = status === "All"
     ? pharmacies
@@ -110,8 +150,22 @@ export default function VerificationPage() {
                 <Td>
                   {(!v.verification_status || v.verification_status === "pending") && (
                     <div className="flex gap-1">
-                      <Button variant="success" size="xs"><CheckCircle2 className="w-3.5 h-3.5" /> Approve</Button>
-                      <Button variant="destructive" size="xs"><XCircle className="w-3.5 h-3.5" /> Reject</Button>
+                      <Button
+                        variant="success"
+                        size="xs"
+                        disabled={actingId === v.id}
+                        onClick={() => void approve(v.id)}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="xs"
+                        disabled={actingId === v.id}
+                        onClick={() => void reject(v.id)}
+                      >
+                        <XCircle className="w-3.5 h-3.5" /> Reject
+                      </Button>
                     </div>
                   )}
                 </Td>

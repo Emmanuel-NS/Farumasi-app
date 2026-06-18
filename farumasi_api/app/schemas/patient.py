@@ -43,6 +43,17 @@ class AddressCreate(FarumasiBaseModel):
     is_default: bool = False
 
 
+class AddressUpdate(FarumasiBaseModel):
+    label: Optional[str] = None
+    line1: Optional[str] = None
+    line2: Optional[str] = None
+    district: Optional[str] = None
+    city: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    is_default: Optional[bool] = None
+
+
 class AddressOut(AddressCreate):
     id: str
     patient_id: str

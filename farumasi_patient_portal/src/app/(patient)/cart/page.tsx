@@ -19,7 +19,8 @@ import {
   type BackendPrescription,
 } from "@/lib/services/prescriptions.service";
 import { productsService } from "@/lib/services/products.service";
-import { patientsService } from "@/lib/services/patients.service";
+import { patientsService, type PatientAddress } from "@/lib/services/patients.service";
+import { configService } from "@/lib/services/config.service";
 import { useAuthStore } from "@/store/auth-store";
 import type { Pharmacy, Medicine } from "@/types";
 import {
@@ -124,6 +125,7 @@ export default function CartPage() {
   const t = useTranslation();
   const searchParams = useSearchParams();
   const rxId = searchParams.get("rx"); // present when coming from a prescription
+  const recId = searchParams.get("rec"); // pharmacy recommendation from store
   const isLocked = !!rxId;             // prescription cart — items are read-only
 
   const STEPS: { key: Step; label: string; icon: React.ReactNode }[] = [
@@ -139,6 +141,8 @@ export default function CartPage() {
   const [fulfillment, setFulfillment]         = useState<"delivery" | "pickup">("delivery");
   const [patientDistrict, setPatientDistrict] = useState("");
   const [patientLocation, setPatientLocation] = useState<[number, number] | null>(null);
+  const [apiDeliveryFee, setApiDeliveryFee] = useState<number | null>(null);
+  const [deliveryUnavailable, setDeliveryUnavailable] = useState<string | null>(null);
   const [locationStatus, setLocationStatus]     = useState<"idle" | "pending" | "granted" | "denied" | "unsupported">("idle");
   const [name, setName]                       = useState("");
   const [phone, setPhone]                     = useState("");
@@ -385,6 +389,38 @@ export default function CartPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOption, patientLocation]);
 
+  // Authoritative delivery fee from API when GPS + pharmacy coordinates are known
+  useEffect(() => {
+    if (fulfillment !== "delivery" || !patientLocation || !selectedOption) {
+      setApiDeliveryFee(null);
+      setDeliveryUnavailable(null);
+      return;
+    }
+    const seller = selectedOption.pharmacy;
+    const fromLat = seller.coordinates[0];
+    const fromLon = seller.coordinates[1];
+    const [toLat, toLon] = patientLocation;
+    let cancelled = false;
+    configService
+      .getDeliveryQuote(fromLat, fromLon, toLat, toLon)
+      .then((q) => {
+        if (cancelled) return;
+        if (!q.delivery_available) {
+          setDeliveryUnavailable(q.pickup_only_reason ?? "Delivery not available to this address");
+          setApiDeliveryFee(null);
+          return;
+        }
+        setDeliveryUnavailable(null);
+        setApiDeliveryFee(q.delivery_fee_rwf);
+      })
+      .catch(() => {
+        if (!cancelled) setApiDeliveryFee(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fulfillment, patientLocation, selectedOption]);
+
   // AI analysis phase animation — plays for ~2.6s when entering pharmacy step.
   // In locked mode we skip the phase visuals (jump to phase 5) but still wait
   // for listingsLoading to finish before revealing results (via pharmaReady effect).
@@ -465,9 +501,11 @@ export default function CartPage() {
       ? 0
       : !patientLocation
         ? null
-        : selectedRoadDistKm > 0
-          ? calcDeliveryFee(selectedRoadDistKm)
-          : 1500;
+        : apiDeliveryFee != null
+          ? apiDeliveryFee
+          : selectedRoadDistKm > 0
+            ? calcDeliveryFee(selectedRoadDistKm)
+            : 1500;
   const deliveryFeeAmount = deliveryFee ?? 0;
   const hasPositiveDeliveryFee = deliveryFeeAmount > 0;
   const medicineFullSubtotal = selectedOption?.priceEstimate ?? subtotal;
@@ -2012,6 +2050,7 @@ export default function CartPage() {
               const isPartnerSeller = seller?.sellerKind === "partner";
               const result = await ordersService.createOrder({
                 prescription_id: rxId ?? undefined,
+                selected_recommendation_id: recId ?? undefined,
                 pharmacy_id: isPartnerSeller ? undefined : seller?.id,
                 partner_company_id: isPartnerSeller ? seller?.id : undefined,
                 delivery_method: fulfillment,

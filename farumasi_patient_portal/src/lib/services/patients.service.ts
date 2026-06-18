@@ -30,4 +30,39 @@ export const patientsService = {
     const { data } = await api.get<PatientAddress[]>("/patients/me/addresses");
     return data;
   },
+
+  async addAddress(payload: {
+    label: string;
+    line1: string;
+    line2?: string;
+    district?: string;
+    city?: string;
+    latitude?: number;
+    longitude?: number;
+    is_default?: boolean;
+  }): Promise<PatientAddress> {
+    const { data } = await api.post<PatientAddress>("/patients/me/addresses", payload);
+    return data;
+  },
+
+  async updateAddress(
+    id: string,
+    payload: Partial<{
+      label: string;
+      line1: string;
+      line2: string;
+      district: string;
+      city: string;
+      latitude: number;
+      longitude: number;
+      is_default: boolean;
+    }>,
+  ): Promise<PatientAddress> {
+    const { data } = await api.patch<PatientAddress>(`/patients/me/addresses/${id}`, payload);
+    return data;
+  },
+
+  async deleteAddress(id: string): Promise<void> {
+    await api.delete(`/patients/me/addresses/${id}`);
+  },
 };

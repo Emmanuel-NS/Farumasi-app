@@ -176,6 +176,12 @@ export default function TrackingMap({
   }, [hasLiveRoute, origin, dest]);
 
   return (
+    <div className="relative">
+      {!hasLiveRoute && (
+        <p className="absolute top-2 left-2 right-2 z-[1000] text-[10px] font-medium text-amber-800 bg-amber-50/95 border border-amber-200 rounded-lg px-2 py-1 text-center">
+          Estimated route — live rider GPS appears when delivery is in progress.
+        </p>
+      )}
     <MapContainer
       center={center}
       zoom={15}
@@ -199,5 +205,6 @@ export default function TrackingMap({
       <Marker position={driverPos} icon={makeDriverIcon()} />
       <FollowDriver pos={driverPos} />
     </MapContainer>
+    </div>
   );
 }

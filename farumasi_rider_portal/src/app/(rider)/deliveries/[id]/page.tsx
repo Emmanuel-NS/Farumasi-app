@@ -1,82 +1,70 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle, QrCode, Phone } from "lucide-react";
-import api from "@/lib/api";
+import {
+  ArrowLeft,
+  Check,
+  CheckCircle,
+  MapPin,
+  Package,
+  Phone,
+  QrCode,
+  Store,
+  Timer,
+} from "lucide-react";
+import { riderService, type RiderDelivery } from "@/lib/services/rider.service";
+import { RiderBottomNav } from "../page";
 
-interface DeliveryDetail {
-  id: string;
-  status: string;
-  created_at: string;
-  order?: {
-    id: string;
-    order_code?: string;
-    delivery_address?: string;
-    delivery_notes?: string;
-    items?: { id: string; medication_name?: string; quantity: number }[];
-    patient?: { full_name?: string; phone?: string };
-    pharmacy?: { name?: string; address?: string };
-  };
+const STEPS = [
+  { key: "pickup", label: "Go to\nPharmacy", statuses: ["assigned", "accepted", "going_to_pickup"] },
+  { key: "collect", label: "Pick Up\nOrder", statuses: ["arrived_at_pickup", "picked_up"] },
+  { key: "deliver", label: "Deliver to\nPatient", statuses: ["out_for_delivery", "arrived_at_destination"] },
+  { key: "qr", label: "Scan QR\nCode", statuses: ["qr_pending"] },
+];
+
+const NEXT: Record<string, { action: "accept" | "status"; status?: string; label: string }> = {
+  assigned: { action: "accept", label: "Accept delivery" },
+  accepted: { action: "status", status: "going_to_pickup", label: "Start going to pharmacy" },
+  going_to_pickup: { action: "status", status: "arrived_at_pickup", label: "Arrived at pharmacy" },
+  arrived_at_pickup: { action: "status", status: "picked_up", label: "Order picked up" },
+  picked_up: { action: "status", status: "out_for_delivery", label: "Out for delivery" },
+  out_for_delivery: { action: "status", status: "arrived_at_destination", label: "Arrived at patient" },
+  arrived_at_destination: { action: "status", status: "qr_pending", label: "Ready for QR scan" },
+};
+
+function stepIndex(status: string): number {
+  for (let i = 0; i < STEPS.length; i++) {
+    if (STEPS[i].statuses.includes(status)) return i;
+  }
+  if (status === "delivered") return STEPS.length;
+  return 0;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  pending_assignment: "Pending Assignment",
-  assigned: "Assigned",
-  accepted: "Accepted",
-  going_to_pickup: "Going to Pickup",
-  arrived_at_pickup: "Arrived at Pickup",
-  picked_up: "Picked Up",
-  out_for_delivery: "Out for Delivery",
-  arrived_at_destination: "At Destination",
-  qr_pending: "Awaiting QR Scan",
-  delivered: "Delivered",
-  failed: "Failed",
-  cancelled: "Cancelled",
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  pending_assignment: "bg-yellow-100 text-yellow-800",
-  assigned: "bg-blue-100 text-blue-800",
-  accepted: "bg-blue-100 text-blue-800",
-  going_to_pickup: "bg-indigo-100 text-indigo-800",
-  arrived_at_pickup: "bg-indigo-100 text-indigo-800",
-  picked_up: "bg-purple-100 text-purple-800",
-  out_for_delivery: "bg-orange-100 text-orange-800",
-  arrived_at_destination: "bg-orange-100 text-orange-800",
-  qr_pending: "bg-pink-100 text-pink-800",
-  delivered: "bg-green-100 text-green-800",
-  failed: "bg-red-100 text-red-800",
-  cancelled: "bg-slate-100 text-slate-600",
-};
-
-// Maps current status → next button action
-const NEXT_STATUS: Record<string, { status: string; label: string }> = {
-  assigned: { status: "accept", label: "Accept Delivery" },
-  accepted: { status: "going_to_pickup", label: "Going to Pickup" },
-  going_to_pickup: { status: "arrived_at_pickup", label: "Arrived at Pickup" },
-  arrived_at_pickup: { status: "picked_up", label: "Picked Up" },
-  picked_up: { status: "out_for_delivery", label: "Out for Delivery" },
-  out_for_delivery: { status: "arrived_at_destination", label: "Arrived at Destination" },
-  arrived_at_destination: { status: "qr_pending", label: "Request QR Scan" },
-};
-
-const TERMINAL = new Set(["delivered", "failed", "cancelled", "pending_assignment"]);
+function elapsedLabel(from?: string | null): string {
+  if (!from) return "—";
+  const ms = Date.now() - new Date(from).getTime();
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m % 60}m`;
+  return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
 
 export default function DeliveryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [delivery, setDelivery] = useState<DeliveryDetail | null>(null);
+  const [delivery, setDelivery] = useState<RiderDelivery | null>(null);
   const [loading, setLoading] = useState(true);
-  const [advancing, setAdvancing] = useState(false);
+  const [acting, setActing] = useState(false);
   const [qrToken, setQrToken] = useState("");
-  const [confirmingQr, setConfirmingQr] = useState(false);
+  const [tick, setTick] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get(`/deliveries/${id}`);
+      const data = await riderService.getDelivery(id);
       setDelivery(data);
     } catch {
       toast.error("Failed to load delivery");
@@ -86,50 +74,60 @@ export default function DeliveryDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
+
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const currentStep = useMemo(
+    () => (delivery ? stepIndex(delivery.status) : 0),
+    [delivery, tick],
+  );
 
   async function advance() {
     if (!delivery) return;
-    const next = NEXT_STATUS[delivery.status];
+    const next = NEXT[delivery.status];
     if (!next) return;
-    setAdvancing(true);
+    setActing(true);
     try {
-      if (next.status === "accept") {
-        await api.patch(`/deliveries/${id}/accept`);
-      } else {
-        await api.patch(`/deliveries/${id}/status`, { status: next.status });
+      if (next.action === "accept") {
+        await riderService.acceptDelivery(id);
+      } else if (next.status) {
+        await riderService.updateStatus(id, next.status);
       }
-      toast.success("Status updated");
+      toast.success("Updated");
       await load();
     } catch {
-      toast.error("Failed to update status");
+      toast.error("Could not update delivery");
     } finally {
-      setAdvancing(false);
+      setActing(false);
     }
   }
 
   async function confirmQr() {
     if (!qrToken.trim()) {
-      toast.error("Enter the QR token");
+      toast.error("Enter the QR token from the patient");
       return;
     }
-    setConfirmingQr(true);
+    setActing(true);
     try {
-      await api.post(`/deliveries/${id}/confirm-qr`, { qr_token: qrToken.trim() });
-      toast.success("Delivery confirmed!");
+      await riderService.confirmQr(id, qrToken.trim());
+      toast.success("Delivery completed!");
       setQrToken("");
       await load();
     } catch {
       toast.error("QR confirmation failed");
     } finally {
-      setConfirmingQr(false);
+      setActing(false);
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#F6F8F7]">
         <p className="text-slate-400 text-sm">Loading…</p>
       </div>
     );
@@ -137,165 +135,191 @@ export default function DeliveryDetailPage() {
 
   if (!delivery) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <p className="text-slate-500 text-sm">Delivery not found.</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#F6F8F7] p-4">
+        <p className="text-slate-500">Delivery not found.</p>
       </div>
     );
   }
 
-  const next = NEXT_STATUS[delivery.status];
-  const isTerminal = TERMINAL.has(delivery.status);
-  const isQrPending = delivery.status === "qr_pending";
+  const next = NEXT[delivery.status];
+  const isDone = delivery.status === "delivered";
+  const isQr = delivery.status === "qr_pending";
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-farumasi-600 text-white px-4 py-4 flex items-center gap-3">
-        <button onClick={() => router.back()} className="p-1 rounded-full hover:bg-farumasi-700 transition">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="font-bold text-base leading-tight">
-            {delivery.order?.order_code ?? delivery.id.slice(0, 8)}
-          </h1>
-          <p className="text-xs text-farumasi-100">Delivery detail</p>
+    <div className="min-h-screen bg-[#F6F8F7] pb-32">
+      <header className="bg-white border-b border-slate-100 sticky top-0 z-10">
+        <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
+          <button type="button" onClick={() => router.back()} className="p-2 -ml-2 rounded-lg hover:bg-slate-50">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-bold text-slate-900 truncate">
+              {delivery.order?.order_code ?? delivery.order_id.slice(0, 8)}
+            </h1>
+            <p className="text-xs text-farumasi-600 font-medium capitalize">
+              {delivery.status.replace(/_/g, " ")}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 bg-farumasi-50 text-farumasi-700 px-2.5 py-1 rounded-full text-xs font-bold">
+            <Timer className="w-3.5 h-3.5" />
+            {elapsedLabel(delivery.accepted_at ?? delivery.created_at)}
+          </div>
         </div>
-        <span
-          className={`ml-auto text-xs font-semibold px-2.5 py-1 rounded-full ${
-            STATUS_COLOR[delivery.status] ?? "bg-white/20 text-white"
-          }`}
-        >
-          {STATUS_LABEL[delivery.status] ?? delivery.status}
-        </span>
       </header>
 
-      <div className="p-4 max-w-lg mx-auto space-y-4">
-        {/* Customer */}
+      <div className="max-w-lg mx-auto p-4 space-y-4">
+        {/* Step progress — mirrors Flutter rider UI */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div className="flex items-start">
+            {STEPS.map((step, i) => {
+              const done = i < currentStep;
+              const current = i === currentStep && !isDone;
+              return (
+                <div key={step.key} className="flex flex-1 items-start">
+                  <div className="flex flex-col items-center flex-1">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition ${
+                        done
+                          ? "bg-farumasi-600 border-farumasi-600 text-white"
+                          : current
+                            ? "bg-farumasi-50 border-farumasi-600 text-farumasi-600"
+                            : "bg-slate-50 border-slate-200 text-slate-300"
+                      }`}
+                    >
+                      {done ? <Check className="w-5 h-5" /> : <span className="text-xs font-bold">{i + 1}</span>}
+                    </div>
+                    <p
+                      className={`text-[10px] text-center mt-2 leading-tight whitespace-pre-line ${
+                        current || done ? "text-farumasi-700 font-semibold" : "text-slate-400"
+                      }`}
+                    >
+                      {step.label}
+                    </p>
+                  </div>
+                  {i < STEPS.length - 1 && (
+                    <div
+                      className={`h-0.5 flex-1 mt-5 mx-1 rounded ${
+                        i < currentStep ? "bg-farumasi-600" : "bg-slate-200"
+                      }`}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {delivery.order?.pharmacy && (
+          <Card title="Pickup from" icon={Store}>
+            <p className="font-semibold text-slate-900">{delivery.order.pharmacy.name}</p>
+            {delivery.pickup_address && (
+              <p className="text-sm text-slate-500 mt-1 flex gap-1">
+                <MapPin className="w-4 h-4 shrink-0" />
+                {delivery.pickup_address}
+              </p>
+            )}
+          </Card>
+        )}
+
         {delivery.order?.patient && (
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-2">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-              Customer
-            </h2>
-            <p className="font-semibold text-slate-800">
-              {delivery.order.patient.full_name ?? "—"}
-            </p>
+          <Card title="Deliver to" icon={Package}>
+            <p className="font-semibold text-slate-900">{delivery.order.patient.full_name}</p>
             {delivery.order.patient.phone && (
               <a
                 href={`tel:${delivery.order.patient.phone}`}
-                className="inline-flex items-center gap-1.5 text-farumasi-600 text-sm font-medium"
+                className="inline-flex items-center gap-1.5 text-farumasi-600 text-sm font-medium mt-2"
               >
-                <Phone className="w-3.5 h-3.5" />
+                <Phone className="w-4 h-4" />
                 {delivery.order.patient.phone}
               </a>
             )}
-            {delivery.order.delivery_address && (
-              <p className="text-sm text-slate-500 mt-1">
-                📍 {delivery.order.delivery_address}
-              </p>
-            )}
-            {delivery.order.delivery_notes && (
-              <p className="text-xs text-slate-400 italic">
-                Note: {delivery.order.delivery_notes}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Pickup pharmacy */}
-        {delivery.order?.pharmacy && (
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-1">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-              Pickup From
-            </h2>
-            <p className="font-semibold text-slate-800">
-              {delivery.order.pharmacy.name ?? "Pharmacy"}
+            <p className="text-sm text-slate-500 mt-2 flex gap-1">
+              <MapPin className="w-4 h-4 shrink-0" />
+              {delivery.destination_address ?? delivery.order.delivery_address ?? "—"}
             </p>
-            {delivery.order.pharmacy.address && (
-              <p className="text-sm text-slate-500">
-                📍 {delivery.order.pharmacy.address}
-              </p>
-            )}
-          </div>
+          </Card>
         )}
 
-        {/* Order items */}
         {delivery.order?.items && delivery.order.items.length > 0 && (
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-2">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-              Items
-            </h2>
-            <ul className="space-y-1.5">
+          <Card title="Items" icon={Package}>
+            <ul className="space-y-2">
               {delivery.order.items.map((item) => (
-                <li key={item.id} className="flex justify-between text-sm text-slate-700">
-                  <span>{item.medication_name ?? item.id.slice(0, 8)}</span>
+                <li key={item.id} className="flex justify-between text-sm">
+                  <span>{item.medication_name ?? item.product_name ?? "Item"}</span>
                   <span className="text-slate-400">×{item.quantity}</span>
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         )}
 
-        {/* Status action */}
-        {!isTerminal && (
-          <div className="space-y-3">
-            {/* Advance button */}
-            {next && (
-              <button
-                onClick={advance}
-                disabled={advancing}
-                className="w-full py-3 bg-farumasi-600 hover:bg-farumasi-700 text-white font-semibold rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <CheckCircle className="w-4 h-4" />
-                {advancing ? "Updating…" : next.label}
-              </button>
-            )}
-
-            {/* QR confirm panel */}
-            {isQrPending && (
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-3">
-                <div className="flex items-center gap-2">
-                  <QrCode className="w-5 h-5 text-farumasi-600" />
-                  <h2 className="font-semibold text-slate-800 text-sm">
-                    Confirm Delivery by QR
-                  </h2>
-                </div>
-                <p className="text-xs text-slate-400">
-                  Ask the customer to show their QR code and enter the token below.
-                </p>
-                <input
-                  type="text"
-                  value={qrToken}
-                  onChange={(e) => setQrToken(e.target.value)}
-                  placeholder="QR token"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-500"
-                />
-                <button
-                  onClick={confirmQr}
-                  disabled={confirmingQr}
-                  className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg text-sm transition disabled:opacity-50"
-                >
-                  {confirmingQr ? "Confirming…" : "Confirm Delivery"}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Terminal state banner */}
-        {isTerminal && (
-          <div
-            className={`rounded-xl p-4 text-center text-sm font-semibold ${
-              delivery.status === "delivered"
-                ? "bg-green-50 text-green-700 border border-green-200"
-                : "bg-slate-100 text-slate-500"
-            }`}
-          >
-            {delivery.status === "delivered"
-              ? "✓ Delivery completed"
-              : `Delivery ${STATUS_LABEL[delivery.status] ?? delivery.status}`}
+        {isDone && (
+          <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-center text-emerald-800 font-semibold">
+            Delivery completed successfully
           </div>
         )}
       </div>
+
+      {!isDone && (
+        <div className="fixed bottom-16 left-0 right-0 p-4 bg-gradient-to-t from-[#F6F8F7] via-[#F6F8F7] to-transparent">
+          <div className="max-w-lg mx-auto space-y-3">
+            {isQr ? (
+              <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-lg space-y-3">
+                <div className="flex items-center gap-2 text-slate-800 font-semibold text-sm">
+                  <QrCode className="w-5 h-5 text-farumasi-600" />
+                  Confirm with patient QR
+                </div>
+                <input
+                  value={qrToken}
+                  onChange={(e) => setQrToken(e.target.value)}
+                  placeholder="Paste QR token"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm"
+                />
+                <button
+                  type="button"
+                  disabled={acting}
+                  onClick={() => void confirmQr()}
+                  className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl disabled:opacity-50"
+                >
+                  {acting ? "Confirming…" : "Complete delivery"}
+                </button>
+              </div>
+            ) : next ? (
+              <button
+                type="button"
+                disabled={acting}
+                onClick={() => void advance()}
+                className="w-full py-3.5 bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <CheckCircle className="w-5 h-5" />
+                {acting ? "Updating…" : next.label}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      <RiderBottomNav />
+    </div>
+  );
+}
+
+function Card({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+        <Icon className="w-4 h-4" />
+        {title}
+      </div>
+      {children}
     </div>
   );
 }

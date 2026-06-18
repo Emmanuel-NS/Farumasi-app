@@ -42,6 +42,14 @@ class PharmacyUpdate(BaseModel):
     accepts_delivery: Optional[bool] = None
 
 
+class PharmacyAdminUpdate(PharmacyUpdate):
+    """Fields platform admins may set on any pharmacy."""
+
+    verification_status: Optional[str] = None
+    status: Optional[str] = None
+    commission_rate_percent: Optional[float] = None
+
+
 class PharmacyOwnerBrief(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str

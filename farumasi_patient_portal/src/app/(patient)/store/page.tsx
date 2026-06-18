@@ -263,20 +263,12 @@ function StorePageInner() {
       toast.error("This recommendation is no longer valid. Please reload.");
       return;
     }
-    setOrderingRecId(rec.id);
-    try {
-      const order = await ordersService.createFromRecommendation({
-        prescriptionId,
-        recommendationId: rec.id,
-        deliveryMethod: "delivery",
-      });
-      toast.success(`Order placed with ${rec.providerName}`);
-      router.push(`/orders/${order.id}`);
-    } catch {
-      toast.error("Could not create order. The recommendation may have expired.");
-    } finally {
-      setOrderingRecId(null);
-    }
+    toast.info("Complete checkout and payment on the next screen.");
+    const seller = rec.providerId;
+    const kind = rec.providerKind ?? "pharmacy";
+    router.push(
+      `/cart?rx=${encodeURIComponent(prescriptionId)}&rec=${encodeURIComponent(rec.id)}&seller=${encodeURIComponent(seller)}&sellerKind=${kind}`,
+    );
   }
 
   // ── Search from topbar via Zustand — mirrors Flutter StateService searchQuery ──

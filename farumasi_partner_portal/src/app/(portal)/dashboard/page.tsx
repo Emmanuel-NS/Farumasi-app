@@ -28,6 +28,7 @@ import type { ChartDataPoint } from "@/types";
 import type { OrderStatus, ProductStatus } from "@/types";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
+import api from "@/lib/api";
 import { StoreOpenToggle } from "@/components/shared/store-open-toggle";
 
 const LOW_THRESHOLD = 10;
@@ -64,10 +65,20 @@ export default function DashboardPage() {
   const [revenueSummary, setRevenueSummary] = useState<BackendRevenueSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [partnerProfile, setPartnerProfile] = useState<BackendPartnerCompany | null>(null);
+  const [pharmacyProfile, setPharmacyProfile] = useState<{ verification_status?: string; status?: string } | null>(null);
 
   useEffect(() => {
-    if (user?.role !== "partner_company_admin") return;
-    partnerService.getMine().then(setPartnerProfile).catch(() => setPartnerProfile(null));
+    if (user?.role === "partner_company_admin") {
+      partnerService.getMine().then(setPartnerProfile).catch(() => setPartnerProfile(null));
+      setPharmacyProfile(null);
+      return;
+    }
+    if (user?.role === "pharmacy_admin" || user?.role === "pharmacist") {
+      api.get<{ verification_status?: string; status?: string }>("/pharmacies/me")
+        .then((r) => setPharmacyProfile(r.data))
+        .catch(() => setPharmacyProfile(null));
+      setPartnerProfile(null);
+    }
   }, [user?.role]);
 
   // Initial load: listings, revenue summary (not range-dependent)
@@ -177,9 +188,10 @@ export default function DashboardPage() {
     .filter(l => { const s = uiStatus(l); return s === "low_stock" || s === "out_of_stock"; })
     .slice(0, 4);
 
+  const sellerProfile = partnerProfile ?? pharmacyProfile;
   const pendingApproval =
-    partnerProfile &&
-    (partnerProfile.verification_status !== "verified" || partnerProfile.status !== "active");
+    sellerProfile &&
+    (sellerProfile.verification_status !== "verified" || sellerProfile.status !== "active");
 
   return (
     <div className="space-y-6">

@@ -422,6 +422,14 @@ class ProductService:
             )
         # 2. validate ownership
         await self._assert_listing_owner_for_create(actor, data.pharmacy_id, data.partner_company_id)
+        from app.services.seller_verification import assert_seller_verified_for_mutation
+
+        await assert_seller_verified_for_mutation(
+            self.db,
+            actor=actor,
+            pharmacy_id=data.pharmacy_id,
+            partner_company_id=data.partner_company_id,
+        )
         # 3. validate approved product
         product = await self._get_product_or_404(data.product_id)
         if product.approval_status != ProductApprovalStatus.APPROVED:

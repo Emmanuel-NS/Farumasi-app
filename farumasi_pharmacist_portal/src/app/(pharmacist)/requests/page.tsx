@@ -315,11 +315,13 @@ export default function RequestsPage() {
                           {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
                           Reject
                         </button>
-                        <button onClick={() => handleAction(rx.id, "clarification_needed")} disabled={isActing}
-                          className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-farumasi-600 text-white hover:bg-farumasi-700 disabled:opacity-50 transition-colors">
-                          {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                          Accept
-                        </button>
+                        <Link
+                          href={`/requests/${rx.id}`}
+                          className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-farumasi-600 text-white hover:bg-farumasi-700 transition-colors"
+                        >
+                          <Check className="w-3 h-3" />
+                          Review
+                        </Link>
                       </>
                     )}
 

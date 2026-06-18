@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.models.patient import PatientProfile, Address
-from app.schemas.patient import PatientProfileOut, PatientProfileUpdate, AddressCreate, AddressOut
+from app.schemas.patient import PatientProfileOut, PatientProfileUpdate, AddressCreate, AddressUpdate, AddressOut
 from app.schemas.common import PaginatedResponse
 from app.core.exceptions import NotFoundError
 
@@ -81,6 +81,55 @@ async def list_addresses(
     patient = await _get_patient(current_user.id, db)
     result = await db.execute(select(Address).where(Address.patient_id == patient.id))
     return list(result.scalars().all())
+
+
+@router.patch("/me/addresses/{address_id}", response_model=AddressOut)
+async def update_address(
+    address_id: str,
+    data: AddressUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    patient = await _get_patient(current_user.id, db)
+    result = await db.execute(
+        select(Address).where(Address.id == address_id, Address.patient_id == patient.id)
+    )
+    address = result.scalar_one_or_none()
+    if not address:
+        raise NotFoundError("Address")
+    patch = data.model_dump(exclude_unset=True)
+    if patch.get("is_default"):
+        existing = await db.execute(
+            select(Address).where(Address.patient_id == patient.id, Address.is_default == True)
+        )
+        for addr in existing.scalars():
+            addr.is_default = False
+    for field, value in patch.items():
+        setattr(address, field, value)
+    if patch.get("is_default"):
+        patient.default_address_id = address.id
+    await db.commit()
+    await db.refresh(address)
+    return address
+
+
+@router.delete("/me/addresses/{address_id}", status_code=204)
+async def delete_address(
+    address_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    patient = await _get_patient(current_user.id, db)
+    result = await db.execute(
+        select(Address).where(Address.id == address_id, Address.patient_id == patient.id)
+    )
+    address = result.scalar_one_or_none()
+    if not address:
+        raise NotFoundError("Address")
+    if patient.default_address_id == address.id:
+        patient.default_address_id = None
+    await db.delete(address)
+    await db.commit()
 
 
 # ── Prescriptions (Phase 4) ──────────────────────────────────────────────

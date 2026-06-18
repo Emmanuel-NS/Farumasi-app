@@ -7,6 +7,17 @@ import { authService } from "@/lib/services/auth.service";
 import { PortalShell } from "@/components/layout/PortalShell";
 import { PortalLoadingShell } from "@/components/layout/portal-loading-shell";
 
+const ADMIN_ROLES = new Set([
+  "super_admin",
+  "finance_admin",
+  "operations_admin",
+  "compliance_admin",
+]);
+
+function isAdminRole(role: string | undefined): boolean {
+  return !!role && ADMIN_ROLES.has(role);
+}
+
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
@@ -35,7 +46,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         return;
       }
 
-      if (user?.role === "super_admin" && !cancelled) {
+      if (isAdminRole(user?.role) && !cancelled) {
         setReady(true);
       }
 
@@ -43,7 +54,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         let current = user;
         if (!current) {
           const me = await authService.getMe();
-          if (me.role !== "super_admin") {
+          if (!isAdminRole(me.role)) {
             logout();
             router.replace("/login");
             return;
@@ -55,7 +66,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             role: me.role,
           });
           current = { id: me.id, email: me.email, full_name: me.full_name, role: me.role };
-        } else if (current.role !== "super_admin") {
+        } else if (!isAdminRole(current.role)) {
           logout();
           router.replace("/login");
           return;

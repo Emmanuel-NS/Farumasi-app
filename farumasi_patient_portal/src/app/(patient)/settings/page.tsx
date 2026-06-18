@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { usePinStore } from "@/store/pin-store";
 import { getApiError } from "@/lib/api-error";
+import { patientsService, type PatientAddress } from "@/lib/services/patients.service";
 import {
   notificationPermissionState,
   queryGeolocationPermission,
@@ -30,7 +31,7 @@ import {
   type PermissionState,
 } from "@/lib/permissions";
 
-type Section = "notifications" | "permissions" | "security" | "data" | "preferences" | "about";
+type Section = "notifications" | "permissions" | "addresses" | "security" | "data" | "preferences" | "about";
 
 const LANG_OPTIONS: { code: LangCode; native: string }[] = [
   { code: "en", native: "English"     },
@@ -278,6 +279,22 @@ export default function SettingsPage() {
         </AccordionSection>
 
         <AccordionSection
+          open={open === "addresses"}
+          onToggle={() => toggle("addresses")}
+          icon={MapPin}
+          title="Delivery addresses"
+          subtitle="Saved addresses for checkout and pharmacy matching"
+        >
+          <div className="pt-4">
+            {isGuest ? (
+              <GuestRow message="Sign in to save delivery addresses." />
+            ) : (
+              <DeliveryAddressesManager />
+            )}
+          </div>
+        </AccordionSection>
+
+        <AccordionSection
           open={open === "security"}
           onToggle={() => toggle("security")}
           icon={Shield}
@@ -455,7 +472,186 @@ export default function SettingsPage() {
   );
 }
 
-// â”€â”€ Subcomponents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Subcomponents ────────────────────────────────────────────────────────────
+function DeliveryAddressesManager() {
+  const [addresses, setAddresses] = useState<PatientAddress[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [label, setLabel] = useState("Home");
+  const [line1, setLine1] = useState("");
+  const [district, setDistrict] = useState("");
+  const [line2, setLine2] = useState("");
+
+  const load = useCallback(() => {
+    setLoading(true);
+    patientsService
+      .listAddresses()
+      .then(setAddresses)
+      .catch(() => toast.error("Could not load addresses"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function saveAddress(e: React.FormEvent) {
+    e.preventDefault();
+    if (!line1.trim()) {
+      toast.error("Enter a street address");
+      return;
+    }
+    setSaving(true);
+    try {
+      await patientsService.addAddress({
+        label: label.trim() || "Home",
+        line1: line1.trim(),
+        line2: line2.trim() || undefined,
+        district: district.trim() || undefined,
+        is_default: addresses.length === 0,
+      });
+      toast.success("Address saved");
+      setFormOpen(false);
+      setLine1("");
+      setLine2("");
+      setDistrict("");
+      load();
+    } catch (err) {
+      toast.error(getApiError(err, "Could not save address"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setDefault(id: string) {
+    try {
+      await patientsService.updateAddress(id, { is_default: true });
+      toast.success("Default address updated");
+      load();
+    } catch (err) {
+      toast.error(getApiError(err, "Could not update address"));
+    }
+  }
+
+  async function removeAddress(id: string) {
+    if (!window.confirm("Remove this address?")) return;
+    try {
+      await patientsService.deleteAddress(id);
+      toast.success("Address removed");
+      load();
+    } catch (err) {
+      toast.error(getApiError(err, "Could not remove address"));
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
+        <Loader2 className="w-4 h-4 animate-spin" /> Loading addresses…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {addresses.length === 0 && !formOpen && (
+        <p className="text-sm text-slate-500">No saved addresses yet. Add one for faster checkout.</p>
+      )}
+      {addresses.map((a) => (
+        <div key={a.id} className="rounded-2xl border border-slate-100 p-3 flex gap-3 items-start">
+          <MapPin className="w-4 h-4 text-farumasi-600 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-slate-900">
+              {a.label}
+              {a.is_default && (
+                <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-farumasi-600 bg-farumasi-50 px-1.5 py-0.5 rounded">
+                  Default
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-slate-600 mt-0.5">{a.line1}</p>
+            {(a.district || a.line2) && (
+              <p className="text-xs text-slate-400">{[a.line2, a.district].filter(Boolean).join(" · ")}</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1 shrink-0">
+            {!a.is_default && (
+              <button
+                type="button"
+                onClick={() => void setDefault(a.id)}
+                className="text-[10px] font-semibold text-farumasi-600 hover:text-farumasi-700"
+              >
+                Set default
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void removeAddress(a.id)}
+              className="text-[10px] font-semibold text-red-600 hover:text-red-700"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ))}
+      {formOpen ? (
+        <form onSubmit={(e) => void saveAddress(e)} className="space-y-2 rounded-2xl border border-farumasi-100 bg-farumasi-50/40 p-3">
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Label (e.g. Home)"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          />
+          <input
+            value={line1}
+            onChange={(e) => setLine1(e.target.value)}
+            placeholder="Street address"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+            required
+          />
+          <input
+            value={district}
+            onChange={(e) => setDistrict(e.target.value)}
+            placeholder="District"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          />
+          <input
+            value={line2}
+            onChange={(e) => setLine2(e.target.value)}
+            placeholder="Landmark / notes (optional)"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          />
+          <div className="flex gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 rounded-xl bg-farumasi-600 text-white text-sm font-bold py-2 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save address"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormOpen(false)}
+              className="rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setFormOpen(true)}
+          className="text-sm font-semibold text-farumasi-600 hover:text-farumasi-700"
+        >
+          + Add address
+        </button>
+      )}
+    </div>
+  );
+}
+
 function AccordionSection({
   open, onToggle, icon: Icon, title, subtitle, children, rightAccessory,
 }: {
