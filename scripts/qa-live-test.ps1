@@ -42,7 +42,7 @@ function TryTest($id, $area, $test, [scriptblock]$block) {
 }
 
 # --- PUBLIC / GUEST ---
-TryTest "G01" "Guest" "API health" { (Invoke-RestMethod "$base/../health").status }
+TryTest "G01" "Guest" "API health" { (Invoke-RestMethod "https://farumasi-app.onrender.com/health").status }
 TryTest "G02" "Guest" "Browse products (store)" { $p = Invoke-RestMethod "$base/products/?limit=5&only_with_listings=true"; "count=$($p.total)" }
 TryTest "G03" "Guest" "Browse listings" { $l = Invoke-RestMethod "$base/listings/?limit=5"; "count=$($l.total)" }
 TryTest "G04" "Guest" "Browse open pharmacies" { $ph = Invoke-RestMethod "$base/pharmacies/?open_only=true&limit=10"; "count=$($ph.total)" }
@@ -98,7 +98,7 @@ if ($tokens.pharmacist) {
   TryTest "PH06" "Pharmacist" "Health articles (manage)" { $a = ApiGet "/articles/?limit=5" $ph; "total=$($a.total)" }
   TryTest "PH07" "Pharmacist" "Product requests queue" { $pr = ApiGet "/product-requests/?limit=10" $ph; "total=$($pr.total)" }
   TryTest "PH08" "Pharmacist" "Consultations" { $c = ApiGet "/consultations/" $ph; "total=$($c.total)" }
-  TryTest "PH09" "Pharmacist" "Toggle availability" { $r = ApiPatch "/pharmacists/me/availability" $ph @{ is_available = $true }; "available=$($r.is_available)" }
+  TryTest "PH09" "Pharmacist" "Toggle availability" { $r = ApiPatch "/pharmacists/me/availability" $ph @{ availability_status = "available" }; "status=$($r.availability_status)" }
 }
 
 # --- PHARMACY ADMIN (partner portal) ---
@@ -130,7 +130,7 @@ if ($tokens.admin) {
   TryTest "SA05" "Super Admin" "Partner applications queue" { $p = ApiGet "/partners/?applications_only=true&limit=10" $ad; "pending=$($p.total)" }
   TryTest "SA06" "Super Admin" "All orders" { $o = ApiGet "/orders/?limit=10" $ad; "total=$($o.total)" }
   TryTest "SA07" "Super Admin" "Prescriptions admin" { $rx = ApiGet "/prescriptions/?limit=10" $ad; "total=$($rx.total)" }
-  TryTest "SA08" "Super Admin" "Audit logs" { $a = ApiGet "/admin/audit-logs/?limit=5" $ad; "total=$($a.total)" }
+  TryTest "SA08" "Super Admin" "Audit logs" { $a = ApiGet "/admin/audit-logs?limit=5" $ad; "total=$($a.total)" }
   TryTest "SA09" "Super Admin" "Admin analytics" { $an = ApiGet "/analytics/admin" $ad; "orders=$($an.total_orders)" }
   TryTest "SA10" "Super Admin" "Withdrawals (pending)" { $w = ApiGet "/withdrawals/?limit=10" $ad; "total=$($w.total)" }
 }
@@ -143,16 +143,16 @@ if ($tokens.operations) {
   TryTest "OA01" "Ops Admin" "View all orders" { $o = ApiGet "/orders/?limit=5" $tokens.operations; "total=$($o.total)" }
 }
 if ($tokens.compliance) {
-  TryTest "CA01" "Compliance Admin" "View audit logs" { $a = ApiGet "/admin/audit-logs/?limit=5" $tokens.compliance; "total=$($a.total)" }
+  TryTest "CA01" "Compliance Admin" "View audit logs" { $a = ApiGet "/admin/audit-logs?limit=5" $tokens.compliance; "total=$($a.total)" }
 }
 
 # --- RIDER ---
 if ($tokens.rider) {
   $rd = $tokens.rider
   TryTest "R01" "Rider" "Rider profile" { $m = ApiGet "/riders/me" $rd; $m.vehicle_type }
-  TryTest "R02" "Rider" "My deliveries" { $d = ApiGet "/deliveries/?limit=10" $rd; "total=$($d.total)" }
-  TryTest "R03" "Rider" "Toggle availability" { $r = ApiPatch "/riders/me/availability" $rd @{ is_available = $true }; "available=$($r.is_available)" }
-  TryTest "R04" "Rider" "Earnings summary" { $e = ApiGet "/riders/me/earnings/summary" $rd; "total=$($e.total_earnings)" }
+  TryTest "R02" "Rider" "My deliveries" { $d = ApiGet "/riders/me/deliveries" $rd; "count=$($d.Count)" }
+  TryTest "R03" "Rider" "Toggle availability" { $r = ApiPatch "/riders/me/availability" $rd @{ availability_status = "online" }; "status=$($r.availability_status)" }
+  TryTest "R04" "Rider" "Earnings summary" { $e = ApiGet "/riders/me/earnings" $rd; "total=$($e.total_earnings)" }
 }
 
 # --- DOCTOR ---
