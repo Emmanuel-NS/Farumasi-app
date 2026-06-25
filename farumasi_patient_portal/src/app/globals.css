@@ -102,7 +102,8 @@ html {
 
 html.dark {
   color-scheme: dark;
-  --app-bg: #0b1120;
+  --app-bg: #1a2f29;
+  --app-nav-shell: #1a2f29;
   --app-surface: #1e293b;
   --app-surface-raised: #243044;
   --app-text: #f1f5f9;
@@ -114,84 +115,105 @@ html.dark {
   --color-surface-card: #1e293b;
 }
 
-/* ── Dark mode: common surface & text overrides ─────────────────────── */
-html.dark .bg-white { background-color: var(--app-surface) !important; }
-html.dark .bg-slate-50 { background-color: #1e293b !important; }
-html.dark .bg-slate-100 { background-color: #334155 !important; }
-html.dark .bg-\[\#F6F8FB\] { background-color: var(--app-main-bg) !important; }
-html.dark .bg-\[\#F9FAFB\] { background-color: var(--app-main-bg) !important; }
-html.dark .bg-\[\#F0F4F8\] { background-color: #0f172a !important; }
-html.dark .bg-\[\#F3F4F6\] { background-color: #1e293b !important; }
-html.dark .bg-\[\#F1F5F9\] { background-color: #334155 !important; }
+/* Light = brand green frame; dark = deep pine that pairs with the main pane */
+.patient-nav-shell {
+  background-color: #1e9e68;
+}
+html.dark .patient-nav-shell {
+  background-color: var(--app-nav-shell);
+}
 
-html.dark .text-slate-900,
-html.dark .text-\[\#0F172A\] { color: #f1f5f9 !important; }
-html.dark .text-slate-800 { color: #e2e8f0 !important; }
-html.dark .text-slate-700 { color: #cbd5e1 !important; }
-html.dark .text-slate-600,
-html.dark .text-slate-500 { color: #94a3b8 !important; }
-html.dark .text-slate-400 { color: #64748b !important; }
-html.dark .text-\[\#374151\] { color: #cbd5e1 !important; }
+/* ── Dark mode: content pane only (keeps green nav + white search bar) ─ */
+html.dark .patient-main-pane .bg-white { background-color: var(--app-surface) !important; }
+html.dark .patient-main-pane .bg-slate-50 { background-color: #1e293b !important; }
+html.dark .patient-main-pane .bg-slate-100 { background-color: #334155 !important; }
+html.dark .patient-main-pane .bg-\[\#F6F8FB\] { background-color: var(--app-main-bg) !important; }
+html.dark .patient-main-pane .bg-\[\#F9FAFB\] { background-color: var(--app-main-bg) !important; }
+html.dark .patient-main-pane .bg-\[\#F0F4F8\] { background-color: #0f172a !important; }
+html.dark .patient-main-pane .bg-\[\#F3F4F6\] { background-color: #1e293b !important; }
+html.dark .patient-main-pane .bg-\[\#F1F5F9\] { background-color: #334155 !important; }
 
-html.dark .border-slate-50 { border-color: #334155 !important; }
-html.dark .border-slate-100 { border-color: #334155 !important; }
-html.dark .border-slate-200 { border-color: #475569 !important; }
+html.dark .patient-main-pane .text-slate-900,
+html.dark .patient-main-pane .text-\[\#0F172A\] { color: #f1f5f9 !important; }
+html.dark .patient-main-pane .text-slate-800 { color: #e2e8f0 !important; }
+html.dark .patient-main-pane .text-slate-700 { color: #cbd5e1 !important; }
+html.dark .patient-main-pane .text-slate-600,
+html.dark .patient-main-pane .text-slate-500 { color: #94a3b8 !important; }
+html.dark .patient-main-pane .text-slate-400 { color: #64748b !important; }
+html.dark .patient-main-pane .text-\[\#374151\] { color: #cbd5e1 !important; }
 
-html.dark input,
-html.dark textarea,
-html.dark select {
+html.dark .patient-main-pane .border-slate-50 { border-color: #334155 !important; }
+html.dark .patient-main-pane .border-slate-100 { border-color: #334155 !important; }
+html.dark .patient-main-pane .border-slate-200 { border-color: #475569 !important; }
+
+html.dark .patient-main-pane input,
+html.dark .patient-main-pane textarea,
+html.dark .patient-main-pane select {
   background-color: #1e293b;
   color: #f1f5f9;
   border-color: #475569;
 }
 
-html.dark input::placeholder,
-html.dark textarea::placeholder {
+html.dark .patient-main-pane input::placeholder,
+html.dark .patient-main-pane textarea::placeholder {
   color: #64748b;
 }
 
-html.dark .shadow-sm,
-html.dark .shadow-md {
+html.dark .patient-main-pane .shadow-sm,
+html.dark .patient-main-pane .shadow-md {
   --tw-shadow-color: rgba(0, 0, 0, 0.35);
 }
 
-html.dark .rich-content { color: #cbd5e1; }
-html.dark .rich-content h1,
-html.dark .rich-content h2,
-html.dark .rich-content h3,
-html.dark .rich-content strong,
-html.dark .rich-content b { color: #f1f5f9; }
-html.dark .rich-content th { background: #1e293b; }
-html.dark .rich-content th,
-html.dark .rich-content td { border-color: #475569; }
-html.dark .rich-content pre,
-html.dark .rich-content code { background: #334155; }
-html.dark .rich-content hr { border-top-color: #475569; }
-html.dark .text-\[\#334155\] { color: #cbd5e1 !important; }
-html.dark .text-\[\#64748B\] { color: #94a3b8 !important; }
+html.dark .patient-main-pane .rich-content { color: #cbd5e1; }
+html.dark .patient-main-pane .rich-content h1,
+html.dark .patient-main-pane .rich-content h2,
+html.dark .patient-main-pane .rich-content h3,
+html.dark .patient-main-pane .rich-content strong,
+html.dark .patient-main-pane .rich-content b { color: #f1f5f9; }
+html.dark .patient-main-pane .rich-content th { background: #1e293b; }
+html.dark .patient-main-pane .rich-content th,
+html.dark .patient-main-pane .rich-content td { border-color: #475569; }
+html.dark .patient-main-pane .rich-content pre,
+html.dark .patient-main-pane .rich-content code { background: #334155; }
+html.dark .patient-main-pane .rich-content hr { border-top-color: #475569; }
+html.dark .patient-main-pane .text-\[\#334155\] { color: #cbd5e1 !important; }
+html.dark .patient-main-pane .text-\[\#64748B\] { color: #94a3b8 !important; }
 
-html.dark .border-farumasi-100 { border-color: #334155 !important; }
-html.dark .border-farumasi-200 { border-color: #475569 !important; }
-html.dark .border-\[\#D8E1EA\] { border-color: #475569 !important; }
-html.dark .border-amber-100 { border-color: #78350f !important; }
+html.dark .patient-main-pane .border-farumasi-100 { border-color: #334155 !important; }
+html.dark .patient-main-pane .border-farumasi-200 { border-color: #475569 !important; }
+html.dark .patient-main-pane .border-\[\#D8E1EA\] { border-color: #475569 !important; }
+html.dark .patient-main-pane .border-amber-100 { border-color: #78350f !important; }
 
-html.dark .bg-farumasi-50 { background-color: rgba(30, 158, 104, 0.12) !important; }
-html.dark .bg-amber-50,
-html.dark .bg-amber-50\/40 { background-color: rgba(245, 158, 11, 0.1) !important; }
+html.dark .patient-main-pane .bg-farumasi-50 { background-color: rgba(30, 158, 104, 0.15) !important; }
+html.dark .patient-main-pane .bg-farumasi-100 { background-color: rgba(30, 158, 104, 0.22) !important; }
+html.dark .patient-main-pane .text-farumasi-700 { color: #6ee7b7 !important; }
+html.dark .patient-main-pane .text-farumasi-800 { color: #d1fae5 !important; }
+html.dark .patient-main-pane .bg-amber-50,
+html.dark .patient-main-pane .bg-amber-50\/40 { background-color: rgba(245, 158, 11, 0.1) !important; }
 
-html.dark .hover\:bg-slate-100:hover { background-color: #334155 !important; }
-html.dark .hover\:bg-slate-50:hover { background-color: #334155 !important; }
-html.dark .hover\:bg-red-50:hover { background-color: rgba(239, 68, 68, 0.15) !important; }
+html.dark .patient-main-pane .hover\:bg-slate-100:hover { background-color: #334155 !important; }
+html.dark .patient-main-pane .hover\:bg-slate-50:hover { background-color: #334155 !important; }
+html.dark .patient-main-pane .hover\:bg-red-50:hover { background-color: rgba(239, 68, 68, 0.15) !important; }
 
-html.dark .bg-slate-200 { background-color: #475569 !important; }
+html.dark .patient-main-pane .bg-slate-200 { background-color: #475569 !important; }
 
-html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+html.dark .patient-main-pane .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
   border-color: #334155;
 }
 
-html.dark .rich-content blockquote {
+html.dark .patient-main-pane .rich-content blockquote {
   background: rgba(30, 158, 104, 0.12);
   color: #94a3b8;
+}
+
+/* Light-green inline section headers from rich editor */
+html.dark .patient-main-pane .rich-content [style*="#d4f7e9"],
+html.dark .patient-main-pane .rich-content [style*="#edfdf6"],
+html.dark .patient-main-pane .rich-content [style*="#acefd4"],
+html.dark .patient-main-pane .rich-content [style*="rgb(212, 247, 233)"],
+html.dark .patient-main-pane .rich-content [style*="rgb(237, 253, 246)"] {
+  background-color: rgba(30, 158, 104, 0.2) !important;
+  color: #d1fae5 !important;
 }
 
 * { box-sizing: border-box; }

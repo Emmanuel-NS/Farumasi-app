@@ -121,7 +121,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     <PatientRoleGuard>
       <ConsultNotificationsMount />
       <PermissionSetupBanner />
-      <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600">
+      <div className="flex flex-col h-screen overflow-hidden patient-nav-shell">
         <Topbar
           collapsed={collapsed}
           mobileNavOpen={mobileNavOpen}
@@ -144,7 +144,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           {/* Desktop sidebar */}
           <div className="hidden sm:flex">
             <Sidebar collapsed={collapsed} />
-            <div className="w-3.5 bg-farumasi-600 flex items-center justify-center cursor-col-resize shrink-0">
+            <div className="w-3.5 patient-nav-shell flex items-center justify-center cursor-col-resize shrink-0">
               <div className="h-9 w-1 rounded-full bg-white/30 flex flex-col justify-evenly items-center gap-1">
                 <span className="block w-0.5 h-0.5 rounded-full bg-white" />
                 <span className="block w-0.5 h-0.5 rounded-full bg-white" />
@@ -156,7 +156,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <div className={cn("flex flex-1 min-w-0 overflow-hidden", activePanel ? "sm:gap-3" : "")}>
             <main
               className={cn(
-                "flex-1 min-w-0 overflow-y-auto scrollbar-hide bg-[#F6F8FB] dark:bg-[#0f172a]",
+                "patient-main-pane flex-1 min-w-0 overflow-y-auto scrollbar-hide bg-[#F6F8FB] dark:bg-[#0f172a]",
                 "rounded-tl-[20px] sm:rounded-tl-[32px]",
                 isConsultPage
                   ? "flex min-h-0 flex-1 flex-col overflow-hidden pb-0"

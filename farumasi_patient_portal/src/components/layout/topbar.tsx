@@ -106,7 +106,7 @@ export function Topbar({
   return (
     <header
       className={cn(
-        "relative h-[72px] bg-farumasi-600 shrink-0 sticky top-0 z-[60]",
+        "relative h-[72px] patient-nav-shell shrink-0 sticky top-0 z-[60]",
         mobileNavOpen && "z-[100]",
       )}
     >

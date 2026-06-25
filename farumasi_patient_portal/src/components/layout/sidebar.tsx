@@ -67,8 +67,7 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "flex flex-col h-full transition-all duration-[220ms] ease-out overflow-hidden shrink-0",
-        "bg-farumasi-600",
+        "flex flex-col h-full transition-all duration-[220ms] ease-out overflow-hidden shrink-0 patient-nav-shell",
         collapsed ? "w-[92px]" : "w-[200px]",
       )}
     >
