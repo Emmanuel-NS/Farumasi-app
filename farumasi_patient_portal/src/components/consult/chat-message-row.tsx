@@ -27,7 +27,7 @@ function BrandMediaFallback({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center justify-center bg-farumasi-50 text-farumasi-700",
+        "flex items-center justify-center bg-farumasi-50 dark:bg-emerald-950/40 text-farumasi-700 dark:text-emerald-300",
         className,
       )}
     >
@@ -48,7 +48,7 @@ function ChatImage({
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
-      <div className="flex flex-col gap-2 rounded-lg px-3 py-4 bg-slate-100 text-slate-500 text-xs">
+      <div className="flex flex-col gap-2 rounded-lg px-3 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs">
         <BrandMediaFallback className="w-full max-w-[240px] h-28 rounded-lg" />
         <div className="flex items-center gap-2 px-1">
           <span>Image unavailable</span>
@@ -224,11 +224,11 @@ export function ChatMessageRow({
         aria-label="Close actions"
         onClick={closeMenu}
       />
-      <div className="fixed inset-x-0 bottom-0 z-[210] rounded-t-2xl bg-white shadow-2xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden">
-        <p className="text-xs font-semibold text-slate-500 mb-3 px-1">Message options</p>
+      <div className="fixed inset-x-0 bottom-0 z-[210] rounded-t-2xl bg-white dark:bg-slate-800 shadow-2xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden">
+        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3 px-1">Message options</p>
         <button
           type="button"
-          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 text-slate-900"
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100"
           onClick={() => {
             closeMenu();
             onReply(msg);
@@ -239,7 +239,7 @@ export function ChatMessageRow({
         {canEdit && (
           <button
             type="button"
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 text-slate-900"
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100"
             onClick={() => {
               closeMenu();
               onEdit(msg);
@@ -251,7 +251,7 @@ export function ChatMessageRow({
         {canDelete && (
           <button
             type="button"
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-50 text-red-600"
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
             onClick={() => {
               closeMenu();
               onDelete(msg);
@@ -261,10 +261,10 @@ export function ChatMessageRow({
           </button>
         )}
       </div>
-      <div className="hidden lg:block fixed z-[210] min-w-[150px] rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-sm right-8 top-1/2">
+      <div className="hidden lg:block fixed z-[210] min-w-[150px] rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg py-1 text-sm right-8 top-1/2">
         <button
           type="button"
-          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 text-slate-800"
+          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200"
           onClick={() => {
             closeMenu();
             onReply(msg);
@@ -275,7 +275,7 @@ export function ChatMessageRow({
         {canEdit && (
           <button
             type="button"
-            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 text-slate-800"
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200"
             onClick={() => {
               closeMenu();
               onEdit(msg);
@@ -287,7 +287,7 @@ export function ChatMessageRow({
         {canDelete && (
           <button
             type="button"
-            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 text-red-600"
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
             onClick={() => {
               closeMenu();
               onDelete(msg);
@@ -356,7 +356,7 @@ export function ChatMessageRow({
                   type="button"
                   aria-label="Message actions"
                   onClick={openMenu}
-                  className="w-7 h-7 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 hover:text-slate-800"
+                  className="w-7 h-7 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 shadow-sm flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
@@ -368,7 +368,7 @@ export function ChatMessageRow({
                 "px-3.5 py-2.5 text-sm leading-relaxed border",
                 isPatient
                   ? "bg-farumasi-600 text-white border-farumasi-600 rounded-[20px_20px_6px_20px]"
-                  : "bg-white text-slate-900 border-slate-200 rounded-[20px_20px_20px_6px]",
+                  : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-600 rounded-[20px_20px_20px_6px]",
                 msg.isDeleted && "italic opacity-70",
               )}
               onContextMenu={(e) => {
@@ -389,7 +389,7 @@ export function ChatMessageRow({
                     replyTargetId && onJumpToReply ? "hover:opacity-80 cursor-pointer" : "cursor-default",
                     isPatient
                       ? "border-white/70 bg-white/10 text-white/90"
-                      : "border-farumasi-500 bg-farumasi-50 text-slate-700",
+                      : "border-farumasi-500 dark:border-emerald-600 bg-farumasi-50 dark:bg-emerald-950/30 text-slate-700 dark:text-slate-300",
                   )}
                 >
                   <p className="font-bold truncate">
@@ -418,7 +418,7 @@ export function ChatMessageRow({
                       href={msg.attachmentUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block mb-1 rounded-lg overflow-hidden bg-slate-100"
+                      className="block mb-1 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700"
                     >
                       <ChatImage
                         src={msg.attachmentUrl}
@@ -436,7 +436,7 @@ export function ChatMessageRow({
                       download={msg.attachmentName}
                       className={cn(
                         "flex items-center gap-2 rounded-lg px-3 py-2 mb-1",
-                        isPatient ? "bg-white text-slate-900" : "bg-slate-100 text-slate-900",
+                        isPatient ? "bg-white text-slate-900" : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100",
                       )}
                     >
                       <FileText className="w-5 h-5 shrink-0" />
@@ -459,14 +459,14 @@ export function ChatMessageRow({
                         "block mb-1 rounded-lg overflow-hidden border no-underline",
                         isPatient
                           ? "bg-white text-slate-900 border-white"
-                          : "bg-white text-slate-900 border-slate-200",
+                          : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-600",
                       )}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={productImage}
                         alt={msg.attachmentName ?? "Product"}
-                        className="w-full h-28 object-cover bg-slate-100"
+                        className="w-full h-28 object-cover bg-slate-100 dark:bg-slate-700"
                         loading="lazy"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
@@ -474,18 +474,18 @@ export function ChatMessageRow({
                         }}
                       />
                       <span className="flex items-center gap-2 px-3 py-2">
-                        <span className="w-8 h-8 rounded-lg bg-farumasi-50 flex items-center justify-center shrink-0 overflow-hidden">
+                        <span className="w-8 h-8 rounded-lg bg-farumasi-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0 overflow-hidden">
                           <FarumasiLogo size={28} />
                         </span>
                         <span className="flex-1 min-w-0">
-                          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             Product
                           </span>
                           <span className="block text-xs font-bold truncate">
                             {productPreview?.name ?? msg.attachmentName ?? "View product"}
                           </span>
                           {productPreview?.price != null && productPreview.price > 0 && (
-                            <span className="block text-[10px] text-farumasi-700 font-semibold">
+                            <span className="block text-[10px] text-farumasi-700 dark:text-emerald-300 font-semibold">
                               From {productPreview.price.toLocaleString()} RWF
                             </span>
                           )}
@@ -499,7 +499,7 @@ export function ChatMessageRow({
                     <span
                       className={cn(
                         "whitespace-pre-wrap break-words block",
-                        isPatient ? "text-white" : "text-slate-900",
+                        isPatient ? "text-white" : "text-slate-900 dark:text-slate-100",
                       )}
                     >
                       {body}
@@ -532,7 +532,7 @@ export function ChatMessageRow({
           </div>
 
           {isPatient && (
-            <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full border-2 border-white overflow-hidden bg-farumasi-50 shrink-0 flex items-center justify-center">
+            <div className="w-7 h-7 lg:w-8 lg:h-8 rounded-full border-2 border-white dark:border-slate-800 overflow-hidden bg-farumasi-50 dark:bg-emerald-950/40 shrink-0 flex items-center justify-center">
               <FarumasiLogo size={28} />
             </div>
           )}

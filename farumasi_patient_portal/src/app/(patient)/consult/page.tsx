@@ -960,18 +960,18 @@ export default function ConsultPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <GuestGate feature="Consult">
-      <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-[#EEF2F6]">
+      <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden bg-[#EEF2F6] dark:bg-[#0f172a] patient-consult-root">
         {/* LEFT — pharmacist list (hidden on narrow screens when a chat is open) */}
         <aside
           className={cn(
-            "flex flex-col min-h-0 shrink-0 border-r border-slate-200/80 bg-white",
+            "flex flex-col min-h-0 shrink-0 border-r border-slate-200/80 bg-white dark:bg-slate-900 dark:border-slate-700",
             "w-full flex-1 lg:flex-none lg:w-[360px] xl:w-[380px]",
             selectedKey ? "hidden lg:flex" : "flex",
           )}
         >
           {/* Header */}
           <div className="relative overflow-hidden shrink-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-farumasi-700 via-farumasi-600 to-farumasi-500" />
+            <div className="absolute inset-0 bg-gradient-to-br from-farumasi-700 via-farumasi-600 to-farumasi-500 dark:from-slate-800 dark:via-slate-800 dark:to-[#1a2f29]" />
             <div className="relative px-4 pt-5 pb-4 text-white">
               <div className="flex items-start gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center shrink-0 p-1.5">
@@ -995,14 +995,14 @@ export default function ConsultPage() {
             </div>
           </div>
 
-          <div className="px-3 py-3 bg-white border-b border-slate-100 shrink-0">
-            <div className="flex items-center bg-slate-100/90 rounded-xl px-3 h-10 gap-2 ring-1 ring-slate-200/60 focus-within:ring-farumasi-300 focus-within:bg-white transition-all">
+          <div className="px-3 py-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700 shrink-0">
+            <div className="flex items-center bg-slate-100/90 dark:bg-slate-800 rounded-xl px-3 h-10 gap-2 ring-1 ring-slate-200/60 dark:ring-slate-600 focus-within:ring-farumasi-300 dark:focus-within:ring-emerald-600 focus-within:bg-white dark:focus-within:bg-slate-800 transition-all">
               <Search className="w-4 h-4 text-slate-400 shrink-0" />
               <input
                 value={searchQ}
                 onChange={(e) => setSearchQ(e.target.value)}
                 placeholder={t.consult_search_ph}
-                className="flex-1 text-sm text-slate-900 placeholder:text-slate-400 outline-none bg-transparent"
+                className="flex-1 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none bg-transparent"
               />
               {searchQ && (
                 <button
@@ -1029,7 +1029,7 @@ export default function ConsultPage() {
                     "shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all",
                     filter === id
                       ? "bg-farumasi-600 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700",
                   )}
                 >
                   {label} ({count})
@@ -1038,13 +1038,13 @@ export default function ConsultPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-2 py-2 bg-[#F6F8FB]">
+          <div className="flex-1 overflow-y-auto px-2 py-2 bg-[#F6F8FB] dark:bg-[#0f172a]">
             {rail.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-100 flex items-center justify-center mb-3 shadow-sm">
-                  <Search className="w-6 h-6 text-slate-300" />
+                <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center mb-3 shadow-sm">
+                  <Search className="w-6 h-6 text-slate-300 dark:text-slate-500" />
                 </div>
-                <p className="text-slate-700 text-sm font-semibold">{t.consult_no_results}</p>
+                <p className="text-slate-700 dark:text-slate-200 text-sm font-semibold">{t.consult_no_results}</p>
                 <p className="text-slate-400 text-xs mt-1">Try another filter or search term</p>
               </div>
             ) : (
@@ -1060,12 +1060,12 @@ export default function ConsultPage() {
                     className={cn(
                       "w-full flex items-center gap-3 p-3 mb-2 text-left rounded-2xl border transition-all",
                       isActive
-                        ? "bg-white border-farumasi-200 shadow-[0_4px_16px_rgba(30,158,104,0.12)] ring-1 ring-farumasi-100"
-                        : "bg-white border-slate-100 hover:border-farumasi-100 hover:shadow-sm",
+                        ? "bg-white dark:bg-slate-800 border-farumasi-200 dark:border-emerald-700 shadow-[0_4px_16px_rgba(30,158,104,0.12)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.25)] ring-1 ring-farumasi-100 dark:ring-emerald-900/50"
+                        : "bg-white dark:bg-slate-800/70 border-slate-100 dark:border-slate-700 hover:border-farumasi-100 dark:hover:border-emerald-800 hover:shadow-sm",
                     )}
                   >
                     <div className="relative shrink-0">
-                      <div className="w-12 h-12 rounded-full overflow-hidden bg-farumasi-100">
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-farumasi-100 dark:bg-emerald-950/50">
                         {ph.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -1074,14 +1074,14 @@ export default function ConsultPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-farumasi-700 font-bold text-sm">
+                          <div className="w-full h-full flex items-center justify-center text-farumasi-700 dark:text-emerald-300 font-bold text-sm">
                             {getInitials(ph.name)}
                           </div>
                         )}
                       </div>
                       <span
                         className={cn(
-                          "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white",
+                          "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-slate-800",
                           STATUS_DOT[ph.status],
                         )}
                       />
@@ -1097,7 +1097,7 @@ export default function ConsultPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="text-sm font-bold text-slate-900 truncate">
+                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
                             {ph.name}
                           </p>
                           {anon && (
@@ -1117,8 +1117,8 @@ export default function ConsultPage() {
                           className={cn(
                             "text-xs truncate",
                             summary?.unreadCount
-                              ? "text-slate-900 font-semibold"
-                              : "text-slate-500",
+                              ? "text-slate-900 dark:text-slate-100 font-semibold"
+                              : "text-slate-500 dark:text-slate-400",
                           )}
                         >
                           {last?.isMe ? `You: ${preview}` : preview}
@@ -1140,28 +1140,28 @@ export default function ConsultPage() {
         {/* RIGHT — chat */}
         <section
           className={cn(
-            "flex flex-col min-w-0 min-h-0 bg-white lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)]",
+            "flex flex-col min-w-0 min-h-0 bg-white dark:bg-slate-900 lg:rounded-l-3xl lg:shadow-[inset_1px_0_0_rgba(15,23,42,0.04)] dark:lg:shadow-none",
             selectedKey
               ? "flex flex-1 w-full max-lg:fixed max-lg:inset-x-0 max-lg:top-[72px] max-lg:bottom-0 max-lg:z-30"
               : "hidden lg:flex lg:flex-1",
           )}
         >
           {!selectedPh ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-gradient-to-br from-[#F8FAFC] via-white to-farumasi-50/40">
-              <div className="mb-5 shadow-[0_12px_32px_rgba(30,158,104,0.15)] rounded-3xl bg-white p-3">
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-gradient-to-br from-[#F8FAFC] via-white to-farumasi-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-emerald-950/20">
+              <div className="mb-5 shadow-[0_12px_32px_rgba(30,158,104,0.15)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.35)] rounded-3xl bg-white dark:bg-slate-800 p-3">
                 <FarumasiLogoImage size={96} />
               </div>
-              <p className="text-slate-900 font-extrabold text-lg">Choose a pharmacist</p>
-              <p className="text-slate-500 text-sm mt-2 max-w-md leading-relaxed">
+              <p className="text-slate-900 dark:text-slate-100 font-extrabold text-lg">Choose a pharmacist</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 max-w-md leading-relaxed">
                 {t.consult_disclaimer}
               </p>
               <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5 text-farumasi-600" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-3 py-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300 shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5 text-farumasi-600 dark:text-emerald-400" />
                   Licensed professionals
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm">
-                  <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-3 py-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300 shadow-sm">
+                  <EyeOff className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                   Anonymous mode available
                 </span>
               </div>
@@ -1174,7 +1174,7 @@ export default function ConsultPage() {
                   "flex items-center gap-3 px-3 md:px-5 py-3 shrink-0",
                   isAnon
                     ? "bg-gradient-to-r from-slate-800 to-slate-900"
-                    : "bg-gradient-to-r from-farumasi-700 to-farumasi-600",
+                    : "bg-gradient-to-r from-farumasi-700 to-farumasi-600 dark:from-slate-800 dark:to-[#1a2f29]",
                 )}
               >
                 <button
@@ -1263,10 +1263,10 @@ export default function ConsultPage() {
                         aria-label="Close menu"
                         onClick={() => setChatMenuOpen(false)}
                       />
-                      <div className="absolute right-0 top-10 z-20 min-w-[170px] rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-sm text-slate-800">
+                      <div className="absolute right-0 top-10 z-20 min-w-[170px] rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg py-1 text-sm text-slate-800 dark:text-slate-200">
                         <button
                           type="button"
-                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 text-red-600"
+                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
                           onClick={() => {
                             setChatMenuOpen(false);
                             setClearChatStep(1);
@@ -1290,7 +1290,7 @@ export default function ConsultPage() {
 
               {/* Anonymous mode banner */}
               {isAnon && (
-                <div className="bg-slate-100 border-b border-slate-200 px-4 py-2 text-[11px] text-slate-700 flex items-center gap-2 shrink-0">
+                <div className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 text-[11px] text-slate-700 dark:text-slate-300 flex items-center gap-2 shrink-0">
                   <EyeOff className="w-3.5 h-3.5 shrink-0" />
                   <span>
                     Anonymous mode: the pharmacist sees you as “Anonymous
@@ -1308,14 +1308,14 @@ export default function ConsultPage() {
                 className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-3 lg:px-5 overscroll-contain"
               >
                 {loadingChat && messages.length === 0 && (
-                  <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-8">
+                  <div className="flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 py-8">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Loading conversation…
                   </div>
                 )}
                 {messages.length > 0 && (
                   <div className="flex justify-center mb-2">
-                    <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 bg-white/90 rounded-full px-3 py-1 shadow-sm border border-slate-100">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300 bg-white/90 dark:bg-slate-800/90 rounded-full px-3 py-1 shadow-sm border border-slate-100 dark:border-slate-600">
                       <FarumasiLogoImage size={16} />
                       {t.consult_disclaimer}
                     </span>
@@ -1341,13 +1341,13 @@ export default function ConsultPage() {
               </div>
               </ImigongoChatBackground>
 
-              <div ref={composerRef} className="relative z-30 shrink-0 bg-white border-t border-slate-100 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
+              <div ref={composerRef} className="relative z-30 shrink-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-700 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.25)] pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
               {(replyingTo || editingMessageId) && (
-                <div className="px-3 md:px-5 py-2 bg-slate-50 border-b border-slate-200 flex items-start gap-2">
+                <div className="px-3 md:px-5 py-2 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     {editingMessageId ? (
                       <>
-                        <p className="text-[11px] font-bold text-farumasi-700 flex items-center gap-1">
+                        <p className="text-[11px] font-bold text-farumasi-700 dark:text-emerald-300 flex items-center gap-1">
                           <Pencil className="w-3.5 h-3.5" /> Editing message
                         </p>
                         <p className="text-xs text-slate-500 truncate mt-0.5">
@@ -1356,11 +1356,11 @@ export default function ConsultPage() {
                       </>
                     ) : replyingTo ? (
                       <>
-                        <p className="text-[11px] font-bold text-farumasi-700 flex items-center gap-1">
+                        <p className="text-[11px] font-bold text-farumasi-700 dark:text-emerald-300 flex items-center gap-1">
                           <CornerUpLeft className="w-3.5 h-3.5" />
                           Replying to {replyingTo.isMe ? "yourself" : selectedPh.name}
                         </p>
-                        <p className="text-xs text-slate-600 truncate mt-0.5">
+                        <p className="text-xs text-slate-600 dark:text-slate-400 truncate mt-0.5">
                           {replyingTo.isDeleted
                             ? "Message deleted"
                             : replyingTo.content ||
@@ -1378,7 +1378,7 @@ export default function ConsultPage() {
                       setEditingMessageId(null);
                       setInput("");
                     }}
-                    className="p-1.5 rounded-full text-slate-500 hover:bg-slate-200"
+                    className="p-1.5 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1386,7 +1386,7 @@ export default function ConsultPage() {
               )}
               {/* Pending attachment preview */}
               {pendingAttachment && (
-                <div className="px-3 md:px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center gap-3 shrink-0">
+                <div className="px-3 md:px-4 py-2 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex items-center gap-3 shrink-0">
                   {pendingAttachment.type === "image" ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -1404,7 +1404,7 @@ export default function ConsultPage() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-900 truncate">
+                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
                       {pendingAttachment.name}
                     </p>
                     <p className="text-[11px] text-slate-500">
@@ -1425,13 +1425,13 @@ export default function ConsultPage() {
 
               {/* Input */}
               {selectedConsult && selectedConsult.status !== "open" ? (
-                <div className="px-4 py-3 bg-white shrink-0 border-t border-slate-100">
-                  <p className="text-center text-xs text-slate-500 font-semibold">
+                <div className="px-4 py-3 bg-white dark:bg-slate-900 shrink-0 border-t border-slate-100 dark:border-slate-700">
+                  <p className="text-center text-xs text-slate-500 dark:text-slate-400 font-semibold">
                     This consultation is closed. Start a new one to keep chatting.
                   </p>
                 </div>
               ) : (
-                <div className="px-3 md:px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] bg-white shrink-0 border-t border-slate-100">
+                <div className="px-3 md:px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] bg-white dark:bg-slate-900 shrink-0 border-t border-slate-100 dark:border-slate-700">
                   <div className="flex items-end gap-2 max-w-3xl mx-auto w-full">
                   {/* Attachment + menu */}
                   <div className="relative shrink-0">
@@ -1439,7 +1439,7 @@ export default function ConsultPage() {
                       onClick={() => setAttachMenuOpen((v) => !v)}
                       disabled={uploading || !selectedConsult || !!editingMessageId}
                       aria-label="Attach"
-                      className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                       <Plus
                         className={cn(
@@ -1449,17 +1449,17 @@ export default function ConsultPage() {
                       />
                     </button>
                     {attachMenuOpen && (
-                      <div className="absolute bottom-12 left-0 bg-white border border-slate-200 rounded-2xl shadow-lg py-1.5 w-44 z-10">
+                      <div className="absolute bottom-12 left-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-lg py-1.5 w-44 z-10">
                         <button
                           onClick={() => imageInputRef.current?.click()}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 text-slate-800"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200"
                         >
                           <ImageIcon className="w-4 h-4 text-farumasi-600" />
                           <span>Photo</span>
                         </button>
                         <button
                           onClick={() => fileInputRef.current?.click()}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 text-slate-800"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200"
                         >
                           <FileText className="w-4 h-4 text-farumasi-600" />
                           <span>Document</span>
@@ -1469,7 +1469,7 @@ export default function ConsultPage() {
                             setAttachMenuOpen(false);
                             setProductPickerOpen(true);
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 text-slate-800"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200"
                         >
                           <Package className="w-4 h-4 text-farumasi-600" />
                           <span>Product</span>
@@ -1492,7 +1492,7 @@ export default function ConsultPage() {
                     />
                   </div>
 
-                  <div className="flex-1 bg-slate-100 rounded-[22px] px-4 py-2.5 ring-1 ring-slate-200/60 focus-within:ring-farumasi-300 focus-within:bg-white transition-all">
+                  <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-[22px] px-4 py-2.5 ring-1 ring-slate-200/60 dark:ring-slate-600 focus-within:ring-farumasi-300 dark:focus-within:ring-emerald-600 focus-within:bg-white dark:focus-within:bg-slate-800 transition-all">
                     <input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
@@ -1514,7 +1514,7 @@ export default function ConsultPage() {
                                 : t.consult_placeholder
                       }
                       disabled={sending || uploading || !selectedConsult}
-                      className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none disabled:opacity-60"
+                      className="w-full bg-transparent text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none disabled:opacity-60"
                     />
                   </div>
                   <button
@@ -1558,22 +1558,22 @@ export default function ConsultPage() {
         {clearChatStep > 0 && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50">
             <div
-              className="w-full max-w-md rounded-2xl bg-white shadow-2xl p-6"
+              className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-800 shadow-2xl p-6"
               role="dialog"
               aria-modal="true"
               aria-label="Clear chat confirmation"
             >
               {clearChatStep === 1 ? (
                 <>
-                  <h3 className="text-lg font-bold text-slate-900">Clear this chat?</h3>
-                  <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Clear this chat?</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
                     All messages with {selectedPh?.name ?? "this pharmacist"} will be
                     permanently removed for both of you. This cannot be undone.
                   </p>
                   <div className="flex gap-2 mt-6">
                     <button
                       type="button"
-                      className="flex-1 h-10 rounded-xl border border-slate-200 text-slate-700 font-semibold"
+                      className="flex-1 h-10 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-semibold"
                       onClick={() => setClearChatStep(0)}
                     >
                       Cancel
@@ -1589,8 +1589,8 @@ export default function ConsultPage() {
                 </>
               ) : (
                 <>
-                  <h3 className="text-lg font-bold text-slate-900">Confirm clear chat</h3>
-                  <p className="text-sm text-slate-600 mt-2">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Confirm clear chat</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
                     Type <strong>CLEAR</strong> below to confirm you want to delete all
                     messages.
                   </p>
@@ -1598,12 +1598,12 @@ export default function ConsultPage() {
                     value={clearConfirmText}
                     onChange={(e) => setClearConfirmText(e.target.value)}
                     placeholder="Type CLEAR"
-                    className="mt-4 w-full h-11 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-red-200"
+                    className="mt-4 w-full h-11 rounded-xl border border-slate-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 px-3 text-sm outline-none focus:ring-2 focus:ring-red-200 dark:focus:ring-red-900"
                   />
                   <div className="flex gap-2 mt-6">
                     <button
                       type="button"
-                      className="flex-1 h-10 rounded-xl border border-slate-200 text-slate-700 font-semibold"
+                      className="flex-1 h-10 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-semibold"
                       onClick={() => {
                         setClearChatStep(0);
                         setClearConfirmText("");
@@ -1646,12 +1646,12 @@ function ProfileSheet({
         aria-label="Close profile"
       />
       <aside
-        className="w-full sm:w-[380px] bg-white shadow-2xl flex flex-col"
+        className="w-full sm:w-[380px] bg-white dark:bg-slate-900 shadow-2xl flex flex-col"
         role="dialog"
         aria-modal="true"
         aria-label="Pharmacist profile"
       >
-        <div className="relative h-32 bg-gradient-to-br from-farumasi-600 to-farumasi-700 shrink-0">
+        <div className="relative h-32 bg-gradient-to-br from-farumasi-600 to-farumasi-700 dark:from-slate-800 dark:to-[#1a2f29] shrink-0">
           <button
             onClick={onClose}
             aria-label="Close profile"
@@ -1660,7 +1660,7 @@ function ProfileSheet({
             <X className="w-4 h-4" />
           </button>
           <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
-            <div className="w-24 h-24 rounded-full border-4 border-white shadow-lg overflow-hidden bg-farumasi-100">
+            <div className="w-24 h-24 rounded-full border-4 border-white dark:border-slate-900 shadow-lg overflow-hidden bg-farumasi-100 dark:bg-emerald-950/50">
               {ph.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -1669,7 +1669,7 @@ function ProfileSheet({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-farumasi-700 font-extrabold text-xl">
+                <div className="w-full h-full flex items-center justify-center text-farumasi-700 dark:text-emerald-300 font-extrabold text-xl">
                   {getInitials(ph.name)}
                 </div>
               )}
@@ -1677,8 +1677,8 @@ function ProfileSheet({
           </div>
         </div>
         <div className="pt-14 px-6 pb-6 text-center">
-          <h2 className="text-lg font-extrabold text-slate-900">{ph.name}</h2>
-          <p className="text-sm text-farumasi-600 font-semibold mt-0.5">
+          <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">{ph.name}</h2>
+          <p className="text-sm text-farumasi-600 dark:text-emerald-400 font-semibold mt-0.5">
             {ph.specialty}
           </p>
           <div className="flex items-center justify-center gap-2 mt-2">
@@ -1686,10 +1686,10 @@ function ProfileSheet({
               className={cn(
                 "inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full",
                 ph.status === "available"
-                  ? "bg-green-100 text-green-700"
+                  ? "bg-green-100 text-green-700 dark:bg-emerald-950/50 dark:text-emerald-300"
                   : ph.status === "busy"
-                    ? "bg-amber-100 text-amber-700"
-                    : "bg-slate-100 text-slate-500",
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                    : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
               )}
             >
               <span
@@ -1708,11 +1708,11 @@ function ProfileSheet({
         </div>
         <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-3">
           {ph.bio && (
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
                 About
               </p>
-              <p className="text-sm text-slate-700 leading-relaxed">{ph.bio}</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{ph.bio}</p>
             </div>
           )}
           <div className="space-y-2">
@@ -1768,15 +1768,15 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-100 rounded-xl">
-      <div className="w-9 h-9 rounded-full bg-farumasi-50 text-farumasi-700 flex items-center justify-center shrink-0">
+    <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl">
+      <div className="w-9 h-9 rounded-full bg-farumasi-50 dark:bg-emerald-950/40 text-farumasi-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
         {icon}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
           {label}
         </p>
-        <p className="text-sm font-semibold text-slate-800 truncate">{value}</p>
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{value}</p>
       </div>
     </div>
   );
@@ -1818,22 +1818,22 @@ function ProductPicker({
 
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md max-h-[80vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+      <div className="w-full max-w-md max-h-[80vh] bg-white dark:bg-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700">
           <div className="flex items-center gap-2">
-            <Package className="w-4 h-4 text-farumasi-600" />
-            <h2 className="text-sm font-bold text-slate-900">Attach a product</h2>
+            <Package className="w-4 h-4 text-farumasi-600 dark:text-emerald-400" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Attach a product</h2>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="px-4 py-3 border-b border-slate-100">
-          <div className="flex items-center bg-slate-100 rounded-full px-3 h-10 gap-2">
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-full px-3 h-10 gap-2">
             <Search className="w-4 h-4 text-slate-400 shrink-0" />
             <input
               autoFocus
@@ -1863,14 +1863,14 @@ function ProductPicker({
               No products found.
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-slate-100 dark:divide-slate-700">
               {results.map((p) => (
                 <li key={p.id}>
                   <button
                     onClick={() => onPick(p)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50"
                   >
-                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 shrink-0">
                       {p.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -1879,13 +1879,13 @@ function ProductPicker({
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-farumasi-50">
+                        <div className="w-full h-full flex items-center justify-center bg-farumasi-50 dark:bg-emerald-950/40">
                           <FarumasiLogoImage size={32} />
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-900 truncate">
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
                         {p.name}
                       </p>
                       <p className="text-xs text-slate-500 truncate">

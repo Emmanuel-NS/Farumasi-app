@@ -26,11 +26,14 @@ export function ImigongoChatBackground({
 
   return (
     <div
-      className={cn("relative bg-[#E2EBE6]", className)}
+      className={cn(
+        "relative bg-[#E2EBE6] dark:bg-[#0f172a]",
+        className,
+      )}
       aria-hidden={children ? undefined : true}
     >
       <svg
-        className="pointer-events-none absolute inset-0 h-full w-full"
+        className="pointer-events-none absolute inset-0 h-full w-full dark:opacity-[0.07]"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden
       >
