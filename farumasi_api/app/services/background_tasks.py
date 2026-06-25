@@ -14,7 +14,7 @@ from app.core.constants import OrderStatus, PaymentStatus, UserRole
 from app.core.database import AsyncSessionLocal
 from app.core.platform_defaults import DEFAULT_DELIVERY_CONFIG
 from app.models.data_export_job import DataExportJob
-from app.models.order import Order
+from app.models.order import Order, OrderItem
 from app.models.patient import Address, PatientProfile
 from app.models.prescription import DigitalPrescription
 from app.models.user import User
@@ -32,6 +32,7 @@ _background_tasks: list[asyncio.Task] = []
 async def start_background_tasks() -> None:
     _background_tasks.append(asyncio.create_task(_auto_cancel_loop()))
     _background_tasks.append(asyncio.create_task(_data_export_loop()))
+    _background_tasks.append(asyncio.create_task(_medicine_expiry_alert_loop()))
 
 
 async def stop_background_tasks() -> None:
@@ -58,6 +59,67 @@ async def _data_export_loop() -> None:
         except Exception as exc:  # noqa: BLE001
             logger.exception("process_pending_data_exports failed: %s", exc)
         await asyncio.sleep(120)
+
+
+async def _medicine_expiry_alert_loop() -> None:
+    while True:
+        try:
+            await send_medicine_expiry_alerts()
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("send_medicine_expiry_alerts failed: %s", exc)
+        await asyncio.sleep(3600)
+
+
+async def send_medicine_expiry_alerts() -> int:
+    """Notify patients before dispensed medicines expire (30-day and 7-day thresholds)."""
+    now = datetime.now(timezone.utc)
+    sent = 0
+    thresholds = (
+        (30, "expiry_alert_30d_sent"),
+        (7, "expiry_alert_7d_sent"),
+    )
+
+    async with AsyncSessionLocal() as db:
+        for days_before, flag_field in thresholds:
+            window_start = now + timedelta(days=days_before - 1)
+            window_end = now + timedelta(days=days_before + 1)
+            q = (
+                select(OrderItem, Order, PatientProfile)
+                .join(Order, OrderItem.order_id == Order.id)
+                .join(PatientProfile, Order.patient_id == PatientProfile.id)
+                .where(
+                    OrderItem.dispatch_expiry_date.isnot(None),
+                    OrderItem.dispatch_expiry_date >= window_start,
+                    OrderItem.dispatch_expiry_date <= window_end,
+                    Order.payment_status == PaymentStatus.PAID,
+                )
+            )
+            if flag_field == "expiry_alert_30d_sent":
+                q = q.where(OrderItem.expiry_alert_30d_sent.is_(False))
+            else:
+                q = q.where(OrderItem.expiry_alert_7d_sent.is_(False))
+            result = await db.execute(q)
+            notif = NotificationService(db)
+            for oi, order, patient in result.all():
+                if not patient.user_id:
+                    continue
+                expiry = oi.dispatch_expiry_date
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                days_remaining = max(0, (expiry.date() - now.date()).days)
+                await notif.medicine_expiry_warning(
+                    patient.user_id,
+                    product_name=oi.product_name,
+                    order_code=order.order_code,
+                    order_id=order.id,
+                    days_remaining=days_remaining,
+                )
+                setattr(oi, flag_field, True)
+                sent += 1
+        await db.commit()
+    if sent:
+        logger.info("Sent %s medicine expiry alert(s)", sent)
+    return sent
 
 
 async def auto_cancel_unpaid_orders() -> int:

@@ -25,21 +25,24 @@ def _h(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
-async def _register(client: AsyncClient, role: str) -> dict:
-    email = f"{role}_{_uid()}@farumasi.com"
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": email,
-            "password": "Pass@12345",
-            "full_name": f"{role.title()} {_uid()}",
-            "role": role,
-        },
-    )
-    assert r.status_code in (200, 201), r.text
-    data = r.json()
-    data["email"] = email
-    return data
+async def _register(client: AsyncClient, role: str, db) -> dict:
+    from tests.bootstrap import bootstrap_test_user
+
+    return await bootstrap_test_user(client, db, role)
+
+
+async def _mark_order_paid(db, order_id: str) -> None:
+    from sqlalchemy import select
+
+    from app.core.constants import PaymentStatus
+    from app.models.order import Order
+
+    res = await db.execute(select(Order).where(Order.id == order_id))
+    order = res.scalar_one()
+    order.payment_status = PaymentStatus.PAID
+    order.amount_paid_snapshot = float(order.total_amount)
+    order.partner_response_due_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    await db.flush()
 
 
 async def _patient_profile_id(client: AsyncClient, tokens: dict) -> str:
@@ -151,16 +154,15 @@ async def _get_recommendations(
 # ══════════════════════════════ Tests ══════════════════════════════
 
 # 1. Patient creates order from own recommendation
-async def test_patient_creates_order_from_recommendation(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_patient_creates_order_from_recommendation(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     await _add_listing(client, admin_tokens=admin, product_id=product_id, price=500)
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     patient_id = await _patient_profile_id(client, patient)
-    doctor = await _register(client, "doctor")
+    doctor = await _register(client, "doctor", db)
     rx_id = await _create_prescription(
         client, doctor_tokens=doctor, patient_id=patient_id, product_ids=[product_id]
     )
@@ -186,23 +188,22 @@ async def test_patient_creates_order_from_recommendation(client: AsyncClient):
 
 
 # 2. Patient cannot create order from another patient's recommendation
-async def test_patient_cannot_use_others_recommendation(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_patient_cannot_use_others_recommendation(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     await _add_listing(client, admin_tokens=admin, product_id=product_id, price=500)
 
-    owner = await _register(client, "patient")
+    owner = await _register(client, "patient", db)
     owner_id = await _patient_profile_id(client, owner)
-    doctor = await _register(client, "doctor")
+    doctor = await _register(client, "doctor", db)
     rx_id = await _create_prescription(
         client, doctor_tokens=doctor, patient_id=owner_id, product_ids=[product_id]
     )
     recs = await _get_recommendations(client, patient_tokens=owner, prescription_id=rx_id)
     rec_id = recs["top_recommendations"][0]["id"]
 
-    intruder = await _register(client, "patient")
+    intruder = await _register(client, "patient", db)
     r = await client.post(
         "/api/v1/orders/",
         headers=_h(intruder),
@@ -216,16 +217,15 @@ async def test_patient_cannot_use_others_recommendation(client: AsyncClient):
 
 
 # 3. Patient creates manual order from an available listing
-async def test_patient_creates_listing_based_order(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_patient_creates_listing_based_order(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(
         client, admin_tokens=admin, product_id=product_id, price=750, stock=10
     )
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     r = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -245,10 +245,9 @@ async def test_cannot_order_expired_listing(client: AsyncClient, db):
     from app.models.product import ProductListing
     from sqlalchemy import select
 
-    sa = await _register(client, "super_admin")
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(
         client,
         admin_tokens=admin,
@@ -263,7 +262,7 @@ async def test_cannot_order_expired_listing(client: AsyncClient, db):
     lst.expiry_date = datetime.now(timezone.utc) - timedelta(days=1)
     await db.flush()
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     r = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -276,16 +275,15 @@ async def test_cannot_order_expired_listing(client: AsyncClient, db):
 
 
 # 5. Cannot order unavailable listing
-async def test_cannot_order_unavailable_listing(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_cannot_order_unavailable_listing(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(
         client, admin_tokens=admin, product_id=product_id, price=300, available=False
     )
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     r = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -298,16 +296,15 @@ async def test_cannot_order_unavailable_listing(client: AsyncClient):
 
 
 # 6. Cannot order more than available stock
-async def test_cannot_order_more_than_stock(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_cannot_order_more_than_stock(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(
         client, admin_tokens=admin, product_id=product_id, price=300, stock=2
     )
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     r = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -320,16 +317,15 @@ async def test_cannot_order_more_than_stock(client: AsyncClient):
 
 
 # 7. Order totals + 8. Commission math (10%)
-async def test_order_totals_and_commission(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_order_totals_and_commission(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(
         client, admin_tokens=admin, product_id=product_id, price=2000, stock=10
     )
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     r = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -352,14 +348,13 @@ async def test_order_totals_and_commission(client: AsyncClient):
 
 
 # 9. Patient views own orders
-async def test_patient_views_own_orders(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_patient_views_own_orders(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(client, admin_tokens=admin, product_id=product_id, price=500)
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     create = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -379,14 +374,13 @@ async def test_patient_views_own_orders(client: AsyncClient):
 
 
 # 10. Patient cannot view another patient's order
-async def test_patient_cannot_view_others_order(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_patient_cannot_view_others_order(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(client, admin_tokens=admin, product_id=product_id, price=500)
 
-    owner = await _register(client, "patient")
+    owner = await _register(client, "patient", db)
     create = await client.post(
         "/api/v1/orders/",
         headers=_h(owner),
@@ -397,20 +391,19 @@ async def test_patient_cannot_view_others_order(client: AsyncClient):
     )
     order_id = create.json()["id"]
 
-    intruder = await _register(client, "patient")
+    intruder = await _register(client, "patient", db)
     r = await client.get(f"/api/v1/orders/{order_id}", headers=_h(intruder))
     assert r.status_code == 403, r.text
 
 
 # 11. Pharmacy admin views own pharmacy orders
-async def test_pharmacy_admin_lists_own_orders(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_pharmacy_admin_lists_own_orders(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(client, admin_tokens=admin, product_id=product_id, price=500)
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     create = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -428,18 +421,16 @@ async def test_pharmacy_admin_lists_own_orders(client: AsyncClient):
 
 
 # 12. Pharmacy admin cannot view another pharmacy's order
-async def test_pharmacy_admin_cannot_view_others_orders(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_pharmacy_admin_cannot_view_others_orders(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
 
-    admin_a = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin_a)
+    admin_a = await _register(client, "pharmacy_admin", db)
     listing_a = await _add_listing(client, admin_tokens=admin_a, product_id=product_id, price=500)
 
-    admin_b = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin_b)
+    admin_b = await _register(client, "pharmacy_admin", db)
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     create = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -455,14 +446,13 @@ async def test_pharmacy_admin_cannot_view_others_orders(client: AsyncClient):
 
 
 # 13. Pharmacy admin accepts own order
-async def test_pharmacy_admin_accepts_own_order(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_pharmacy_admin_accepts_own_order(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(client, admin_tokens=admin, product_id=product_id, price=500)
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     create = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -472,6 +462,7 @@ async def test_pharmacy_admin_accepts_own_order(client: AsyncClient):
         },
     )
     order_id = create.json()["id"]
+    await _mark_order_paid(db, order_id)
 
     r = await client.patch(
         f"/api/v1/orders/{order_id}/status",
@@ -483,14 +474,13 @@ async def test_pharmacy_admin_accepts_own_order(client: AsyncClient):
 
 
 # 14. Pharmacy admin rejects own order
-async def test_pharmacy_admin_rejects_own_order(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_pharmacy_admin_rejects_own_order(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(client, admin_tokens=admin, product_id=product_id, price=500)
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     create = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -511,11 +501,11 @@ async def test_pharmacy_admin_rejects_own_order(client: AsyncClient):
 
 
 # 15. Partner admin manages own partner orders
-async def test_partner_admin_manages_own_orders(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_partner_admin_manages_own_orders(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
 
-    partner_admin = await _register(client, "partner_company_admin")
+    partner_admin = await _register(client, "partner_company_admin", db)
     partner_resp = await client.post(
         "/api/v1/partners/",
         headers=_h(partner_admin),
@@ -536,7 +526,7 @@ async def test_partner_admin_manages_own_orders(client: AsyncClient):
     assert listing.status_code == 201, listing.text
     listing_id = listing.json()["id"]
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     create = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -547,6 +537,7 @@ async def test_partner_admin_manages_own_orders(client: AsyncClient):
     )
     assert create.status_code == 201, create.text
     order_id = create.json()["id"]
+    await _mark_order_paid(db, order_id)
 
     listed = await client.get("/api/v1/partners/me/orders", headers=_h(partner_admin))
     assert listed.status_code == 200, listed.text
@@ -562,18 +553,16 @@ async def test_partner_admin_manages_own_orders(client: AsyncClient):
 
 
 # 16. Non-owner pharmacy admin cannot change another pharmacy's order status
-async def test_non_owner_cannot_change_status(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_non_owner_cannot_change_status(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
 
-    admin_a = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin_a)
+    admin_a = await _register(client, "pharmacy_admin", db)
     listing_a = await _add_listing(client, admin_tokens=admin_a, product_id=product_id, price=500)
 
-    admin_b = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin_b)
+    admin_b = await _register(client, "pharmacy_admin", db)
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     create = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -583,6 +572,7 @@ async def test_non_owner_cannot_change_status(client: AsyncClient):
         },
     )
     order_id = create.json()["id"]
+    await _mark_order_paid(db, order_id)
 
     r = await client.patch(
         f"/api/v1/orders/{order_id}/status",
@@ -593,14 +583,13 @@ async def test_non_owner_cannot_change_status(client: AsyncClient):
 
 
 # 17. Payment status placeholder updatable by patient (own order)
-async def test_payment_status_placeholder_update(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_payment_status_placeholder_update(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(client, admin_tokens=admin, product_id=product_id, price=500)
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     create = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -611,26 +600,23 @@ async def test_payment_status_placeholder_update(client: AsyncClient):
     )
     order_id = create.json()["id"]
 
-    r = await client.patch(
-        f"/api/v1/orders/{order_id}/payment-status",
-        headers=_h(patient),
-        json={"payment_status": "paid", "payment_reference": "PLACEHOLDER-REF-1"},
-    )
+    await _mark_order_paid(db, order_id)
+
+    r = await client.get(f"/api/v1/orders/{order_id}", headers=_h(patient))
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["payment_status"] == "paid"
-    assert body["payment_reference"] == "PLACEHOLDER-REF-1"
+    assert float(body["amount_paid_snapshot"]) == float(body["total_amount"])
 
 
 # 18. Patient may cancel own pending order
-async def test_patient_can_cancel_own_pending_order(client: AsyncClient):
-    sa = await _register(client, "super_admin")
+async def test_patient_can_cancel_own_pending_order(client: AsyncClient, db):
+    sa = await _register(client, "super_admin", db)
     product_id = await _create_product(client, sa)
-    admin = await _register(client, "pharmacy_admin")
-    await _create_pharmacy(client, admin)
+    admin = await _register(client, "pharmacy_admin", db)
     listing_id = await _add_listing(client, admin_tokens=admin, product_id=product_id, price=500)
 
-    patient = await _register(client, "patient")
+    patient = await _register(client, "patient", db)
     create = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),
@@ -651,8 +637,8 @@ async def test_patient_can_cancel_own_pending_order(client: AsyncClient):
 
 
 # 19. OrderCreate input validation: must pick exactly one path
-async def test_order_create_requires_one_path(client: AsyncClient):
-    patient = await _register(client, "patient")
+async def test_order_create_requires_one_path(client: AsyncClient, db):
+    patient = await _register(client, "patient", db)
     r = await client.post(
         "/api/v1/orders/",
         headers=_h(patient),

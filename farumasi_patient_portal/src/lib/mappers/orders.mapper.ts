@@ -11,6 +11,10 @@ export interface BackendOrderItem {
   sell_mode?: string | null;
   unit_price: number;
   total_price: number;
+  dispatch_batch_number?: string | null;
+  dispatch_expiry_date?: string | null;
+  dispatch_manufacturer?: string | null;
+  dispatch_confirmed_at?: string | null;
   created_at?: string;
 }
 
@@ -37,6 +41,12 @@ export interface BackendOrder {
   payment_reference?: string | null;
   patient_access_code?: string | null;
   notes?: string | null;
+  pharmacy_assigned_at?: string | null;
+  pharmacy_confirmed_at?: string | null;
+  partner_response_due_at?: string | null;
+  amount_paid_snapshot?: number | null;
+  can_reassign_pharmacy?: boolean;
+  dispatch_confirmed_at?: string | null;
   items: BackendOrderItem[];
   // Nested objects populated by backend since Phase 11
   pharmacy?: { id: string; name: string } | null;
@@ -107,6 +117,10 @@ export function adaptOrder(o: BackendOrder): Order {
     patientAccessCode: o.patient_access_code ?? undefined,
     deliveryAddress: o.delivery_address ?? undefined,
     subtotal: o.subtotal,
+    canReassignPharmacy: o.can_reassign_pharmacy ?? false,
+    partnerResponseDueAt: o.partner_response_due_at ?? undefined,
+    amountPaidSnapshot: o.amount_paid_snapshot ?? undefined,
+    dispatchConfirmedAt: o.dispatch_confirmed_at ?? undefined,
     itemList: (o.items ?? []).map((it) => ({
       id: it.id,
       productId: it.product_id,
@@ -117,6 +131,9 @@ export function adaptOrder(o: BackendOrder): Order {
       unitPrice: it.unit_price,
       totalPrice: it.total_price,
       imageUrl: it.product_image_url ?? null,
+      dispatchBatchNumber: it.dispatch_batch_number ?? undefined,
+      dispatchExpiryDate: it.dispatch_expiry_date ?? undefined,
+      dispatchManufacturer: it.dispatch_manufacturer ?? undefined,
     })),
   };
 }

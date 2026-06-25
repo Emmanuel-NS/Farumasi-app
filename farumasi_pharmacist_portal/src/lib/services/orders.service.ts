@@ -9,6 +9,9 @@ export interface BackendOrderItem {
   unit_price: number;
   total_price: number;
   sell_mode?: "pack" | "partial";
+  dispatch_batch_number?: string | null;
+  dispatch_expiry_date?: string | null;
+  dispatch_manufacturer?: string | null;
   product?: { id: string; name: string; image_url?: string | null } | null;
 }
 

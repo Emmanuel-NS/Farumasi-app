@@ -131,6 +131,10 @@ class OrderStatus(str, Enum):
     FAILED = "failed"
 
 
+# Minutes after payment before a patient may reassign an unconfirmed order.
+PARTNER_RESPONSE_TIMEOUT_MINUTES = 10
+
+
 # Legacy statuses stored in older seed/MVP data — map to current enum values.
 LEGACY_ORDER_STATUS_MAP: dict[str, str] = {
     "processing": OrderStatus.PREPARING.value,

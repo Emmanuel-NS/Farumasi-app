@@ -8,6 +8,7 @@ import { paymentsService } from "@/lib/services/payments.service";
 import { deliveryService, type BackendDelivery, coordsPair, deliveryProgress, estimateDeliveryEtaMinutes } from "@/lib/services/delivery.service";
 import { mediaUrl } from "@/lib/api";
 import type { Order, DeliveryQR } from "@/types";
+import { adaptOrder } from "@/lib/mappers/orders.mapper";
 import { cn, formatPrice } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useTranslation } from "@/lib/translations";
@@ -60,6 +61,10 @@ export default function OrderDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [retryingPayment, setRetryingPayment] = useState(false);
   const [retryPaymentMethod, setRetryPaymentMethod] = useState<"mtn_momo" | "airtel_money" | "card">("mtn_momo");
+  const [reassignOptions, setReassignOptions] = useState<Awaited<ReturnType<typeof ordersService.getReassignmentOptions>> | null>(null);
+  const [showCheaperPharmacies, setShowCheaperPharmacies] = useState(false);
+  const [reassigningId, setReassigningId] = useState<string | null>(null);
+  const [reassignTick, setReassignTick] = useState(0);
   const authUser = useAuthStore((s) => s.user);
 
   const loadOrder = async () => {
@@ -87,6 +92,55 @@ export default function OrderDetailPage() {
       .catch(() => setDeliveryQR(null))
       .finally(() => setQrLoading(false));
   }, [id, order?.status, order?.deliveryMethod]);
+
+  useEffect(() => {
+    if (!id || !order) return;
+    const dueAt = order.partnerResponseDueAt ? new Date(order.partnerResponseDueAt).getTime() : null;
+    const eligible =
+      order.canReassignPharmacy ||
+      (order.paymentStatus === "paid" &&
+        order.status === "pending_review" &&
+        dueAt != null &&
+        Date.now() >= dueAt);
+    if (!eligible) {
+      setReassignOptions(null);
+      return;
+    }
+    ordersService
+      .getReassignmentOptions(id, showCheaperPharmacies)
+      .then(setReassignOptions)
+      .catch(() => setReassignOptions(null));
+  }, [id, order?.canReassignPharmacy, order?.paymentStatus, order?.status, order?.partnerResponseDueAt, showCheaperPharmacies, reassignTick]);
+
+  useEffect(() => {
+    if (!order?.partnerResponseDueAt || order.canReassignPharmacy) return;
+    const due = new Date(order.partnerResponseDueAt).getTime();
+    const ms = due - Date.now();
+    if (ms <= 0) return;
+    const timer = window.setTimeout(() => setReassignTick((n) => n + 1), ms + 500);
+    return () => window.clearTimeout(timer);
+  }, [order?.partnerResponseDueAt, order?.canReassignPharmacy]);
+
+  const handleReassign = async (opt: NonNullable<typeof reassignOptions>["options"][number]) => {
+    if (!id) return;
+    const key = opt.pharmacy_id ?? opt.partner_company_id ?? "";
+    setReassigningId(key);
+    try {
+      const raw = await ordersService.reassignPharmacy(id, {
+        pharmacy_id: opt.pharmacy_id ?? undefined,
+        partner_company_id: opt.partner_company_id ?? undefined,
+        accept_refund_for_difference: opt.requires_refund,
+      });
+      setOrder(adaptOrder(raw));
+      toast.success(`Order moved to ${opt.provider_name}`);
+      setReassignOptions(null);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Could not change pharmacy";
+      toast.error(message);
+    } finally {
+      setReassigningId(null);
+    }
+  };
 
   const trackableStatuses = useMemo(
     () => new Set(["out_for_delivery", "delivered", "completed"]),
@@ -285,6 +339,61 @@ export default function OrderDetailPage() {
           </span>
         )}
       </div>
+
+      {/* Pharmacy slow to confirm — reassignment after 10 min */}
+      {reassignOptions?.can_reassign && reassignOptions.options.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 mb-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-bold text-amber-900">Choose another pharmacy</h2>
+              <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                Your payment of {formatPrice(reassignOptions.amount_paid)} is confirmed, but{" "}
+                {order.pharmacy} has not accepted within 10 minutes. Pick another partner at the
+                same price — no extra payment required.
+              </p>
+              <label className="flex items-center gap-2 mt-3 text-xs text-amber-900 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showCheaperPharmacies}
+                  onChange={(e) => setShowCheaperPharmacies(e.target.checked)}
+                  className="rounded border-amber-300"
+                />
+                Show cheaper pharmacies (refund difference)
+              </label>
+              <div className="mt-3 space-y-2">
+                {reassignOptions.options.map((opt) => {
+                  const key = opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={reassigningId != null}
+                      onClick={() => handleReassign(opt)}
+                      className="w-full text-left bg-white border border-amber-100 rounded-2xl px-4 py-3 hover:border-farumasi-300 transition-colors disabled:opacity-60"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-slate-900">{opt.provider_name}</span>
+                        <span className="text-sm font-extrabold text-farumasi-700">
+                          {formatPrice(opt.estimated_total)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Medicines {formatPrice(opt.estimated_subtotal)} · Delivery {formatPrice(opt.delivery_fee)}
+                        {opt.requires_refund && (
+                          <span className="text-amber-700 font-medium">
+                            {" "}· Refund {formatPrice(opt.refund_amount)}
+                          </span>
+                        )}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Live tracking map ────────────────────────────────────────── */}
       {order.status === "out_for_delivery" && (
@@ -539,12 +648,27 @@ export default function OrderDetailPage() {
                       </span>
                     )}
                   </div>
-                  {productHref && (
-                    <span className="text-[10px] text-farumasi-600 font-semibold mt-0.5 flex items-center gap-0.5">
-                      View product <ChevronRight className="w-2.5 h-2.5" />
-                    </span>
-                  )}
-                </div>
+                    {productHref && (
+                      <span className="text-[10px] text-farumasi-600 font-semibold mt-0.5 flex items-center gap-0.5">
+                        View product <ChevronRight className="w-2.5 h-2.5" />
+                      </span>
+                    )}
+                    {item.dispatchBatchNumber && (
+                      <div className="mt-2 text-[10px] text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 space-y-0.5">
+                        <p><span className="font-semibold text-slate-600">Batch:</span> {item.dispatchBatchNumber}</p>
+                        {item.dispatchExpiryDate && (
+                          <p><span className="font-semibold text-slate-600">Expires:</span>{" "}
+                            {new Date(item.dispatchExpiryDate).toLocaleDateString("en-GB", {
+                              day: "numeric", month: "short", year: "numeric",
+                            })}
+                          </p>
+                        )}
+                        {item.dispatchManufacturer && (
+                          <p><span className="font-semibold text-slate-600">Manufacturer:</span> {item.dispatchManufacturer}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                 <div className="text-sm font-extrabold text-farumasi-700 shrink-0 text-right">
                   {item.totalPrice > 0 ? formatPrice(item.totalPrice) : "—"}

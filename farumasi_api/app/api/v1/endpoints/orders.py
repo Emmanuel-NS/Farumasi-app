@@ -9,11 +9,14 @@ from app.models.user import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.delivery import DeliveryOut
 from app.schemas.order import (
+    ConfirmDispatchRequest,
     OrderActivityEntry,
     OrderCreate,
     OrderOut,
     OrderStatusUpdate,
     PaymentStatusUpdate,
+    ReassignPharmacyRequest,
+    ReassignmentOptionsOut,
     SetRiderAccessCodeRequest,
     VerifyAccessCodeRequest,
 )
@@ -174,3 +177,14 @@ async def verify_access_code(
     """Verify patient access code to complete pickup (→ completed) or
     confirm delivery received (→ delivered)."""
     return await OrderService(db).verify_access_code(order_id, data, actor)
+
+
+@router.post("/{order_id}/confirm-dispatch", response_model=OrderOut)
+async def confirm_dispatch(
+    order_id: str,
+    data: ConfirmDispatchRequest,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    """Partner confirms dispatch with batch traceability and patient access code."""
+    return await OrderService(db).confirm_dispatch(order_id, data, actor)

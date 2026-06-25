@@ -98,4 +98,45 @@ export const ordersService = {
     });
     return data;
   },
+
+  async getReassignmentOptions(
+    orderId: string,
+    includeCheaperWithRefund = false,
+  ) {
+    const { data } = await api.get<{
+      order_id: string;
+      amount_paid: number;
+      can_reassign: boolean;
+      partner_response_due_at?: string | null;
+      options: Array<{
+        pharmacy_id?: string | null;
+        partner_company_id?: string | null;
+        provider_name: string;
+        estimated_subtotal: number;
+        delivery_fee: number;
+        estimated_total: number;
+        amount_paid: number;
+        requires_refund: boolean;
+        refund_amount: number;
+      }>;
+    }>(`/patients/me/orders/${orderId}/reassignment-options`, {
+      params: { include_cheaper_with_refund: includeCheaperWithRefund },
+    });
+    return data;
+  },
+
+  async reassignPharmacy(
+    orderId: string,
+    payload: {
+      pharmacy_id?: string;
+      partner_company_id?: string;
+      accept_refund_for_difference?: boolean;
+    },
+  ): Promise<BackendOrder> {
+    const { data } = await api.post<BackendOrder>(
+      `/patients/me/orders/${orderId}/reassign-pharmacy`,
+      payload,
+    );
+    return data;
+  },
 };

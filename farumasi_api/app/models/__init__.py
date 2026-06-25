@@ -17,6 +17,7 @@ from app.models.product import ProductCatalogueItem, ProductListing, ProductRequ
 from app.models.prescription import DigitalPrescription, PrescriptionItem, PrescriptionReview
 from app.models.recommendation import PharmacyRecommendation
 from app.models.order import Order, OrderItem
+from app.models.order_partner_assignment import OrderPartnerAssignment
 from app.models.delivery import Delivery
 from app.models.revenue import RevenueRecord, WithdrawalRequest
 from app.models.article import HealthArticle, ArticleLike, ArticleSave, ArticleComment
@@ -56,6 +57,7 @@ __all__ = [
     "PharmacyRecommendation",
     "Order",
     "OrderItem",
+    "OrderPartnerAssignment",
     "Delivery",
     "RevenueRecord",
     "WithdrawalRequest",

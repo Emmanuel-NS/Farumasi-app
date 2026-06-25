@@ -60,7 +60,9 @@ class Pharmacy(Base, UUIDMixin, TimestampMixin):
     product_listings: Mapped[List["ProductListing"]] = relationship(
         "ProductListing", back_populates="pharmacy"
     )
-    orders: Mapped[List["Order"]] = relationship("Order", back_populates="pharmacy")
+    orders: Mapped[List["Order"]] = relationship(
+        "Order", back_populates="pharmacy", foreign_keys="Order.pharmacy_id"
+    )
     accepted_insurances: Mapped[List["InsuranceProvider"]] = relationship(
         "InsuranceProvider", secondary=pharmacy_insurance, back_populates="pharmacies"
     )

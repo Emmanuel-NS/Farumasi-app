@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.constants import OrderStatus, RevenueStatus, UserRole, WithdrawalStatus
 from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.models.order import Order
+from app.models.order_partner_assignment import OrderPartnerAssignment
 from app.models.partner import PartnerCompany
 from app.models.pharmacy import Pharmacy
 from app.models.revenue import RevenueRecord, WithdrawalRequest
@@ -79,6 +80,8 @@ def _empty_summary() -> RevenueSummary:
         pending_settlement_count=0,
         available_settlement_count=0,
         withdrawn_settlement_count=0,
+        reassigned_orders=0,
+        reassigned_lost_net=0.0,
     )
 
 
@@ -113,6 +116,9 @@ class RevenueService:
         withdrawals: list[WithdrawalRequest],
         total_orders: int,
         completed_orders: int,
+        *,
+        reassigned_orders: int = 0,
+        reassigned_lost_net: float = 0.0,
     ) -> RevenueSummary:
         gross = sum(float(r.gross_amount) for r in records)
         commission = sum(float(r.platform_commission) for r in records)
@@ -166,7 +172,28 @@ class RevenueService:
             pending_settlement_count=pending_settlement_count,
             available_settlement_count=available_settlement_count,
             withdrawn_settlement_count=withdrawn_settlement_count,
+            reassigned_orders=reassigned_orders,
+            reassigned_lost_net=reassigned_lost_net,
         )
+
+    async def _reassignment_stats(
+        self,
+        *,
+        pharmacy_id: Optional[str] = None,
+        partner_company_id: Optional[str] = None,
+    ) -> tuple[int, float]:
+        q = select(OrderPartnerAssignment).where(
+            OrderPartnerAssignment.end_reason == "reassigned"
+        )
+        if pharmacy_id:
+            q = q.where(OrderPartnerAssignment.pharmacy_id == pharmacy_id)
+        elif partner_company_id:
+            q = q.where(OrderPartnerAssignment.partner_company_id == partner_company_id)
+        else:
+            return 0, 0.0
+        rows = list((await self.db.execute(q)).scalars().all())
+        lost = sum(float(r.net_partner_amount) for r in rows)
+        return len(rows), lost
 
     async def get_summary(
         self,
@@ -228,9 +255,17 @@ class RevenueService:
         total_orders = (await self.db.execute(order_q)).scalar_one() or 0
         completed_orders = (await self.db.execute(completed_q)).scalar_one() or 0
 
-        return self._build_summary(
-            records, withdrawals, int(total_orders), int(completed_orders)
+        reassigned_orders, reassigned_lost_net = await self._reassignment_stats(
+            pharmacy_id=pharmacy_id,
+            partner_company_id=partner_company_id,
         )
+
+        summary = self._build_summary(
+            records, withdrawals, int(total_orders), int(completed_orders),
+            reassigned_orders=reassigned_orders,
+            reassigned_lost_net=reassigned_lost_net,
+        )
+        return summary
 
     async def get_summary_for_owner(self, owner_user_id: str) -> RevenueSummary:
         """Aggregate wallet balances across all pharmacies and partner companies owned by a user."""

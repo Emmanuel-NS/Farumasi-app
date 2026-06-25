@@ -194,11 +194,24 @@ export default function OrderDetailPage() {
           </h2>
           <ul className="space-y-2">
             {order.items.map((item) => (
-              <li key={item.id} className="flex justify-between text-sm">
-                <span className="text-slate-700">
-                  {item.product_name} ×{item.quantity}
-                </span>
-                <span className="font-medium">{formatPrice(item.total_price)} RWF</span>
+              <li key={item.id} className="text-sm border-b border-slate-50 pb-2 last:border-0">
+                <div className="flex justify-between">
+                  <span className="text-slate-700">
+                    {item.product_name} ×{item.quantity}
+                  </span>
+                  <span className="font-medium">{formatPrice(item.total_price)} RWF</span>
+                </div>
+                {item.dispatch_batch_number && (
+                  <div className="mt-1.5 text-[11px] text-slate-500 bg-slate-50 rounded-lg px-2 py-1.5">
+                    <p>Batch: {item.dispatch_batch_number}</p>
+                    {item.dispatch_expiry_date && (
+                      <p>Expires: {formatDateTime(item.dispatch_expiry_date)}</p>
+                    )}
+                    {item.dispatch_manufacturer && (
+                      <p>Manufacturer: {item.dispatch_manufacturer}</p>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

@@ -249,6 +249,36 @@ async def get_my_order_payment_status(
     return await PaymentService(db).get_status(order_id, current_user)
 
 
+from app.schemas.order import ReassignPharmacyRequest, ReassignmentOptionsOut  # noqa: E402
+
+
+@router.get(
+    "/me/orders/{order_id}/reassignment-options",
+    response_model=ReassignmentOptionsOut,
+)
+async def get_my_order_reassignment_options(
+    order_id: str,
+    include_cheaper_with_refund: bool = Query(False),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await OrderService(db).get_reassignment_options(
+        order_id,
+        current_user,
+        include_cheaper_with_refund=include_cheaper_with_refund,
+    )
+
+
+@router.post("/me/orders/{order_id}/reassign-pharmacy", response_model=OrderOut)
+async def reassign_my_order_pharmacy(
+    order_id: str,
+    data: ReassignPharmacyRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await OrderService(db).reassign_pharmacy(order_id, data, current_user)
+
+
 # -- Phase 7: delivery QR for patient --------------------------------------
 from app.schemas.delivery import DeliveryQRForPatient  # noqa: E402
 from app.services.delivery_service import DeliveryService  # noqa: E402

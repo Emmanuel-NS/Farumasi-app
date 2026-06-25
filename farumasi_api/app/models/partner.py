@@ -50,7 +50,9 @@ class PartnerCompany(Base, UUIDMixin, TimestampMixin):
     product_listings: Mapped[List["ProductListing"]] = relationship(
         "ProductListing", back_populates="partner_company"
     )
-    orders: Mapped[List["Order"]] = relationship("Order", back_populates="partner_company")
+    orders: Mapped[List["Order"]] = relationship(
+        "Order", back_populates="partner_company", foreign_keys="Order.partner_company_id"
+    )
     revenue_records: Mapped[List["RevenueRecord"]] = relationship(
         "RevenueRecord", back_populates="partner_company"
     )

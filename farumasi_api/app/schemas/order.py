@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import field_validator, model_validator
+from pydantic import computed_field, field_validator, model_validator
 
 from app.schemas.common import FarumasiBaseModel
 from app.core.constants import OrderStatus, PaymentStatus, DeliveryMethod, SellMode, normalize_order_status
@@ -109,6 +109,10 @@ class OrderItemOut(FarumasiBaseModel):
     sell_mode: str = "pack"
     unit_price: float
     total_price: float
+    dispatch_batch_number: Optional[str] = None
+    dispatch_expiry_date: Optional[datetime] = None
+    dispatch_manufacturer: Optional[str] = None
+    dispatch_confirmed_at: Optional[datetime] = None
     created_at: datetime
 
 
@@ -153,6 +157,8 @@ class OrderOut(FarumasiBaseModel):
     prescription_id: Optional[str] = None
     pharmacy_id: Optional[str] = None
     partner_company_id: Optional[str] = None
+    previous_pharmacy_id: Optional[str] = None
+    previous_partner_company_id: Optional[str] = None
     selected_recommendation_id: Optional[str] = None
     order_status: str
     payment_status: str
@@ -179,8 +185,31 @@ class OrderOut(FarumasiBaseModel):
     patient_access_code: Optional[str] = None
     rider_access_code: Optional[str] = None
     notes: Optional[str] = None
+    pharmacy_assigned_at: Optional[datetime] = None
+    pharmacy_confirmed_at: Optional[datetime] = None
+    partner_response_due_at: Optional[datetime] = None
+    amount_paid_snapshot: Optional[float] = None
+    reassignment_count: int = 0
+    dispatch_confirmed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def can_reassign_pharmacy(self) -> bool:
+        if self.payment_status != PaymentStatus.PAID:
+            return False
+        if self.order_status != OrderStatus.PENDING:
+            return False
+        if self.pharmacy_confirmed_at is not None:
+            return False
+        if self.partner_response_due_at is None:
+            return False
+        now = datetime.now(timezone.utc)
+        due = self.partner_response_due_at
+        if due.tzinfo is None:
+            due = due.replace(tzinfo=timezone.utc)
+        return now >= due
 
     @field_validator("order_status", mode="before")
     @classmethod
@@ -215,6 +244,68 @@ class SetRiderAccessCodeRequest(FarumasiBaseModel):
 class VerifyAccessCodeRequest(FarumasiBaseModel):
     """Verify the patient's access code at pickup or delivery completion."""
     access_code: str
+
+
+class DispatchItemRecord(FarumasiBaseModel):
+    """Per-line dispatch traceability when medicine leaves the partner."""
+    order_item_id: str
+    batch_number: str
+    expiry_date: datetime
+    manufacturer: str
+
+    @field_validator("batch_number", "manufacturer")
+    @classmethod
+    def _non_empty(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("Field is required")
+        return v
+
+
+class ConfirmDispatchRequest(FarumasiBaseModel):
+    """Partner confirms dispatch with batch traceability and patient access code."""
+    access_code: str
+    items: List[DispatchItemRecord]
+
+    @model_validator(mode="after")
+    def _require_items(self) -> "ConfirmDispatchRequest":
+        if not self.items:
+            raise ValueError("At least one dispatch item record is required")
+        return self
+
+
+class ReassignmentOptionOut(FarumasiBaseModel):
+    pharmacy_id: Optional[str] = None
+    partner_company_id: Optional[str] = None
+    provider_name: str
+    estimated_subtotal: float
+    delivery_fee: float
+    estimated_total: float
+    amount_paid: float
+    requires_refund: bool = False
+    refund_amount: float = 0.0
+
+
+class ReassignmentOptionsOut(FarumasiBaseModel):
+    order_id: str
+    amount_paid: float
+    can_reassign: bool
+    partner_response_due_at: Optional[datetime] = None
+    options: List[ReassignmentOptionOut] = []
+
+
+class ReassignPharmacyRequest(FarumasiBaseModel):
+    pharmacy_id: Optional[str] = None
+    partner_company_id: Optional[str] = None
+    accept_refund_for_difference: bool = False
+
+    @model_validator(mode="after")
+    def _require_provider(self) -> "ReassignPharmacyRequest":
+        if not self.pharmacy_id and not self.partner_company_id:
+            raise ValueError("pharmacy_id or partner_company_id is required")
+        if self.pharmacy_id and self.partner_company_id:
+            raise ValueError("Provide only one of pharmacy_id or partner_company_id")
+        return self
 
 
 class OrderActivityEntry(FarumasiBaseModel):

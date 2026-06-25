@@ -7,6 +7,8 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatRWF, formatDateTime, mediaUrl, orderDisplayCode } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
@@ -34,6 +36,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [prescription, setPrescription] = useState<BackendPrescription | null>(null);
   const [verifyCodeInput, setVerifyCodeInput] = useState("");
   const [verifying, setVerifying] = useState(false);
+  const [dispatchOpen, setDispatchOpen] = useState(false);
+  const [dispatchAccessCode, setDispatchAccessCode] = useState("");
+  const [dispatchRows, setDispatchRows] = useState<Record<string, { batch_number: string; expiry_date: string; manufacturer: string }>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +102,67 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     } finally {
       setVerifying(false);
     }
+  };
+
+  const openDispatchDialog = () => {
+    if (!order) return;
+    const rows: Record<string, { batch_number: string; expiry_date: string; manufacturer: string }> = {};
+    for (const item of order.items) {
+      rows[item.id] = {
+        batch_number: item.dispatch_batch_number ?? "",
+        expiry_date: item.dispatch_expiry_date
+          ? item.dispatch_expiry_date.slice(0, 10)
+          : "",
+        manufacturer: item.dispatch_manufacturer ?? "",
+      };
+    }
+    setDispatchRows(rows);
+    setDispatchAccessCode("");
+    setDispatchOpen(true);
+  };
+
+  const submitDispatch = async () => {
+    if (!order) return;
+    if (!dispatchAccessCode.trim()) {
+      toast.error("Enter the patient's access code");
+      return;
+    }
+    const items = order.items.map((item) => {
+      const row = dispatchRows[item.id];
+      return {
+        order_item_id: item.id,
+        batch_number: row?.batch_number?.trim() ?? "",
+        expiry_date: row?.expiry_date ? `${row.expiry_date}T12:00:00Z` : "",
+        manufacturer: row?.manufacturer?.trim() ?? "",
+      };
+    });
+    if (items.some((it) => !it.batch_number || !it.expiry_date || !it.manufacturer)) {
+      toast.error("Batch number, expiry date, and manufacturer are required for every item");
+      return;
+    }
+    setActing(true);
+    try {
+      const updated = await ordersService.confirmDispatch(order.id, {
+        access_code: dispatchAccessCode.trim(),
+        items,
+      });
+      setOrder(updated);
+      setDispatchOpen(false);
+      toast.success("Dispatch confirmed — order is ready for pickup");
+    } catch (err: unknown) {
+      toast.error(getApiError(err, "Failed to confirm dispatch"));
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const handleForward = () => {
+    if (!order || !forward) return;
+    if (forward.next === "ready_for_pickup") {
+      openDispatchDialog();
+      return;
+    }
+    updateStatus(forward.next, `Order ${forward.label.toLowerCase()}`);
   };
 
   if (loading) {
@@ -182,6 +248,17 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         >
                           View in catalogue →
                         </Link>
+                      )}
+                      {item.dispatch_batch_number && (
+                        <div className="mt-2 text-[10px] text-muted-foreground bg-slate-50 border rounded-lg px-2 py-1.5 space-y-0.5">
+                          <p><span className="font-semibold">Batch:</span> {item.dispatch_batch_number}</p>
+                          {item.dispatch_expiry_date && (
+                            <p><span className="font-semibold">Expires:</span> {formatDateTime(item.dispatch_expiry_date)}</p>
+                          )}
+                          {item.dispatch_manufacturer && (
+                            <p><span className="font-semibold">Manufacturer:</span> {item.dispatch_manufacturer}</p>
+                          )}
+                        </div>
                       )}
                     </div>
                     <p className="font-semibold shrink-0">{formatRWF(item.total_price)}</p>
@@ -368,11 +445,72 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <Button
                   className="w-full gap-1.5 text-sm"
                   disabled={acting}
-                  onClick={() => updateStatus(forward.next, `Order ${forward.label.toLowerCase()}`)}
+                  onClick={handleForward}
                 >
                   {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  {forward.label}
+                  {forward.next === "ready_for_pickup" ? "Confirm Dispatch & Mark Ready" : forward.label}
                 </Button>
+              )}
+
+              {dispatchOpen && (
+                <div className="rounded-xl border bg-slate-50 p-3 space-y-3">
+                  <p className="text-xs font-semibold text-slate-700">
+                    FDA dispatch records — required before handover
+                  </p>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Patient access code</Label>
+                    <Input
+                      value={dispatchAccessCode}
+                      onChange={(e) => setDispatchAccessCode(e.target.value)}
+                      placeholder="Verify patient's code"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  {order.items.map((item) => {
+                    const name = item.product_name ?? item.product?.name ?? "Item";
+                    const row = dispatchRows[item.id] ?? { batch_number: "", expiry_date: "", manufacturer: "" };
+                    return (
+                      <div key={item.id} className="bg-white border rounded-lg p-2.5 space-y-2">
+                        <p className="text-xs font-bold truncate">{name} ×{item.quantity}</p>
+                        <Input
+                          placeholder="Batch number"
+                          value={row.batch_number}
+                          onChange={(e) => setDispatchRows((prev) => ({
+                            ...prev,
+                            [item.id]: { ...row, batch_number: e.target.value },
+                          }))}
+                          className="h-8 text-xs"
+                        />
+                        <Input
+                          type="date"
+                          value={row.expiry_date}
+                          onChange={(e) => setDispatchRows((prev) => ({
+                            ...prev,
+                            [item.id]: { ...row, expiry_date: e.target.value },
+                          }))}
+                          className="h-8 text-xs"
+                        />
+                        <Input
+                          placeholder="Manufacturer"
+                          value={row.manufacturer}
+                          onChange={(e) => setDispatchRows((prev) => ({
+                            ...prev,
+                            [item.id]: { ...row, manufacturer: e.target.value },
+                          }))}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    );
+                  })}
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1" disabled={acting} onClick={submitDispatch}>
+                      {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm dispatch"}
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={acting} onClick={() => setDispatchOpen(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               )}
 
               {/* Pickup access code verification: pharmacy confirms patient's code */}

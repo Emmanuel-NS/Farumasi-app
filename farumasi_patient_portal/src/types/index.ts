@@ -146,11 +146,18 @@ export interface Order {
     unitPrice: number;
     totalPrice: number;
     imageUrl?: string | null;
+    dispatchBatchNumber?: string;
+    dispatchExpiryDate?: string;
+    dispatchManufacturer?: string;
   }>;
   notes?: string;
   patientAccessCode?: string;
   deliveryAddress?: string;
   subtotal?: number;
+  canReassignPharmacy?: boolean;
+  partnerResponseDueAt?: string;
+  amountPaidSnapshot?: number;
+  dispatchConfirmedAt?: string;
 }
 
 // ── Delivery QR ───────────────────────────────

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Sequence, Tuple
 
 from sqlalchemy import select, func, update as sa_update
@@ -21,6 +21,7 @@ from app.core.constants import (
     UserRole,
     normalize_order_status,
     order_bucket_statuses,
+    PARTNER_RESPONSE_TIMEOUT_MINUTES,
 )
 from app.core.exceptions import (
     AuthorizationError,
@@ -30,6 +31,7 @@ from app.core.exceptions import (
 )
 from app.models.delivery import Delivery
 from app.models.order import Order, OrderItem
+from app.models.order_partner_assignment import OrderPartnerAssignment
 from app.models.partner import PartnerCompany
 from app.models.patient import PatientProfile
 from app.models.pharmacy import Pharmacy
@@ -41,10 +43,15 @@ from app.models.revenue import RevenueRecord
 from app.models.user import User
 from app.repositories.order_repository import OrderRepository
 from app.schemas.order import (
+    ConfirmDispatchRequest,
+    DispatchItemRecord,
     OrderCreate,
     OrderItemCreate,
     OrderStatusUpdate,
     PaymentStatusUpdate,
+    ReassignPharmacyRequest,
+    ReassignmentOptionOut,
+    ReassignmentOptionsOut,
     SetRiderAccessCodeRequest,
     VerifyAccessCodeRequest,
 )
@@ -70,6 +77,9 @@ _OWNER_MANAGE_STATUSES = {
     OrderStatus.FAILED,
     OrderStatus.CANCELLED,
 }
+
+_PARTNER_RESPONSE_MINUTES = PARTNER_RESPONSE_TIMEOUT_MINUTES
+_REASSIGN_PRICE_TOLERANCE = 1.0
 
 
 def _generate_order_code() -> str:
@@ -149,6 +159,7 @@ class OrderService:
             patient_access_code=data.patient_access_code or None,
             notes=data.notes or None,
             defer_delivery_fee=bool(data.defer_delivery_fee),
+            pharmacy_assigned_at=_now(),
         )
         self.db.add(order)
         await self.db.flush()
@@ -216,6 +227,8 @@ class OrderService:
             entity_id=order.id,
             new_value={"order_code": order.order_code, "total": float(order.total_amount)},
         )
+
+        await self._open_partner_assignment(order)
 
         # Mark linked prescription as fulfilled
         if data.prescription_id:
@@ -379,10 +392,22 @@ class OrderService:
         await self._assert_can_change_status(order, actor, data.order_status)
         await self._assert_paid_before_fulfilment(order, data.order_status, actor)
 
+        if data.order_status == OrderStatus.READY_FOR_PICKUP:
+            raise BusinessRuleError(
+                "Use confirm-dispatch with batch numbers, expiry dates, manufacturer, "
+                "and the patient access code before marking the order ready."
+            )
+
         old_status = normalize_order_status(order.order_status)
         if order.order_status != old_status:
             order.order_status = old_status
         order.order_status = data.order_status
+
+        if (
+            data.order_status == OrderStatus.ACCEPTED
+            and order.pharmacy_confirmed_at is None
+        ):
+            order.pharmacy_confirmed_at = _now()
 
         # Release reserved stock when the order is cancelled / rejected / failed
         # (only once — guarded by the old_status check).
@@ -396,6 +421,7 @@ class OrderService:
             and old_status not in _RELEASE_STATUSES
         ):
             await self._release_stock_for_order(order)
+            await self._close_partner_assignment(order, "cancelled")
             if (
                 data.order_status == OrderStatus.CANCELLED
                 and order.payment_status == PaymentStatus.PAID
@@ -437,6 +463,12 @@ class OrderService:
         order.payment_status = data.payment_status
         if data.payment_reference:
             order.payment_reference = data.payment_reference
+        if data.payment_status == PaymentStatus.PAID:
+            order.amount_paid_snapshot = float(order.total_amount or 0)
+            if not order.partner_response_due_at:
+                order.partner_response_due_at = _now() + timedelta(
+                    minutes=_PARTNER_RESPONSE_MINUTES
+                )
 
         await self.db.flush()
 
@@ -502,6 +534,279 @@ class OrderService:
                 order.order_status,
                 order_code=order.order_code,
             )
+
+        return await self._reload(order.id)
+
+    async def confirm_dispatch(
+        self, order_id: str, data: ConfirmDispatchRequest, actor: User
+    ) -> Order:
+        """Partner records batch traceability and verifies access code before dispatch."""
+        order = await self.repo.get_with_items(order_id)
+        if not order:
+            raise NotFoundError("Order", order_id)
+
+        await self._assert_can_change_status(order, actor, OrderStatus.READY_FOR_PICKUP)
+        await self._assert_paid_before_fulfilment(order, OrderStatus.READY_FOR_PICKUP, actor)
+
+        if order.order_status not in (OrderStatus.PREPARING, OrderStatus.ACCEPTED):
+            raise BusinessRuleError(
+                "Order must be accepted or preparing before dispatch confirmation"
+            )
+        if not order.patient_access_code:
+            raise BusinessRuleError("Patient access code is required on this order")
+        if order.patient_access_code.lower() != data.access_code.strip().lower():
+            raise AuthorizationError("Incorrect patient access code")
+
+        item_by_id = {oi.id: oi for oi in order.items}
+        if set(item_by_id) != {rec.order_item_id for rec in data.items}:
+            raise ValidationError(
+                "Dispatch records must be provided for every line item on the order"
+            )
+
+        now = _now()
+        for rec in data.items:
+            oi = item_by_id[rec.order_item_id]
+            expiry = rec.expiry_date
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            if expiry <= now:
+                raise ValidationError(
+                    f"Expiry date for '{oi.product_name}' must be in the future"
+                )
+            oi.dispatch_batch_number = rec.batch_number.strip()
+            oi.dispatch_expiry_date = expiry
+            oi.dispatch_manufacturer = rec.manufacturer.strip()
+            oi.dispatch_confirmed_at = now
+
+        order.dispatch_confirmed_at = now
+        order.order_status = OrderStatus.READY_FOR_PICKUP
+        await self.db.flush()
+
+        patient_user_id = await self._patient_user_id(order.patient_id)
+        notif = NotificationService(self.db)
+        if patient_user_id:
+            await notif.dispatch_confirmed(
+                patient_user_id,
+                order.id,
+                order_code=order.order_code,
+            )
+            await notif.order_status_changed(
+                patient_user_id,
+                order.id,
+                OrderStatus.READY_FOR_PICKUP,
+                order_code=order.order_code,
+            )
+
+        await AuditService(self.db).log(
+            actor_user_id=actor.id,
+            action="order.dispatch_confirmed",
+            entity_type="Order",
+            entity_id=order.id,
+            new_value={
+                "items": [
+                    {
+                        "order_item_id": rec.order_item_id,
+                        "batch_number": rec.batch_number,
+                        "expiry_date": rec.expiry_date.isoformat(),
+                        "manufacturer": rec.manufacturer,
+                    }
+                    for rec in data.items
+                ],
+            },
+        )
+
+        return await self._reload(order.id)
+
+    async def get_reassignment_options(
+        self,
+        order_id: str,
+        actor: User,
+        *,
+        include_cheaper_with_refund: bool = False,
+    ) -> ReassignmentOptionsOut:
+        order = await self._reload(order_id)
+        if not order:
+            raise NotFoundError("Order", order_id)
+        await self._assert_patient_owns_order(order, actor)
+
+        amount_paid = float(order.amount_paid_snapshot or order.total_amount or 0)
+        can_reassign = self._can_reassign_pharmacy(order)
+        options: List[ReassignmentOptionOut] = []
+        if can_reassign:
+            options = await self._build_reassignment_options(
+                order,
+                amount_paid=amount_paid,
+                include_cheaper_with_refund=include_cheaper_with_refund,
+            )
+
+        return ReassignmentOptionsOut(
+            order_id=order.id,
+            amount_paid=amount_paid,
+            can_reassign=can_reassign,
+            partner_response_due_at=order.partner_response_due_at,
+            options=options,
+        )
+
+    async def reassign_pharmacy(
+        self, order_id: str, data: ReassignPharmacyRequest, actor: User
+    ) -> Order:
+        order = await self.repo.get_with_items(order_id)
+        if not order:
+            raise NotFoundError("Order", order_id)
+        await self._assert_patient_owns_order(order, actor)
+        if not self._can_reassign_pharmacy(order):
+            raise BusinessRuleError(
+                "Pharmacy reassignment is not available for this order yet. "
+                f"Partners must confirm within {_PARTNER_RESPONSE_MINUTES} minutes of payment."
+            )
+
+        amount_paid = float(order.amount_paid_snapshot or order.total_amount or 0)
+        options = await self._build_reassignment_options(
+            order,
+            amount_paid=amount_paid,
+            include_cheaper_with_refund=data.accept_refund_for_difference,
+        )
+        match = None
+        for opt in options:
+            if data.pharmacy_id and opt.pharmacy_id == data.pharmacy_id:
+                match = opt
+                break
+            if data.partner_company_id and opt.partner_company_id == data.partner_company_id:
+                match = opt
+                break
+        if not match:
+            raise ValidationError(
+                "Selected pharmacy cannot fulfill this order within your paid amount"
+            )
+        if match.requires_refund and not data.accept_refund_for_difference:
+            raise BusinessRuleError(
+                "This pharmacy is cheaper than your payment. "
+                "Accept refund for the difference to continue."
+            )
+
+        new_lines = await self._resolve_lines_for_provider(
+            order,
+            pharmacy_id=data.pharmacy_id,
+            partner_company_id=data.partner_company_id,
+        )
+        if not new_lines:
+            raise BusinessRuleError("Selected provider cannot fulfill all order items")
+
+        await self._release_stock_for_order(order)
+
+        await self._close_partner_assignment(order, "reassigned")
+
+        order.previous_pharmacy_id = order.pharmacy_id
+        order.previous_partner_company_id = order.partner_company_id
+        order.pharmacy_id = data.pharmacy_id
+        order.partner_company_id = data.partner_company_id
+        order.pharmacy_confirmed_at = None
+        order.pharmacy_assigned_at = _now()
+        order.partner_response_due_at = _now() + timedelta(minutes=_PARTNER_RESPONSE_MINUTES)
+        order.reassignment_count = int(order.reassignment_count or 0) + 1
+        order.dispatch_confirmed_at = None
+
+        subtotal = 0.0
+        for oi, line in zip(order.items, new_lines):
+            oi.product_listing_id = line["product_listing_id"]
+            oi.product_id = line.get("product_id")
+            oi.product_name = line["product_name"]
+            oi.unit_price = line["unit_price"]
+            oi.total_price = round(line["unit_price"] * oi.quantity, 2)
+            oi.dispatch_batch_number = None
+            oi.dispatch_expiry_date = None
+            oi.dispatch_manufacturer = None
+            oi.dispatch_confirmed_at = None
+            subtotal += float(oi.total_price)
+
+        delivery_fee = float(order.delivery_fee or 0)
+        commission_rate = await self._resolve_commission_rate(
+            order.pharmacy_id, order.partner_company_id
+        )
+        commission = round(subtotal * commission_rate, 2)
+        total = round(subtotal + delivery_fee, 2)
+        order.subtotal = subtotal
+        order.platform_commission = commission
+        order.total_amount = total
+        order.net_partner_amount = round(subtotal - commission, 2)
+        await self.db.flush()
+
+        await self._open_partner_assignment(order)
+
+        if order.delivery_method == DeliveryMethod.DELIVERY:
+            delivery = (
+                await self.db.execute(
+                    select(Delivery).where(Delivery.order_id == order.id)
+                )
+            ).scalar_one_or_none()
+            if delivery:
+                await self._populate_delivery_pickup(order, delivery)
+                await self.db.flush()
+
+        await self._adjust_stock_for_items(new_lines, sign=-1)
+
+        if match.refund_amount > _REASSIGN_PRICE_TOLERANCE:
+            await self._queue_partial_refund(
+                order,
+                amount=match.refund_amount,
+                reason=f"Price difference after pharmacy reassignment for {order.order_code}",
+                actor=actor,
+            )
+
+        notif = NotificationService(self.db)
+        patient_user_id = await self._patient_user_id(order.patient_id)
+        if patient_user_id:
+            await notif.pharmacy_reassigned(
+                patient_user_id,
+                order.id,
+                provider_name=match.provider_name,
+                order_code=order.order_code,
+            )
+
+        old_recipient_ids: list[str] = []
+        if order.previous_pharmacy_id:
+            from app.services.pharmacy_access import list_pharmacy_staff_user_ids
+
+            old_recipient_ids = await list_pharmacy_staff_user_ids(
+                self.db, order.previous_pharmacy_id
+            )
+        elif order.previous_partner_company_id:
+            uid = await self._owner_user_id(None, order.previous_partner_company_id)
+            if uid:
+                old_recipient_ids = [uid]
+        for uid in old_recipient_ids:
+            await notif.order_reassigned_from_partner(
+                uid, order.id, order_code=order.order_code
+            )
+
+        new_recipient_ids: list[str] = []
+        if order.pharmacy_id:
+            from app.services.pharmacy_access import list_pharmacy_staff_user_ids
+
+            new_recipient_ids = await list_pharmacy_staff_user_ids(
+                self.db, order.pharmacy_id
+            )
+        elif order.partner_company_id:
+            uid = await self._owner_user_id(None, order.partner_company_id)
+            if uid:
+                new_recipient_ids = [uid]
+        for uid in new_recipient_ids:
+            await notif.order_placed(uid, order.id, order_code=order.order_code)
+
+        await AuditService(self.db).log(
+            actor_user_id=actor.id,
+            action="order.pharmacy_reassigned",
+            entity_type="Order",
+            entity_id=order.id,
+            new_value={
+                "pharmacy_id": order.pharmacy_id,
+                "partner_company_id": order.partner_company_id,
+                "previous_pharmacy_id": order.previous_pharmacy_id,
+                "previous_partner_company_id": order.previous_partner_company_id,
+                "new_total": total,
+                "amount_paid": amount_paid,
+            },
+        )
 
         return await self._reload(order.id)
 
@@ -1147,8 +1452,323 @@ class OrderService:
             )
         )
         await self.db.flush()
+        await self._close_partner_assignment(order, "completed")
+
+    async def _open_partner_assignment(self, order: Order) -> None:
+        self.db.add(
+            OrderPartnerAssignment(
+                order_id=order.id,
+                pharmacy_id=order.pharmacy_id,
+                partner_company_id=order.partner_company_id,
+                subtotal=float(order.subtotal or 0),
+                platform_commission=float(order.platform_commission or 0),
+                net_partner_amount=float(order.net_partner_amount or 0),
+                assigned_at=_now(),
+            )
+        )
+        await self.db.flush()
+
+    async def _close_partner_assignment(self, order: Order, reason: str) -> None:
+        res = await self.db.execute(
+            select(OrderPartnerAssignment).where(
+                OrderPartnerAssignment.order_id == order.id,
+                OrderPartnerAssignment.ended_at.is_(None),
+            )
+        )
+        row = res.scalar_one_or_none()
+        if not row:
+            return
+        row.ended_at = _now()
+        row.end_reason = reason
+        await self.db.flush()
 
     # ── Stock reservation & prescription validation ───────────────────────
+
+    @staticmethod
+    def _can_reassign_pharmacy(order: Order) -> bool:
+        if order.payment_status != PaymentStatus.PAID:
+            return False
+        if order.order_status != OrderStatus.PENDING:
+            return False
+        if order.pharmacy_confirmed_at is not None:
+            return False
+        if not order.partner_response_due_at:
+            return False
+        due = order.partner_response_due_at
+        if due.tzinfo is None:
+            due = due.replace(tzinfo=timezone.utc)
+        return _now() >= due
+
+    async def _assert_patient_owns_order(self, order: Order, actor: User) -> None:
+        if actor.role == UserRole.SUPER_ADMIN:
+            return
+        if actor.role != UserRole.PATIENT:
+            raise AuthorizationError("Only the patient may perform this action")
+        patient = await self._get_patient_for_user(actor)
+        if not patient or patient.id != order.patient_id:
+            raise AuthorizationError("Not allowed for this order")
+
+    async def _build_reassignment_options(
+        self,
+        order: Order,
+        *,
+        amount_paid: float,
+        include_cheaper_with_refund: bool,
+    ) -> List[ReassignmentOptionOut]:
+        required = [
+            (oi.product_id, oi.quantity, oi.sell_mode or "pack", oi.product_name)
+            for oi in order.items
+            if oi.product_id
+        ]
+        if not required:
+            return []
+
+        delivery_fee = float(order.delivery_fee or 0)
+        providers = await self._list_fulfillment_providers(
+            required,
+            exclude_pharmacy_id=order.pharmacy_id,
+            exclude_partner_id=order.partner_company_id,
+        )
+
+        options: List[ReassignmentOptionOut] = []
+        for provider in providers:
+            subtotal = provider["subtotal"]
+            total = round(subtotal + delivery_fee, 2)
+            if total > amount_paid + _REASSIGN_PRICE_TOLERANCE:
+                continue
+            refund_amount = max(0.0, round(amount_paid - total, 2))
+            requires_refund = refund_amount > _REASSIGN_PRICE_TOLERANCE
+            if requires_refund and not include_cheaper_with_refund:
+                continue
+            options.append(
+                ReassignmentOptionOut(
+                    pharmacy_id=provider.get("pharmacy_id"),
+                    partner_company_id=provider.get("partner_company_id"),
+                    provider_name=provider["name"],
+                    estimated_subtotal=subtotal,
+                    delivery_fee=delivery_fee,
+                    estimated_total=total,
+                    amount_paid=amount_paid,
+                    requires_refund=requires_refund,
+                    refund_amount=refund_amount if requires_refund else 0.0,
+                )
+            )
+        options.sort(key=lambda o: (o.estimated_total, o.provider_name))
+        return options
+
+    async def _list_fulfillment_providers(
+        self,
+        required: Sequence[Tuple[Optional[str], int, str, str]],
+        *,
+        exclude_pharmacy_id: Optional[str],
+        exclude_partner_id: Optional[str],
+    ) -> List[dict]:
+        now = _now()
+        product_ids = {pid for pid, _, _, _ in required if pid}
+        if not product_ids:
+            return []
+
+        listings_res = await self.db.execute(
+            select(ProductListing)
+            .where(
+                ProductListing.product_id.in_(product_ids),
+                ProductListing.status == EntityStatus.ACTIVE,
+                ProductListing.availability_status == ListingAvailability.AVAILABLE,
+                ProductListing.stock_quantity > 0,
+            )
+            .options(selectinload(ProductListing.product))
+        )
+        listings = list(listings_res.scalars().all())
+
+        by_pharmacy: dict[str, list] = {}
+        by_partner: dict[str, list] = {}
+        pharmacy_names: dict[str, str] = {}
+        partner_names: dict[str, str] = {}
+
+        for lst in listings:
+            if not self._listing_eligible(lst, now):
+                continue
+            if lst.pharmacy_id:
+                if lst.pharmacy_id == exclude_pharmacy_id:
+                    continue
+                by_pharmacy.setdefault(lst.pharmacy_id, []).append(lst)
+            elif lst.partner_company_id:
+                if lst.partner_company_id == exclude_partner_id:
+                    continue
+                by_partner.setdefault(lst.partner_company_id, []).append(lst)
+
+        if by_pharmacy:
+            ph_res = await self.db.execute(
+                select(Pharmacy).where(
+                    Pharmacy.id.in_(by_pharmacy.keys()),
+                    Pharmacy.status == EntityStatus.ACTIVE,
+                )
+            )
+            for ph in ph_res.scalars().all():
+                if ph.is_open:
+                    pharmacy_names[ph.id] = ph.name
+
+        if by_partner:
+            pt_res = await self.db.execute(
+                select(PartnerCompany).where(
+                    PartnerCompany.id.in_(by_partner.keys()),
+                    PartnerCompany.status == EntityStatus.ACTIVE,
+                )
+            )
+            for pt in pt_res.scalars().all():
+                if pt.is_open:
+                    partner_names[pt.id] = pt.name
+
+        providers: List[dict] = []
+        for pharmacy_id, ph_listings in by_pharmacy.items():
+            name = pharmacy_names.get(pharmacy_id)
+            if not name:
+                continue
+            subtotal = self._quote_subtotal(required, ph_listings)
+            if subtotal is None:
+                continue
+            providers.append(
+                {"pharmacy_id": pharmacy_id, "partner_company_id": None, "name": name, "subtotal": subtotal}
+            )
+
+        for partner_id, pt_listings in by_partner.items():
+            name = partner_names.get(partner_id)
+            if not name:
+                continue
+            subtotal = self._quote_subtotal(required, pt_listings)
+            if subtotal is None:
+                continue
+            providers.append(
+                {"pharmacy_id": None, "partner_company_id": partner_id, "name": name, "subtotal": subtotal}
+            )
+        return providers
+
+    @staticmethod
+    def _listing_eligible(lst: ProductListing, now: datetime) -> bool:
+        if lst.expiry_date:
+            expiry = lst.expiry_date
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            if expiry <= now:
+                return False
+        if lst.product and lst.product.approval_status != ProductApprovalStatus.APPROVED:
+            return False
+        return True
+
+    @staticmethod
+    def _quote_subtotal(
+        required: Sequence[Tuple[Optional[str], int, str, str]],
+        listings: Sequence[ProductListing],
+    ) -> Optional[float]:
+        by_product: dict[str, list[ProductListing]] = {}
+        for lst in listings:
+            by_product.setdefault(lst.product_id, []).append(lst)
+
+        subtotal = 0.0
+        for product_id, qty, sell_mode, _name in required:
+            if not product_id:
+                return None
+            candidates = by_product.get(product_id, [])
+            best: Optional[ProductListing] = None
+            for lst in candidates:
+                if lst.stock_quantity < qty:
+                    continue
+                if best is None or float(lst.price) < float(best.price):
+                    best = lst
+            if best is None:
+                return None
+            subtotal += float(best.price) * qty
+        return round(subtotal, 2)
+
+    async def _resolve_lines_for_provider(
+        self,
+        order: Order,
+        *,
+        pharmacy_id: Optional[str],
+        partner_company_id: Optional[str],
+    ) -> List[dict]:
+        lines: List[dict] = []
+        for oi in order.items:
+            if not oi.product_id:
+                raise BusinessRuleError(f"Cannot reassign item without product: {oi.product_name}")
+            q = select(ProductListing).where(
+                ProductListing.product_id == oi.product_id,
+                ProductListing.status == EntityStatus.ACTIVE,
+                ProductListing.availability_status == ListingAvailability.AVAILABLE,
+                ProductListing.stock_quantity >= oi.quantity,
+            )
+            if pharmacy_id:
+                q = q.where(ProductListing.pharmacy_id == pharmacy_id)
+            else:
+                q = q.where(ProductListing.partner_company_id == partner_company_id)
+            q = q.options(selectinload(ProductListing.product)).order_by(ProductListing.price.asc())
+            res = await self.db.execute(q)
+            candidates = [lst for lst in res.scalars().all() if self._listing_eligible(lst, _now())]
+            if not candidates:
+                return []
+            lst = candidates[0]
+            product = lst.product
+            _, stock_units, _ = resolve_order_line(
+                lst, product, oi.quantity, oi.sell_mode or "pack"
+            )
+            lines.append(
+                {
+                    "product_listing_id": lst.id,
+                    "product_id": lst.product_id,
+                    "product_name": product.name if product else oi.product_name,
+                    "quantity": oi.quantity,
+                    "sell_mode": oi.sell_mode or "pack",
+                    "unit_price": float(lst.price),
+                    "stock_units": stock_units,
+                }
+            )
+        return lines
+
+    async def _queue_partial_refund(
+        self,
+        order: Order,
+        *,
+        amount: float,
+        reason: str,
+        actor: User,
+    ) -> None:
+        from app.models.refund_request import RefundRequest
+
+        if amount <= 0:
+            return
+        patient_user_id = await self._patient_user_id(order.patient_id)
+        if not patient_user_id:
+            return
+
+        existing = await self.db.execute(
+            select(RefundRequest).where(
+                RefundRequest.order_id == order.id,
+                RefundRequest.status == "pending",
+            )
+        )
+        if existing.scalar_one_or_none():
+            return
+
+        refund = RefundRequest(
+            order_id=order.id,
+            patient_user_id=patient_user_id,
+            amount=round(amount, 2),
+            reason=reason,
+            status="pending",
+        )
+        self.db.add(refund)
+        await self.db.flush()
+
+        await NotificationService(self.db).send(
+            patient_user_id,
+            title="Refund queued",
+            message=(
+                f"A refund of RWF {round(amount, 2):,.0f} for order "
+                f"{order.order_code} is being processed."
+            ),
+            category="payment",
+            action_url=f"/orders/{order.id}",
+        )
 
     async def _adjust_stock_for_items(
         self, items: List[dict], *, sign: int

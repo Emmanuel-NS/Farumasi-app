@@ -302,3 +302,81 @@ class NotificationService:
         for uid in ids:
             await self.send(uid, title, message, category=category, action_url=action_url)
         return len(ids)
+
+    async def dispatch_confirmed(
+        self,
+        patient_user_id: str,
+        order_id: str,
+        *,
+        order_code: Optional[str] = None,
+    ) -> None:
+        code = order_code or order_id[:8].upper()
+        await self.send(
+            patient_user_id,
+            title="Medicines dispatched",
+            message=(
+                f"Order #{code} has been packed with batch and expiry records. "
+                "View dispatch details on your order page."
+            ),
+            category="order",
+            action_url=f"/orders/{order_id}",
+        )
+
+    async def pharmacy_reassigned(
+        self,
+        patient_user_id: str,
+        order_id: str,
+        *,
+        provider_name: str,
+        order_code: Optional[str] = None,
+    ) -> None:
+        code = order_code or order_id[:8].upper()
+        await self.send(
+            patient_user_id,
+            title="Pharmacy changed",
+            message=(
+                f"Order #{code} was reassigned to {provider_name} "
+                "because the previous partner did not confirm in time."
+            ),
+            category="order",
+            action_url=f"/orders/{order_id}",
+        )
+
+    async def order_reassigned_from_partner(
+        self,
+        provider_user_id: str,
+        order_id: str,
+        *,
+        order_code: Optional[str] = None,
+    ) -> None:
+        code = order_code or order_id[:8].upper()
+        await self.send(
+            provider_user_id,
+            title="Order reassigned",
+            message=(
+                f"Order #{code} was reassigned to another partner "
+                "after the confirmation window expired."
+            ),
+            category="order",
+            action_url=f"/orders/{order_id}",
+        )
+
+    async def medicine_expiry_warning(
+        self,
+        patient_user_id: str,
+        *,
+        product_name: str,
+        order_code: str,
+        order_id: str,
+        days_remaining: int,
+    ) -> None:
+        await self.send(
+            patient_user_id,
+            title="Medicine expiry reminder",
+            message=(
+                f"Your {product_name} from order #{order_code} "
+                f"expires in {days_remaining} day(s). Plan to use or replace it soon."
+            ),
+            category="health",
+            action_url=f"/orders/{order_id}",
+        )

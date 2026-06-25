@@ -66,9 +66,8 @@ async def create_pharmacy(
 ):
     pharmacy = Pharmacy(**data.model_dump(), owner_user_id=current_user.id)
     db.add(pharmacy)
-    await db.commit()
-    await db.refresh(pharmacy)
-    return pharmacy
+    await db.flush()
+    return await _load_pharmacy_out(db, pharmacy.id)
 
 
 async def _load_pharmacy_out(db: AsyncSession, pharmacy_id: str) -> PharmacyOut:

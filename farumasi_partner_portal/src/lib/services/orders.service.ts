@@ -11,6 +11,10 @@ export interface BackendOrderItem {
   unit_price: number;
   total_price: number;
   sell_mode?: string;
+  dispatch_batch_number?: string | null;
+  dispatch_expiry_date?: string | null;
+  dispatch_manufacturer?: string | null;
+  dispatch_confirmed_at?: string | null;
   product?: {
     id: string;
     name: string;
@@ -130,6 +134,22 @@ export const ordersService = {
     const { data } = await api.post<BackendOrder>(`/orders/${orderId}/verify-access-code`, {
       access_code: accessCode,
     });
+    return norm(data);
+  },
+
+  async confirmDispatch(
+    orderId: string,
+    payload: {
+      access_code: string;
+      items: Array<{
+        order_item_id: string;
+        batch_number: string;
+        expiry_date: string;
+        manufacturer: string;
+      }>;
+    },
+  ): Promise<BackendOrder> {
+    const { data } = await api.post<BackendOrder>(`/orders/${orderId}/confirm-dispatch`, payload);
     return norm(data);
   },
 };

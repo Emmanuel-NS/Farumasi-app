@@ -83,6 +83,8 @@ class RevenueSummary(FarumasiBaseModel):
     pending_settlement_count: int = 0
     available_settlement_count: int = 0
     withdrawn_settlement_count: int = 0
+    reassigned_orders: int = 0
+    reassigned_lost_net: float = 0.0
 
 
 class WithdrawalCreate(FarumasiBaseModel):

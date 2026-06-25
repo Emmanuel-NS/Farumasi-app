@@ -566,10 +566,18 @@ class PaymentService:
         await self._mark_paid(order, reference=provider_reference, method=txn.method)
 
     async def _mark_paid(self, order: Order, *, reference: str, method: str) -> None:
+        from datetime import timedelta
+
+        from app.core.constants import PARTNER_RESPONSE_TIMEOUT_MINUTES
+
         order.payment_status = PaymentStatus.PAID
         order.payment_reference = reference
         if method != "none":
             order.payment_method = method
+        order.amount_paid_snapshot = float(order.total_amount or 0)
+        order.partner_response_due_at = datetime.now(timezone.utc) + timedelta(
+            minutes=PARTNER_RESPONSE_TIMEOUT_MINUTES
+        )
         await self.db.flush()
 
         patient_user_id = (
