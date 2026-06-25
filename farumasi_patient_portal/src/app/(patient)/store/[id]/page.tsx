@@ -17,6 +17,7 @@ import {
   type SellMode,
 } from "@/lib/packaging-classes";
 import { minQuantityForLine } from "@/lib/cart-pricing";
+import { RichContent } from "@/components/shared/rich-content";
 import {
   ArrowLeft, AlertCircle, ShoppingCart, Upload,
   CheckCircle,
@@ -46,7 +47,7 @@ export default function MedicineDetailPage() {
   const [sellMode, setSellMode] = useState<SellMode>("pack");
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
-  const { add: cartAdd, items: cartItems } = useCartStore();
+  const { add: cartAdd, remove: cartRemove, items: cartItems } = useCartStore();
   const [med, setMed] = useState<Medicine | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -68,6 +69,17 @@ export default function MedicineDetailPage() {
   const lineKey = med ? cartLineKey(med.id, sellMode) : "";
   const minQty = med ? minQuantityForLine(med, sellMode) : 1;
 
+  const selectSellMode = (mode: SellMode) => {
+    if (!med) return;
+    const key = cartLineKey(med.id, mode);
+    if (mode === sellMode && (cartItems[key]?.qty ?? 0) > 0) {
+      cartRemove(key);
+      toast(`${med.name} removed from cart`, { icon: undefined });
+      return;
+    }
+    setSellMode(mode);
+  };
+
   if (loading) {
     return (
       <div className="p-6 text-center py-24">
@@ -88,7 +100,7 @@ export default function MedicineDetailPage() {
   }
 
   return (
-    <div className="p-4 lg:p-6">
+    <div className="p-4 lg:p-6 w-full max-w-6xl mx-auto min-w-0">
       {/* Back */}
       <button
         onClick={() => router.back()}
@@ -145,7 +157,7 @@ export default function MedicineDetailPage() {
             <div className="flex gap-2 mb-3">
               <button
                 type="button"
-                onClick={() => setSellMode("pack")}
+                onClick={() => selectSellMode("pack")}
                 className={cn(
                   "flex-1 py-2 px-3 rounded-xl text-xs font-bold border-2 transition-all",
                   sellMode === "pack"
@@ -157,7 +169,7 @@ export default function MedicineDetailPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setSellMode("partial")}
+                onClick={() => selectSellMode("partial")}
                 className={cn(
                   "flex-1 py-2 px-3 rounded-xl text-xs font-bold border-2 transition-all",
                   sellMode === "partial"
@@ -359,19 +371,17 @@ export default function MedicineDetailPage() {
               </div>
 
               {/* Rich HTML content */}
-              <div
-                className="rich-content"
-                dangerouslySetInnerHTML={{
-                  __html:
-                    activeInfoTab === "overview"
-                      ? med.overviewDescription ||
-                        "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No overview available.</p>"
-                      : activeInfoTab === "dosage"
-                      ? med.dosageDetails ||
-                        "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No dosage details available.</p>"
-                      : med.safetyInfo ||
-                        "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No safety information available.</p>",
-                }}
+              <RichContent
+                html={
+                  activeInfoTab === "overview"
+                    ? med.overviewDescription ||
+                      "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No overview available.</p>"
+                    : activeInfoTab === "dosage"
+                    ? med.dosageDetails ||
+                      "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No dosage details available.</p>"
+                    : med.safetyInfo ||
+                      "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No safety information available.</p>"
+                }
               />
             </div>
         </div>

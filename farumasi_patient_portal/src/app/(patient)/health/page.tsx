@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguageStore } from "@/store/language-store";
 import { cn } from "@/lib/utils";
@@ -119,6 +119,53 @@ export default function HealthPage() {
   const [typeFilter, setTypeFilter] = useState<"all" | ArticleType>("all");
   const [sortBy, setSortBy] = useState<ArticleSort>("newest");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const healthTabScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
+  const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
+  const tabDragState = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
+
+  const updateScrollState = useCallback(() => {
+    const el = healthTabScrollRef.current;
+    if (!el) return;
+    setCanScrollTabsLeft(el.scrollLeft > 0);
+    setCanScrollTabsRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+  }, []);
+
+  const scrollHealthTabs = (dir: "left" | "right") => {
+    const el = healthTabScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === "left" ? -200 : 200, behavior: "smooth" });
+    setTimeout(updateScrollState, 350);
+  };
+
+  const onTabMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = healthTabScrollRef.current;
+    if (!el) return;
+    tabDragState.current = { isDragging: true, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
+    el.style.cursor = "grabbing";
+    el.style.userSelect = "none";
+  };
+  const onTabMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = healthTabScrollRef.current;
+    if (!el || !tabDragState.current.isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    el.scrollLeft = tabDragState.current.scrollLeft - (x - tabDragState.current.startX);
+  };
+  const onTabMouseUp = () => {
+    const el = healthTabScrollRef.current;
+    if (!el) return;
+    tabDragState.current.isDragging = false;
+    el.style.cursor = "";
+    el.style.userSelect = "";
+    updateScrollState();
+  };
+
+  useEffect(() => {
+    updateScrollState();
+    window.addEventListener("resize", updateScrollState);
+    return () => window.removeEventListener("resize", updateScrollState);
+  }, [updateScrollState]);
 
   const fetchArticles = useCallback(() => {
     setLoading(true);
@@ -200,6 +247,11 @@ export default function HealthPage() {
   const featured = articles.slice(0, Math.min(FEATURED_COUNT, articles.length));
   // Grid always shows ALL articles (not just the rest after featured)
   const gridArticles = articles;
+
+  useEffect(() => {
+    const t = setTimeout(updateScrollState, 50);
+    return () => clearTimeout(t);
+  }, [activeTab, articles.length, updateScrollState]);
 
   return (
     <div className="flex flex-col min-h-full bg-[#F9FAFB]">
@@ -315,7 +367,36 @@ export default function HealthPage() {
 
         {/* Category tabs — sticky once scrolled to top of main pane */}
         <div className="sticky top-0 z-20 bg-white border-t border-slate-100 shadow-[0_2px_8px_rgba(15,23,42,0.06)]">
-          <div className="grid grid-cols-5 gap-1 px-4 py-2.5 sm:flex sm:gap-2 sm:overflow-x-auto sm:scrollbar-hide sm:px-5 sm:py-3">
+          <div className="relative">
+            {canScrollTabsLeft && (
+              <button
+                type="button"
+                onClick={() => scrollHealthTabs("left")}
+                className="hidden sm:flex absolute left-0 top-0 bottom-0 z-10 w-8 items-center justify-center bg-gradient-to-r from-white via-white/90 to-transparent"
+                aria-label="Scroll categories left"
+              >
+                <ChevronRight className="w-4 h-4 text-slate-500 rotate-180" />
+              </button>
+            )}
+            {canScrollTabsRight && (
+              <button
+                type="button"
+                onClick={() => scrollHealthTabs("right")}
+                className="hidden sm:flex absolute right-0 top-0 bottom-0 z-10 w-8 items-center justify-center bg-gradient-to-l from-white via-white/90 to-transparent"
+                aria-label="Scroll categories right"
+              >
+                <ChevronRight className="w-4 h-4 text-slate-500" />
+              </button>
+            )}
+            <div
+              ref={healthTabScrollRef}
+              onScroll={updateScrollState}
+              onMouseDown={onTabMouseDown}
+              onMouseMove={onTabMouseMove}
+              onMouseUp={onTabMouseUp}
+              onMouseLeave={onTabMouseUp}
+              className="grid grid-cols-5 gap-1 px-4 py-2.5 sm:flex sm:gap-2 sm:overflow-x-auto sm:scrollbar-hide sm:px-5 sm:py-3 sm:cursor-grab"
+            >
             {TABS.map((tab) => {
               const isActive = activeTab === tab;
               return (
@@ -335,6 +416,7 @@ export default function HealthPage() {
                 </button>
               );
             })}
+            </div>
           </div>
         </div>
       </div>

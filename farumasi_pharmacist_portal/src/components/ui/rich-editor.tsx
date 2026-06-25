@@ -19,7 +19,7 @@ import {
   Heading1, Heading2, Heading3,
   List, ListOrdered, ListChecks, Quote, Minus,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Undo, Redo, Link2, ImageIcon, Highlighter, ChevronDown, X,
+  Undo, Redo, Link2, ImageIcon, Highlighter, ChevronDown, X, Code2,
 } from "lucide-react";
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -52,6 +52,8 @@ const HIGHLIGHT_COLORS = [
 // ── Props ────────────────────────────────────────────────────────────
 interface RichEditorProps {
   value?: string;
+  /** Alias for value — used by inventory forms */
+  initialContent?: string;
   onChange?: (html: string) => void;
   placeholder?: string;
   minHeight?: number;
@@ -310,13 +312,48 @@ function ImageDialog({ onConfirm, onCancel }: {
   );
 }
 
+// ── HTML embed dialog ─────────────────────────────────────────────────
+function HtmlDialog({ onConfirm, onCancel, initial }: {
+  onConfirm: (html: string) => void;
+  onCancel: () => void; initial: string;
+}) {
+  const [html, setHtml] = useState(initial);
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 flex flex-col gap-4">
+        <p className="font-bold text-slate-900 text-base">Insert HTML / CSS</p>
+        <p className="text-xs text-slate-500 -mt-2">Paste custom HTML blocks, styled spans, embeds, or inline CSS.</p>
+        <textarea
+          autoFocus value={html}
+          onChange={(e) => setHtml(e.target.value)}
+          rows={8}
+          placeholder={'<div style="color:#1e9e68">Custom block</div>'}
+          className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-farumasi-200 focus:border-farumasi-400 resize-y"
+        />
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="button" onClick={() => onConfirm(html)} disabled={!html.trim()}
+            className="px-4 py-2 rounded-xl text-sm font-semibold bg-farumasi-600 text-white hover:bg-farumasi-700 disabled:opacity-40">
+            Insert
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main editor ───────────────────────────────────────────────────────
 export function RichEditor({
-  value, onChange, placeholder = "Start writing...",
+  value, initialContent, onChange, placeholder = "Start writing...",
   minHeight = 220, className, showCount = false,
 }: RichEditorProps) {
   const [linkDialog, setLinkDialog] = useState(false);
   const [imageDialog, setImageDialog] = useState(false);
+  const [htmlDialog, setHtmlDialog] = useState(false);
+  const resolvedValue = value ?? initialContent ?? "";
 
   const editor = useEditor({
     extensions: [
@@ -340,7 +377,7 @@ export function RichEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
     ],
-    content: value || "",
+    content: resolvedValue || "",
     onUpdate({ editor }) { onChange?.(editor.getHTML()); },
     immediatelyRender: true,
     editorProps: { attributes: { class: "outline-none" } },
@@ -374,6 +411,16 @@ export function RichEditor({
       )}
       {imageDialog && (
         <ImageDialog onConfirm={handleImage} onCancel={() => setImageDialog(false)} />
+      )}
+      {htmlDialog && (
+        <HtmlDialog
+          initial=""
+          onConfirm={(html) => {
+            editor.chain().focus().insertContent(html).run();
+            setHtmlDialog(false);
+          }}
+          onCancel={() => setHtmlDialog(false)}
+        />
       )}
 
       <div className={cn(
@@ -498,6 +545,9 @@ export function RichEditor({
           </Btn>
           <Btn title="Insert Image" onClick={() => setImageDialog(true)}>
             <ImageIcon className="w-3.5 h-3.5" />
+          </Btn>
+          <Btn title="Insert HTML / CSS" onClick={() => setHtmlDialog(true)}>
+            <Code2 className="w-3.5 h-3.5" />
           </Btn>
 
           {showCount && (

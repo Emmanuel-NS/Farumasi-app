@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ShareArticleMenu } from "@/components/health/share-article-menu";
+import { RichContent } from "@/components/shared/rich-content";
 import { sortTrendingArticles } from "@/lib/share-article";
 import { safeBackToHealth } from "@/lib/navigation";
 
@@ -60,40 +61,8 @@ function timeAgo(d: Date): string {
   return `${Math.floor(months / 12)}y ago`;
 }
 
-function ArticleBody({ content, accent }: { content: string; accent: typeof DEFAULT_ACCENT }) {
-  const lines = content.split("\n");
-  return (
-    <div className="space-y-1">
-      {lines.map((line, i) => {
-        if (!line.trim()) return <div key={i} className="h-3" />;
-        const boldFull = line.match(/^\*\*(.+?)\*\*$/);
-        if (boldFull) {
-          return (
-            <div
-              key={i}
-              className={`flex items-start gap-3 mt-8 mb-2 px-4 py-3 rounded-[14px] ${accent.bg}`}
-            >
-              <div className={`w-[3px] self-stretch rounded-full ${accent.bar} shrink-0 min-h-[22px]`} />
-              <h3 className="text-[16px] font-bold text-slate-900 leading-snug">
-                {boldFull[1]}
-              </h3>
-            </div>
-          );
-        }
-        const parts = line.split(/(\*\*[^*]+\*\*)/g);
-        return (
-          <p key={i} className="text-[16px] text-slate-600 leading-[1.9] px-1">
-            {parts.map((part, j) => {
-              const inner = part.match(/^\*\*(.+?)\*\*$/);
-              return inner ? (
-                <strong key={j} className="font-semibold text-slate-800">{inner[1]}</strong>
-              ) : part;
-            })}
-          </p>
-        );
-      })}
-    </div>
-  );
+function ArticleBody({ content }: { content: string }) {
+  return <RichContent html={content} />;
 }
 
 function getYouTubeId(url: string): string | null {
@@ -366,7 +335,7 @@ export default function ArticleDetailPage() {
         )}
 
         {/* Save & share — immediately after hero */}
-        <div className="max-w-[760px] mx-auto px-5 sm:px-10 pt-5 sm:pt-6 pb-4 border-b border-slate-100">
+        <div className="max-w-4xl mx-auto w-full min-w-0 px-5 sm:px-10 pt-5 sm:pt-6 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleToggleLike}
@@ -394,7 +363,7 @@ export default function ArticleDetailPage() {
           </div>
         </div>
 
-        <div className="max-w-[760px] mx-auto px-5 sm:px-10">
+        <div className="max-w-4xl mx-auto w-full min-w-0 px-5 sm:px-10">
           <div className="pt-6 pb-6">
             {article.publishedAt && (
               <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-[1.4px] mb-3">
@@ -454,7 +423,7 @@ export default function ArticleDetailPage() {
             </div>
           )}
 
-          <ArticleBody content={article.fullContent ?? article.summary ?? ""} accent={accent} />
+          <ArticleBody content={article.fullContent ?? article.summary ?? ""} />
 
           <div className="mt-12 mb-4 rounded-[20px] border border-slate-100 bg-gradient-to-br from-farumasi-50 to-white p-5 flex items-start gap-4 shadow-sm">
             <div className="w-11 h-11 rounded-full bg-farumasi-600 flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(30,158,104,0.35)]">

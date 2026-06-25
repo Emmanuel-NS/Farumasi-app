@@ -166,7 +166,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="p-6 max-w-2xl mx-auto pb-24">
+    <div className="p-4 sm:p-6 w-full max-w-4xl mx-auto min-w-0 pb-24">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">{t.settings_title}</h1>
         <p className="text-slate-500 text-sm mt-0.5">{t.settings_subtitle}</p>

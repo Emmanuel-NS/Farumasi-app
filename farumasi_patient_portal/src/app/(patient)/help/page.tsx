@@ -28,7 +28,7 @@ const FAQ = [
 
 export default function HelpPage() {
   return (
-    <div className="p-6 max-w-2xl mx-auto pb-24">
+    <div className="p-4 sm:p-6 w-full max-w-4xl mx-auto min-w-0 pb-24">
       <Link href="/settings" className="inline-flex items-center text-xs text-slate-500 hover:text-slate-700 mb-3">
         <ChevronLeft className="w-3.5 h-3.5" /> Back to settings
       </Link>

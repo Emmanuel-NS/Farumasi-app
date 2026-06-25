@@ -158,20 +158,20 @@ function SidebarItem({
         onClick={() => onNavigate?.()}
         title={`${item.label} (Sign in required)`}
         className={cn(
-          "flex items-center rounded-xl opacity-40 hover:opacity-60 transition-opacity",
+          "flex items-center rounded-xl transition-all duration-180 border border-transparent hover:bg-white/10",
           collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
         )}
       >
         <div className="w-[34px] h-[34px] shrink-0 rounded-[9px] bg-[#47D196]/20 flex items-center justify-center relative">
           <Icon className="w-[18px] h-[18px] text-white" />
-          <Lock className="w-[9px] h-[9px] text-[#96B3A7] absolute -bottom-0.5 -right-0.5" />
+          <Lock className="w-[9px] h-[9px] text-amber-300 absolute -bottom-0.5 -right-0.5" />
         </div>
         {!collapsed && (
           <>
-            <span className="flex-1 text-[13px] leading-none font-medium text-[#96B3A7]">
+            <span className="flex-1 text-[13px] leading-none font-medium text-[#D2E8DE]">
               {item.label}
             </span>
-            <Lock className="w-4 h-4 shrink-0 text-[#96B3A7]" />
+            <Lock className="w-4 h-4 shrink-0 text-amber-300/90" />
           </>
         )}
       </Link>

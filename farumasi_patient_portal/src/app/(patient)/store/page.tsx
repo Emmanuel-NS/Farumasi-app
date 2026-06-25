@@ -314,6 +314,38 @@ function StorePageInner() {
   const [quickAdd, setQuickAdd]   = useState<Medicine | null>(null);
   const [quickAddMode, setQuickAddMode] = useState<SellMode>("pack");
   const [quickAddQty, setQuickAddQty]   = useState(1);
+
+  const openQuickAddForMed = (med: Medicine) => {
+    const packKey = cartLineKey(med.id, "pack");
+    const partialKey = cartLineKey(med.id, "partial");
+    const packQty = cartItems[packKey]?.qty ?? 0;
+    const partialQty = cartItems[partialKey]?.qty ?? 0;
+    let mode: SellMode = "pack";
+    let qty = minQuantityForLine(med, "pack");
+    if (partialQty > 0) {
+      mode = "partial";
+      qty = partialQty;
+    } else if (packQty > 0) {
+      mode = "pack";
+      qty = packQty;
+    }
+    setQuickAdd(med);
+    setQuickAddMode(mode);
+    setQuickAddQty(qty);
+  };
+
+  const selectQuickAddMode = (mode: SellMode) => {
+    if (!quickAdd) return;
+    const key = cartLineKey(quickAdd.id, mode);
+    if (quickAddMode === mode && (cartItems[key]?.qty ?? 0) > 0) {
+      cartRemove(key);
+      toast(tf(t.toast_removed, { name: quickAdd.name }), { icon: undefined });
+      setQuickAdd(null);
+      return;
+    }
+    setQuickAddMode(mode);
+    setQuickAddQty(minQuantityForLine(quickAdd, mode));
+  };
   const [hideCategories, setHideCategories] = useState(false);
   const [canScrollLeft, setCanScrollLeft]   = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -889,10 +921,7 @@ function StorePageInner() {
                 return;
               }
               if (med.allowsPartialSelling) {
-                const initMode: SellMode = "pack";
-                setQuickAdd(med);
-                setQuickAddMode(initMode);
-                setQuickAddQty(minQuantityForLine(med, initMode));
+                openQuickAddForMed(med);
                 return;
               }
               if (isInCart) {
@@ -1010,10 +1039,7 @@ function StorePageInner() {
                           return;
                         }
                         if (med.allowsPartialSelling) {
-                          const initMode: SellMode = "pack";
-                          setQuickAdd(med);
-                          setQuickAddMode(initMode);
-                          setQuickAddQty(minQuantityForLine(med, initMode));
+                          openQuickAddForMed(med);
                           return;
                         }
                         cartAdd(med);
@@ -1123,10 +1149,7 @@ function StorePageInner() {
                 onClick={() => {
                   setQuickView(null);
                   if (quickView.allowsPartialSelling) {
-                    const initMode: SellMode = "pack";
-                    setQuickAdd(quickView);
-                    setQuickAddMode(initMode);
-                    setQuickAddQty(minQuantityForLine(quickView, initMode));
+                    openQuickAddForMed(quickView);
                   } else if (!quickView.requiresPrescription) {
                     cartAdd(quickView);
                     toast.success(tf(t.toast_added, { name: quickView.name }));
@@ -1191,13 +1214,11 @@ function StorePageInner() {
                   const priceNote = mode === "pack"
                     ? formatPrice(quickAdd.price)
                     : (quickAdd.unitPriceFrom != null ? `${formatPrice(quickAdd.unitPriceFrom)} / ${quickAdd.partialUnitName ?? "unit"}` : "Price varies");
+                  const inCartQty = cartItems[cartLineKey(quickAdd.id, mode)]?.qty ?? 0;
                   return (
                     <button
                       key={mode}
-                      onClick={() => {
-                        setQuickAddMode(mode);
-                        setQuickAddQty(minQuantityForLine(quickAdd, mode));
-                      }}
+                      onClick={() => selectQuickAddMode(mode)}
                       className={cn(
                         "flex flex-col items-start gap-0.5 p-3 rounded-2xl border-2 text-left transition-all",
                         quickAddMode === mode
@@ -1207,6 +1228,11 @@ function StorePageInner() {
                     >
                       <span className="text-xs font-bold text-slate-800">{label}</span>
                       <span className="text-[11px] text-farumasi-600 font-semibold">{priceNote}</span>
+                      {inCartQty > 0 && (
+                        <span className="text-[10px] text-slate-400 mt-0.5">
+                          {quickAddMode === mode ? "Tap again to remove" : `×${inCartQty} in cart`}
+                        </span>
+                      )}
                     </button>
                   );
                 })}

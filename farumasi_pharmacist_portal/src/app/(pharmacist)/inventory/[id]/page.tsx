@@ -4,14 +4,10 @@ import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
-import TipTapUnderline from "@tiptap/extension-underline";
+import { RichEditor } from "@/components/ui/rich-editor";
 import {
   ArrowLeft, Pencil, Loader2, Building2, Calendar, TrendingUp,
-  X, Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Undo2, Redo2,
-  ChevronDown, ShieldOff, Trash2, MoreVertical, AlertTriangle,
+  X, ChevronDown, ShieldOff, Trash2, MoreVertical, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -100,37 +96,6 @@ function parseDesc(raw?: string | null): ParsedDesc {
   return { ...empty, short: raw };
 }
 function serializeDesc(d: ParsedDesc): string { return JSON.stringify(d); }
-
-/* ─── TipTap rich editor ────────────────────────────────── */
-function RichEditor({
-  initialContent, onChange, placeholder,
-}: { initialContent: string; onChange: (html: string) => void; placeholder: string }) {
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [StarterKit, TipTapUnderline, Placeholder.configure({ placeholder })],
-    content: initialContent,
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
-    editorProps: { attributes: { class: "min-h-[130px] px-3.5 py-3 focus:outline-none" } },
-  });
-  const btn = (active?: boolean) =>
-    cn("p-1.5 rounded text-slate-500 hover:bg-white hover:text-slate-800 transition-colors", active && "bg-white text-slate-900 shadow-sm");
-  return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-      <div className="flex items-center gap-0.5 px-2 py-1 bg-slate-50 border-b border-slate-100 flex-wrap">
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleBold().run(); }} className={btn(editor?.isActive("bold"))}><Bold className="w-3.5 h-3.5" /></button>
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleItalic().run(); }} className={btn(editor?.isActive("italic"))}><Italic className="w-3.5 h-3.5" /></button>
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleUnderline().run(); }} className={btn(editor?.isActive("underline"))}><UnderlineIcon className="w-3.5 h-3.5" /></button>
-        <div className="w-px h-4 bg-slate-200 mx-1" />
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleBulletList().run(); }} className={btn(editor?.isActive("bulletList"))}><List className="w-3.5 h-3.5" /></button>
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleOrderedList().run(); }} className={btn(editor?.isActive("orderedList"))}><ListOrdered className="w-3.5 h-3.5" /></button>
-        <div className="w-px h-4 bg-slate-200 mx-1" />
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().undo().run(); }} disabled={!editor?.can().undo()} className={btn()}><Undo2 className="w-3.5 h-3.5" /></button>
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().redo().run(); }} disabled={!editor?.can().redo()} className={btn()}><Redo2 className="w-3.5 h-3.5" /></button>
-      </div>
-      <EditorContent editor={editor} />
-    </div>
-  );
-}
 
 /* ─── Availability badge ─────────────────────────────────── */
 function AvailBadge({ status }: { status: string }) {
