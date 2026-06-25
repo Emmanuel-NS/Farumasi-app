@@ -170,7 +170,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             </div>
           </div>
 
-          <div className={cn("flex flex-1 min-w-0 overflow-hidden", activePanel ? "sm:gap-3" : "")}>
+          <div className={cn("flex flex-1 min-w-0 min-h-0 overflow-hidden", activePanel ? "sm:gap-3" : "")}>
             <main
               className={cn(
                 "patient-main-pane flex-1 min-w-0 overflow-y-auto scrollbar-hide bg-[#F6F8FB] dark:bg-[#0f172a]",
@@ -186,7 +186,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             </main>
 
             {activePanel && (
-              <div className="hidden sm:block shrink-0">
+              <div className="hidden sm:flex h-full min-h-0 shrink-0 self-stretch">
                 <RightPanel activePanel={activePanel} onClose={closePanel} />
               </div>
             )}

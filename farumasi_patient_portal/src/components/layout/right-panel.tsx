@@ -34,7 +34,7 @@ export function RightPanel({ activePanel, onClose, overlay = false }: RightPanel
   return (
     <div
       className={cn(
-        "patient-right-panel bg-white flex flex-col overflow-hidden",
+        "patient-right-panel bg-white flex flex-col overflow-hidden h-full min-h-0",
         overlay
           ? "absolute inset-y-0 right-0 z-10 w-full max-w-[360px] animate-slide-in shadow-2xl dark:shadow-black/50"
           : "w-[360px] max-w-full shrink-0 animate-slide-in rounded-t-[24px] shadow-[-4px_0_24px_rgba(15,23,42,0.10)]",
@@ -51,14 +51,7 @@ export function RightPanel({ activePanel, onClose, overlay = false }: RightPanel
       </div>
 
       {/* Content */}
-      <div
-        className={cn(
-          "flex-1 min-h-0",
-          activePanel === "notifications"
-            ? "flex flex-col overflow-hidden"
-            : "overflow-y-auto scrollbar-hide",
-        )}
-      >
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {activePanel === "notifications" && <NotificationsPanel />}
         {activePanel === "cart" && <CartPanel onClose={onClose} />}
         {activePanel === "help" && <HelpPanel onClose={onClose} />}
@@ -248,8 +241,8 @@ function CartPanel({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-50 px-3 py-2">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-50 px-3 py-2 scrollbar-hide">
         {enriched.map(({ medicine, qty, sellMode }) => {
           const lineKey = cartLineKey(medicine.id, sellMode);
           const linePrice = cartLineUnitPrice(medicine, sellMode);
@@ -318,7 +311,7 @@ function CartPanel({ onClose }: { onClose: () => void }) {
         );})}
       </div>
       {/* Footer */}
-      <div className="border-t border-slate-100 p-4">
+      <div className="shrink-0 border-t border-slate-100 p-4">
         {/* Show separate lines only when both types are present */}
         {totalPack > 0 && totalPartial > 0 ? (
           <div className="space-y-1 mb-3">
@@ -382,7 +375,7 @@ const HELP_PANEL_FAQ = [
 
 function HelpPanel({ onClose }: { onClose: () => void }) {
   return (
-    <div className="p-5">
+    <div className="h-full min-h-0 overflow-y-auto scrollbar-hide p-5">
       <p className="text-sm text-slate-600 mb-4">We&apos;re here for you, every step of the way.</p>
 
       {/* Contact cards */}
