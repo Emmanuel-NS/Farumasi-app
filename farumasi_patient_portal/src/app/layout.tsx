@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "sonner";
 import { PwaRegister } from "@/components/pwa-register";
+import { ThemeProvider } from "@/components/providers/theme-provider";
+import { ThemeInitScript } from "@/components/theme/theme-init-script";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -38,11 +40,16 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <ThemeInitScript />
+      </head>
       <body className={`${inter.variable} antialiased`}>
-        <PwaRegister />
-        <NextTopLoader color="#1e9e68" height={3} showSpinner={false} shadow="0 0 10px #1e9e68" />
-        {children}
-        <Toaster position="top-right" richColors />
+        <ThemeProvider>
+          <PwaRegister />
+          <NextTopLoader color="#1e9e68" height={3} showSpinner={false} shadow="0 0 10px #1e9e68" />
+          {children}
+          <Toaster position="top-right" richColors />
+        </ThemeProvider>
       </body>
     </html>
   );

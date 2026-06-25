@@ -391,6 +391,7 @@ export type T = {
   theme_light: string;
   theme_dark: string;
   theme_system: string;
+  theme_auto_hint: string;
   // Relative time
   time_just_now: string;
   time_min_ago: string;
@@ -773,7 +774,8 @@ const translations: Record<LangCode, T> = {
     toast_rx_modal: "{name} requires a valid prescription. Go to Prescriptions to upload one.",
     theme_light: "Light",
     theme_dark: "Dark",
-    theme_system: "System",
+    theme_system: "Automatic",
+    theme_auto_hint: "Dark from 6:30 PM to 5:30 AM",
     time_just_now: "Just now",
     time_min_ago: "{n}m ago",
     time_hr_ago: "{n}h ago",
@@ -1153,7 +1155,8 @@ const translations: Record<LangCode, T> = {
     toast_rx_modal: "{name} bisaba impapuro zemewe. Genda ku Impapuro z'Umuganga kuzohereza.",
     theme_light: "Urumuri",
     theme_dark: "Umukumbi",
-    theme_system: "Sisitemu",
+    theme_system: "Mu buryo bwikora",
+    theme_auto_hint: "Umukumbi guhera 6:30 PM kugeza 5:30 AM",
     time_just_now: "Ubu nyuma",
     time_min_ago: "Kaminuta {n} ishize",
     time_hr_ago: "Isaha {n} ishize",
@@ -1533,7 +1536,8 @@ const translations: Record<LangCode, T> = {
     toast_rx_modal: "{name} nécessite une ordonnance valide. Rendez-vous dans Prescriptions pour en télécharger une.",
     theme_light: "Clair",
     theme_dark: "Sombre",
-    theme_system: "Système",
+    theme_system: "Automatique",
+    theme_auto_hint: "Sombre de 18h30 à 5h30",
     time_just_now: "À l'instant",
     time_min_ago: "il y a {n} min",
     time_hr_ago: "il y a {n}h",
@@ -1913,7 +1917,8 @@ const translations: Record<LangCode, T> = {
     toast_rx_modal: "{name} inahitaji cheti halali cha daktari. Nenda kwenye Cheti cha Daktari kupakia kimoja.",
     theme_light: "Mwanga",
     theme_dark: "Giza",
-    theme_system: "Sisitemu",
+    theme_system: "Otomatiki",
+    theme_auto_hint: "Giza kutoka 6:30 PM hadi 5:30 AM",
     time_just_now: "Sasa hivi",
     time_min_ago: "dakika {n} zilizopita",
     time_hr_ago: "saa {n} zilizopita",

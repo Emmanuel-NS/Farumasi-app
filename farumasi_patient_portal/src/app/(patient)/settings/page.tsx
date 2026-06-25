@@ -8,6 +8,8 @@ import { useLanguageStore, type LangCode } from "@/store/language-store";
 import { useTranslationOverlayStore } from "@/store/translation-overlay-store";
 import { useTranslation } from "@/lib/translations";
 import { useAuthStore } from "@/store/auth-store";
+import { useThemeStore } from "@/store/theme-store";
+import type { ThemeMode } from "@/lib/theme-schedule";
 import { authService } from "@/lib/services/auth.service";
 import {
   settingsService,
@@ -19,6 +21,7 @@ import {
   Smartphone, Mail, MessageSquare, Phone, MapPin,
   Lock, FileText, HelpCircle, Info, Check, Loader2,
   Download, LogOut, Trash2, AlertTriangle, X, ShieldCheck, CheckCircle2, KeyRound,
+  Sun, Moon, Clock,
 } from "lucide-react";
 import { usePinStore } from "@/store/pin-store";
 import { getApiError } from "@/lib/api-error";
@@ -64,6 +67,8 @@ export default function SettingsPage() {
   const isGuest = useAuthStore((s) => s.isGuest);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const themeMode = useThemeStore((s) => s.mode);
+  const setThemeMode = useThemeStore((s) => s.setMode);
 
   const [open, setOpen] = useState<Section | null>("notifications");
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
@@ -398,6 +403,45 @@ export default function SettingsPage() {
                 Preparing {LANG_OPTIONS.find((o) => o.code === lang)?.native ?? lang} translations…
               </p>
             )}
+
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 mt-6">{t.settings_theme}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {(
+                [
+                  { value: "light" as ThemeMode, label: t.theme_light, icon: Sun },
+                  { value: "dark" as ThemeMode, label: t.theme_dark, icon: Moon },
+                  { value: "auto" as ThemeMode, label: t.theme_system, icon: Clock },
+                ] as const
+              ).map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    setThemeMode(value);
+                    toast.success(
+                      value === "auto"
+                        ? "Automatic dark mode enabled"
+                        : value === "dark"
+                        ? "Dark mode on"
+                        : "Light mode on",
+                    );
+                  }}
+                  className={cn(
+                    "flex items-center justify-between px-4 py-3 rounded-2xl border text-sm font-semibold transition-all",
+                    themeMode === value
+                      ? "border-farumasi-600 bg-farumasi-50 text-farumasi-700 shadow-sm dark:bg-farumasi-950/40 dark:text-farumasi-300 dark:border-farumasi-500"
+                      : "border-slate-200 text-slate-600 hover:border-farumasi-300 hover:bg-slate-50",
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {label}
+                  </span>
+                  {themeMode === value && <Check className="w-4 h-4 text-farumasi-600" />}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">{t.theme_auto_hint}</p>
           </div>
         </AccordionSection>
 
