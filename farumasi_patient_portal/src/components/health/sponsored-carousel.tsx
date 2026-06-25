@@ -74,7 +74,7 @@ export function SponsoredCarousel({ className }: { className?: string }) {
       aria-label="Sponsored health content"
       data-testid="sponsored-carousel"
     >
-      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-farumasi-50 shadow-sm">
+      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-amber-200/80 dark:border-amber-900/50 bg-gradient-to-br from-amber-50 via-white to-farumasi-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 shadow-sm">
         <button
           type="button"
           onClick={() => router.push(`/health/${current.slug ?? current.id}`)}
@@ -97,7 +97,7 @@ export function SponsoredCarousel({ className }: { className?: string }) {
               </div>
             )}
             <div className="flex-1 p-2.5 sm:p-4 min-w-0 flex flex-col justify-center">
-              <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-amber-800 bg-amber-100 px-1.5 sm:px-2 py-0.5 rounded-full mb-1 sm:mb-2 w-fit">
+              <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/40 px-1.5 sm:px-2 py-0.5 rounded-full mb-1 sm:mb-2 w-fit">
                 <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> Sponsored
               </span>
               <h2 className="text-[13px] sm:text-base font-bold text-slate-900 line-clamp-2 leading-snug">
@@ -124,7 +124,7 @@ export function SponsoredCarousel({ className }: { className?: string }) {
                 onClick={() => setIndex(i)}
                 className={cn(
                   "h-1 rounded-full transition-all",
-                  i === index ? "w-5 sm:w-6 bg-farumasi-600" : "w-1.5 bg-slate-300",
+                  i === index ? "w-5 sm:w-6 bg-farumasi-600" : "w-1.5 bg-slate-300 dark:bg-slate-600",
                 )}
               />
             ))}

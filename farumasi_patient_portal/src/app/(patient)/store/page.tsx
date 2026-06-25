@@ -616,7 +616,7 @@ function StorePageInner() {
                 <div
                   key={pharmacy.id}
                   className={cn(
-                    "relative flex bg-white rounded-[14px] border overflow-hidden transition-all shrink-0 w-[220px] sm:w-[250px] h-[96px] sm:h-[106px]",
+                    "relative flex bg-white dark:bg-slate-800 dark:border-slate-700 rounded-[14px] border overflow-hidden transition-all shrink-0 w-[220px] sm:w-[250px] h-[96px] sm:h-[106px]",
                     isSelected
                       ? "border-farumasi-500 shadow-[0_0_0_2px_rgba(30,158,104,0.25)] shadow-md"
                       : "border-[#E6EAEE] shadow-[0_5px_10px_rgba(15,23,42,0.07)] hover:shadow-md hover:border-farumasi-300"
@@ -700,10 +700,10 @@ function StorePageInner() {
       )}
 
       {/* ── Categories section — sticks when scrolled to top ── */}
-      <div className="sticky top-0 z-50 isolate -mx-4 md:-mx-6 mb-3 bg-[#F6F8FB] border-b border-slate-200 shadow-sm">
+      <div className="sticky top-0 z-50 isolate -mx-4 md:-mx-6 mb-3 bg-[#F6F8FB] dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="px-4 md:px-6 relative">
           {showFilters && (
-            <div className="relative z-[55] -mx-4 md:-mx-6 px-4 md:px-6 py-3 border-b border-slate-200 bg-white shadow-sm space-y-3">
+            <div className="relative z-[55] -mx-4 md:-mx-6 px-4 md:px-6 py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm space-y-3">
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_sort_by}</span>
                 {(
@@ -788,7 +788,7 @@ function StorePageInner() {
                 onClick={() => scrollCategories("left")}
                 className="absolute left-0 top-[6px] bottom-[46px] z-10 flex items-center"
               >
-                <div className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center hover:shadow-lg transition-shadow">
+                <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-700 shadow-md dark:shadow-black/30 flex items-center justify-center hover:shadow-lg transition-shadow">
                   <ChevronLeft className="w-5 h-5 text-farumasi-600" />
                 </div>
               </button>
@@ -825,13 +825,13 @@ function StorePageInner() {
                         "w-11 h-11 sm:w-[50px] sm:h-[50px] rounded-full flex items-center justify-center transition-all duration-180 border",
                         selected
                           ? "bg-farumasi-600 border-farumasi-600 shadow-[0_4px_12px_rgba(34,163,111,0.3)]"
-                          : "bg-[#F1F5F9] border-[#D8E1EA]"
+                          : "bg-[#F1F5F9] border-[#D8E1EA] dark:bg-slate-700 dark:border-slate-600"
                       )}
                     >
                       <Icon
                         className={cn(
                           "w-5 h-5 sm:w-[26px] sm:h-[26px]",
-                          selected ? "text-white" : "text-farumasi-600"
+                          selected ? "text-white" : "text-farumasi-600 dark:text-farumasi-400"
                         )}
                       />
                     </div>
@@ -840,8 +840,8 @@ function StorePageInner() {
                       className={cn(
                         "w-full text-center text-[10px] sm:text-[12px] leading-tight line-clamp-2 sm:truncate",
                         selected
-                          ? "font-bold text-[#0F172A]"
-                          : "font-medium text-[#334155]"
+                          ? "font-bold text-[#0F172A] dark:text-farumasi-300"
+                          : "font-medium text-[#334155] dark:text-slate-300"
                       )}
                     >
                       {getCatLabel(cat.name)}
@@ -857,7 +857,7 @@ function StorePageInner() {
                 onClick={() => scrollCategories("right")}
                 className="absolute right-0 top-[6px] bottom-[46px] z-10 flex items-center"
               >
-                <div className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center hover:shadow-lg transition-shadow">
+                <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-700 shadow-md dark:shadow-black/30 flex items-center justify-center hover:shadow-lg transition-shadow">
                   <ChevronRight className="w-5 h-5 text-farumasi-600" />
                 </div>
               </button>
@@ -937,11 +937,11 @@ function StorePageInner() {
               /* Flutter Card(elevation:2, margin:all(8), borderRadius:12) */
               <div
                 key={med.id}
-                className="bg-white rounded-[12px] shadow-md overflow-hidden flex flex-col min-h-[280px] sm:min-h-[310px]"
+                className="bg-white dark:bg-slate-800 rounded-[12px] shadow-md dark:shadow-black/30 dark:border dark:border-slate-700 overflow-hidden flex flex-col min-h-[280px] sm:min-h-[310px]"
               >
                 {/* Image area — click to add/remove from cart instantly */}
                 <div
-                  className="relative flex-1 bg-slate-100 overflow-hidden cursor-pointer select-none"
+                  className="relative flex-1 bg-slate-100 dark:bg-slate-900 overflow-hidden cursor-pointer select-none"
                   onClick={handleImageClick}
                   title={med.requiresPrescription ? "Prescription required" : isInCart ? "Click to remove from cart" : "Click to add to cart"}
                 >

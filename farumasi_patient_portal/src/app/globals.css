@@ -167,6 +167,28 @@ html.dark .rich-content td { border-color: #475569; }
 html.dark .rich-content pre,
 html.dark .rich-content code { background: #334155; }
 html.dark .rich-content hr { border-top-color: #475569; }
+html.dark .text-\[\#334155\] { color: #cbd5e1 !important; }
+html.dark .text-\[\#64748B\] { color: #94a3b8 !important; }
+
+html.dark .border-farumasi-100 { border-color: #334155 !important; }
+html.dark .border-farumasi-200 { border-color: #475569 !important; }
+html.dark .border-\[\#D8E1EA\] { border-color: #475569 !important; }
+html.dark .border-amber-100 { border-color: #78350f !important; }
+
+html.dark .bg-farumasi-50 { background-color: rgba(30, 158, 104, 0.12) !important; }
+html.dark .bg-amber-50,
+html.dark .bg-amber-50\/40 { background-color: rgba(245, 158, 11, 0.1) !important; }
+
+html.dark .hover\:bg-slate-100:hover { background-color: #334155 !important; }
+html.dark .hover\:bg-slate-50:hover { background-color: #334155 !important; }
+html.dark .hover\:bg-red-50:hover { background-color: rgba(239, 68, 68, 0.15) !important; }
+
+html.dark .bg-slate-200 { background-color: #475569 !important; }
+
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155;
+}
+
 html.dark .rich-content blockquote {
   background: rgba(30, 158, 104, 0.12);
   color: #94a3b8;

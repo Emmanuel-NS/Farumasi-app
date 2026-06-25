@@ -106,7 +106,7 @@ export function Topbar({
   return (
     <header
       className={cn(
-        "relative h-[72px] bg-farumasi-600 shrink-0 sticky top-0 z-[60]",
+        "relative h-[72px] bg-farumasi-600 dark:bg-[#0f172a] dark:border-b dark:border-slate-800 shrink-0 sticky top-0 z-[60]",
         mobileNavOpen && "z-[100]",
       )}
     >
@@ -143,13 +143,13 @@ export function Topbar({
 
       {/* Search bar — filter inside whenever the bar is visible (sm+) */}
       <div className="flex-[3] max-w-[500px] lg:max-w-[620px] hidden sm:block">
-        <div className="flex items-center bg-white rounded-[14px] h-12 px-3 lg:px-4 gap-2 shadow-[0_2px_4px_rgba(0,0,0,0.12)] hover:shadow-md transition-shadow">
+        <div className="flex items-center bg-white dark:bg-slate-800 dark:border dark:border-slate-700 rounded-[14px] h-12 px-3 lg:px-4 gap-2 shadow-[0_2px_4px_rgba(0,0,0,0.12)] dark:shadow-none hover:shadow-md dark:hover:shadow-none transition-shadow">
           <Search className="w-5 h-5 text-slate-400 shrink-0" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search medicines, symptoms, categories..."
-            className="flex-1 min-w-0 text-sm text-[#0F172A] placeholder:text-slate-400 outline-none bg-transparent"
+            className="flex-1 min-w-0 text-sm text-[#0F172A] dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none bg-transparent"
           />
           {query && (
             <button
@@ -263,14 +263,14 @@ export function Topbar({
                 <span className="text-sm font-bold text-[#EFFFB5]">{getInitials(user?.name ?? "Me")}</span>
               </button>
               {showProfile && (
-                <div className="absolute right-0 top-11 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-[70] animate-fade-in">
-                  <div className="px-4 py-2 border-b border-slate-100">
-                    <p className="text-sm font-semibold text-slate-900">{user?.name ?? "My Account"}</p>
-                    <p className="text-xs text-slate-500">{user?.email ?? ""}</p>
+                <div className="absolute right-0 top-11 w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 py-2 z-[70] animate-fade-in">
+                  <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{user?.name ?? "My Account"}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{user?.email ?? ""}</p>
                   </div>
                   <Link
                     href="/profile"
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                     onClick={() => setShowProfile(false)}
                   >
                     <User className="w-4 h-4 text-farumasi-600" />
@@ -278,16 +278,16 @@ export function Topbar({
                   </Link>
                   <Link
                     href="/settings"
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                     onClick={() => setShowProfile(false)}
                   >
                     <Settings className="w-4 h-4 text-farumasi-600" />
                     Settings
                   </Link>
-                  <div className="border-t border-slate-100 mt-1 pt-1">
+                  <div className="border-t border-slate-100 dark:border-slate-700 mt-1 pt-1">
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                     >
                       <LogOut className="w-4 h-4" />
                       Logout
@@ -302,7 +302,7 @@ export function Topbar({
 
       {/* Mobile search overlay */}
       {mobileSearchOpen && (
-        <div className="absolute top-full left-0 right-0 bg-farumasi-600 px-4 py-3 flex items-center gap-2 z-30 border-t border-white/10 sm:hidden">
+        <div className="absolute top-full left-0 right-0 bg-farumasi-600 dark:bg-[#0f172a] px-4 py-3 flex items-center gap-2 z-30 border-t border-white/10 dark:border-slate-800 sm:hidden">
           <Search className="w-4 h-4 text-white/60 shrink-0" />
           <input
             autoFocus
