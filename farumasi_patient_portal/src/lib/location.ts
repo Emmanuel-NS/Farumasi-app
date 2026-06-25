@@ -1,15 +1,7 @@
 /**
- * Patient geolocation helper.
- *
- * Phase 11.2 scope: the patient session does not yet carry coordinates. The
- * backend recommendation endpoint requires lat/lon, so until the patient's
- * default address (`/patients/me/addresses`) is wired into the session we
- * fall back to a public Kigali city-center coordinate. This is documented
- * fallback behavior, NOT a silent hardcode inside a component.
- *
- * TODO(Phase 12): resolve from patient default_address_id or live geolocation,
- *                 then drop the fallback.
+ * Patient geolocation helpers — always prefer a fresh GPS fix (maximumAge: 0).
  */
+
 export interface Coords {
   lat: number;
   lon: number;
@@ -20,17 +12,28 @@ export const DEFAULT_KIGALI_COORDS: Coords = {
   lon: 30.0606,
 };
 
-/**
- * Returns the best-effort coordinates for the current patient.
- * Currently always returns the Kigali fallback. Callers should surface a
- * subtle hint to the user that recommendations are approximate.
- */
-export function getPatientCoords(): { coords: Coords; isFallback: boolean } {
-  return { coords: DEFAULT_KIGALI_COORDS, isFallback: true };
+/** Browser options for an up-to-date position (no stale cache). */
+export const FRESH_GEO_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  maximumAge: 0,
+  timeout: 15_000,
+};
+
+export function readGeolocationPosition(pos: GeolocationPosition): Coords {
+  return {
+    lat: pos.coords.latitude,
+    lon: pos.coords.longitude,
+  };
 }
 
-/** Request the browser's current GPS position (patient delivery/pickup point). */
-export function requestPatientLocation(
+/**
+ * Returns the best coordinates available in the client session.
+ * Re-exported from the location store (live GPS when available).
+ */
+export { getPatientCoords } from "@/store/patient-location-store";
+
+/** One-shot fresh GPS read. */
+export function requestFreshPatientLocation(
   options?: PositionOptions,
 ): Promise<Coords> {
   return new Promise((resolve, reject) => {
@@ -39,13 +42,35 @@ export function requestPatientLocation(
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        resolve({
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-        }),
+      (pos) => resolve(readGeolocationPosition(pos)),
       (err) => reject(err),
-      { timeout: 8000, maximumAge: 120_000, enableHighAccuracy: false, ...options },
+      { ...FRESH_GEO_OPTIONS, ...options },
     );
   });
+}
+
+/** @deprecated Use requestFreshPatientLocation */
+export function requestPatientLocation(
+  options?: PositionOptions,
+): Promise<Coords> {
+  return requestFreshPatientLocation(options);
+}
+
+/** Continuous GPS updates; returns watch id or null. */
+export function watchPatientLocation(
+  onUpdate: (coords: Coords, accuracy: number | null) => void,
+  onError?: (err: GeolocationPositionError) => void,
+  options?: PositionOptions,
+): number | null {
+  if (typeof navigator === "undefined" || !navigator.geolocation) return null;
+  return navigator.geolocation.watchPosition(
+    (pos) => onUpdate(readGeolocationPosition(pos), pos.coords.accuracy ?? null),
+    onError,
+    { ...FRESH_GEO_OPTIONS, ...options },
+  );
+}
+
+export function clearLocationWatch(watchId: number): void {
+  if (typeof navigator === "undefined" || !navigator.geolocation) return;
+  navigator.geolocation.clearWatch(watchId);
 }

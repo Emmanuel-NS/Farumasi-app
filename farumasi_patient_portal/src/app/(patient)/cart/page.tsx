@@ -22,6 +22,7 @@ import { productsService } from "@/lib/services/products.service";
 import { patientsService, type PatientAddress } from "@/lib/services/patients.service";
 import { configService } from "@/lib/services/config.service";
 import { useAuthStore } from "@/store/auth-store";
+import { usePatientLocation } from "@/hooks/use-patient-location";
 import type { Pharmacy, Medicine } from "@/types";
 import {
   ShoppingCart,
@@ -140,10 +141,9 @@ export default function CartPage() {
   const [selectedOption, setSelectedOption]   = useState<PharmacyOption | null>(null);
   const [fulfillment, setFulfillment]         = useState<"delivery" | "pickup">("delivery");
   const [patientDistrict, setPatientDistrict] = useState("");
-  const [patientLocation, setPatientLocation] = useState<[number, number] | null>(null);
+  const { coordsTuple: patientLocation, status: locationStatus, requestLocation } = usePatientLocation();
   const [apiDeliveryFee, setApiDeliveryFee] = useState<number | null>(null);
   const [deliveryUnavailable, setDeliveryUnavailable] = useState<string | null>(null);
-  const [locationStatus, setLocationStatus]     = useState<"idle" | "pending" | "granted" | "denied" | "unsupported">("idle");
   const [name, setName]                       = useState("");
   const [phone, setPhone]                     = useState("");
   const [district, setDistrict]               = useState("");
@@ -345,36 +345,15 @@ export default function CartPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, cartKey]);
 
-  const requestPatientLocation = () => {
-    if (!navigator?.geolocation) {
-      setLocationStatus("unsupported");
-      return;
-    }
-    setLocationStatus("pending");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setPatientLocation([pos.coords.latitude, pos.coords.longitude]);
-        setLocationStatus("granted");
-      },
-      () => setLocationStatus("denied"),
-      { timeout: 12_000, maximumAge: 60_000, enableHighAccuracy: true },
-    );
-  };
-
-  // Request GPS when entering pharmacy/details for delivery, or pharmacy step for proximity
+  // Force a fresh GPS read when checkout steps need proximity / delivery fee.
   useEffect(() => {
-    if (patientLocation) {
-      setLocationStatus("granted");
-      return;
-    }
     const needsGps =
       step === "pharmacy" ||
       (fulfillment === "delivery" && (step === "details" || step === "payment"));
-    if (needsGps && locationStatus === "idle") {
-      requestPatientLocation();
+    if (needsGps) {
+      requestLocation();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, fulfillment, patientLocation, locationStatus]);
+  }, [step, fulfillment, requestLocation]);
 
   // Auto-switch to pickup when the selected pharmacy is more than 20 km away
   // (road distance = haversine × 1.3). The backend enforces this too, but we
@@ -963,7 +942,7 @@ export default function CartPage() {
             {locationStatus !== "unsupported" && (
               <button
                 type="button"
-                onClick={requestPatientLocation}
+                onClick={requestLocation}
                 disabled={locationStatus === "pending"}
                 className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-white border border-amber-200 rounded-xl px-3 py-1.5 hover:bg-amber-100 disabled:opacity-60"
               >
@@ -1458,7 +1437,7 @@ export default function CartPage() {
               <p className="text-xs text-amber-800 mt-0.5">Delivery requires GPS for accurate fees.</p>
               <button
                 type="button"
-                onClick={requestPatientLocation}
+                onClick={requestLocation}
                 className="mt-2 text-xs font-bold text-amber-900 underline"
               >
                 Enable location

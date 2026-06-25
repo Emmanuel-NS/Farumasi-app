@@ -111,15 +111,15 @@ export default function OrdersPage() {
   return (
     <GuestGate feature="your orders">
       <PinGate feature="orders">
-        <div className="flex flex-col h-full bg-[#F8FAFC]">
+        <div className="flex flex-col h-full min-h-0">
 
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-slate-100 shrink-0">
-            <h1 className="text-lg font-bold text-slate-900">{t.orders_title}</h1>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700 shrink-0">
+            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t.orders_title}</h1>
             <button
               onClick={() => load(true)}
               disabled={refreshing}
-              className="p-2 rounded-xl text-slate-400 hover:text-farumasi-600 hover:bg-farumasi-50 transition-colors"
+              className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:text-farumasi-600 dark:hover:text-emerald-400 hover:bg-farumasi-50 dark:hover:bg-slate-700 transition-colors"
               title="Refresh orders"
             >
               <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
@@ -127,7 +127,7 @@ export default function OrdersPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-slate-200 bg-white shrink-0">
+          <div className="flex border-b border-slate-200 dark:border-slate-700 shrink-0">
             {(["active", "past", "cancelled"] as const).map((tabKey) => {
               const count = tabKey === "active" ? activeOrders.length : tabKey === "past" ? pastOrders.length : cancelledOrders.length;
               return (
@@ -136,20 +136,24 @@ export default function OrdersPage() {
                   onClick={() => setTab(tabKey)}
                   className={cn(
                     "flex-1 py-3 text-sm font-semibold transition-colors relative flex items-center justify-center gap-1.5",
-                    tab === tabKey ? "text-farumasi-600" : "text-slate-500 hover:text-slate-700"
+                    tab === tabKey
+                      ? "text-farumasi-600 dark:text-emerald-400"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                   )}
                 >
                   {tabKey === "active" ? t.orders_active : tabKey === "past" ? t.orders_past : "Cancelled"}
                   {count > 0 && (
                     <span className={cn(
                       "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
-                      tab === tabKey ? "bg-farumasi-600 text-white" : "bg-slate-100 text-slate-500"
+                      tab === tabKey
+                        ? "bg-farumasi-600 text-white"
+                        : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
                     )}>
                       {count}
                     </span>
                   )}
                   {tab === tabKey && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-farumasi-600 rounded-t-full" />
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-farumasi-600 dark:bg-emerald-500 rounded-t-full" />
                   )}
                 </button>
               );
@@ -161,18 +165,18 @@ export default function OrdersPage() {
             {loading ? (
               <div className="space-y-3 max-w-3xl mx-auto">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="bg-white rounded-3xl border border-slate-100 p-5 animate-pulse">
-                    <div className="h-4 w-1/3 bg-slate-100 rounded mb-3" />
-                    <div className="h-3 w-1/2 bg-slate-100 rounded mb-2" />
-                    <div className="h-3 w-2/3 bg-slate-100 rounded" />
+                  <div key={i} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-5 animate-pulse">
+                    <div className="h-4 w-1/3 bg-slate-100 dark:bg-slate-700 rounded mb-3" />
+                    <div className="h-3 w-1/2 bg-slate-100 dark:bg-slate-700 rounded mb-2" />
+                    <div className="h-3 w-2/3 bg-slate-100 dark:bg-slate-700 rounded" />
                   </div>
                 ))}
               </div>
             ) : loadError ? (
               <div className="flex flex-col items-center justify-center py-24 gap-3 max-w-sm mx-auto text-center">
                 <span className="text-4xl">⚠️</span>
-                <p className="font-semibold text-slate-700">Couldn&apos;t load orders</p>
-                <p className="text-sm text-slate-500">Check your connection and try again.</p>
+                <p className="font-semibold text-slate-700 dark:text-slate-200">Couldn&apos;t load orders</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Check your connection and try again.</p>
                 <button onClick={() => load()} className="mt-2 px-5 py-2 rounded-xl bg-farumasi-600 text-white text-sm font-semibold hover:bg-farumasi-700 transition-colors">Retry</button>
               </div>
             ) : tab === "active" ? (
@@ -217,21 +221,21 @@ export default function OrdersPage() {
         {cancelTarget && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !cancelling && setCancelTarget(null)} />
-            <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl z-10 p-6 space-y-4">
+            <div className="relative w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl shadow-2xl z-10 p-6 space-y-4 border border-slate-100 dark:border-slate-700">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Cancel this order?</p>
-                  <p className="text-xs text-slate-500 mt-0.5">This cannot be undone once confirmed.</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Cancel this order?</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">This cannot be undone once confirmed.</p>
                 </div>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setCancelTarget(null)}
                   disabled={cancelling}
-                  className="flex-1 h-11 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors disabled:opacity-50"
+                  className="flex-1 h-11 rounded-2xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
                 >
                   Keep Order
                 </button>
@@ -264,19 +268,19 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
   const firstName = itemList.length > 0 ? itemList[0].name : order.items.split(",")[0]?.trim();
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md dark:hover:shadow-black/20 transition-shadow">
       {/* Top strip — order code + delivery type */}
       <div className="flex items-center justify-between px-5 pt-4 pb-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-farumasi-700 bg-farumasi-50 px-2.5 py-1 rounded-full">
+          <span className="text-xs font-bold text-farumasi-700 dark:text-emerald-300 bg-farumasi-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full">
             {order.orderCode ?? order.id.slice(0, 8).toUpperCase()}
           </span>
           {order.deliveryMethod && (
             <span className={cn(
               "text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1",
               order.deliveryMethod === "delivery"
-                ? "bg-sky-100 text-sky-700"
-                : "bg-violet-100 text-violet-700",
+                ? "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
+                : "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300",
             )}>
               {order.deliveryMethod === "delivery"
                 ? <><Truck className="w-3 h-3" /> {DELIVERY_LABELS.delivery}</>
@@ -290,8 +294,8 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
       <div className="px-5 pt-3 pb-4 space-y-3">
         {/* Pharmacy + date */}
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-bold text-slate-900 truncate">{order.pharmacy}</p>
-          <p className="text-xs text-slate-400 shrink-0 flex items-center gap-1">
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{order.pharmacy}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 shrink-0 flex items-center gap-1">
             <Clock className="w-3 h-3" />{relativeDate(order.date)}
           </p>
         </div>
@@ -299,24 +303,24 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
         {/* Item chips */}
         <div className="flex flex-wrap gap-1.5">
           {itemList.slice(0, 3).map((it) => (
-            <span key={it.id} className="flex items-center gap-1 text-[11px] bg-slate-50 border border-slate-100 text-slate-700 px-2.5 py-1 rounded-full font-medium">
+            <span key={it.id} className="flex items-center gap-1 text-[11px] bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-full font-medium">
               <Pill className="w-3 h-3 text-farumasi-500 shrink-0" />
               {it.name.length > 22 ? it.name.slice(0, 21) + "…" : it.name}
               {it.sellMode === "partial" && (
                 <span className="text-farumasi-500 font-bold">·{it.quantity}u</span>
               )}
               {it.sellMode !== "partial" && it.quantity > 1 && (
-                <span className="text-slate-400">×{it.quantity}</span>
+                <span className="text-slate-400 dark:text-slate-500">×{it.quantity}</span>
               )}
             </span>
           ))}
           {itemCount > 3 && (
-            <span className="text-[11px] bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-medium">
+            <span className="text-[11px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-full font-medium">
               +{itemCount - 3} more
             </span>
           )}
           {itemList.length === 0 && firstName && (
-            <span className="text-[11px] bg-slate-50 border border-slate-100 text-slate-700 px-2.5 py-1 rounded-full font-medium">
+            <span className="text-[11px] bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-full font-medium">
               <Pill className="w-3 h-3 text-farumasi-500 inline mr-1" />{firstName}
             </span>
           )}
@@ -325,14 +329,14 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
         {/* Footer: total + actions */}
         <div className="flex items-center justify-between pt-1">
           <div>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wide">Total</p>
-            <p className="text-base font-extrabold text-farumasi-700">{order.total}</p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total</p>
+            <p className="text-base font-extrabold text-farumasi-700 dark:text-emerald-300">{order.total}</p>
           </div>
           <div className="flex items-center gap-2">
             {canCancel && (
               <button
                 onClick={onRequestCancel}
-                className="flex items-center gap-1.5 border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-2xl text-xs font-bold transition-colors"
+                className="flex items-center gap-1.5 border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60 px-3 py-2 rounded-2xl text-xs font-bold transition-colors"
               >
                 <XCircle className="w-3.5 h-3.5" />
                 Cancel
@@ -362,28 +366,28 @@ function PastOrderCard({ order, onArchive }: { order: Order; onArchive: () => vo
   return (
     <div className="relative">
       <Link href={`/orders/${order.id}`}>
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-3 hover:shadow-sm hover:border-farumasi-200 transition-all pr-12">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-4 flex items-center gap-3 hover:shadow-sm hover:border-farumasi-200 dark:hover:border-emerald-700/50 transition-all pr-12">
           {/* Status icon */}
           <div className={cn(
             "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-            isDelivered ? "bg-farumasi-50" : isCancelled ? "bg-red-50" : "bg-slate-100",
+            isDelivered ? "bg-farumasi-50 dark:bg-emerald-950/40" : isCancelled ? "bg-red-50 dark:bg-red-950/40" : "bg-slate-100 dark:bg-slate-700",
           )}>
             {isDelivered
-              ? <CheckCircle2 className="w-5 h-5 text-farumasi-600" />
+              ? <CheckCircle2 className="w-5 h-5 text-farumasi-600 dark:text-emerald-400" />
               : isCancelled
               ? <XCircle className="w-5 h-5 text-red-400" />
-              : <Package className="w-5 h-5 text-slate-400" />}
+              : <Package className="w-5 h-5 text-slate-400 dark:text-slate-500" />}
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
                 {order.orderCode ?? order.id.slice(0, 8).toUpperCase()}
               </span>
               <StatusBadge status={order.status} />
             </div>
-            <p className="text-sm font-semibold text-slate-800 mt-1 truncate">{order.pharmacy}</p>
-            <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mt-1 truncate">{order.pharmacy}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
               <Pill className="w-2.5 h-2.5" />
               {itemCount} item{itemCount !== 1 ? "s" : ""}
               <span className="mx-1">·</span>
@@ -393,16 +397,18 @@ function PastOrderCard({ order, onArchive }: { order: Order; onArchive: () => vo
           </div>
 
           <div className="text-right shrink-0 flex flex-col items-end gap-1">
-            <p className="text-sm font-bold text-slate-900">{order.total}</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{order.total}</p>
             {order.deliveryMethod && (
               <span className={cn(
                 "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
-                order.deliveryMethod === "delivery" ? "bg-sky-50 text-sky-600" : "bg-violet-50 text-violet-600"
+                order.deliveryMethod === "delivery"
+                  ? "bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300"
+                  : "bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300"
               )}>
                 {DELIVERY_LABELS[order.deliveryMethod] ?? order.deliveryMethod}
               </span>
             )}
-            <ChevronRight className="w-4 h-4 text-slate-300 mt-0.5" />
+            <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 mt-0.5" />
           </div>
         </div>
       </Link>
@@ -410,7 +416,7 @@ function PastOrderCard({ order, onArchive }: { order: Order; onArchive: () => vo
       {/* Trash button — float top-right, removes from history (localStorage archive) */}
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmTrash(true); }}
-        className="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+        className="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
         title="Remove from history"
       >
         <Trash2 className="w-3.5 h-3.5" />
@@ -418,12 +424,12 @@ function PastOrderCard({ order, onArchive }: { order: Order; onArchive: () => vo
 
       {/* Inline trash confirmation */}
       {confirmTrash && (
-        <div className="absolute inset-0 z-10 bg-white rounded-2xl border border-red-100 flex items-center justify-between px-4 gap-3 shadow-md">
-          <p className="text-xs font-semibold text-slate-700">Remove from history?</p>
+        <div className="absolute inset-0 z-10 bg-white dark:bg-slate-800 rounded-2xl border border-red-100 dark:border-red-900/50 flex items-center justify-between px-4 gap-3 shadow-md">
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Remove from history?</p>
           <div className="flex gap-2">
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmTrash(false); }}
-              className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+              className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               Keep
             </button>
@@ -443,11 +449,11 @@ function PastOrderCard({ order, onArchive }: { order: Order; onArchive: () => vo
 function EmptyOrders({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-        <Package className="w-10 h-10 text-slate-300" />
+      <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+        <Package className="w-10 h-10 text-slate-300 dark:text-slate-600" />
       </div>
-      <p className="text-slate-700 font-semibold text-base">{message}</p>
-      <p className="text-slate-400 text-sm mt-1">Your order history will appear here.</p>
+      <p className="text-slate-700 dark:text-slate-200 font-semibold text-base">{message}</p>
+      <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">Your order history will appear here.</p>
       <Link
         href="/store"
         className="mt-5 inline-flex items-center gap-2 bg-farumasi-600 text-white px-5 py-2.5 rounded-2xl text-sm font-bold hover:bg-farumasi-700 transition-colors"

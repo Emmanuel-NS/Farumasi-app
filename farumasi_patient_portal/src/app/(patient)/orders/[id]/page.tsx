@@ -24,7 +24,7 @@ import Link from "next/link";
 
 const TrackingMap = dynamic(
   () => import("@/components/shared/tracking-map"),
-  { ssr: false, loading: () => <div className="h-[280px] bg-farumasi-50 animate-pulse rounded-b-3xl" /> }
+  { ssr: false, loading: () => <div className="h-[280px] bg-farumasi-50 dark:bg-slate-800 animate-pulse rounded-b-3xl" /> }
 );
 
 // Human-readable status labels for both delivery and pickup flows
@@ -248,9 +248,9 @@ export default function OrderDetailPage() {
   if (!order) {
     return (
       <div className="p-6 text-center py-24">
-        <Package className="w-16 h-16 text-slate-200 mx-auto mb-3" />
-        <p className="text-slate-500 font-medium">{t.order_not_found}</p>
-        <button onClick={() => router.push("/orders")} className="text-farumasi-600 font-medium hover:underline mt-2 block mx-auto text-sm">
+        <Package className="w-16 h-16 text-slate-200 dark:text-slate-700 mx-auto mb-3" />
+        <p className="text-slate-500 dark:text-slate-400 font-medium">{t.order_not_found}</p>
+        <button onClick={() => router.push("/orders")} className="text-farumasi-600 dark:text-emerald-400 font-medium hover:underline mt-2 block mx-auto text-sm">
           {t.order_back_orders}
         </button>
       </div>
@@ -290,24 +290,24 @@ export default function OrderDetailPage() {
       {/* Back */}
       <button
         onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm text-slate-500 hover:text-farumasi-700 mb-5 transition-colors"
+        className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-farumasi-700 dark:hover:text-emerald-400 mb-5 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         {t.order_back}
       </button>
 
       {/* ── Header card ─────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="text-xs font-bold text-farumasi-700 bg-farumasi-50 px-2.5 py-1 rounded-full">
+              <span className="text-xs font-bold text-farumasi-700 dark:text-emerald-300 bg-farumasi-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full">
                 {order.orderCode ?? order.id.slice(0, 8).toUpperCase()}
               </span>
               {order.deliveryMethod && (
                 <span className={cn(
                   "text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1",
-                  isPickup ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700",
+                  isPickup ? "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300" : "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
                 )}>
                   {isPickup
                     ? <><Building2 className="w-3 h-3" /> Pickup</>
@@ -315,8 +315,8 @@ export default function OrderDetailPage() {
                 </span>
               )}
             </div>
-            <p className="text-lg font-extrabold text-slate-900">{order.pharmacy}</p>
-            <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+            <p className="text-lg font-extrabold text-slate-900 dark:text-slate-100">{order.pharmacy}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {order.date}
             </p>
@@ -329,10 +329,10 @@ export default function OrderDetailPage() {
           <span className={cn(
             "inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border",
             order.paymentStatus === "paid"
-              ? "bg-green-50 text-green-700 border-green-100"
+              ? "bg-green-50 text-green-700 border-green-100 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800/50"
               : order.paymentStatus === "failed"
-              ? "bg-red-50 text-red-700 border-red-100"
-              : "bg-amber-50 text-amber-700 border-amber-100",
+              ? "bg-red-50 text-red-700 border-red-100 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800/50"
+              : "bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50",
           )}>
             <Banknote className="w-3 h-3" />
             Payment: {order.paymentStatus}
@@ -342,17 +342,17 @@ export default function OrderDetailPage() {
 
       {/* Pharmacy slow to confirm — reassignment after 10 min */}
       {reassignOptions?.can_reassign && reassignOptions.options.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 mb-4">
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-3xl p-5 mb-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-bold text-amber-900">Choose another pharmacy</h2>
-              <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+              <h2 className="text-sm font-bold text-amber-900 dark:text-amber-200">Choose another pharmacy</h2>
+              <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 leading-relaxed">
                 Your payment of {formatPrice(reassignOptions.amount_paid)} is confirmed, but{" "}
                 {order.pharmacy} has not accepted within 10 minutes. Pick another partner at the
                 same price — no extra payment required.
               </p>
-              <label className="flex items-center gap-2 mt-3 text-xs text-amber-900 cursor-pointer">
+              <label className="flex items-center gap-2 mt-3 text-xs text-amber-900 dark:text-amber-200 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={showCheaperPharmacies}
@@ -370,15 +370,15 @@ export default function OrderDetailPage() {
                       type="button"
                       disabled={reassigningId != null}
                       onClick={() => handleReassign(opt)}
-                      className="w-full text-left bg-white border border-amber-100 rounded-2xl px-4 py-3 hover:border-farumasi-300 transition-colors disabled:opacity-60"
+                      className="w-full text-left bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800/50 rounded-2xl px-4 py-3 hover:border-farumasi-300 dark:hover:border-emerald-600 transition-colors disabled:opacity-60"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-bold text-slate-900">{opt.provider_name}</span>
-                        <span className="text-sm font-extrabold text-farumasi-700">
+                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{opt.provider_name}</span>
+                        <span className="text-sm font-extrabold text-farumasi-700 dark:text-emerald-300">
                           {formatPrice(opt.estimated_total)}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                         Medicines {formatPrice(opt.estimated_subtotal)} · Delivery {formatPrice(opt.delivery_fee)}
                         {opt.requires_refund && (
                           <span className="text-amber-700 font-medium">
@@ -420,28 +420,28 @@ export default function OrderDetailPage() {
 
       {/* ── Rider card ───────────────────────────────────────────────── */}
       {order.status === "out_for_delivery" && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 mb-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-farumasi-100 flex items-center justify-center font-bold text-farumasi-700 text-base shrink-0">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 mb-4 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-farumasi-100 dark:bg-emerald-950/50 flex items-center justify-center font-bold text-farumasi-700 dark:text-emerald-300 text-base shrink-0">
             {order.assignedDriverName
               ? order.assignedDriverName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
               : "DR"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-900">{order.assignedDriverName ?? "Your Rider"}</p>
-            <p className="text-xs text-slate-400">Delivery rider</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{order.assignedDriverName ?? "Your Rider"}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Delivery rider</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {order.assignedDriverPhone ? (
               <a href={`tel:${order.assignedDriverPhone}`}
-                className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center hover:bg-farumasi-100 transition-colors">
+                className="w-10 h-10 rounded-full bg-farumasi-50 dark:bg-emerald-950/40 border border-farumasi-200 dark:border-emerald-800/50 flex items-center justify-center hover:bg-farumasi-100 dark:hover:bg-emerald-950/60 transition-colors">
                 <Phone className="w-4 h-4 text-farumasi-600" />
               </a>
             ) : (
-              <button className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center opacity-40 cursor-not-allowed">
+              <button className="w-10 h-10 rounded-full bg-farumasi-50 dark:bg-emerald-950/40 border border-farumasi-200 dark:border-emerald-800/50 flex items-center justify-center opacity-40 cursor-not-allowed">
                 <Phone className="w-4 h-4 text-farumasi-600" />
               </button>
             )}
-            <button className="w-10 h-10 rounded-full bg-farumasi-50 border border-farumasi-200 flex items-center justify-center hover:bg-farumasi-100 transition-colors">
+            <button className="w-10 h-10 rounded-full bg-farumasi-50 dark:bg-emerald-950/40 border border-farumasi-200 dark:border-emerald-800/50 flex items-center justify-center hover:bg-farumasi-100 dark:hover:bg-emerald-950/60 transition-colors">
               <MessageCircle className="w-4 h-4 text-farumasi-600" />
             </button>
           </div>
@@ -450,8 +450,8 @@ export default function OrderDetailPage() {
 
       {/* ── Status timeline ──────────────────────────────────────────── */}
       {!isCancelled ? (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-4">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4">
             {isPickup ? "Pickup Progress" : t.order_progress}
           </h2>
           <div className="space-y-0">
@@ -468,29 +468,29 @@ export default function OrderDetailPage() {
                       done
                         ? "bg-farumasi-600 border-farumasi-600"
                         : active
-                        ? "bg-white border-farumasi-400 ring-4 ring-farumasi-100"
-                        : "bg-white border-slate-200",
+                        ? "bg-white dark:bg-slate-800 border-farumasi-400 ring-4 ring-farumasi-100 dark:ring-emerald-900/40"
+                        : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600",
                     )}>
                       {done
                         ? <CheckCircle className="w-4 h-4 text-white" />
-                        : <span className="text-slate-300 text-xs font-bold">{i + 1}</span>}
+                        : <span className="text-slate-300 dark:text-slate-600 text-xs font-bold">{i + 1}</span>}
                     </div>
                     {!last && (
                       <div className={cn(
                         "w-0.5 flex-1 min-h-[24px] mt-1",
-                        done ? "bg-farumasi-400" : "bg-slate-100",
+                        done ? "bg-farumasi-400" : "bg-slate-100 dark:bg-slate-700",
                       )} />
                     )}
                   </div>
                   <div className={cn("pb-5 pt-1 min-w-0 flex-1", last && "pb-0")}>
                     <p className={cn(
                       "text-sm font-semibold",
-                      active ? "text-farumasi-700" : done ? "text-slate-700" : "text-slate-300",
+                      active ? "text-farumasi-700 dark:text-emerald-300" : done ? "text-slate-700 dark:text-slate-200" : "text-slate-300 dark:text-slate-600",
                     )}>
                       {step.label}
                     </p>
                     {(active || done) && (
-                      <p className={cn("text-xs mt-0.5", active ? "text-farumasi-500 font-medium" : "text-slate-400")}>
+                      <p className={cn("text-xs mt-0.5", active ? "text-farumasi-500 dark:text-emerald-400 font-medium" : "text-slate-400 dark:text-slate-500")}>
                         {step.hint}
                       </p>
                     )}
@@ -501,27 +501,27 @@ export default function OrderDetailPage() {
           </div>
         </div>
       ) : (
-        <div className="bg-red-50 border border-red-100 rounded-3xl p-5 mb-4 flex items-center gap-3">
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 rounded-3xl p-5 mb-4 flex items-center gap-3">
           <XCircle className="w-6 h-6 text-red-400 shrink-0" />
           <div>
-            <p className="text-red-700 font-bold text-sm">Order Cancelled</p>
-            <p className="text-xs text-red-500 mt-0.5">This order was not completed.</p>
+            <p className="text-red-700 dark:text-red-300 font-bold text-sm">Order Cancelled</p>
+            <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">This order was not completed.</p>
           </div>
         </div>
       )}
 
       {/* ── Access code reminder (pickup / delivery) ─────────────────── */}
       {isActive && order.patientAccessCode && (
-        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 mb-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-            <Lock className="w-5 h-5 text-amber-700" />
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-3xl p-4 mb-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
+            <Lock className="w-5 h-5 text-amber-700 dark:text-amber-300" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Your Access Code</p>
-            <p className="text-xl font-extrabold text-amber-900 tracking-widest font-mono mt-0.5">
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">Your Access Code</p>
+            <p className="text-xl font-extrabold text-amber-900 dark:text-amber-100 tracking-widest font-mono mt-0.5">
               {order.patientAccessCode}
             </p>
-            <p className="text-xs text-amber-600 mt-0.5">
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
               {isPickup ? "Show this code at the pharmacy counter." : "Share with rider on arrival."}
             </p>
           </div>
@@ -530,18 +530,18 @@ export default function OrderDetailPage() {
 
       {/* ── Pickup directions ─────────────────────────────────────────── */}
       {isPickup && !isCancelled && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
             <MapPin className="w-4 h-4 text-farumasi-600" />
             Pharmacy Location
           </h2>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-farumasi-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
               <Building2 className="w-5 h-5 text-farumasi-600" />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-900">{order.pharmacy}</p>
-              <p className="text-xs text-slate-400">Present your access code at the counter</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{order.pharmacy}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">Present your access code at the counter</p>
             </div>
           </div>
           <a
@@ -559,19 +559,19 @@ export default function OrderDetailPage() {
 
       {/* ── Delivery address ──────────────────────────────────────────── */}
       {!isPickup && order.deliveryAddress && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
             <MapPin className="w-4 h-4 text-farumasi-600" />
             Delivery Address
           </h2>
-          <p className="text-sm text-slate-700">{order.deliveryAddress}</p>
+          <p className="text-sm text-slate-700 dark:text-slate-200">{order.deliveryAddress}</p>
         </div>
       )}
 
       {/* ── Delivery QR ───────────────────────────────────────────────── */}
       {!isPickup && !isCancelled && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
             <QrCode className="w-4 h-4 text-farumasi-600" />
             Delivery Verification
           </h2>
@@ -583,24 +583,24 @@ export default function OrderDetailPage() {
             <div className="flex flex-col items-center text-center">
               {deliveryQR.qrCode ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={deliveryQR.qrCode} alt="Delivery QR code" className="w-44 h-44 object-contain rounded-2xl border border-slate-100 bg-white p-2" />
+                <img src={deliveryQR.qrCode} alt="Delivery QR code" className="w-44 h-44 object-contain rounded-2xl border border-slate-100 dark:border-slate-600 bg-white dark:bg-slate-900 p-2" />
               ) : (
-                <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-mono text-xs text-slate-700 break-all">{deliveryQR.qrToken}</div>
+                <div className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 rounded-2xl p-4 font-mono text-xs text-slate-700 dark:text-slate-200 break-all">{deliveryQR.qrToken}</div>
               )}
-              <p className="text-xs text-slate-500 mt-3 max-w-xs">Show this to the rider to confirm you are the correct recipient.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 max-w-xs">Show this to the rider to confirm you are the correct recipient.</p>
             </div>
           ) : (
-            <p className="text-sm text-slate-400 text-center py-4">QR code will appear once a rider is assigned.</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">QR code will appear once a rider is assigned.</p>
           )}
         </div>
       )}
 
       {/* ── Order items ───────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
         <h2 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
           <Package className="w-4 h-4 text-farumasi-600" />
           {t.order_summary}
-          <span className="ml-auto text-xs text-slate-400 font-normal">{itemList.length} item{itemList.length !== 1 ? "s" : ""}</span>
+          <span className="ml-auto text-xs text-slate-400 dark:text-slate-500 font-normal">{itemList.length} item{itemList.length !== 1 ? "s" : ""}</span>
         </h2>
 
         <div className="space-y-1">
@@ -610,6 +610,9 @@ export default function OrderDetailPage() {
                 id: String(i), name: name.trim(), quantity: 1,
                 sellMode: "pack" as const, unitPrice: 0, totalPrice: 0,
                 imageUrl: null, productId: null, productListingId: null,
+                dispatchBatchNumber: undefined as string | undefined,
+                dispatchExpiryDate: undefined as string | undefined,
+                dispatchManufacturer: undefined as string | undefined,
               }))
           ).map((item) => {
             const productHref = item.productId ? `/store/${item.productId}` : null;
@@ -618,59 +621,59 @@ export default function OrderDetailPage() {
             const Card = (
               <div className={cn(
                 "flex items-center gap-3 p-2.5 rounded-2xl transition-colors",
-                productHref ? "hover:bg-slate-50 cursor-pointer" : "",
+                productHref ? "hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer" : "",
               )}>
                 {/* Image or placeholder */}
-                <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-700 overflow-hidden shrink-0 flex items-center justify-center">
                   {item.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={mediaUrl(item.imageUrl)} alt={item.name} className="w-full h-full object-cover" />
                   ) : (
-                    <Pill className="w-6 h-6 text-slate-300" />
+                    <Pill className="w-6 h-6 text-slate-300 dark:text-slate-600" />
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 leading-snug">{item.name}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-snug">{item.name}</p>
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                     {isPartial ? (
-                      <span className="text-[10px] font-bold bg-farumasi-50 text-farumasi-700 border border-farumasi-100 px-1.5 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold bg-farumasi-50 dark:bg-emerald-950/40 text-farumasi-700 dark:text-emerald-300 border border-farumasi-100 dark:border-emerald-800/50 px-1.5 py-0.5 rounded-full">
                         Partial · {item.quantity} unit{item.quantity !== 1 ? "s" : ""}
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
                         {item.quantity} pack{item.quantity !== 1 ? "s" : ""}
                       </span>
                     )}
                     {item.unitPrice > 0 && (
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
                         @ {formatPrice(item.unitPrice)}{isPartial ? "/unit" : ""}
                       </span>
                     )}
                   </div>
                     {productHref && (
-                      <span className="text-[10px] text-farumasi-600 font-semibold mt-0.5 flex items-center gap-0.5">
+                      <span className="text-[10px] text-farumasi-600 dark:text-emerald-400 font-semibold mt-0.5 flex items-center gap-0.5">
                         View product <ChevronRight className="w-2.5 h-2.5" />
                       </span>
                     )}
                     {item.dispatchBatchNumber && (
-                      <div className="mt-2 text-[10px] text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 space-y-0.5">
-                        <p><span className="font-semibold text-slate-600">Batch:</span> {item.dispatchBatchNumber}</p>
+                      <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 rounded-lg px-2 py-1.5 space-y-0.5">
+                        <p><span className="font-semibold text-slate-600 dark:text-slate-300">Batch:</span> {item.dispatchBatchNumber}</p>
                         {item.dispatchExpiryDate && (
-                          <p><span className="font-semibold text-slate-600">Expires:</span>{" "}
+                          <p><span className="font-semibold text-slate-600 dark:text-slate-300">Expires:</span>{" "}
                             {new Date(item.dispatchExpiryDate).toLocaleDateString("en-GB", {
                               day: "numeric", month: "short", year: "numeric",
                             })}
                           </p>
                         )}
                         {item.dispatchManufacturer && (
-                          <p><span className="font-semibold text-slate-600">Manufacturer:</span> {item.dispatchManufacturer}</p>
+                          <p><span className="font-semibold text-slate-600 dark:text-slate-300">Manufacturer:</span> {item.dispatchManufacturer}</p>
                         )}
                       </div>
                     )}
                   </div>
 
-                <div className="text-sm font-extrabold text-farumasi-700 shrink-0 text-right">
+                <div className="text-sm font-extrabold text-farumasi-700 dark:text-emerald-300 shrink-0 text-right">
                   {item.totalPrice > 0 ? formatPrice(item.totalPrice) : "—"}
                 </div>
               </div>
@@ -683,21 +686,21 @@ export default function OrderDetailPage() {
         </div>
 
         {/* Price breakdown */}
-        <div className="border-t border-slate-100 mt-3 pt-3 space-y-1.5">
+        <div className="border-t border-slate-100 dark:border-slate-700 mt-3 pt-3 space-y-1.5">
           {subtotal > 0 && (
-            <div className="flex justify-between text-sm text-slate-500">
+            <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400">
               <span>Medicines subtotal</span>
               <span>{formatPrice(subtotal)}</span>
             </div>
           )}
-          <div className="flex justify-between text-sm text-slate-500">
+          <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400">
             <span>Delivery fee</span>
-            <span className={deliveryFee === 0 ? "text-farumasi-600 font-medium" : ""}>
+            <span className={deliveryFee === 0 ? "text-farumasi-600 dark:text-emerald-400 font-medium" : ""}>
               {deliveryFee === 0 ? (isPickup ? "Free (Pickup)" : "Free") : formatPrice(deliveryFee)}
             </span>
           </div>
-          <div className="flex justify-between text-base font-extrabold text-farumasi-700 border-t border-slate-100 pt-2 mt-2">
-            <span className="text-slate-900">{t.order_total}</span>
+          <div className="flex justify-between text-base font-extrabold text-farumasi-700 dark:text-emerald-300 border-t border-slate-100 dark:border-slate-700 pt-2 mt-2">
+            <span className="text-slate-900 dark:text-slate-100">{t.order_total}</span>
             <span>{order.total}</span>
           </div>
         </div>
@@ -705,29 +708,29 @@ export default function OrderDetailPage() {
 
       {/* ── Notes ─────────────────────────────────────────────────────── */}
       {order.notes && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-4">
-          <h2 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
             <FileText className="w-4 h-4 text-farumasi-600" />
             Order Notes
           </h2>
-          <p className="text-sm text-slate-600 leading-relaxed">{order.notes}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{order.notes}</p>
         </div>
       )}
 
       {/* ── Pharmacy / seller info ────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 mb-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-farumasi-50 flex items-center justify-center shrink-0">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 mb-4 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-farumasi-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
           <Store className="w-5 h-5 text-farumasi-600" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-slate-900 truncate">{order.pharmacy}</p>
-          <p className="text-xs text-slate-400">{t.order_location}</p>
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{order.pharmacy}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">{t.order_location}</p>
         </div>
         <a
           href={`https://www.google.com/maps/search/${encodeURIComponent(order.pharmacy + " pharmacy Rwanda")}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-9 h-9 rounded-xl bg-farumasi-50 hover:bg-farumasi-100 border border-farumasi-100 flex items-center justify-center transition-colors"
+          className="w-9 h-9 rounded-xl bg-farumasi-50 dark:bg-emerald-950/40 hover:bg-farumasi-100 dark:hover:bg-emerald-950/60 border border-farumasi-100 dark:border-emerald-800/50 flex items-center justify-center transition-colors"
           title="View on map"
         >
           <MapPin className="w-4 h-4 text-farumasi-600" />
@@ -751,8 +754,8 @@ export default function OrderDetailPage() {
                   className={cn(
                     "h-10 rounded-xl border text-xs font-bold",
                     retryPaymentMethod === m.id
-                      ? "border-farumasi-500 bg-farumasi-50 text-farumasi-800"
-                      : "border-slate-200 text-slate-600",
+                      ? "border-farumasi-500 bg-farumasi-50 dark:bg-emerald-950/40 text-farumasi-800 dark:text-emerald-200"
+                      : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300",
                   )}
                 >
                   {m.label}
@@ -774,7 +777,7 @@ export default function OrderDetailPage() {
         {isDelivered && itemList.length > 0 && (
           <Link
             href="/store"
-            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border-2 border-farumasi-600 text-farumasi-700 font-bold text-sm hover:bg-farumasi-50 transition-colors"
+            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border-2 border-farumasi-600 text-farumasi-700 dark:text-emerald-300 font-bold text-sm hover:bg-farumasi-50 dark:hover:bg-emerald-950/40 transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
             Reorder — Browse Same Products
@@ -785,7 +788,7 @@ export default function OrderDetailPage() {
         {canCancel && (
           <button
             onClick={() => setShowCancel(true)}
-            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-sm transition-colors"
+            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60 text-red-700 dark:text-red-300 font-bold text-sm transition-colors"
           >
             <XCircle className="w-4 h-4" />
             Cancel Order
@@ -797,14 +800,14 @@ export default function OrderDetailPage() {
       {showCancel && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !cancelling && setShowCancel(false)} />
-          <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl z-10 p-6 space-y-4">
+          <div className="relative w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl shadow-2xl z-10 p-6 space-y-4 border border-slate-100 dark:border-slate-700">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-900">Cancel this order?</p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Cancel this order?</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {order.orderCode ?? order.id.slice(0, 8).toUpperCase()} · {order.pharmacy}
                 </p>
               </div>
@@ -813,7 +816,7 @@ export default function OrderDetailPage() {
               <button
                 onClick={() => setShowCancel(false)}
                 disabled={cancelling}
-                className="flex-1 h-11 rounded-2xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors disabled:opacity-50"
+                className="flex-1 h-11 rounded-2xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
               >
                 Keep Order
               </button>

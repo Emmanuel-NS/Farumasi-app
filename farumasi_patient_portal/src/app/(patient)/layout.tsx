@@ -13,6 +13,7 @@ import { hydrateLanguage } from "@/store/language-store";
 import { TranslationProvider } from "@/components/providers/translation-provider";
 import { useAuthStore } from "@/store/auth-store";
 import { ConsultNotificationsMount } from "@/components/consult/consult-notifications-mount";
+import { PatientLocationMount } from "@/components/providers/patient-location-mount";
 import { useSidebarResize } from "@/hooks/use-sidebar-resize";
 import { PermissionSetupBanner } from "@/components/permission-setup-banner";
 
@@ -123,6 +124,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     <TranslationProvider>
     <PatientRoleGuard>
       <ConsultNotificationsMount />
+      <PatientLocationMount />
       <PermissionSetupBanner />
       <div className="flex flex-col h-screen overflow-hidden patient-nav-shell">
         <Topbar

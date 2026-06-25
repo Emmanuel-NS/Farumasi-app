@@ -17,7 +17,7 @@ import { recommendationsService } from "@/lib/services/recommendations.service";
 import { ordersService } from "@/lib/services/orders.service";
 import { pharmaciesService, sellerImageSrc, type BackendPharmacy } from "@/lib/services/pharmacies.service";
 import { partnersService, partnerAsStoreSeller } from "@/lib/services/partners.service";
-import { getPatientCoords } from "@/lib/location";
+import { getPatientCoords, usePatientLocationStore } from "@/store/patient-location-store";
 import type { DigitalPrescription } from "@/types";
 import {
   ShoppingCart,
@@ -141,6 +141,8 @@ function StorePageInner() {
   const [recError, setRecError] = useState<string | null>(null);
   const [recIsFallbackLocation, setRecIsFallbackLocation] = useState(false);
   const [orderingRecId, setOrderingRecId] = useState<string | null>(null);
+  const patientLat = usePatientLocationStore((s) => s.lat);
+  const patientLon = usePatientLocationStore((s) => s.lon);
 
   useEffect(() => {
     let cancelled = false;
@@ -256,7 +258,7 @@ function StorePageInner() {
       .then((res) => setRecommendations(res.topRecommendations))
       .catch(() => setRecError("Could not load pharmacy recommendations. Please try again."))
       .finally(() => setRecLoading(false));
-  }, [prescriptionId]);
+  }, [prescriptionId, patientLat, patientLon]);
 
   async function handleOrderFromRecommendation(rec: Recommendation) {
     if (!prescriptionId || !rec.id) {

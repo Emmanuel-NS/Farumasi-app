@@ -127,6 +127,7 @@ html.dark .patient-nav-shell {
 html.dark .patient-main-pane .bg-white { background-color: var(--app-surface) !important; }
 html.dark .patient-main-pane .bg-slate-50 { background-color: #1e293b !important; }
 html.dark .patient-main-pane .bg-slate-100 { background-color: #334155 !important; }
+html.dark .patient-main-pane .bg-\[\#F8FAFC\] { background-color: var(--app-main-bg) !important; }
 html.dark .patient-main-pane .bg-\[\#F6F8FB\] { background-color: var(--app-main-bg) !important; }
 html.dark .patient-main-pane .bg-\[\#F9FAFB\] { background-color: var(--app-main-bg) !important; }
 html.dark .patient-main-pane .bg-\[\#F0F4F8\] { background-color: #0f172a !important; }

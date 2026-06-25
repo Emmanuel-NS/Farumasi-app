@@ -45,8 +45,8 @@ export async function requestLocationPermission(): Promise<PermissionState> {
     await new Promise<GeolocationPosition>((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
         timeout: 10_000,
-        maximumAge: 60_000,
-        enableHighAccuracy: false,
+        maximumAge: 0,
+        enableHighAccuracy: true,
       });
     });
     return "granted";
