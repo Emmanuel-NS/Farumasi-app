@@ -16,7 +16,7 @@ import type { AuthUser } from "@/types";
 type Tab = "login" | "register";
 
 const INPUT_CLS =
-  "w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 pl-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 focus:bg-white transition-all";
+  "auth-input w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 pl-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 focus:bg-white transition-all";
 
 const PENDING_REG_KEY = "farumasi_pending_registration_email";
 
@@ -24,6 +24,9 @@ export default function LoginPage() {
   const router = useRouter();
   const { login, register, verifyRegistration, resendRegistrationOtp, signInWithGoogle, setUser } =
     useAuthStore();
+  const isGuest = useAuthStore((s) => s.isGuest);
+  const isHydrating = useAuthStore((s) => s.isHydrating);
+  const hydrateAuth = useAuthStore((s) => s.hydrateAuth);
   const [tab, setTab] = useState<Tab>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,7 +50,24 @@ export default function LoginPage() {
       setPendingEmail(saved);
       setTab("register");
     }
-  }, []);
+    void hydrateAuth();
+  }, [hydrateAuth]);
+
+  useEffect(() => {
+    if (!isHydrating && !isGuest && !pendingEmail) {
+      router.replace("/store");
+    }
+  }, [isHydrating, isGuest, pendingEmail, router]);
+
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted && !useAuthStore.getState().isGuest) {
+        router.replace("/store");
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [router]);
 
   const featureBullets = [
     marketStats.productCount > 0 && marketStats.sellerCount > 0
@@ -66,12 +86,12 @@ export default function LoginPage() {
       if (pendingEmail) {
         await verifyRegistration(pendingEmail, otp);
         sessionStorage.removeItem(PENDING_REG_KEY);
-        router.push("/store");
+        router.replace("/store");
         return;
       }
       if (tab === "login") {
         await login(email, password);
-        router.push("/store");
+        router.replace("/store");
       } else {
         if (!name.trim()) { toast.error("Full name is required"); setLoading(false); return; }
         if (password !== confirmPassword) {
@@ -106,7 +126,7 @@ export default function LoginPage() {
         setProfileUser(user);
         return;
       }
-      router.push("/store");
+      router.replace("/store");
     },
     [router],
   );
@@ -131,7 +151,7 @@ export default function LoginPage() {
   );
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex auth-page">
       {profileUser && (
         <CompleteProfileDialog
           user={profileUser}
@@ -139,7 +159,7 @@ export default function LoginPage() {
           onComplete={(updated) => {
             setUser(updated);
             setProfileUser(null);
-            router.push("/store");
+            router.replace("/store");
           }}
         />
       )}
@@ -175,7 +195,7 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right panel (form) ── */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white auth-form-panel">
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-2 mb-8">
           <div className="w-9 h-9 bg-farumasi-600 rounded-xl flex items-center justify-center">
@@ -233,7 +253,7 @@ export default function LoginPage() {
                   inputMode="numeric"
                   maxLength={6}
                   autoComplete="one-time-code"
-                  className="w-full h-14 rounded-2xl border-2 border-farumasi-200 bg-farumasi-50 px-4 text-2xl text-farumasi-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 transition-all tracking-[0.35em] text-center font-mono font-bold"
+                  className="auth-input w-full h-14 rounded-2xl border-2 border-farumasi-200 bg-farumasi-50 px-4 text-2xl text-farumasi-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 transition-all tracking-[0.35em] text-center font-mono font-bold dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100"
                 />
                 <button
                   type="button"

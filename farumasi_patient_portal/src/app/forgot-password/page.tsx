@@ -8,7 +8,7 @@ import { authService } from "@/lib/services/auth.service";
 import { toast } from "sonner";
 
 const INPUT_CLS =
-  "w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 pl-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 focus:bg-white transition-all";
+  "auth-input w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 pl-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 focus:bg-white transition-all";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-white">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-white auth-page">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2 mb-8">
           <div className="w-9 h-9 bg-farumasi-600 rounded-xl flex items-center justify-center">
@@ -56,8 +56,8 @@ export default function ForgotPasswordPage() {
         </p>
 
         {sent ? (
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 space-y-3">
-            <p className="text-sm text-emerald-800">{successMessage}</p>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 dark:border-emerald-800/50 dark:bg-emerald-950/40 p-4 space-y-3">
+            <p className="text-sm text-emerald-800 dark:text-emerald-200">{successMessage}</p>
             <Link
               href={`/reset-password?email=${encodeURIComponent(email.trim())}`}
               className="inline-flex text-sm font-semibold text-farumasi-600 hover:underline"

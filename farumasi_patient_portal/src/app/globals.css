@@ -216,6 +216,61 @@ html.dark .patient-main-pane .rich-content [style*="rgb(237, 253, 246)"] {
   color: #d1fae5 !important;
 }
 
+/* ── Dark mode: right panels (cart, help, notifications) ──────────── */
+html.dark .patient-right-panel {
+  background-color: var(--app-surface);
+  color: #f1f5f9;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.35);
+}
+html.dark .patient-right-panel .bg-white { background-color: #1e293b !important; }
+html.dark .patient-right-panel .bg-slate-50 { background-color: #1e293b !important; }
+html.dark .patient-right-panel .bg-slate-100 { background-color: #334155 !important; }
+html.dark .patient-right-panel .text-slate-900 { color: #f1f5f9 !important; }
+html.dark .patient-right-panel .text-slate-800 { color: #e2e8f0 !important; }
+html.dark .patient-right-panel .text-slate-700 { color: #cbd5e1 !important; }
+html.dark .patient-right-panel .text-slate-600,
+html.dark .patient-right-panel .text-slate-500 { color: #94a3b8 !important; }
+html.dark .patient-right-panel .text-slate-400 { color: #64748b !important; }
+html.dark .patient-right-panel .text-slate-300 { color: #64748b !important; }
+html.dark .patient-right-panel .text-slate-200 { color: #475569 !important; }
+html.dark .patient-right-panel .border-slate-100,
+html.dark .patient-right-panel .border-slate-50 { border-color: #334155 !important; }
+html.dark .patient-right-panel .divide-slate-50 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+html.dark .patient-right-panel .hover\:bg-slate-50:hover,
+html.dark .patient-right-panel .hover\:bg-slate-100:hover { background-color: #334155 !important; }
+html.dark .patient-right-panel .text-farumasi-600 { color: #6ee7b7 !important; }
+html.dark .patient-right-panel .text-farumasi-700 { color: #6ee7b7 !important; }
+html.dark .patient-right-panel .bg-farumasi-50 { background-color: rgba(30, 158, 104, 0.15) !important; }
+html.dark .patient-right-panel .hover\:bg-farumasi-50:hover { background-color: rgba(30, 158, 104, 0.2) !important; }
+html.dark .patient-right-panel .hover\:bg-farumasi-100:hover { background-color: rgba(30, 158, 104, 0.25) !important; }
+html.dark .patient-right-panel .border-farumasi-200 { border-color: #475569 !important; }
+html.dark .patient-right-panel .hover\:border-farumasi-300:hover { border-color: #34d399 !important; }
+
+/* ── Dark mode: auth pages (login, forgot/reset password) ───────────── */
+html.dark .auth-page { background-color: #0f172a; color: #f1f5f9; }
+html.dark .auth-form-panel { background-color: #0f172a !important; }
+html.dark .auth-page .text-slate-900 { color: #f1f5f9 !important; }
+html.dark .auth-page .text-slate-800 { color: #e2e8f0 !important; }
+html.dark .auth-page .text-slate-700 { color: #cbd5e1 !important; }
+html.dark .auth-page .text-slate-600,
+html.dark .auth-page .text-slate-500 { color: #94a3b8 !important; }
+html.dark .auth-page .text-slate-400 { color: #64748b !important; }
+html.dark .auth-page .text-slate-300 { color: #475569 !important; }
+html.dark .auth-page .bg-slate-100 { background-color: #1e293b !important; }
+html.dark .auth-page .bg-slate-50 { background-color: #1e293b !important; }
+html.dark .auth-page .bg-white { background-color: #1e293b !important; }
+html.dark .auth-page .border-slate-100,
+html.dark .auth-page .border-slate-200 { border-color: #334155 !important; }
+html.dark .auth-page .bg-slate-200 { background-color: #334155 !important; }
+html.dark .auth-page .auth-input {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+  color: #f1f5f9 !important;
+}
+html.dark .auth-page .auth-input::placeholder { color: #64748b !important; }
+html.dark .auth-page .auth-input:focus { background-color: #243044 !important; }
+html.dark .auth-dialog { background-color: #1e293b !important; color: #f1f5f9; }
+
 * { box-sizing: border-box; }
 
 /* ── Rich HTML content (product details, health articles) ───────────── */

@@ -26,13 +26,17 @@ interface NavItem {
 }
 
 interface SidebarProps {
+  width: number;
   collapsed: boolean;
+  resizing?: boolean;
   /** Called after choosing a nav destination (e.g. close mobile drawer) */
   onNavigate?: () => void;
 }
 
 export function Sidebar({
+  width,
   collapsed,
+  resizing = false,
   onNavigate,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -67,9 +71,10 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "flex flex-col h-full transition-all duration-[220ms] ease-out overflow-hidden shrink-0 patient-nav-shell",
-        collapsed ? "w-[92px]" : "w-[200px]",
+        "flex flex-col h-full overflow-hidden shrink-0 patient-nav-shell",
+        resizing ? "transition-none" : "transition-[width] duration-[220ms] ease-out",
       )}
+      style={{ width }}
     >
       <nav className="flex-1 overflow-y-auto scrollbar-hide pt-2.5 pb-1 px-2 space-y-0.5">
         {primaryNav.map((item) => (

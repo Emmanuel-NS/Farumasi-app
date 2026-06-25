@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { getApiError } from "@/lib/api-error";
 
 const INPUT_CLS =
-  "w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 pl-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 focus:bg-white transition-all";
+  "auth-input w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 pl-11 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500 focus:bg-white transition-all";
 
 const RESET_EMAIL_KEY = "farumasi_reset_email";
 const RESET_CODE_KEY = "farumasi_reset_code";
@@ -73,7 +73,7 @@ function ResetPasswordForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-white">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-white auth-page">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2 mb-8">
           <div className="w-9 h-9 bg-farumasi-600 rounded-xl flex items-center justify-center">
@@ -211,7 +211,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Loading…</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm text-slate-500 auth-page">Loading…</div>}>
       <ResetPasswordForm />
     </Suspense>
   );

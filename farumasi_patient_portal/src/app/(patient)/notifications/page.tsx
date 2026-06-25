@@ -99,7 +99,7 @@ export default function NotificationsPage() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6 gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{t.notif_title}</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t.notif_title}</h1>
           <p className="text-slate-500 text-sm mt-0.5">{tf(t.notif_unread, { n: notifications.filter(n => !n.isRead).length })}</p>
         </div>
         <button onClick={markAllRead} className="text-sm text-farumasi-600 font-medium hover:underline shrink-0">
@@ -108,14 +108,16 @@ export default function NotificationsPage() {
       </div>
 
       {/* Read/Unread filter */}
-      <div className="flex bg-slate-100 rounded-2xl p-1 w-fit mb-4">
+      <div className="flex bg-slate-100 dark:bg-slate-800 rounded-2xl p-1 w-fit mb-4">
         {(["All", "Unread", "Read"] as const).map((f, i) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
               "px-4 py-1.5 rounded-xl text-sm font-semibold transition-all",
-              filter === f ? "bg-white text-farumasi-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              filter === f
+                ? "bg-white dark:bg-slate-700 text-farumasi-700 dark:text-emerald-300 shadow-sm"
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             )}
           >
             {FILTER_LABELS[i]}
@@ -133,7 +135,7 @@ export default function NotificationsPage() {
               "shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-all border",
               cat === c
                 ? "bg-farumasi-600 text-white border-farumasi-600"
-                : "bg-white text-slate-600 border-slate-200 hover:border-farumasi-300"
+                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-farumasi-300 dark:hover:border-emerald-600"
             )}
           >
             {CAT_FILTER_LABELS[i]}
@@ -185,9 +187,9 @@ function NotificationRow({
     <div
       onClick={onOpen}
       className={cn(
-        "group flex gap-3 bg-white rounded-2xl border px-4 py-3.5 cursor-pointer hover:shadow-sm transition-all border-l-4",
+        "group flex gap-3 bg-white dark:bg-slate-800 rounded-2xl border px-4 py-3.5 cursor-pointer hover:shadow-sm transition-all border-l-4",
         style.accentClass,
-        !n.isRead ? style.unreadBg : "border-slate-100",
+        !n.isRead ? style.unreadBg : "border-slate-100 dark:border-slate-700",
       )}
     >
       <div className="shrink-0 mt-0.5">
@@ -200,7 +202,7 @@ function NotificationRow({
           </span>
           <span className="text-[10px] text-slate-400 ml-auto">{timeAgo}</span>
         </div>
-        <p className={cn("text-sm text-slate-900", !n.isRead ? "font-bold" : "font-medium")}>
+        <p className={cn("text-sm text-slate-900 dark:text-slate-100", !n.isRead ? "font-bold" : "font-medium")}>
           {title.text}
         </p>
         <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{message.text}</p>
@@ -213,7 +215,7 @@ function NotificationRow({
         <button
           onClick={onDelete}
           aria-label="Delete notification"
-          className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-red-400 transition-all rounded-lg hover:bg-red-50"
+          className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-red-400 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>

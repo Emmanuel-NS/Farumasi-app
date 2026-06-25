@@ -34,9 +34,9 @@ export function RightPanel({ activePanel, onClose, overlay = false }: RightPanel
   return (
     <div
       className={cn(
-        "bg-white flex flex-col overflow-hidden",
+        "patient-right-panel bg-white flex flex-col overflow-hidden",
         overlay
-          ? "absolute inset-y-0 right-0 z-10 w-full max-w-[360px] animate-slide-in shadow-2xl"
+          ? "absolute inset-y-0 right-0 z-10 w-full max-w-[360px] animate-slide-in shadow-2xl dark:shadow-black/50"
           : "w-[360px] max-w-full shrink-0 animate-slide-in rounded-t-[24px] shadow-[-4px_0_24px_rgba(15,23,42,0.10)]",
       )}
     >
@@ -150,7 +150,7 @@ function NotificationsPanel() {
                 className={cn(
                   "group flex gap-3 px-4 py-3.5 border-b border-slate-100 border-l-4 cursor-pointer transition-colors",
                   style.accentClass,
-                  n.isRead ? "hover:bg-slate-50 bg-white" : style.unreadBg,
+                  n.isRead ? "hover:bg-slate-50 dark:hover:bg-slate-800/80 bg-white dark:bg-transparent" : style.unreadBg,
                 )}
                 onClick={() => void handleOpen(n)}
               >
@@ -191,7 +191,7 @@ function NotificationsPanel() {
         </ul>
       )}
       </div>
-      <div className="shrink-0 border-t border-slate-100 bg-white p-4 shadow-[0_-4px_12px_rgba(15,23,42,0.06)]">
+      <div className="shrink-0 border-t border-slate-100 bg-white dark:bg-slate-800 p-4 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.25)]">
         <Link
           href="/notifications"
           className="flex items-center justify-center w-full h-10 rounded-xl bg-farumasi-50 text-sm text-farumasi-700 font-semibold hover:bg-farumasi-100 transition-colors"

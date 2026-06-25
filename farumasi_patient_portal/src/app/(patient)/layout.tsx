@@ -13,18 +13,21 @@ import { hydrateLanguage } from "@/store/language-store";
 import { TranslationProvider } from "@/components/providers/translation-provider";
 import { useAuthStore } from "@/store/auth-store";
 import { ConsultNotificationsMount } from "@/components/consult/consult-notifications-mount";
+import { useSidebarResize } from "@/hooks/use-sidebar-resize";
 import { PermissionSetupBanner } from "@/components/permission-setup-banner";
 
 const MOBILE_NAV_MQ = "(max-width: 639px)";
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<string | null>(null);
   const [portalReady, setPortalReady] = useState(false);
   const hydrateAuth = useAuthStore((s) => s.hydrateAuth);
   const hydratedOnce = useRef(false);
+
+  const { width: sidebarWidth, collapsed, toggle: toggleSidebar, isDragging, onResizeStart } =
+    useSidebarResize(!!activePanel);
 
   useEffect(() => setPortalReady(true), []);
 
@@ -60,9 +63,9 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     if (typeof window !== "undefined" && window.matchMedia(MOBILE_NAV_MQ).matches) {
       setMobileNavOpen((open) => !open);
     } else {
-      setCollapsed((c) => !c);
+      toggleSidebar();
     }
-  }, []);
+  }, [toggleSidebar]);
 
   const togglePanel = (panel: string) => {
     setActivePanel((prev) => (prev === panel ? null : panel));
@@ -85,7 +88,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
               onClick={closeMobileNav}
             />
             <aside className="absolute inset-y-0 left-0 z-10 w-[min(280px,88vw)] shadow-2xl">
-              <Sidebar collapsed={false} onNavigate={closeMobileNav} />
+              <Sidebar collapsed={false} width={280} onNavigate={closeMobileNav} />
             </aside>
           </div>,
           document.body,
@@ -143,8 +146,22 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         >
           {/* Desktop sidebar */}
           <div className="hidden sm:flex">
-            <Sidebar collapsed={collapsed} />
-            <div className="w-3.5 patient-nav-shell flex items-center justify-center cursor-col-resize shrink-0">
+            <Sidebar width={sidebarWidth} collapsed={collapsed} resizing={isDragging} />
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize sidebar"
+              aria-valuenow={sidebarWidth}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onResizeStart(e.clientX);
+              }}
+              onDoubleClick={toggleSidebar}
+              className={cn(
+                "w-3.5 patient-nav-shell flex items-center justify-center shrink-0 touch-none",
+                isDragging ? "cursor-col-resize" : "cursor-col-resize hover:bg-white/5",
+              )}
+            >
               <div className="h-9 w-1 rounded-full bg-white/30 flex flex-col justify-evenly items-center gap-1">
                 <span className="block w-0.5 h-0.5 rounded-full bg-white" />
                 <span className="block w-0.5 h-0.5 rounded-full bg-white" />

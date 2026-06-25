@@ -43,7 +43,7 @@ export function CompleteProfileDialog({ user, open, onComplete }: CompleteProfil
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40">
       <div
-        className="w-full max-w-md bg-white rounded-3xl shadow-xl p-6 animate-in fade-in slide-in-from-bottom-4"
+        className="w-full max-w-md bg-white auth-dialog rounded-3xl shadow-xl p-6 animate-in fade-in slide-in-from-bottom-4"
         role="dialog"
         aria-labelledby="complete-profile-title"
       >
@@ -63,7 +63,7 @@ export function CompleteProfileDialog({ user, open, onComplete }: CompleteProfil
               placeholder="e.g. 0781234567"
               autoComplete="tel"
               required
-              className="w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 pl-11 text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500"
+              className="auth-input w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 pl-11 text-sm focus:outline-none focus:ring-2 focus:ring-farumasi-500/30 focus:border-farumasi-500"
             />
           </div>
           <button
