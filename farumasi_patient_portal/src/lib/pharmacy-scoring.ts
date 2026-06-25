@@ -41,6 +41,11 @@ export function roadDistanceKm(straightLineKm: number): number {
  * 2. Prescription insurance if pharmacist applied it (20)
  * 3. Distance + price — equal weight (15 + 15). Price only among pharmacies with ALL items.
  */
+export type RoadDistanceMap = Map<
+  string,
+  { distanceKm: number; roadDistanceKm: number; fromRouting?: boolean }
+>;
+
 export function scorePharmacies(
   cartLines: CartEntry[],
   pharmacies: Pharmacy[],
@@ -49,6 +54,7 @@ export function scorePharmacies(
   patientLocation: [number, number] | null = null,
   rxInsuranceProvider: string | null = null,
   rxInsuranceDiscountPct: number | null = null,
+  roadDistances?: RoadDistanceMap,
 ): PharmacyOption[] {
   if (pharmacies.length === 0 || cartLines.length === 0) return [];
 
@@ -81,15 +87,22 @@ export function scorePharmacies(
         .map((e) => Math.floor((new Date(e.expiryDate!).getTime() - now) / 86_400_000));
       const minExpiryDays = expiryDays.length > 0 ? Math.min(...expiryDays) : Infinity;
 
-      const distanceKm = patientLocation
-        ? haversineKm(
-            patientLocation[0],
-            patientLocation[1],
-            pharmacy.coordinates[0],
-            pharmacy.coordinates[1],
-          )
-        : 0;
-      const roadKm = distanceKm > 0 ? roadDistanceKm(distanceKm) : 0;
+      const routed = roadDistances?.get(pharmacy.id);
+      const pharmCoords = pharmacy.coordinates;
+      let distanceKm = 0;
+      let roadKm = 0;
+      if (routed) {
+        distanceKm = routed.distanceKm;
+        roadKm = routed.roadDistanceKm;
+      } else if (patientLocation && pharmCoords) {
+        distanceKm = haversineKm(
+          patientLocation[0],
+          patientLocation[1],
+          pharmCoords[0],
+          pharmCoords[1],
+        );
+        roadKm = distanceKm > 0 ? roadDistanceKm(distanceKm) : 0;
+      }
 
       return {
         pharmacy,
@@ -123,8 +136,8 @@ export function scorePharmacies(
 
   const distanceRankById = new Map(
     [...raw]
-      .filter((r) => r.distanceKm > 0)
-      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .filter((r) => r.roadKm > 0)
+      .sort((a, b) => a.roadKm - b.roadKm)
       .map((r, i) => [r.pharmacy.id, i + 1] as const),
   );
 
@@ -133,9 +146,9 @@ export function scorePharmacies(
   const maxFullPrice = fullPrices.length ? Math.max(...fullPrices) : 0;
   const fullPriceRange = maxFullPrice - minFullPrice || 1;
 
-  const distWithKm = raw.filter((r) => r.distanceKm > 0);
-  const minDist = distWithKm.length ? Math.min(...distWithKm.map((r) => r.distanceKm)) : 0;
-  const maxDist = distWithKm.length ? Math.max(...distWithKm.map((r) => r.distanceKm)) : 0;
+  const distWithKm = raw.filter((r) => r.roadKm > 0);
+  const minDist = distWithKm.length ? Math.min(...distWithKm.map((r) => r.roadKm)) : 0;
+  const maxDist = distWithKm.length ? Math.max(...distWithKm.map((r) => r.roadKm)) : 0;
   const distRange = maxDist - minDist || 1;
 
   const rxHasInsurance = Boolean(rxInsuranceProvider && rxInsuranceDiscountPct);
@@ -166,8 +179,8 @@ export function scorePharmacies(
       : r.priceEstimate;
 
     let proximityScore = 0;
-    if (patientLocation && r.distanceKm > 0) {
-      proximityScore = (1 - (r.distanceKm - minDist) / distRange) * W.proximity;
+    if (patientLocation && r.roadKm > 0) {
+      proximityScore = (1 - (r.roadKm - minDist) / distRange) * W.proximity;
     } else if (patientDistrict) {
       const pharmDistrict = r.pharmacy.district;
       const proxFactor =
@@ -202,6 +215,7 @@ export function scorePharmacies(
       rxHasInsurance,
       distanceKm: r.distanceKm,
       roadDistanceKm: r.roadKm,
+      roadDistanceFromRouting: Boolean(roadDistances?.get(r.pharmacy.id)?.fromRouting),
       score,
       maxScore,
       matchPercent,

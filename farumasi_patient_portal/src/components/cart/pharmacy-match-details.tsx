@@ -34,6 +34,8 @@ export interface PharmacyOption {
   rxHasInsurance?: boolean;
   distanceKm: number;
   roadDistanceKm: number;
+  /** True when road distance came from OSRM routing API. */
+  roadDistanceFromRouting?: boolean;
   score: number;
   maxScore: number;
   matchPercent: number;
@@ -130,8 +132,8 @@ export function buildMatchCriteria(
       met: hasDistanceRank && opt.distanceRank === 1,
       note: roadKm > 0
         ? hasDistanceRank
-          ? `${ordinal(opt.distanceRank)} nearest of ${opt.totalCandidates} · ~${roadKm.toFixed(1)} km est. road (GPS)`
-          : `~${roadKm.toFixed(1)} km est. road distance (straight-line × 1.3)`
+          ? `${ordinal(opt.distanceRank)} nearest of ${opt.totalCandidates} · ${roadKm.toFixed(1)} km road${opt.roadDistanceFromRouting ? "" : " (est.)"}`
+          : `~${roadKm.toFixed(1)} km ${opt.roadDistanceFromRouting ? "road" : "est. road"} distance`
         : opt.pharmacy.district
           ? `Same district: ${opt.pharmacy.district} (enable GPS for km)`
           : "Enable location for distance ranking",

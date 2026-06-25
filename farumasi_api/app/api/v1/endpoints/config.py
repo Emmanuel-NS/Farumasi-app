@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -59,6 +60,51 @@ async def delivery_quote(
         max_delivery_km=max_km,
         tiers=cfg.get("tiers") or [],
     )
+
+
+class DistanceDestIn(BaseModel):
+    id: str
+    lat: float
+    lon: float
+
+
+class RoadDistanceBatchIn(BaseModel):
+    from_lat: float
+    from_lon: float
+    destinations: list[DistanceDestIn] = Field(default_factory=list, max_length=30)
+
+
+class RoadDistanceItemOut(BaseModel):
+    id: str
+    distance_km: float
+    road_distance_km: float
+
+
+class RoadDistanceBatchOut(BaseModel):
+    distances: list[RoadDistanceItemOut]
+
+
+@router.post("/road-distances", response_model=RoadDistanceBatchOut)
+async def road_distances_batch(data: RoadDistanceBatchIn):
+    """Road distances from patient → pharmacies (OSRM with Haversine fallback)."""
+
+    async def one(dest: DistanceDestIn) -> RoadDistanceItemOut:
+        straight = haversine_km(data.from_lat, data.from_lon, dest.lat, dest.lon)
+        road = await road_distance_km(data.from_lat, data.from_lon, dest.lat, dest.lon)
+        return RoadDistanceItemOut(
+            id=dest.id,
+            distance_km=straight,
+            road_distance_km=road,
+        )
+
+    sem = asyncio.Semaphore(4)
+
+    async def limited(dest: DistanceDestIn) -> RoadDistanceItemOut:
+        async with sem:
+            return await one(dest)
+
+    distances = await asyncio.gather(*[limited(d) for d in data.destinations])
+    return RoadDistanceBatchOut(distances=list(distances))
 
 
 @router.get("/public")

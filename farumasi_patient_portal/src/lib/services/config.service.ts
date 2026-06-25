@@ -26,4 +26,28 @@ export const configService = {
     });
     return data;
   },
+
+  async getRoadDistances(
+    fromLat: number,
+    fromLon: number,
+    destinations: Array<{ id: string; lat: number; lon: number }>,
+  ): Promise<Array<{ id: string; distanceKm: number; roadDistanceKm: number }>> {
+    if (destinations.length === 0) return [];
+    const { data } = await api.post<{
+      distances: Array<{ id: string; distance_km: number; road_distance_km: number }>;
+    }>("/config/road-distances", {
+      from_lat: fromLat,
+      from_lon: fromLon,
+      destinations: destinations.map((d) => ({
+        id: d.id,
+        lat: d.lat,
+        lon: d.lon,
+      })),
+    });
+    return data.distances.map((d) => ({
+      id: d.id,
+      distanceKm: d.distance_km,
+      roadDistanceKm: d.road_distance_km,
+    }));
+  },
 };

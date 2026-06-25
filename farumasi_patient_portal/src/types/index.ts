@@ -379,7 +379,7 @@ export interface Pharmacy {
   id: string;
   name: string;
   locationName: string;
-  coordinates: [number, number];
+  coordinates: [number, number] | null;
   supportedInsurances: string[];
   isOpen: boolean;
   imageUrl: string;

@@ -15,6 +15,19 @@ export type PatientLocationStatus =
   | "denied"
   | "unsupported";
 
+/** Ignore GPS fixes worse than this (metres) unless we have nothing better. */
+const MAX_ACCEPTABLE_ACCURACY_M = 2_500;
+
+function shouldAcceptGpsFix(
+  accuracy: number | null,
+  prevAccuracy: number | null,
+): boolean {
+  if (accuracy == null) return true;
+  if (accuracy <= MAX_ACCEPTABLE_ACCURACY_M) return true;
+  if (prevAccuracy == null) return true;
+  return accuracy <= prevAccuracy;
+}
+
 interface PatientLocationStore {
   lat: number | null;
   lon: number | null;
@@ -46,6 +59,9 @@ export const usePatientLocationStore = create<PatientLocationStore>((set, get) =
   watchId: null,
 
   setPosition: (coords, source, accuracy = null) => {
+    if (source === "gps" && !shouldAcceptGpsFix(accuracy, get().accuracy)) {
+      return;
+    }
     set({
       lat: coords.lat,
       lon: coords.lon,
@@ -65,11 +81,15 @@ export const usePatientLocationStore = create<PatientLocationStore>((set, get) =
     }
     set({ status: "pending" });
     try {
-      const coords = await requestFreshPatientLocation();
+      const { coords, accuracy } = await requestFreshPatientLocation();
+      if (!shouldAcceptGpsFix(accuracy, get().accuracy)) {
+        set({ status: get().lat != null ? "granted" : "idle" });
+        return get().lat != null;
+      }
       set({
         lat: coords.lat,
         lon: coords.lon,
-        accuracy: null,
+        accuracy,
         source: "gps",
         updatedAt: Date.now(),
         status: "granted",
@@ -104,14 +124,7 @@ export const usePatientLocationStore = create<PatientLocationStore>((set, get) =
 
     const watchId = watchPatientLocation(
       (coords, accuracy) => {
-        set({
-          lat: coords.lat,
-          lon: coords.lon,
-          accuracy,
-          source: "gps",
-          updatedAt: Date.now(),
-          status: "granted",
-        });
+        get().setPosition(coords, "gps", accuracy);
       },
       (err) => {
         if (err.code === 1) set({ status: "denied" });
@@ -138,4 +151,9 @@ export function getPatientCoords(): { coords: Coords; isFallback: boolean } {
     };
   }
   return { coords: DEFAULT_KIGALI_COORDS, isFallback: true };
+}
+
+export function isLocationApproximate(): boolean {
+  const { accuracy, source } = usePatientLocationStore.getState();
+  return source === "gps" && accuracy != null && accuracy > 500;
 }

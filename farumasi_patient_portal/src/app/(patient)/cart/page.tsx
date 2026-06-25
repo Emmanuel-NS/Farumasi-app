@@ -58,6 +58,7 @@ import {
   roadDistanceKm,
   type ListingsMap,
   type ListingEntry,
+  type RoadDistanceMap,
 } from "@/lib/pharmacy-scoring";
 import {
   KIGALI_DELIVERY_DISTRICTS,
@@ -76,11 +77,12 @@ function decodeInstructions(instructions: string | null | undefined): string {
 
 // Adapt backend pharmacy to Pharmacy type for scoring
 function adaptBackendPharmacy(p: BackendPharmacy): Pharmacy {
+  const hasCoords = p.latitude != null && p.longitude != null;
   return {
     id: p.id,
     name: p.name,
     locationName: p.address || p.district,
-    coordinates: [p.latitude ?? -1.9441, p.longitude ?? 30.0619] as [number, number],
+    coordinates: hasCoords ? [p.latitude!, p.longitude!] : null,
     supportedInsurances: (p.accepted_insurances ?? []).map((ins) => ins.name),
     isOpen: p.is_open,
     imageUrl: p.image_url ?? p.logo_url ?? "",
@@ -141,9 +143,12 @@ export default function CartPage() {
   const [selectedOption, setSelectedOption]   = useState<PharmacyOption | null>(null);
   const [fulfillment, setFulfillment]         = useState<"delivery" | "pickup">("delivery");
   const [patientDistrict, setPatientDistrict] = useState("");
-  const { coordsTuple: patientLocation, status: locationStatus, requestLocation } = usePatientLocation();
+  const { coordsTuple: patientLocation, status: locationStatus, requestLocation, accuracy: locationAccuracy } = usePatientLocation();
+  const locationApproximate = locationAccuracy != null && locationAccuracy > 500;
   const [apiDeliveryFee, setApiDeliveryFee] = useState<number | null>(null);
   const [deliveryUnavailable, setDeliveryUnavailable] = useState<string | null>(null);
+  const [roadDistances, setRoadDistances] = useState<RoadDistanceMap>(new Map());
+  const [roadDistancesLoading, setRoadDistancesLoading] = useState(false);
   const [name, setName]                       = useState("");
   const [phone, setPhone]                     = useState("");
   const [district, setDistrict]               = useState("");
@@ -355,11 +360,55 @@ export default function CartPage() {
     }
   }, [step, fulfillment, requestLocation]);
 
-  // Auto-switch to pickup when the selected pharmacy is more than 20 km away
-  // (road distance = haversine × 1.3). The backend enforces this too, but we
-  // proactively disable delivery in the UI so the patient isn't surprised.
+  // Real road distances (OSRM) from patient → each pharmacy with known coordinates.
   useEffect(() => {
-    const roadDist = patientLocation && selectedOption && selectedOption.distanceKm > 0
+    if (!patientLocation) {
+      setRoadDistances(new Map());
+      return;
+    }
+    const destinations = pharmacyList
+      .filter((p) => p.coordinates != null)
+      .map((p) => ({
+        id: p.id,
+        lat: p.coordinates![0],
+        lon: p.coordinates![1],
+      }));
+    if (destinations.length === 0) {
+      setRoadDistances(new Map());
+      return;
+    }
+    let cancelled = false;
+    setRoadDistancesLoading(true);
+    configService
+      .getRoadDistances(patientLocation[0], patientLocation[1], destinations)
+      .then((rows) => {
+        if (cancelled) return;
+        const map: RoadDistanceMap = new Map();
+        for (const row of rows) {
+          map.set(row.id, {
+            distanceKm: row.distanceKm,
+            roadDistanceKm: row.roadDistanceKm,
+            fromRouting: true,
+          });
+        }
+        setRoadDistances(map);
+      })
+      .catch(() => {
+        if (!cancelled) setRoadDistances(new Map());
+      })
+      .finally(() => {
+        if (!cancelled) setRoadDistancesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [patientLocation, pharmacyList]);
+
+  // Auto-switch to pickup when the selected pharmacy is more than 20 km away (road).
+  useEffect(() => {
+    const roadDist = patientLocation && selectedOption && selectedOption.roadDistanceKm > 0
+      ? selectedOption.roadDistanceKm
+      : patientLocation && selectedOption && selectedOption.distanceKm > 0
       ? roadDistanceKm(selectedOption.distanceKm)
       : 0;
     if (roadDist > 20 && fulfillment === "delivery") {
@@ -376,6 +425,11 @@ export default function CartPage() {
       return;
     }
     const seller = selectedOption.pharmacy;
+    if (!seller.coordinates) {
+      setApiDeliveryFee(null);
+      setDeliveryUnavailable("Pharmacy location is not on file — delivery fee unavailable.");
+      return;
+    }
     const fromLat = seller.coordinates[0];
     const fromLon = seller.coordinates[1];
     const [toLat, toLon] = patientLocation;
@@ -462,11 +516,46 @@ export default function CartPage() {
   const hasCatalogRange =
     (hasPackLines && subtotalPackMax > subtotalPack) || hasPartialPriceRange;
 
-  // Road-distance estimate
+  const rxInsuranceProvider =
+    isLocked && rxData?.insurance_provider && rxData.insurance_discount_pct
+      ? rxData.insurance_provider
+      : null;
+  const rxInsuranceDiscountPct =
+    isLocked && rxData?.insurance_discount_pct ? rxData.insurance_discount_pct : null;
+  const showRxInsurance =
+    Boolean(rxInsuranceProvider && rxInsuranceDiscountPct);
+
+  const pharmacyOptions = useMemo(
+    () => scorePharmacies(
+      enriched,
+      pharmacyList,
+      listingsMap,
+      patientDistrict,
+      patientLocation,
+      rxInsuranceProvider,
+      rxInsuranceDiscountPct,
+      roadDistances.size > 0 ? roadDistances : undefined,
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [enriched.map((e: CartEntry) => `${e.medicine.id}:${e.sellMode}:${e.qty}`).join(","), pharmacyList, listingsMap, fulfillment, patientDistrict, patientLocation, rxInsuranceProvider, rxInsuranceDiscountPct, roadDistances]
+  );
+
+  // Keep selected pharmacy in sync when road distances refresh rankings.
+  useEffect(() => {
+    if (!selectedOption) return;
+    const updated = pharmacyOptions.find((o) => o.pharmacy.id === selectedOption.pharmacy.id);
+    if (updated && updated.roadDistanceKm !== selectedOption.roadDistanceKm) {
+      setSelectedOption(updated);
+    }
+  }, [pharmacyOptions, selectedOption]);
+
+  // Road-distance estimate (prefer OSRM routing from API)
   const selectedRoadDistKm =
-    patientLocation && selectedOption && selectedOption.distanceKm > 0
-      ? roadDistanceKm(selectedOption.distanceKm)
-      : 0;
+    selectedOption && selectedOption.roadDistanceKm > 0
+      ? selectedOption.roadDistanceKm
+      : patientLocation && selectedOption && selectedOption.distanceKm > 0
+        ? roadDistanceKm(selectedOption.distanceKm)
+        : 0;
   const deliveryTooFar = selectedRoadDistKm > 20;
 
   // Distance-based fee when GPS is available; fall back to subtotal threshold otherwise.
@@ -501,29 +590,6 @@ export default function CartPage() {
   // If patient defers the delivery fee, only medicines + insurance savings are due now
   const amountDueNow = total - (deferDeliveryFee && hasPositiveDeliveryFee ? deliveryFeeAmount : 0);
   const stepIdx      = STEPS.findIndex((s) => s.key === step);
-
-  const rxInsuranceProvider =
-    isLocked && rxData?.insurance_provider && rxData.insurance_discount_pct
-      ? rxData.insurance_provider
-      : null;
-  const rxInsuranceDiscountPct =
-    isLocked && rxData?.insurance_discount_pct ? rxData.insurance_discount_pct : null;
-  const showRxInsurance =
-    Boolean(rxInsuranceProvider && rxInsuranceDiscountPct);
-
-  const pharmacyOptions = useMemo(
-    () => scorePharmacies(
-      enriched,
-      pharmacyList,
-      listingsMap,
-      patientDistrict,
-      patientLocation,
-      rxInsuranceProvider,
-      rxInsuranceDiscountPct,
-    ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enriched.map((e: CartEntry) => `${e.medicine.id}:${e.sellMode}:${e.qty}`).join(","), pharmacyList, listingsMap, fulfillment, patientDistrict, patientLocation, rxInsuranceProvider, rxInsuranceDiscountPct]
-  );
 
   // Price range across matched pharmacies (for cart summary)
   const allPharmacyPrices = pharmacyOptions.map(o => o.priceEstimate).sort((a, b) => a - b);
@@ -954,6 +1020,28 @@ export default function CartPage() {
         </div>
       )}
 
+      {patientLocation && locationApproximate && (
+        <div className="flex items-start gap-2.5 bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3 mb-4">
+          <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-sky-900">Approximate location</p>
+            <p className="text-xs text-sky-800 mt-0.5">
+              GPS accuracy is about {Math.round(locationAccuracy! / 100) / 10} km.
+              For better distance estimates, use a phone with location on, or tap Refresh location.
+            </p>
+            <button
+              type="button"
+              onClick={requestLocation}
+              disabled={locationStatus === "pending"}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-sky-900 bg-white border border-sky-200 rounded-xl px-3 py-1.5 hover:bg-sky-100 disabled:opacity-60"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              {locationStatus === "pending" ? "Refreshing…" : "Refresh location"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {showRxInsurance && rxInsuranceProvider && rxInsuranceDiscountPct != null && (
         <RxInsuranceBanner
           provider={rxInsuranceProvider}
@@ -1197,7 +1285,7 @@ export default function CartPage() {
                       <span className="text-[11px] text-slate-500 flex items-center gap-0.5">
                         <MapPin className="w-3 h-3" />
                         {opt.pharmacy.district}
-                        {cardRoadDistKm > 0 && ` \u00b7 ~${cardRoadDistKm.toFixed(1)} km est. road`}
+                        {cardRoadDistKm > 0 && ` \u00b7 ${cardRoadDistKm.toFixed(1)} km ${opt.roadDistanceFromRouting ? "road" : "est. road"}`}
                       </span>
                     </div>
                     {/* AI insight — rank 1 only */}
@@ -1208,8 +1296,8 @@ export default function CartPage() {
                       if (opt.insuranceMatch && rxInsuranceProvider) {
                         why.push(`Accepts ${rxInsuranceProvider}`);
                       }
-                      const isNearest = opt.distanceKm > 0 &&
-                        pharmacyOptions.every(o => o === opt || o.distanceKm === 0 || o.distanceKm >= opt.distanceKm);
+                      const isNearest = opt.roadDistanceKm > 0 &&
+                        pharmacyOptions.every(o => o === opt || o.roadDistanceKm === 0 || o.roadDistanceKm >= opt.roadDistanceKm);
                       if (isNearest) why.push(t.cart_nearest);
                       return why.length > 0 ? (
                         <p className="text-[10px] text-farumasi-600 font-semibold mt-1 leading-tight">
@@ -1266,7 +1354,9 @@ export default function CartPage() {
                 {cardRoadDistKm > 0 && (
                   <div className="flex items-center gap-1 text-xs text-farumasi-600">
                     <Navigation className="w-3.5 h-3.5" />
-                    <span className="font-medium">~{cardRoadDistKm.toFixed(1)} km est. road</span>
+                    <span className="font-medium">
+                      {cardRoadDistKm.toFixed(1)} km {opt.roadDistanceFromRouting ? "road" : "est. road"}
+                    </span>
                   </div>
                 )}
                 {opt.distanceRank > 0 && (
@@ -2106,9 +2196,11 @@ export default function CartPage() {
   // ── STEP 5: Confirmed ─────────────────────────────────────────
   if (step === "confirmed" && fulfillment === "pickup") {
     const orderCode = confirmedOrderCode || ORDER_NUM;
-    const mapsUrl   = selectedOption
+    const mapsUrl   = selectedOption?.pharmacy.coordinates
       ? `https://www.google.com/maps?q=${selectedOption.pharmacy.coordinates[0]},${selectedOption.pharmacy.coordinates[1]}`
-      : "#";
+      : selectedOption
+        ? `https://www.google.com/maps/search/${encodeURIComponent(selectedOption.pharmacy.name + " pharmacy Rwanda")}`
+        : "#";
 
     return (
       <div className="p-4 md:p-6 max-w-2xl mx-auto flex flex-col items-center min-h-[60vh]">

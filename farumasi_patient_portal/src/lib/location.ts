@@ -32,17 +32,26 @@ export function readGeolocationPosition(pos: GeolocationPosition): Coords {
  */
 export { getPatientCoords } from "@/store/patient-location-store";
 
-/** One-shot fresh GPS read. */
+export interface GeoPosition {
+  coords: Coords;
+  accuracy: number | null;
+}
+
+/** One-shot fresh GPS read (includes accuracy in metres when available). */
 export function requestFreshPatientLocation(
   options?: PositionOptions,
-): Promise<Coords> {
+): Promise<GeoPosition> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       reject(new Error("Geolocation unavailable"));
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(readGeolocationPosition(pos)),
+      (pos) =>
+        resolve({
+          coords: readGeolocationPosition(pos),
+          accuracy: pos.coords.accuracy ?? null,
+        }),
       (err) => reject(err),
       { ...FRESH_GEO_OPTIONS, ...options },
     );
@@ -53,7 +62,7 @@ export function requestFreshPatientLocation(
 export function requestPatientLocation(
   options?: PositionOptions,
 ): Promise<Coords> {
-  return requestFreshPatientLocation(options);
+  return requestFreshPatientLocation(options).then((r) => r.coords);
 }
 
 /** Continuous GPS updates; returns watch id or null. */
