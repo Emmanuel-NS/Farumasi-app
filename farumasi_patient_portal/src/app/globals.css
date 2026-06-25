@@ -102,8 +102,8 @@ html {
 
 html.dark {
   color-scheme: dark;
-  --app-bg: #1a2f29;
-  --app-nav-shell: #1a2f29;
+  --app-bg: #1e293b;
+  --app-nav-shell: #1e293b;
   --app-surface: #1e293b;
   --app-surface-raised: #243044;
   --app-text: #f1f5f9;
@@ -115,7 +115,7 @@ html.dark {
   --color-surface-card: #1e293b;
 }
 
-/* Light = brand green frame; dark = deep pine that pairs with the main pane */
+/* Light = brand green frame; dark = charcoal gray (matches product cards) */
 .patient-nav-shell {
   background-color: #1e9e68;
 }

@@ -12,10 +12,11 @@ function ShimmerBlock({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl bg-slate-200/80",
+        "relative overflow-hidden rounded-xl bg-slate-200/80 dark:bg-slate-800",
         "before:absolute before:inset-0 before:-translate-x-full",
         "before:animate-[shimmer_1.2s_ease-in-out_infinite]",
         "before:bg-gradient-to-r before:from-transparent before:via-white/70 before:to-transparent",
+        "dark:before:via-slate-600/50",
         className,
       )}
       style={style}
@@ -27,7 +28,7 @@ export function ShimmerProductCard({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "bg-white rounded-[12px] shadow-md overflow-hidden flex flex-col min-h-[280px] sm:min-h-[310px]",
+        "bg-white dark:bg-slate-800 dark:border dark:border-slate-700 rounded-[12px] shadow-md dark:shadow-black/30 overflow-hidden flex flex-col min-h-[280px] sm:min-h-[310px]",
         className,
       )}
     >
@@ -64,7 +65,7 @@ export function ShimmerProductGrid({
 
 export function ShimmerArticleCard() {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 dark:border-slate-700 rounded-2xl border border-slate-100 overflow-hidden">
       <ShimmerBlock className="h-36 sm:h-40 rounded-none" />
       <div className="p-4 space-y-2">
         <ShimmerBlock className="h-2.5 w-16 rounded-full" />

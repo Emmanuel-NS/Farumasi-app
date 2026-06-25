@@ -82,7 +82,7 @@ export function Sidebar({
           />
         ))}
 
-        <div className="mx-3 my-3.5 border-t border-[#2A6A53]" />
+        <div className="mx-3 my-3.5 border-t border-[#2A6A53] dark:border-white/10" />
 
         {secondaryNav.map((item) => (
           <SidebarItem
