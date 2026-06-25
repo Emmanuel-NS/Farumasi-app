@@ -121,7 +121,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     <PatientRoleGuard>
       <ConsultNotificationsMount />
       <PermissionSetupBanner />
-      <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600 dark:bg-[#0b1120]">
+      <div className="flex flex-col h-screen overflow-hidden bg-farumasi-600">
         <Topbar
           collapsed={collapsed}
           mobileNavOpen={mobileNavOpen}
@@ -144,7 +144,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           {/* Desktop sidebar */}
           <div className="hidden sm:flex">
             <Sidebar collapsed={collapsed} />
-            <div className="w-3.5 bg-farumasi-600 dark:bg-[#0f172a] flex items-center justify-center cursor-col-resize shrink-0">
+            <div className="w-3.5 bg-farumasi-600 flex items-center justify-center cursor-col-resize shrink-0">
               <div className="h-9 w-1 rounded-full bg-white/30 flex flex-col justify-evenly items-center gap-1">
                 <span className="block w-0.5 h-0.5 rounded-full bg-white" />
                 <span className="block w-0.5 h-0.5 rounded-full bg-white" />

@@ -26,8 +26,6 @@ export function ThemeInitScript() {
   }
   if (shouldDark()) {
     document.documentElement.classList.add("dark");
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", "#0f172a");
   }
 })();
 `.trim();

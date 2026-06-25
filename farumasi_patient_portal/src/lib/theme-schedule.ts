@@ -40,5 +40,5 @@ export function applyDarkClass(enabled: boolean) {
   if (typeof document === "undefined") return;
   document.documentElement.classList.toggle("dark", enabled);
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", enabled ? "#0f172a" : "#1E9E68");
+  if (meta) meta.setAttribute("content", "#1E9E68");
 }

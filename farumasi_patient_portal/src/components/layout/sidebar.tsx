@@ -68,7 +68,7 @@ export function Sidebar({
     <div
       className={cn(
         "flex flex-col h-full transition-all duration-[220ms] ease-out overflow-hidden shrink-0",
-        "bg-farumasi-600 dark:bg-[#0f172a]",
+        "bg-farumasi-600",
         collapsed ? "w-[92px]" : "w-[200px]",
       )}
     >
@@ -83,7 +83,7 @@ export function Sidebar({
           />
         ))}
 
-        <div className="mx-3 my-3.5 border-t border-[#2A6A53] dark:border-slate-700" />
+        <div className="mx-3 my-3.5 border-t border-[#2A6A53]" />
 
         {secondaryNav.map((item) => (
           <SidebarItem
@@ -157,19 +157,18 @@ function SidebarItem({
         href="/auth/login"
         onClick={() => onNavigate?.()}
         title={`${item.label} (Sign in required)`}
-          className={cn(
-          "flex items-center rounded-xl transition-all duration-180 border border-transparent",
-          "hover:bg-white/10 dark:hover:bg-slate-800",
+        className={cn(
+          "flex items-center rounded-xl transition-all duration-180 border border-transparent hover:bg-white/10",
           collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
         )}
       >
-        <div className="w-[34px] h-[34px] shrink-0 rounded-[9px] bg-[#47D196]/20 dark:bg-slate-800 flex items-center justify-center relative">
+        <div className="w-[34px] h-[34px] shrink-0 rounded-[9px] bg-[#47D196]/20 flex items-center justify-center relative">
           <Icon className="w-[18px] h-[18px] text-white" />
           <Lock className="w-[9px] h-[9px] text-amber-300 absolute -bottom-0.5 -right-0.5" />
         </div>
         {!collapsed && (
           <>
-            <span className="flex-1 text-[13px] leading-none font-medium text-[#D2E8DE] dark:text-slate-300">
+            <span className="flex-1 text-[13px] leading-none font-medium text-[#D2E8DE]">
               {item.label}
             </span>
             <Lock className="w-4 h-4 shrink-0 text-amber-300/90" />
@@ -189,20 +188,20 @@ function SidebarItem({
         "flex items-center rounded-xl transition-all duration-180",
         collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
         active
-          ? "bg-[#47D196]/20 dark:bg-farumasi-600/25 border border-[#47D196]/40 dark:border-farumasi-500/50"
-          : "border border-transparent hover:bg-white/10 dark:hover:bg-slate-800",
+          ? "bg-[#47D196]/20 border border-[#47D196]/40"
+          : "border border-transparent hover:bg-white/10",
       )}
     >
       <div
         className={cn(
           "w-[34px] h-[34px] shrink-0 rounded-[9px] flex items-center justify-center transition-colors duration-180",
-          active ? "bg-[#47D196] dark:bg-farumasi-600" : "bg-[#47D196]/20 dark:bg-slate-800",
+          active ? "bg-[#47D196]" : "bg-[#47D196]/20",
         )}
       >
         <Icon
           className={cn(
             "w-[18px] h-[18px]",
-            active ? "text-[#0A2B1E] dark:text-white" : "text-white",
+            active ? "text-[#0A2B1E]" : "text-white",
           )}
         />
       </div>
@@ -212,7 +211,7 @@ function SidebarItem({
           <span
             className={cn(
               "flex-1 text-[13px] leading-none",
-              active ? "font-bold text-[#EFFBF5]" : "font-medium text-[#D2E8DE] dark:text-slate-300",
+              active ? "font-bold text-[#EFFBF5]" : "font-medium text-[#D2E8DE]",
             )}
           >
             {item.label}
@@ -248,25 +247,25 @@ function SidebarAction({
         "w-full flex items-center rounded-xl transition-all duration-180",
         collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
         active
-          ? "bg-[#47D196]/20 dark:bg-farumasi-600/25 border border-[#47D196]/40 dark:border-farumasi-500/50"
-          : "border border-transparent hover:bg-white/10 dark:hover:bg-slate-800",
+          ? "bg-[#47D196]/20 border border-[#47D196]/40"
+          : "border border-transparent hover:bg-white/10",
       )}
     >
       <div
         className={cn(
           "w-[34px] h-[34px] shrink-0 rounded-[9px] flex items-center justify-center transition-colors duration-180",
-          active ? "bg-[#47D196] dark:bg-farumasi-600" : "bg-[#47D196]/20 dark:bg-slate-800",
+          active ? "bg-[#47D196]" : "bg-[#47D196]/20",
         )}
       >
         <Icon
           className={cn(
             "w-[18px] h-[18px]",
-            active ? "text-[#0A2B1E] dark:text-white" : "text-white",
+            active ? "text-[#0A2B1E]" : "text-white",
           )}
         />
       </div>
       {!collapsed && (
-        <span className="flex-1 text-left text-[13px] leading-none font-medium text-[#D2E8DE] dark:text-slate-300">
+        <span className="flex-1 text-left text-[13px] leading-none font-medium text-[#D2E8DE]">
           {label}
         </span>
       )}
