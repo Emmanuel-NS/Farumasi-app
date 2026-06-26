@@ -71,11 +71,24 @@ def payment_processing_fee(amount: float) -> float:
     return round(amount * pct / 100.0, 0)
 
 
+def _mtn_madapi_needs_fallback(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return any(
+        x in text
+        for x in ("401", "4000", "unauthorised", "unauthorized", "verify token and environment")
+    )
+
+
 def _payment_user_message(exc: Exception) -> str:
     raw = str(exc).strip()
     if not raw:
         return "Could not start payment. Please try again."
     low = raw.lower()
+    if _mtn_madapi_needs_fallback(exc):
+        return (
+            "MTN MoMo direct payment is not active on your merchant account yet. "
+            "Try card payment, or contact FARUMASI support."
+        )
     if "amount" in low and "limit" in low:
         return "This order exceeds the current payment limit. Contact FARUMASI support."
     if "phone" in low or "msisdn" in low or "mobile" in low:
@@ -240,11 +253,14 @@ class PaymentService:
                 merchant_ref=merchant_ref,
                 msisdn=msisdn,
                 customer_name=customer_name,
+                customer_email=customer_email,
+                phone_raw=phone_raw or actor_phone,
+                redirect_url=redirect_url,
                 due=due,
                 charge_amount=charge_amount,
                 processing_fee=processing_fee,
             )
-        return await self._initiate_pesapal_card(
+        return await self._initiate_pesapal_checkout(
             order,
             actor,
             merchant_ref=merchant_ref,
@@ -269,6 +285,9 @@ class PaymentService:
         merchant_ref: str,
         msisdn: str,
         customer_name: str,
+        customer_email: str,
+        phone_raw: str,
+        redirect_url: Optional[str],
         due: float,
         charge_amount: float,
         processing_fee: float,
@@ -306,9 +325,33 @@ class PaymentService:
             txn.provider_reference = result.get("provider_transaction_id") or merchant_ref
         except Exception as exc:
             logger.exception("MTN MADAPI initiate failed for order %s", order.id)
-            order.payment_status = PaymentStatus.FAILED
             txn.status = _TX_FAILED
             txn.failure_reason = str(exc)[:500]
+            await self.db.flush()
+            if _mtn_madapi_needs_fallback(exc) and self.pesapal.is_configured():
+                logger.warning(
+                    "MTN MADAPI not authorised for collections — using Pesapal MoMo for order %s",
+                    order.id,
+                )
+                order.payment_status = PaymentStatus.PENDING
+                return await self._initiate_pesapal_checkout(
+                    order,
+                    actor,
+                    merchant_ref=_merchant_reference(order),
+                    customer_name=customer_name,
+                    customer_email=customer_email,
+                    phone_raw=phone_raw or msisdn,
+                    redirect_url=redirect_url,
+                    due=due,
+                    charge_amount=charge_amount,
+                    processing_fee=processing_fee,
+                    payment_method="mtn_momo",
+                    provider="pesapal_momo",
+                    checkout_message=(
+                        "Complete your MTN MoMo payment on the secure Pesapal page."
+                    ),
+                )
+            order.payment_status = PaymentStatus.FAILED
             await self._notify_payment_failed(order)
             await self.db.commit()
             raise BusinessRuleError(_payment_user_message(exc)) from exc
@@ -345,7 +388,7 @@ class PaymentService:
             payment_method="mtn_momo",
         )
 
-    async def _initiate_pesapal_card(
+    async def _initiate_pesapal_checkout(
         self,
         order: Order,
         actor: User,
@@ -358,12 +401,16 @@ class PaymentService:
         due: float,
         charge_amount: float,
         processing_fee: float,
+        payment_method: str = "card",
+        provider: str = "pesapal",
+        checkout_message: Optional[str] = None,
     ) -> PaymentInitiateOut:
         if not self.pesapal.is_configured():
             order.payment_status = PaymentStatus.FAILED
             await self.db.commit()
+            label = "Card" if payment_method == "card" else "MoMo"
             raise BusinessRuleError(
-                "Card payments are not configured. Contact FARUMASI support."
+                f"{label} payments are not configured. Contact FARUMASI support."
             )
 
         first, last = _split_name(customer_name)
@@ -373,8 +420,8 @@ class PaymentService:
             order_id=order.id,
             amount=charge_amount,
             currency=settings.PAYMENT_CURRENCY,
-            provider="pesapal",
-            method="card",
+            provider=provider,
+            method=payment_method,
             phone=phone_raw or None,
             status=_TX_PENDING,
             external_id=merchant_ref,
@@ -410,7 +457,7 @@ class PaymentService:
             action="payment.initiated",
             entity_type="Order",
             entity_id=order.id,
-            new_value={"amount": charge_amount, "provider": "pesapal", "method": "card"},
+            new_value={"amount": charge_amount, "provider": provider, "method": payment_method},
         )
         await self.db.commit()
 
@@ -419,17 +466,51 @@ class PaymentService:
             if processing_fee > 0
             else ""
         )
+        default_message = (
+            "Complete your card payment on Pesapal."
+            if payment_method == "card"
+            else "Complete your MTN MoMo payment on Pesapal."
+        )
         return PaymentInitiateOut(
             order_id=order.id,
             payment_status=PaymentStatus.PENDING,
             amount=charge_amount,
             order_amount=due,
             processing_fee=processing_fee,
-            provider="pesapal",
+            provider=provider,
             external_id=merchant_ref,
             checkout_url=result["redirect_url"],
-            message=f"Complete your card payment on Pesapal.{fee_note}",
+            message=f"{checkout_message or default_message}{fee_note}",
+            payment_method=payment_method,
+        )
+
+    async def _initiate_pesapal_card(
+        self,
+        order: Order,
+        actor: User,
+        *,
+        merchant_ref: str,
+        customer_name: str,
+        customer_email: str,
+        phone_raw: str,
+        redirect_url: Optional[str],
+        due: float,
+        charge_amount: float,
+        processing_fee: float,
+    ) -> PaymentInitiateOut:
+        return await self._initiate_pesapal_checkout(
+            order,
+            actor,
+            merchant_ref=merchant_ref,
+            customer_name=customer_name,
+            customer_email=customer_email,
+            phone_raw=phone_raw,
+            redirect_url=redirect_url,
+            due=due,
+            charge_amount=charge_amount,
+            processing_fee=processing_fee,
             payment_method="card",
+            provider="pesapal",
         )
 
     async def get_status(self, order_id: str, actor: User) -> PaymentStatusOut:
@@ -442,7 +523,7 @@ class PaymentService:
             if txn and txn.status == _TX_PENDING:
                 if txn.provider == "mtn_madapi":
                     await self._sync_mtn_transaction(txn, order)
-                elif txn.provider == "pesapal":
+                elif txn.provider in ("pesapal", "pesapal_momo"):
                     await self._sync_pesapal_transaction(txn, order)
 
         return PaymentStatusOut(
