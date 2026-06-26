@@ -190,10 +190,8 @@ class Settings(BaseSettings):
                 f"when ENVIRONMENT='{self.ENVIRONMENT}'. Refusing to start "
                 "with the default development secret."
             )
-        if env != "development" and self.PAYMENT_MODE == "sandbox":
-            raise ValueError(
-                "FARUMASI: PAYMENT_MODE must be 'live' when ENVIRONMENT is not development."
-            )
+        # PAYMENT_MODE=sandbox is allowed in production for fake checkout until
+        # Flutterwave live credentials are approved (orders auto-confirm, no gateway).
         return self
 
     @computed_field  # type: ignore[misc]
