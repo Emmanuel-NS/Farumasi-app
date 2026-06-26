@@ -1,5 +1,13 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import {
+  formatDateLocal,
+  formatDateTimeLocal,
+  parseApiDateTime,
+  timeAgo as timeAgoFromApi,
+} from "@/lib/datetime";
+
+export { formatDateLocal, formatDateTimeLocal, parseApiDateTime } from "@/lib/datetime";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -19,21 +27,11 @@ export function formatPrice(amount: number, currency = "RWF"): string {
 }
 
 export function timeAgo(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return d.toLocaleDateString();
+  return timeAgoFromApi(date);
 }
 
 export function formatDate(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-RW", { year: "numeric", month: "short", day: "numeric" });
+  return formatDateLocal(date);
 }
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {

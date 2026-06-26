@@ -1,4 +1,5 @@
 import type { Order, OrderStatus, OrderPaymentStatus } from "@/types";
+import { formatDateLocal } from "@/lib/datetime";
 
 export interface BackendOrderItem {
   id: string;
@@ -94,9 +95,8 @@ export function adaptOrder(o: BackendOrder): Order {
     status: (STATUS_MAP[o.order_status] ?? "pending_review") as OrderStatus,
     items: itemNames,
     total: `RWF ${o.total_amount.toLocaleString()}`,
-    date: new Date(o.created_at).toLocaleDateString("en-GB", {
-      day: "numeric", month: "short", year: "numeric",
-    }),
+    createdAt: o.created_at,
+    date: formatDateLocal(o.created_at),
     pharmacy:
       o.pharmacy?.name
       ?? o.partner_company?.name

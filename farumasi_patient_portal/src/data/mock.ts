@@ -750,6 +750,7 @@ export const mockActiveOrders: Order[] = [
     items: "Panadol Extra, Vitamin C",
     total: "RWF 25,000",
     date: "Today, 10:30 AM",
+    createdAt: new Date().toISOString(),
     pharmacy: "Kigali Main Pharmacy",
     deliveryFee: 1500,
     pharmacyPrice: 23500,
@@ -765,6 +766,7 @@ export const mockPastOrders: Order[] = [
     items: "Amoxicillin 500mg",
     total: "RWF 10,000",
     date: "May 14, 2026",
+    createdAt: new Date(Date.now() - 86400000 * 11).toISOString(),
     pharmacy: "HealthFirst Pharma",
   },
   {
@@ -773,6 +775,7 @@ export const mockPastOrders: Order[] = [
     items: "Ibuprofen 400mg, ORS",
     total: "RWF 3,800",
     date: "May 10, 2026",
+    createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
     pharmacy: "Central Pharmacy",
   },
   {
@@ -781,6 +784,7 @@ export const mockPastOrders: Order[] = [
     items: "Metformin 850mg",
     total: "RWF 4,500",
     date: "May 2, 2026",
+    createdAt: new Date(Date.now() - 86400000 * 23).toISOString(),
     pharmacy: "Kigali City Pharmacy",
     cancellationReason: "Prescription expired",
   },

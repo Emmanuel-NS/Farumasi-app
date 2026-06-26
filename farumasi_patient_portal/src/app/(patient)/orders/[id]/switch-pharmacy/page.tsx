@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { ordersService } from "@/lib/services/orders.service";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, parseApiDateTime } from "@/lib/utils";
 import {
   PharmacyReassignmentPanel,
   type ReassignmentOption,
@@ -48,7 +48,7 @@ export default function SwitchPharmacyPage() {
   }, []);
 
   const dueAt = options?.partner_response_due_at;
-  const dueMs = dueAt ? new Date(dueAt).getTime() : null;
+  const dueMs = dueAt ? parseApiDateTime(dueAt)?.getTime() ?? null : null;
   const waitMs = dueMs != null ? Math.max(0, dueMs - nowTick) : null;
   const waitLabel = useMemo(() => {
     if (waitMs == null) return null;

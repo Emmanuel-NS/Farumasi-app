@@ -9,7 +9,8 @@ import { deliveryService, type BackendDelivery, coordsPair, deliveryProgress, es
 import { mediaUrl } from "@/lib/api";
 import type { Order, DeliveryQR } from "@/types";
 import { adaptOrder } from "@/lib/mappers/orders.mapper";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn, formatPrice, timeAgo, formatDateTimeLocal } from "@/lib/utils";
+import { parseApiDateTime } from "@/lib/datetime";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useTranslation } from "@/lib/translations";
 import { useAuthStore } from "@/store/auth-store";
@@ -117,7 +118,8 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     if (!order?.partnerResponseDueAt || order.canReassignPharmacy) return;
-    const due = new Date(order.partnerResponseDueAt).getTime();
+    const due = parseApiDateTime(order.partnerResponseDueAt)?.getTime();
+    if (due == null) return;
     const ms = due - Date.now();
     if (ms <= 0) return;
     const timer = window.setTimeout(() => setReassignTick((n) => n + 1), ms + 500);
@@ -267,10 +269,12 @@ export default function OrderDetailPage() {
   const routeProgress = delivery ? deliveryProgress(delivery) : 0.2;
   const switchableCount = (reassignOptions?.options ?? []).filter((o) => o.can_switch !== false).length;
   const reassignDueAt = reassignOptions?.partner_response_due_at ?? order.partnerResponseDueAt;
-  const reassignWaitMs = reassignDueAt ? Math.max(0, new Date(reassignDueAt).getTime() - Date.now()) : null;
+  const reassignDueMs = reassignDueAt
+    ? Math.max(0, (parseApiDateTime(reassignDueAt)?.getTime() ?? 0) - Date.now())
+    : null;
   const reassignWaitLabel =
-    reassignWaitMs != null
-      ? `${Math.floor(Math.ceil(reassignWaitMs / 1000) / 60)}:${(Math.ceil(reassignWaitMs / 1000) % 60).toString().padStart(2, "0")}`
+    reassignDueMs != null
+      ? `${Math.floor(Math.ceil(reassignDueMs / 1000) / 60)}:${(Math.ceil(reassignDueMs / 1000) % 60).toString().padStart(2, "0")}`
       : null;
 
   return (
@@ -306,7 +310,7 @@ export default function OrderDetailPage() {
             <p className="text-lg font-extrabold text-slate-900 dark:text-slate-100">{order.pharmacy}</p>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              {order.date}
+              Placed {timeAgo(order.createdAt)} · {formatDateTimeLocal(order.createdAt)}
             </p>
           </div>
           <StatusBadge status={order.status} />

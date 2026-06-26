@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { GuestGate } from "@/components/shared/guest-gate";
 import { PinGate } from "@/components/shared/pin-gate";
@@ -69,15 +69,6 @@ const STATUS_META: Record<DigitalPrescriptionStatus, { label: string; color: str
   expired:             { label: "Expired",         color: "text-red-700",      bg: "bg-red-50",      border: "border-red-100",     icon: XCircle },
   cancelled:           { label: "Cancelled",       color: "text-slate-500",    bg: "bg-slate-50",    border: "border-slate-100",   icon: X },
 };
-
-function relativeDate(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 7)  return `${days} days ago`;
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 
@@ -321,7 +312,7 @@ function ActiveList({
                     </p>
                     <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                       <CalendarDays className="w-3 h-3" />
-                      {relativeDate(rx.issuedAt)}
+                      {timeAgo(rx.issuedAt)}
                     </p>
                   </div>
                 </div>
@@ -505,7 +496,7 @@ function CancelledList({ prescriptions, onUpload }: { prescriptions: DigitalPres
               <p className="text-sm font-semibold text-slate-700">
                 {isUploaded ? "Uploaded Prescription" : "Prescription"}
               </p>
-              <p className="text-xs text-slate-400">{relativeDate(rx.issuedAt)}</p>
+              <p className="text-xs text-slate-400">{timeAgo(rx.issuedAt)}</p>
             </div>
             <span className={cn(
               "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border",

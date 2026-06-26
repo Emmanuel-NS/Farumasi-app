@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { parseApiDateTime } from "@/lib/datetime";
 
 const RESPONSE_WINDOW_MIN = 10;
 
@@ -114,7 +115,8 @@ export function PharmacyReassignmentPanel({
 
   const progress = useMemo(() => {
     if (waitMs == null || data?.partner_response_due_at == null) return 0;
-    const due = new Date(data.partner_response_due_at).getTime();
+    const due = parseApiDateTime(data.partner_response_due_at)?.getTime();
+    if (due == null) return 0;
     const start = due - RESPONSE_WINDOW_MIN * 60 * 1000;
     const total = due - start;
     if (total <= 0) return 1;

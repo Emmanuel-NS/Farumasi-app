@@ -114,6 +114,9 @@ export interface Order {
   status: OrderStatus;
   items: string;           // comma-separated names
   total: string;
+  /** ISO timestamp — use for relative time (timeAgo). */
+  createdAt: string;
+  /** Locale date label for compact display. */
   date: string;
   pharmacy: string;
   patientName?: string;

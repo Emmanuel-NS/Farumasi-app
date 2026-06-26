@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ordersService } from "@/lib/services/orders.service";
 import { adaptOrder } from "@/lib/services/orders.service";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn, formatPrice, timeAgo, parseApiDateTime } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { GuestGate } from "@/components/shared/guest-gate";
 import { PinGate } from "@/components/shared/pin-gate";
@@ -25,19 +25,6 @@ const DELIVERY_LABELS: Record<string, string> = {
   delivery: "Delivery",
   pickup:   "Pickup",
 };
-
-function relativeDate(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins  = Math.floor(diff / 60_000);
-  const hours = Math.floor(diff / 3_600_000);
-  const days  = Math.floor(diff / 86_400_000);
-  if (mins < 1)   return "Just now";
-  if (mins < 60)  return `${mins}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days === 1) return "Yesterday";
-  if (days < 7)   return `${days} days ago`;
-  return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
 
 const ARCHIVE_KEY = "farumasi:archived_orders";
 
@@ -262,7 +249,7 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
   const awaitingPharmacy =
     order.paymentStatus === "paid" && order.status === "pending_review";
   const dueMs = order.partnerResponseDueAt
-    ? new Date(order.partnerResponseDueAt).getTime()
+    ? parseApiDateTime(order.partnerResponseDueAt)?.getTime() ?? null
     : null;
   const waitMs = dueMs != null ? Math.max(0, dueMs - Date.now()) : null;
   const waitLabel =
@@ -340,7 +327,7 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{order.pharmacy}</p>
           <p className="text-xs text-slate-400 dark:text-slate-500 shrink-0 flex items-center gap-1">
-            <Clock className="w-3 h-3" />{relativeDate(order.date)}
+            <Clock className="w-3 h-3" />{timeAgo(order.createdAt)}
           </p>
         </div>
 
@@ -450,7 +437,7 @@ function PastOrderCard({ order, onArchive }: { order: Order; onArchive: () => vo
               {itemCount} item{itemCount !== 1 ? "s" : ""}
               <span className="mx-1">·</span>
               <Clock className="w-2.5 h-2.5" />
-              {relativeDate(order.date)}
+              {timeAgo(order.createdAt)}
             </p>
           </div>
 

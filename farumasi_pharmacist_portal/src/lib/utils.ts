@@ -1,6 +1,14 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import type { OrderStatus } from "@/types";
+import {
+  formatDate as formatDateFromApi,
+  formatDateTime as formatDateTimeFromApi,
+  parseApiDateTime,
+  timeAgo as timeAgoFromApi,
+} from "@/lib/datetime";
+
+export { parseApiDateTime } from "@/lib/datetime";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -25,21 +33,15 @@ export function formatPriceRange(min: number, max: number): string {
 }
 
 export function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  return timeAgoFromApi(dateStr);
 }
 
 export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-RW", { day: "numeric", month: "short", year: "numeric" });
+  return formatDateFromApi(dateStr);
 }
 
 export function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString("en-RW", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return formatDateTimeFromApi(dateStr);
 }
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {

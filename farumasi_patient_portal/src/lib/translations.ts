@@ -1,5 +1,6 @@
 import { useLanguageStore, type LangCode } from "@/store/language-store";
 import { useTranslationOverlayStore } from "@/store/translation-overlay-store";
+import { parseApiDateTime } from "@/lib/datetime";
 
 // ── Translation shape ─────────────────────────────────────────────────────────
 export type T = {
@@ -1955,7 +1956,8 @@ export function tf(template: string, vars: Record<string, string | number>): str
 export function useTimeAgo(): (date: Date | string) => string {
   const t = useTranslation();
   return (date: Date | string) => {
-    const d = typeof date === "string" ? new Date(date) : date;
+    const d = parseApiDateTime(date);
+    if (!d) return "";
     const diff = Date.now() - d.getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return t.time_just_now;
