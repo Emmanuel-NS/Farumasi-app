@@ -16,6 +16,10 @@ import { useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
 import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment-checkout";
 import {
+  PharmacyReassignmentPanel,
+  type ReassignmentOption,
+} from "@/components/orders/pharmacy-reassignment-panel";
+import {
   ArrowLeft, MapPin, Phone, MessageCircle, Package, Store,
   CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink,
   Building2, XCircle, ImageOff, Pill, Lock, FileText,
@@ -140,7 +144,7 @@ export default function OrderDetailPage() {
     return () => window.clearTimeout(timer);
   }, [reassignDueMs, nowTick]);
 
-  const handleReassign = async (opt: NonNullable<typeof reassignOptions>["options"][number]) => {
+  const handleReassign = async (opt: ReassignmentOption) => {
     if (!id) return;
     const key = opt.pharmacy_id ?? opt.partner_company_id ?? "";
     setReassigningId(key);
@@ -302,9 +306,25 @@ export default function OrderDetailPage() {
     ? coordsPair(delivery.destination_latitude, delivery.destination_longitude)
     : null;
   const routeProgress = delivery ? deliveryProgress(delivery) : 0.2;
+  const canSwitchPharmacy =
+    awaitingPharmacyConfirm &&
+    reassignOptions?.can_reassign === true &&
+    (reassignOptions.options.length ?? 0) > 0;
+  const timelineStepsView = timelineSteps.map((step) =>
+    step.key === "pending_review" && awaitingPharmacyConfirm
+      ? {
+          ...step,
+          hint: reassignOptions?.can_reassign
+            ? "Pharmacy slow to respond — switch to another partner below"
+            : reassignWaitLabel && reassignWaitMs != null && reassignWaitMs > 0
+              ? `Waiting for confirmation — you can switch in ${reassignWaitLabel}`
+              : "Waiting for pharmacy to confirm your order",
+        }
+      : step,
+  );
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
+    <div className={cn("p-4 md:p-6 max-w-2xl mx-auto", canSwitchPharmacy ? "pb-28" : "pb-10")}>
       {/* Back */}
       <button
         onClick={() => router.back()}
@@ -313,6 +333,21 @@ export default function OrderDetailPage() {
         <ArrowLeft className="w-4 h-4" />
         {t.order_back}
       </button>
+
+      {/* Priority: pharmacy reassignment — top of page */}
+      {awaitingPharmacyConfirm && (
+        <PharmacyReassignmentPanel
+          pharmacyName={order.pharmacy}
+          data={reassignOptions}
+          waitMs={reassignWaitMs}
+          waitLabel={reassignWaitLabel}
+          showCheaperPharmacies={showCheaperPharmacies}
+          onShowCheaperChange={setShowCheaperPharmacies}
+          reassigningId={reassigningId}
+          onReassign={handleReassign}
+          formatPrice={formatPrice}
+        />
+      )}
 
       {/* ── Header card ─────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
@@ -357,98 +392,6 @@ export default function OrderDetailPage() {
           </span>
         )}
       </div>
-
-      {/* Pharmacy slow to confirm — reassignment after 10 min */}
-      {awaitingPharmacyConfirm && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-3xl p-5 mb-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                {reassignOptions?.can_reassign ? "Choose another pharmacy" : "Waiting for pharmacy confirmation"}
-              </h2>
-
-              {reassignOptions == null ? (
-                <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1">
-                  Checking alternative pharmacies…
-                </p>
-              ) : !reassignOptions.can_reassign ? (
-                <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 leading-relaxed">
-                  {order.pharmacy} has up to 10 minutes to accept your paid order.
-                  {reassignWaitLabel != null && reassignWaitMs != null && reassignWaitMs > 0 && (
-                    <>
-                      {" "}You can pick another pharmacy in{" "}
-                      <span className="font-extrabold tabular-nums">{reassignWaitLabel}</span>.
-                    </>
-                  )}
-                </p>
-              ) : reassignOptions.options.length === 0 ? (
-                <>
-                  <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 leading-relaxed">
-                    {order.pharmacy} has not accepted within 10 minutes. We could not find another
-                    partner at your paid amount ({formatPrice(reassignOptions.amount_paid)}).
-                  </p>
-                  <label className="flex items-center gap-2 mt-3 text-xs text-amber-900 dark:text-amber-200 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={showCheaperPharmacies}
-                      onChange={(e) => setShowCheaperPharmacies(e.target.checked)}
-                      className="rounded border-amber-300"
-                    />
-                    Include cheaper pharmacies (refund difference)
-                  </label>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 leading-relaxed">
-                    Your payment of {formatPrice(reassignOptions.amount_paid)} is confirmed, but{" "}
-                    {order.pharmacy} has not accepted within 10 minutes. Pick another partner at the
-                    same price — no extra payment required.
-                  </p>
-                  <label className="flex items-center gap-2 mt-3 text-xs text-amber-900 dark:text-amber-200 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={showCheaperPharmacies}
-                      onChange={(e) => setShowCheaperPharmacies(e.target.checked)}
-                      className="rounded border-amber-300"
-                    />
-                    Show cheaper pharmacies (refund difference)
-                  </label>
-                  <div className="mt-3 space-y-2">
-                    {reassignOptions.options.map((opt) => {
-                      const key = opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name;
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          disabled={reassigningId != null}
-                          onClick={() => handleReassign(opt)}
-                          className="w-full text-left bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800/50 rounded-2xl px-4 py-3 hover:border-farumasi-300 dark:hover:border-emerald-600 transition-colors disabled:opacity-60"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{opt.provider_name}</span>
-                            <span className="text-sm font-extrabold text-farumasi-700 dark:text-emerald-300">
-                              {formatPrice(opt.estimated_total)}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Medicines {formatPrice(opt.estimated_subtotal)} · Delivery {formatPrice(opt.delivery_fee)}
-                            {opt.requires_refund && (
-                              <span className="text-amber-700 font-medium">
-                                {" "}· Refund {formatPrice(opt.refund_amount)}
-                              </span>
-                            )}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Live tracking map ────────────────────────────────────────── */}
       {order.status === "out_for_delivery" && (
@@ -510,7 +453,7 @@ export default function OrderDetailPage() {
             {isPickup ? "Pickup Progress" : t.order_progress}
           </h2>
           <div className="space-y-0">
-            {timelineSteps.map((step, i) => {
+            {timelineStepsView.map((step, i) => {
               const weight = STATUS_WEIGHTS[step.key] ?? i;
               const done   = weight <= activeWeight;
               const active = step.key === order.status;
@@ -892,6 +835,29 @@ export default function OrderDetailPage() {
                 {cancelling ? "Cancelling…" : "Yes, Cancel"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sticky CTA when switch is available */}
+      {canSwitchPharmacy && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-emerald-200/80 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] backdrop-blur-md dark:border-emerald-900/50 dark:bg-slate-900/95">
+          <div className="mx-auto flex max-w-2xl items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                Pharmacy slow to respond
+              </p>
+              <p className="truncate text-sm font-extrabold text-slate-900 dark:text-slate-100">
+                {reassignOptions!.options.length} alternative{reassignOptions!.options.length !== 1 ? "s" : ""} ready
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => document.getElementById("pharmacy-reassign")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="shrink-0 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/25 hover:bg-emerald-700 active:scale-[0.98] transition-all"
+            >
+              Switch pharmacy
+            </button>
           </div>
         </div>
       )}

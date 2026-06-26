@@ -12,8 +12,9 @@ import { useTranslation } from "@/lib/translations";
 import {
   Package, ChevronRight, Clock, Store, XCircle,
   RefreshCw, Truck, Building2, Pill, AlertTriangle,
-  CheckCircle2, Trash2,
+  CheckCircle2, Trash2, ArrowRightLeft,
 } from "lucide-react";
+import { PharmacyReassignmentBadge } from "@/components/orders/pharmacy-reassignment-panel";
 import type { Order } from "@/types";
 
 const ACTIVE_STATUSES = new Set([
@@ -258,6 +259,17 @@ export default function OrdersPage() {
 
 function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCancel: () => void }) {
   const t = useTranslation();
+  const awaitingPharmacy =
+    order.paymentStatus === "paid" && order.status === "pending_review";
+  const dueMs = order.partnerResponseDueAt
+    ? new Date(order.partnerResponseDueAt).getTime()
+    : null;
+  const waitMs = dueMs != null ? Math.max(0, dueMs - Date.now()) : null;
+  const waitLabel =
+    waitMs != null
+      ? `${Math.floor(Math.ceil(waitMs / 1000) / 60)}:${(Math.ceil(waitMs / 1000) % 60).toString().padStart(2, "0")}`
+      : null;
+  const canSwitch = awaitingPharmacy && order.canReassignPharmacy;
   // Match backend: pending/accepted/preparing are always cancellable (even after payment).
   // ready_for_pickup only cancellable when unpaid.
   const canCancel =
@@ -268,7 +280,39 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
   const firstName = itemList.length > 0 ? itemList[0].name : order.items.split(",")[0]?.trim();
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md dark:hover:shadow-black/20 transition-shadow">
+    <div className={cn(
+      "bg-white dark:bg-slate-800 rounded-3xl border shadow-sm hover:shadow-md dark:hover:shadow-black/20 transition-shadow overflow-hidden",
+      canSwitch ? "border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-500/20" : "border-slate-100 dark:border-slate-700",
+    )}>
+      {awaitingPharmacy && (
+        <div className={cn(
+          "px-5 py-2.5 flex items-center justify-between gap-2 text-xs font-bold",
+          canSwitch
+            ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white"
+            : "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-b border-amber-100 dark:border-amber-900/50",
+        )}>
+          <span className="flex items-center gap-1.5">
+            {canSwitch ? (
+              <>
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                You can switch pharmacy now
+              </>
+            ) : (
+              <>
+                <Clock className="w-3.5 h-3.5" />
+                Waiting for {order.pharmacy} to confirm
+              </>
+            )}
+          </span>
+          {!canSwitch && (
+            <PharmacyReassignmentBadge
+              canReassign={false}
+              waitLabel={waitLabel}
+              waitMs={waitMs}
+            />
+          )}
+        </div>
+      )}
       {/* Top strip — order code + delivery type */}
       <div className="flex items-center justify-between px-5 pt-4 pb-0">
         <div className="flex items-center gap-2">
@@ -343,11 +387,25 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
               </button>
             )}
             <Link
-              href={`/orders/${order.id}`}
-              className="flex items-center gap-1.5 bg-farumasi-600 hover:bg-farumasi-700 text-white px-4 py-2 rounded-2xl text-sm font-semibold transition-colors"
+              href={`/orders/${order.id}${canSwitch ? "#pharmacy-reassign" : ""}`}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold transition-colors",
+                canSwitch
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20"
+                  : "bg-farumasi-600 hover:bg-farumasi-700 text-white",
+              )}
             >
-              {t.orders_track}
-              <ChevronRight className="w-4 h-4" />
+              {canSwitch ? (
+                <>
+                  Switch pharmacy
+                  <ArrowRightLeft className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  {t.orders_track}
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
             </Link>
           </div>
         </div>
