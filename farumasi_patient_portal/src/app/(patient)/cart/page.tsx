@@ -2281,7 +2281,7 @@ export default function CartPage() {
         )}
         <div className="flex justify-between text-sm">
           <span className="text-slate-500">{t.cart_payment_label}</span>
-          <span className="font-bold text-slate-900">MTN MoMo / Pesapal</span>
+          <span className="font-bold text-slate-900">MTN MoMo · Card (Pesapal)</span>
         </div>
         {showRxInsurance && rxInsuranceProvider && (
           <div className="flex justify-between text-sm">
