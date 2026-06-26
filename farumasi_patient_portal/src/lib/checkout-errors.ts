@@ -56,7 +56,7 @@ function parsePaymentDetail(text: string): string | null {
   if (!trimmed) return null;
   if (trimmed.includes("amount_exceeds_default_limit") || /exceeds.*limit/i.test(trimmed)) {
     return (
-      "This order exceeds the current Pesapal payment limit on the FARUMASI merchant account. " +
+      "This order exceeds the current payment limit on the FARUMASI merchant account. " +
       "Please contact support or try a smaller order while limits are being raised."
     );
   }
@@ -69,7 +69,7 @@ function parsePaymentDetail(text: string): string | null {
       };
       if (parsed.code === "amount_exceeds_default_limit") {
         return (
-          "This order exceeds the current Pesapal payment limit. Contact FARUMASI support or try a smaller order."
+          "This order exceeds the current payment limit. Contact FARUMASI support or try a smaller order."
         );
       }
       if (parsed.message) return `Payment could not start: ${parsed.message}`;

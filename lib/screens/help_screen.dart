@@ -23,7 +23,7 @@ class HelpScreen extends StatelessWidget {
     ),
     (
       'What payment methods are supported?',
-      'Mobile Money (MTN, Airtel), card payments, and selected insurance providers. You\'ll see the available methods at checkout.',
+      'MTN MoMo, Airtel Money, and card via Flutterwave. A processing fee is added to your total at checkout.',
     ),
     (
       'How do I cancel an order?',

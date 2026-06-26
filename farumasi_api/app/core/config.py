@@ -66,27 +66,22 @@ class Settings(BaseSettings):
     SMS_SENDER_ID: str = "FARUMASI"
     SMS_HTTP_URL: str = ""
 
-    # ── Patient payments (Pesapal) ────────────────────────────────────────
-    # sandbox = auto-confirm for local/dev E2E; live = Pesapal hosted checkout
+    # ── Patient payments (Flutterwave) ────────────────────────────────────
+    # sandbox = auto-confirm for local/dev E2E; live = Flutterwave hosted checkout
     PAYMENT_MODE: str = "sandbox"
     PAYMENT_CURRENCY: str = "RWF"
-    PAYMENT_PROCESSING_FEE_PERCENT: float = 3.5
-    PESAPAL_ENV: str = "sandbox"  # sandbox | live
-    PESAPAL_CONSUMER_KEY: str = ""
-    PESAPAL_CONSUMER_SECRET: str = ""
-    PESAPAL_IPN_ID: str = ""
-    PESAPAL_IPN_URL: str = ""
+    # Added to patient checkout total — not absorbed by FARUMASI (tune to cover gateway fees)
+    PAYMENT_PROCESSING_FEE_PERCENT: float = 3.8
+    FLUTTERWAVE_SECRET_KEY: str = ""  # optional v3 key: FLWSECK_TEST-… or FLWSECK-…
+    FLUTTERWAVE_CLIENT_ID: str = ""  # v4 sandbox / production (Settings → Developers)
+    FLUTTERWAVE_CLIENT_SECRET: str = ""
+    FLUTTERWAVE_ENCRYPTION_KEY: str = ""  # only needed for direct card charge APIs
+    FLUTTERWAVE_PUBLIC_KEY: str = ""  # FLWPUBK_TEST-… (optional; inline checkout)
+    FLUTTERWAVE_WEBHOOK_SECRET: str = ""  # Settings → Webhooks → secret hash
+    # Rwanda default: MoMo first (default tab), then card. No spaces between values.
+    FLUTTERWAVE_PAYMENT_OPTIONS: str = "mobilemoneyrwanda,card"
     API_PUBLIC_URL: str = "http://localhost:8000"
     PATIENT_PORTAL_URL: str = "http://localhost:3002"
-
-    # MTN MoMo Collection API — when configured, MTN MoMo payments prompt on phone (no Pesapal form)
-    MTN_MOMO_SUBSCRIPTION_KEY: str = ""
-    MTN_MOMO_API_USER: str = ""
-    MTN_MOMO_API_KEY: str = ""
-    MTN_MOMO_ENV: str = "sandbox"  # sandbox | production
-    MTN_MOMO_CURRENCY: str = "RWF"
-    MTN_MOMO_TARGET_ENVIRONMENT: str = "sandbox"
-    MTN_MOMO_CALLBACK_URL: str = ""
 
     # OAuth (public anon values — exposed via /config/public for mobile clients)
     SUPABASE_URL: str = ""

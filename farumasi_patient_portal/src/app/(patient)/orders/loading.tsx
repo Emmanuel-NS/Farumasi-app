@@ -1,4 +1,4 @@
-﻿export default function Loading() {
+export default function Loading() {
   return (
     <div className="flex flex-col h-full min-h-0 animate-pulse">
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700 shrink-0">

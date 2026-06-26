@@ -284,7 +284,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
 
       final order = await PatientRepository.instance.createOrder(build.payload);
-      final init = await PatientRepository.instance.initiatePesapal(
+      final init = await PatientRepository.instance.initiateFlutterwave(
         order.id,
         phone: _phoneController.text.trim(),
         redirectUrl:
@@ -293,7 +293,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (init.checkoutUrl != null && init.checkoutUrl!.isNotEmpty) {
         final uri = Uri.parse(init.checkoutUrl!);
         if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-          throw Exception('Could not open Pesapal checkout.');
+          throw Exception('Could not open Flutterwave checkout.');
         }
       }
       if (init.paymentStatus != 'paid') {

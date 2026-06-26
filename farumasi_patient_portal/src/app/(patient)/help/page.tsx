@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { ChevronLeft, Mail, MessageCircle, Phone } from "lucide-react";
 
 export const metadata = { title: "Help & Support Â· Farumasi" };
@@ -18,7 +18,7 @@ const FAQ = [
   },
   {
     q: "What payment methods are supported?",
-    a: "Mobile Money (MTN, Airtel), card payments, and selected insurance providers. You'll see the available methods at checkout.",
+    a: "MTN MoMo, Airtel Money, and card via Flutterwave. A small processing fee is added to your total at checkout.",
   },
   {
     q: "How do I cancel an order?",

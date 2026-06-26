@@ -271,24 +271,22 @@ class PatientRepository {
     return PatientOrder.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<PaymentInitiateResult> initiatePesapal(
+  Future<PaymentInitiateResult> initiateFlutterwave(
     String orderId, {
-    String? phone,
+    required String phone,
     String? name,
     String? email,
     String? redirectUrl,
-    String paymentMethod = 'mtn_momo',
   }) async {
     try {
       final response = await _client.dio.post(
-        '/patients/me/orders/$orderId/payments/pesapal/initiate',
+        '/patients/me/orders/$orderId/payments/flutterwave/initiate',
         data: {
-          if (phone != null && phone.isNotEmpty) 'phone': phone,
+          'phone': phone,
           if (name != null && name.isNotEmpty) 'name': name,
           if (email != null && email.isNotEmpty) 'email': email,
           if (redirectUrl != null && redirectUrl.isNotEmpty)
             'redirect_url': redirectUrl,
-          'payment_method': paymentMethod,
         },
       );
       return PaymentInitiateResult.fromJson(

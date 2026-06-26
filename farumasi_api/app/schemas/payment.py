@@ -5,12 +5,11 @@ from typing import Optional
 from app.schemas.common import FarumasiBaseModel
 
 
-class PesapalPaymentInitiate(FarumasiBaseModel):
+class FlutterwavePaymentInitiate(FarumasiBaseModel):
     phone: str = ""
     email: Optional[str] = None
     name: Optional[str] = None
     redirect_url: Optional[str] = None
-    payment_method: str = "mtn_momo"  # mtn_momo | airtel_money | card
 
 
 class PaymentInitiateOut(FarumasiBaseModel):

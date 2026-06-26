@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../api/repositories/patient_repository.dart';
-import '../screens/pesapal_checkout_screen.dart';
+import '../screens/flutterwave_checkout_screen.dart';
 import '../widgets/payment_method_selector.dart';
 
-/// Retry Pesapal checkout for orders with failed or pending payment.
+/// Retry Flutterwave checkout for orders with failed or pending payment.
 class OrderPaymentRetry {
   OrderPaymentRetry._();
 
@@ -19,7 +19,7 @@ class OrderPaymentRetry {
     String? initialPhone,
     int orderAmountRwf = 0,
   }) async {
-    var channel = PaymentChannel.mtnMomo;
+    final channel = PaymentChannel.flutterwave;
     final phoneController = TextEditingController(text: initialPhone?.trim() ?? '');
 
     return showModalBottomSheet<PaymentRetryInput>(
@@ -29,70 +29,63 @@ class OrderPaymentRetry {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                16,
-                20,
-                20 + MediaQuery.of(ctx).viewInsets.bottom,
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            20 + MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Try payment again',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Try payment again',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Choose how you want to pay. A small Pesapal processing fee is added to your total.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                  ),
-                  const SizedBox(height: 14),
-                  PaymentMethodSelector(
-                    selected: channel,
-                    onChanged: (m) => setModalState(() => channel = m),
-                  ),
-                  const SizedBox(height: 12),
-                  if (channel.requiresPhone)
-                    TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText: channel == PaymentChannel.airtelMoney
-                            ? 'Airtel Money number'
-                            : 'MTN MoMo number',
-                        hintText: '078XXXXXXX',
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                  if (orderAmountRwf > 0) ...[
-                    const SizedBox(height: 12),
-                    PaymentFeeBreakdown(subtotalRwf: orderAmountRwf),
-                  ],
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () {
-                      final phone = phoneController.text.trim();
-                      if (channel.requiresPhone && phone.length < 9) return;
-                      Navigator.pop(
-                        ctx,
-                        PaymentRetryInput(channel: channel, phone: phone),
-                      );
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E9E68),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: const Text('Continue to Pesapal'),
-                  ),
-                ],
+              const SizedBox(height: 4),
+              Text(
+                'Pay with Flutterwave. A $paymentProcessingFeePercent% processing fee is added to your total.',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
-            );
-          },
+              const SizedBox(height: 14),
+              PaymentMethodSelector(
+                selected: channel,
+                onChanged: (_) {},
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Mobile number',
+                  hintText: '078XXXXXXX',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              if (orderAmountRwf > 0) ...[
+                const SizedBox(height: 12),
+                PaymentFeeBreakdown(subtotalRwf: orderAmountRwf),
+              ],
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  final phone = phoneController.text.trim();
+                  if (phone.length < 9) return;
+                  Navigator.pop(
+                    ctx,
+                    PaymentRetryInput(channel: channel, phone: phone),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E9E68),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('Continue to Flutterwave'),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -108,12 +101,11 @@ class OrderPaymentRetry {
     VoidCallback? onPaid,
   }) async {
     try {
-      final init = await PatientRepository.instance.initiatePesapal(
+      final init = await PatientRepository.instance.initiateFlutterwave(
         order.id,
         phone: phone,
         name: name,
         email: email,
-        paymentMethod: channel.apiValue,
         redirectUrl:
             '${PatientRepository.apiOrigin}/payment-return?order_id=${order.id}',
       );
@@ -122,7 +114,8 @@ class OrderPaymentRetry {
         if (context.mounted) {
           await Navigator.of(context).push<bool>(
             MaterialPageRoute(
-              builder: (_) => PesapalCheckoutScreen(checkoutUrl: init.checkoutUrl!),
+              builder: (_) =>
+                  FlutterwaveCheckoutScreen(checkoutUrl: init.checkoutUrl!),
             ),
           );
         }
@@ -132,26 +125,26 @@ class OrderPaymentRetry {
             content: Text(
               init.message.isNotEmpty
                   ? init.message
-                  : 'Approve the payment on your phone, then pull to refresh.',
+                  : 'Complete payment on Flutterwave, then pull to refresh.',
             ),
             duration: const Duration(seconds: 8),
           ),
         );
       }
 
-      if (init.paymentStatus == 'paid') {
-        onPaid?.call();
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payment confirmed.'),
-              backgroundColor: Color(0xFF1E9E68),
-            ),
-          );
-        }
-        return true;
+      if (init.paymentStatus != 'paid') {
+        await PatientRepository.instance.waitUntilPaid(order.id);
       }
 
+      onPaid?.call();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment confirmed.'),
+            backgroundColor: Color(0xFF1E9E68),
+          ),
+        );
+      }
       return true;
     } catch (e) {
       if (context.mounted) {

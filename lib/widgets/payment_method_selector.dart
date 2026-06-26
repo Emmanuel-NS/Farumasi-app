@@ -1,58 +1,37 @@
 import 'package:flutter/material.dart';
 
-/// Patient-facing payment channels (Pesapal hosted checkout).
+/// Patient checkout via Flutterwave (card + Rwanda mobile money).
 enum PaymentChannel {
-  mtnMomo,
-  airtelMoney,
-  card,
+  flutterwave,
 }
 
 extension PaymentChannelX on PaymentChannel {
-  String get apiValue => switch (this) {
-        PaymentChannel.mtnMomo => 'mtn_momo',
-        PaymentChannel.airtelMoney => 'airtel_money',
-        PaymentChannel.card => 'card',
-      };
+  String get apiValue => 'flutterwave';
 
-  String get label => switch (this) {
-        PaymentChannel.mtnMomo => 'MTN MoMo',
-        PaymentChannel.airtelMoney => 'Airtel Money',
-        PaymentChannel.card => 'Card',
-      };
+  String get label => 'Flutterwave';
 
-  String get subtitle => switch (this) {
-        PaymentChannel.mtnMomo => 'Approve a payment prompt on your MTN phone',
-        PaymentChannel.airtelMoney => 'Select Airtel Money on the Pesapal page',
-        PaymentChannel.card => 'Pay by Visa or Mastercard on Pesapal',
-      };
+  String get subtitle =>
+      'MTN MoMo (default), Airtel, or card — processing fee added to your total';
 
-  IconData get icon => switch (this) {
-        PaymentChannel.mtnMomo => Icons.phone_android_rounded,
-        PaymentChannel.airtelMoney => Icons.sim_card_rounded,
-        PaymentChannel.card => Icons.credit_card_rounded,
-      };
+  IconData get icon => Icons.payments_rounded;
 
-  Color get accent => switch (this) {
-        PaymentChannel.mtnMomo => const Color(0xFFF5B800),
-        PaymentChannel.airtelMoney => const Color(0xFFE4002B),
-        PaymentChannel.card => const Color(0xFF2563EB),
-      };
+  Color get accent => const Color(0xFFF5A623);
 
-  bool get requiresPhone => this != PaymentChannel.card;
+  bool get requiresPhone => true;
 }
 
 /// Must match API `PAYMENT_PROCESSING_FEE_PERCENT`.
-const paymentProcessingFeePercent = 3.5;
+const paymentProcessingFeePercent = 3.8;
 
 const paymentProcessingFeeNote =
-    'Includes a small Pesapal processing fee (${paymentProcessingFeePercent}% of the order amount).';
+    'Payment processing fee ($paymentProcessingFeePercent% of the order amount) — paid by you, not FARUMASI.';
 
 int paymentProcessingFeeRwf(int amountRwf) {
   if (amountRwf <= 0 || paymentProcessingFeePercent <= 0) return 0;
   return (amountRwf * paymentProcessingFeePercent / 100).round();
 }
 
-/// Order amount (medicines + delivery unless deferred) plus Pesapal fee.
+/// Order amount (medicines + delivery unless deferred) plus processing fee.
 int estimatedCheckoutTotalRwf({
   required int medicinesRwf,
   int deliveryRwf = 0,
@@ -93,7 +72,7 @@ class PaymentMethodSelector extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Selected',
+                      'Payment',
                       style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
                     ),
                     Text(
@@ -112,122 +91,67 @@ class PaymentMethodSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        ...PaymentChannel.values.map((method) {
-          final isSelected = method == selected;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onChanged(method),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => onChanged(PaymentChannel.flutterwave),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF9),
                 borderRadius: BorderRadius.circular(16),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFF0FDF9) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF1E9E68)
-                          : const Color(0xFFE2E8F0),
-                      width: isSelected ? 2 : 1,
+                border: Border.all(color: const Color(0xFF1E9E68), width: 2),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: PaymentChannel.flutterwave.accent.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    boxShadow: isSelected
-                        ? const [
-                            BoxShadow(
-                              color: Color(0x141E9E68),
-                              blurRadius: 10,
-                              offset: Offset(0, 3),
-                            ),
-                          ]
-                        : null,
+                    child: Icon(
+                      PaymentChannel.flutterwave.icon,
+                      color: PaymentChannel.flutterwave.accent,
+                      size: 22,
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: method.accent.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(12),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Flutterwave',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            color: Color(0xFF0F5132),
+                          ),
                         ),
-                        child: Icon(method.icon, color: method.accent, size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  method.label,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 14,
-                                    color: isSelected
-                                        ? const Color(0xFF0F5132)
-                                        : const Color(0xFF1E293B),
-                                  ),
-                                ),
-                                if (method == PaymentChannel.mtnMomo) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 7,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF1E9E68),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: const Text(
-                                      'Default',
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              method.subtitle,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected
-                                    ? const Color(0xFF475569)
-                                    : const Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 2),
+                        Text(
+                          PaymentChannel.flutterwave.subtitle,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF475569),
+                          ),
                         ),
-                      ),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        child: Icon(
-                          isSelected
-                              ? Icons.radio_button_checked_rounded
-                              : Icons.radio_button_off_rounded,
-                          key: ValueKey(isSelected),
-                          color: isSelected
-                              ? const Color(0xFF1E9E68)
-                              : const Color(0xFFCBD5E1),
-                          size: 24,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                  const Icon(
+                    Icons.radio_button_checked_rounded,
+                    color: Color(0xFF1E9E68),
+                    size: 24,
+                  ),
+                ],
               ),
             ),
-          );
-        }),
+          ),
+        ),
       ],
     );
   }
@@ -283,7 +207,7 @@ class PaymentFeeBreakdown extends StatelessWidget {
           if (_fee > 0) ...[
             const SizedBox(height: 4),
             _row(
-              'Pesapal fee ($paymentProcessingFeePercent%)',
+              'Processing fee ($paymentProcessingFeePercent%)',
               '$_fee RWF',
               muted: true,
             ),

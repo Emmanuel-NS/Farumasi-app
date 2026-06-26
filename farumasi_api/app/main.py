@@ -263,7 +263,7 @@ async def health_check() -> JSONResponse:
 
 @app.get("/payment-return", response_class=HTMLResponse, tags=["payments"])
 async def payment_return(order_id: str = "") -> HTMLResponse:
-    """Pesapal redirect target after checkout (mobile app + API fallback)."""
+    """Flutterwave redirect target after checkout (mobile app + API fallback)."""
     oid = order_id or ""
     return HTMLResponse(
         f"""<!DOCTYPE html>

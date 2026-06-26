@@ -158,8 +158,7 @@ export default function CartPage() {
   const [accessCode, setAccessCode]           = useState("");
   const [isPlacingOrder, setIsPlacingOrder]   = useState(false);
   const [paymentStepLabel, setPaymentStepLabel] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"mtn_momo" | "airtel_money" | "card">("mtn_momo");
-  const PAYMENT_FEE_PCT = 3.5;
+  const PAYMENT_FEE_PCT = 3.8;
   const [confirmedOrderCode, setConfirmedOrderCode] = useState<string>("");
   const [pharmacyList, setPharmacyList]       = useState<Pharmacy[]>([]);
   const [listingsMap, setListingsMap]         = useState<ListingsMap>(new Map());
@@ -207,7 +206,7 @@ export default function CartPage() {
       .catch(() => {});
   }, [step, user, isGuest]);
 
-  // Return from Pesapal hosted checkout
+  // Return from Flutterwave hosted checkout
   useEffect(() => {
     const paymentReturn = searchParams.get("payment_return");
     const orderId = searchParams.get("order_id");
@@ -1744,8 +1743,7 @@ export default function CartPage() {
 
   // ── STEP 4: Payment ───────────────────────────────────────────
   if (step === "payment") {
-    const canPlace   = !!selectedOption && deliveryLocationReady &&
-      (paymentMethod === "card" ? true : phone.trim().length >= 9);
+    const canPlace   = !!selectedOption && deliveryLocationReady && phone.trim().length >= 9;
     const orderSubtotal = Math.round(
       amountDueNow > 0 ? amountDueNow : medicineSubtotal + (deferDeliveryFee ? 0 : deliveryFeeAmount),
     );
@@ -1782,80 +1780,16 @@ export default function CartPage() {
         <div className="bg-emerald-50 rounded-2xl border border-emerald-200 px-4 py-3 mb-5 flex items-start gap-3">
           <ExternalLink className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
           <p className="text-xs text-emerald-900 leading-relaxed">
-            MTN MoMo sends a prompt to your phone — no card form. Airtel and card open Pesapal; choose your method on that page (not Card unless paying by card).
+            Pay securely with Flutterwave — MTN MoMo (default), Airtel Money, or card. A {PAYMENT_FEE_PCT}% payment processing fee is added to your total (not charged to FARUMASI).
           </p>
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">How would you like to pay?</p>
-          <div className="space-y-2">
-            {([
-              {
-                id: "mtn_momo" as const,
-                label: "MTN MoMo",
-                hint: "Pay with MTN Mobile Money",
-                accent: "border-l-amber-400",
-                iconBg: "bg-amber-100",
-                iconColor: "text-amber-700",
-              },
-              {
-                id: "airtel_money" as const,
-                label: "Airtel Money",
-                hint: "Pay with Airtel Money",
-                accent: "border-l-red-500",
-                iconBg: "bg-red-50",
-                iconColor: "text-red-600",
-              },
-              {
-                id: "card" as const,
-                label: "Card",
-                hint: "Visa or Mastercard via Pesapal",
-                accent: "border-l-blue-500",
-                iconBg: "bg-blue-50",
-                iconColor: "text-blue-600",
-              },
-            ]).map((m) => {
-              const selected = paymentMethod === m.id;
-              return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setPaymentMethod(m.id)}
-                className={cn(
-                  "w-full text-left rounded-2xl border-2 border-l-4 px-4 py-3.5 transition-all",
-                  m.accent,
-                  selected
-                    ? "border-farumasi-500 bg-farumasi-50 shadow-sm ring-1 ring-farumasi-200"
-                    : "border-slate-200 bg-white hover:border-slate-300",
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", m.iconBg)}>
-                    <CreditCard className={cn("w-5 h-5", m.iconColor)} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-900">{m.label}</p>
-                    <p className="text-xs text-slate-500">{m.hint}</p>
-                  </div>
-                  {selected ? (
-                    <CheckCircle2 className="w-5 h-5 text-farumasi-600 shrink-0" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-slate-300 shrink-0" />
-                  )}
-                </div>
-              </button>
-            );
-            })}
-          </div>
-        </div>
-
-        {paymentMethod !== "card" && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">
-            {paymentMethod === "airtel_money" ? "Airtel Money number" : t.cart_momo_number}{" "}
+            {t.cart_momo_number}{" "}
             <span className="text-red-400">*</span>
           </label>
-          <p className="text-[11px] text-slate-500 mb-2">Used on the Pesapal checkout page.</p>
+          <p className="text-[11px] text-slate-500 mb-2">Used for mobile money payments on Flutterwave.</p>
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -1864,7 +1798,6 @@ export default function CartPage() {
             className="w-full h-11 rounded-2xl border border-slate-200 px-4 text-sm text-slate-800 outline-none focus:border-farumasi-400 focus:ring-2 focus:ring-farumasi-100 transition-all"
           />
         </div>
-        )}
 
         {accessCode.trim().length >= 4 && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
@@ -1893,12 +1826,12 @@ export default function CartPage() {
             <div className="flex justify-between"><span className="text-slate-500">Order amount</span><span>{formatPrice(orderSubtotal)}</span></div>
             {processingFee > 0 && (
               <div className="flex justify-between mt-2">
-                <span className="text-slate-500">Pesapal fee ({PAYMENT_FEE_PCT}%)</span>
+                <span className="text-slate-500">Payment processing fee ({PAYMENT_FEE_PCT}%)</span>
                 <span>{formatPrice(processingFee)}</span>
               </div>
             )}
             <p className="text-[11px] text-slate-400 mt-2">
-              Includes a small Pesapal processing fee ({PAYMENT_FEE_PCT}% of the order amount).
+              Payment processing fee ({PAYMENT_FEE_PCT}% of order amount) — paid by you, not FARUMASI.
             </p>
             <div className="flex justify-between mt-3 pt-3 border-t font-bold text-farumasi-700">
               <span>Total to pay now</span><span>{formatPrice(totalWithFee)}</span>
@@ -2140,12 +2073,11 @@ export default function CartPage() {
               const orderCode = result.order_code ?? result.id ?? ORDER_NUM;
 
               const redirectUrl = `${window.location.origin}/cart?payment_return=1&order_id=${orderId}`;
-              setPaymentStepLabel(t.cart_momo_start);
-              const init = await paymentsService.initiatePesapal(orderId, {
-                phone: phone.trim() || undefined,
+              setPaymentStepLabel("Opening Flutterwave checkout…");
+              const init = await paymentsService.initiateFlutterwave(orderId, {
+                phone: phone.trim(),
                 name: name.trim() || undefined,
                 redirect_url: redirectUrl,
-                payment_method: paymentMethod,
               });
 
               if (init.checkout_url) {
@@ -2186,7 +2118,7 @@ export default function CartPage() {
         </button>
         {isPlacingOrder && amountDueNow > 0 && (
           <p className="text-center text-xs text-slate-500 mt-2">
-            {paymentStepLabel || "Complete payment on Pesapal to continue."}
+            {paymentStepLabel || "Complete payment on Flutterwave to continue."}
           </p>
         )}
       </div>
@@ -2369,7 +2301,7 @@ export default function CartPage() {
         )}
         <div className="flex justify-between text-sm">
           <span className="text-slate-500">{t.cart_payment_label}</span>
-          <span className="font-bold text-slate-900">Pesapal</span>
+          <span className="font-bold text-slate-900">Flutterwave</span>
         </div>
         {showRxInsurance && rxInsuranceProvider && (
           <div className="flex justify-between text-sm">
@@ -2407,7 +2339,7 @@ export default function CartPage() {
           <Truck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
           <p className="text-xs text-blue-700">
             <span className="font-semibold">{t.cart_defer_banner}</span>{" "}
-            {formatPrice(deliveryFeeAmount)} will be charged via Pesapal once your order is delivered.
+            {formatPrice(deliveryFeeAmount)} will be charged via Flutterwave once your order is delivered.
           </p>
         </div>
       )}

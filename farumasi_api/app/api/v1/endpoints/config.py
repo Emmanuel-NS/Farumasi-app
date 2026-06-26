@@ -121,8 +121,14 @@ async def public_config(db: AsyncSession = Depends(get_db)):
             "google_web_client_id": settings.GOOGLE_WEB_CLIENT_ID or None,
         },
         "payments": {
+            "provider": "flutterwave",
             "processing_fee_percent": float(settings.PAYMENT_PROCESSING_FEE_PERCENT or 0),
             "currency": settings.PAYMENT_CURRENCY,
+            "public_key": settings.FLUTTERWAVE_PUBLIC_KEY or None,
+            "payment_options": (
+                settings.FLUTTERWAVE_PAYMENT_OPTIONS or "mobilemoneyrwanda,card"
+            ),
+            "default_payment_option": "mobilemoneyrwanda",
         },
     }
 

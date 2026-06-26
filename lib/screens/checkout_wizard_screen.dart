@@ -17,7 +17,7 @@ import '../providers/auth_provider.dart';
 import '../services/state_service.dart';
 import '../widgets/auth_helper.dart';
 import '../widgets/pharmacy_match_details.dart';
-import '../screens/pesapal_checkout_screen.dart';
+import '../screens/flutterwave_checkout_screen.dart';
 import '../widgets/payment_method_selector.dart';
 import '../widgets/searchable_select.dart';
 import 'order_detail_screen.dart';
@@ -75,7 +75,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   String? _confirmedOrderCode;
   String? _confirmedOrderId;
   bool _detailsPrefilled = false;
-  PaymentChannel _paymentChannel = PaymentChannel.mtnMomo;
+  PaymentChannel _paymentChannel = PaymentChannel.flutterwave;
 
   @override
   void initState() {
@@ -637,8 +637,8 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
               ? order.subtotal
               : order.totalAmount)
           .round();
-      final pesapalFee = paymentProcessingFeeRwf(orderDueRwf);
-      final chargeTotal = orderDueRwf + pesapalFee;
+      final processingFee = paymentProcessingFeeRwf(orderDueRwf);
+      final chargeTotal = orderDueRwf + processingFee;
 
       if (!mounted) return;
       final proceed = await showDialog<bool>(
@@ -660,10 +660,10 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                   'Delivery',
                   '${order.deliveryFee.round()} RWF (pay on delivery)',
                 ),
-              if (pesapalFee > 0)
+              if (processingFee > 0)
                 _confirmAmountRow(
-                  'Pesapal fee ($paymentProcessingFeePercent%)',
-                  '$pesapalFee RWF',
+                  'Processing fee ($paymentProcessingFeePercent%)',
+                  '$processingFee RWF',
                 ),
               const Divider(height: 20),
               _confirmAmountRow('Total to pay now', '$chargeTotal RWF', bold: true),
@@ -689,12 +689,11 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         return;
       }
 
-      final init = await PatientRepository.instance.initiatePesapal(
+      final init = await PatientRepository.instance.initiateFlutterwave(
         order.id,
         phone: _phoneController.text.trim(),
         name: _nameController.text.trim(),
         email: ref.read(authProvider).user?.email,
-        paymentMethod: _paymentChannel.apiValue,
         redirectUrl:
             '${PatientRepository.apiOrigin}/payment-return?order_id=${order.id}',
       );
@@ -703,7 +702,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         if (!mounted) return;
         final completed = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
-            builder: (_) => PesapalCheckoutScreen(checkoutUrl: init.checkoutUrl!),
+            builder: (_) => FlutterwaveCheckoutScreen(checkoutUrl: init.checkoutUrl!),
           ),
         );
         if (completed != true && !mounted) return;
@@ -1518,7 +1517,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                             Padding(
                               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                               child: Text(
-                                'Includes ~$paymentProcessingFeePercent% Pesapal fee on ${formatRwf(cardOrderAmount)} order',
+                                'Includes ~$paymentProcessingFeePercent% processing fee on ${formatRwf(cardOrderAmount)} order',
                                 style: const TextStyle(
                                   fontSize: 10,
                                   color: Color(0xFF94A3B8),
@@ -2196,7 +2195,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
       children: [
         _detailsSectionCard(
           title: 'How would you like to pay?',
-          subtitle: 'Secure checkout opens in Pesapal. You can complete payment on your phone.',
+          subtitle: 'Pay with MTN MoMo, Airtel, or card on Flutterwave. Processing fee is added to your total.',
           children: [
             PaymentMethodSelector(
               selected: _paymentChannel,
@@ -2206,10 +2205,8 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         ),
         if (_paymentChannel.requiresPhone)
           _detailsSectionCard(
-            title: _paymentChannel == PaymentChannel.airtelMoney
-                ? 'Airtel Money number'
-                : 'MTN MoMo number',
-            subtitle: 'We use this number on the Pesapal checkout page.',
+            title: 'Mobile number',
+            subtitle: 'Used for mobile money on Flutterwave.',
             children: [
               TextField(
                 key: ValueKey(_paymentChannel),
@@ -2222,7 +2219,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         else
           _detailsSectionCard(
             title: 'Contact phone',
-            subtitle: 'Optional — for your Pesapal payment receipt.',
+            subtitle: 'Optional — for your Flutterwave payment receipt.',
             children: [
               TextField(
                 controller: _phoneController,
@@ -2306,7 +2303,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         ElevatedButton(
           onPressed: _isSubmitting ? null : () => _submitPayment(items),
           style: _primaryBtn,
-          child: Text(_isSubmitting ? 'Processing…' : 'Continue to Pesapal'),
+          child: Text(_isSubmitting ? 'Processing…' : 'Continue to Flutterwave'),
         ),
       ],
     );

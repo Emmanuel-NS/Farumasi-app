@@ -60,7 +60,6 @@ export default function OrderDetailPage() {
   const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [retryingPayment, setRetryingPayment] = useState(false);
-  const [retryPaymentMethod, setRetryPaymentMethod] = useState<"mtn_momo" | "airtel_money" | "card">("mtn_momo");
   const [reassignOptions, setReassignOptions] = useState<Awaited<ReturnType<typeof ordersService.getReassignmentOptions>> | null>(null);
   const [showCheaperPharmacies, setShowCheaperPharmacies] = useState(false);
   const [reassigningId, setReassigningId] = useState<string | null>(null);
@@ -195,26 +194,20 @@ export default function OrderDetailPage() {
 
   const handleRetryPayment = async () => {
     if (!order) return;
-    const needsPhone = retryPaymentMethod !== "card";
-    const phone = needsPhone
-      ? window.prompt(
-          retryPaymentMethod === "airtel_money"
-            ? "Enter your Airtel Money number:"
-            : "Enter your MTN MoMo number:",
-          authUser?.phone ?? "",
-        )
-      : authUser?.phone ?? "";
-    if (needsPhone && !phone?.trim()) return;
+    const phone = window.prompt(
+      "Enter your mobile number for payment:",
+      authUser?.phone ?? "",
+    );
+    if (!phone?.trim()) return;
 
     setRetryingPayment(true);
     try {
       const redirectUrl = `${window.location.origin}/orders/${order.id}?payment_return=1`;
-      const init = await paymentsService.initiatePesapal(order.id, {
-        phone: phone?.trim() || undefined,
+      const init = await paymentsService.initiateFlutterwave(order.id, {
+        phone: phone.trim(),
         name: authUser?.name,
         email: authUser?.email,
         redirect_url: redirectUrl,
-        payment_method: retryPaymentMethod,
       });
 
       if (init.checkout_url) {
@@ -740,37 +733,14 @@ export default function OrderDetailPage() {
       {/* ── Actions ──────────────────────────────────────────────────── */}
       <div className="space-y-3">
         {canRetryPayment && (
-          <div className="space-y-2">
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { id: "mtn_momo" as const, label: "MTN" },
-                { id: "airtel_money" as const, label: "Airtel" },
-                { id: "card" as const, label: "Card" },
-              ]).map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setRetryPaymentMethod(m.id)}
-                  className={cn(
-                    "h-10 rounded-xl border text-xs font-bold",
-                    retryPaymentMethod === m.id
-                      ? "border-farumasi-500 bg-farumasi-50 dark:bg-emerald-950/40 text-farumasi-800 dark:text-emerald-200"
-                      : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300",
-                  )}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={handleRetryPayment}
-              disabled={retryingPayment}
-              className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors disabled:opacity-60"
-            >
-              <Banknote className="w-4 h-4" />
-              {retryingPayment ? "Starting payment…" : "Try payment again"}
-            </button>
-          </div>
+          <button
+            onClick={handleRetryPayment}
+            disabled={retryingPayment}
+            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors disabled:opacity-60"
+          >
+            <Banknote className="w-4 h-4" />
+            {retryingPayment ? "Starting payment…" : "Pay with Flutterwave"}
+          </button>
         )}
 
         {/* Reorder (past / delivered orders) */}

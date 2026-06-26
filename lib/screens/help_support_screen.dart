@@ -83,7 +83,7 @@ class HelpSupportScreen extends StatelessWidget {
             "Account & Payments", 
             [
               _FaqItem("How do I change my password?", "Go to Settings > Account Security > Change Password."),
-              _FaqItem("What payment methods are accepted?", "We accept MTN Mobile Money, Airtel Money, and Visa/Mastercard."),
+              _FaqItem("What payment methods are accepted?", "MTN MoMo, Airtel Money, and card via Flutterwave. A processing fee is added to your total."),
               _FaqItem("Is my data safe?", "Yes, we use military-grade encryption to protect your health data."),
             ]
           ),

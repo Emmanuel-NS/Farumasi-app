@@ -4,6 +4,8 @@ export interface PaymentInitiateResult {
   order_id: string;
   payment_status: string;
   amount: number;
+  order_amount?: number;
+  processing_fee?: number;
   currency: string;
   provider: string;
   external_id?: string | null;
@@ -19,26 +21,26 @@ export interface PaymentStatusResult {
   payment_method?: string | null;
   payment_reference?: string | null;
   message?: string | null;
+  processing_fee?: number | null;
 }
 
-export interface PesapalInitiatePayload {
-  phone?: string;
+export interface FlutterwaveInitiatePayload {
+  phone: string;
   email?: string;
   name?: string;
   redirect_url?: string;
-  payment_method?: "mtn_momo" | "airtel_money" | "card";
 }
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_MAX_ATTEMPTS = 48;
 
 export const paymentsService = {
-  async initiatePesapal(
+  async initiateFlutterwave(
     orderId: string,
-    payload: PesapalInitiatePayload,
+    payload: FlutterwaveInitiatePayload,
   ): Promise<PaymentInitiateResult> {
     const { data } = await api.post<PaymentInitiateResult>(
-      `/patients/me/orders/${orderId}/payments/pesapal/initiate`,
+      `/patients/me/orders/${orderId}/payments/flutterwave/initiate`,
       payload,
       { timeout: 45_000 },
     );
