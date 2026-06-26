@@ -277,12 +277,14 @@ class PatientRepository {
     String? name,
     String? email,
     String? redirectUrl,
+    String paymentMethod = 'mtn_momo',
   }) async {
     try {
       final response = await _client.dio.post(
         '/patients/me/orders/$orderId/payments/flutterwave/initiate',
         data: {
           'phone': phone,
+          'payment_method': paymentMethod,
           if (name != null && name.isNotEmpty) 'name': name,
           if (email != null && email.isNotEmpty) 'email': email,
           if (redirectUrl != null && redirectUrl.isNotEmpty)

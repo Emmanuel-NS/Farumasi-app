@@ -233,6 +233,7 @@ async def initiate_my_order_flutterwave_payment(
         email=data.email,
         name=data.name,
         redirect_url=data.redirect_url,
+        payment_method=data.payment_method,
     )
 
 

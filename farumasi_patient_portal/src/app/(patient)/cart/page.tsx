@@ -21,6 +21,7 @@ import {
 import { productsService } from "@/lib/services/products.service";
 import { patientsService, type PatientAddress } from "@/lib/services/patients.service";
 import { configService } from "@/lib/services/config.service";
+import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment-checkout";
 import { useAuthStore } from "@/store/auth-store";
 import { usePatientLocation } from "@/hooks/use-patient-location";
 import type { Pharmacy, Medicine } from "@/types";
@@ -151,6 +152,7 @@ export default function CartPage() {
   const [roadDistancesLoading, setRoadDistancesLoading] = useState(false);
   const [name, setName]                       = useState("");
   const [phone, setPhone]                     = useState("");
+  const [paymentMethod, setPaymentMethod]     = useState<PaymentMethodId>("mtn_momo");
   const [district, setDistrict]               = useState("");
   const [deliveryHood, setDeliveryHood]       = useState("");
   const [notes, setNotes]                     = useState("");
@@ -1743,7 +1745,8 @@ export default function CartPage() {
 
   // ── STEP 4: Payment ───────────────────────────────────────────
   if (step === "payment") {
-    const canPlace   = !!selectedOption && deliveryLocationReady && phone.trim().length >= 9;
+    const phoneReady = paymentMethod === "card" || phone.trim().length >= 9;
+    const canPlace   = !!selectedOption && deliveryLocationReady && phoneReady;
     const orderSubtotal = Math.round(
       amountDueNow > 0 ? amountDueNow : medicineSubtotal + (deferDeliveryFee ? 0 : deliveryFeeAmount),
     );
@@ -1777,25 +1780,18 @@ export default function CartPage() {
           />
         )}
 
-        <div className="bg-emerald-50 rounded-2xl border border-emerald-200 px-4 py-3 mb-5 flex items-start gap-3">
-          <ExternalLink className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-          <p className="text-xs text-emerald-900 leading-relaxed">
-            Pay securely with Flutterwave — MTN MoMo (default), Airtel Money, or card. A {PAYMENT_FEE_PCT}% payment processing fee is added to your total (not charged to FARUMASI).
-          </p>
-        </div>
-
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
-          <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">
-            {t.cart_momo_number}{" "}
-            <span className="text-red-400">*</span>
-          </label>
-          <p className="text-[11px] text-slate-500 mb-2">Used for mobile money payments on Flutterwave.</p>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="e.g. 0781 234 567"
-            type="tel"
-            className="w-full h-11 rounded-2xl border border-slate-200 px-4 text-sm text-slate-800 outline-none focus:border-farumasi-400 focus:ring-2 focus:ring-farumasi-100 transition-all"
+        <div className="mb-6">
+          <PaymentCheckout
+            method={paymentMethod}
+            onMethodChange={setPaymentMethod}
+            phone={phone}
+            onPhoneChange={setPhone}
+            feePercent={PAYMENT_FEE_PCT}
+            orderSubtotal={orderSubtotal}
+            processingFee={processingFee}
+            totalWithFee={totalWithFee}
+            formatPrice={formatPrice}
+            momoNumberLabel={t.cart_momo_number}
           />
         </div>
 
@@ -1817,25 +1813,6 @@ export default function CartPage() {
                 ? "Show this at the pharmacy when you collect your order."
                 : "Give this to the rider to verify and complete delivery."}
             </p>
-          </div>
-        )}
-
-        {orderSubtotal > 0 && (
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6 text-sm">
-            <p className="text-sm font-bold text-slate-800 mb-3">Payment summary</p>
-            <div className="flex justify-between"><span className="text-slate-500">Order amount</span><span>{formatPrice(orderSubtotal)}</span></div>
-            {processingFee > 0 && (
-              <div className="flex justify-between mt-2">
-                <span className="text-slate-500">Payment processing fee ({PAYMENT_FEE_PCT}%)</span>
-                <span>{formatPrice(processingFee)}</span>
-              </div>
-            )}
-            <p className="text-[11px] text-slate-400 mt-2">
-              Payment processing fee ({PAYMENT_FEE_PCT}% of order amount) — paid by you, not FARUMASI.
-            </p>
-            <div className="flex justify-between mt-3 pt-3 border-t font-bold text-farumasi-700">
-              <span>Total to pay now</span><span>{formatPrice(totalWithFee)}</span>
-            </div>
           </div>
         )}
 
@@ -2078,6 +2055,7 @@ export default function CartPage() {
                 phone: phone.trim(),
                 name: name.trim() || undefined,
                 redirect_url: redirectUrl,
+                payment_method: paymentMethod,
               });
 
               if (init.checkout_url) {

@@ -19,7 +19,7 @@ class OrderPaymentRetry {
     String? initialPhone,
     int orderAmountRwf = 0,
   }) async {
-    final channel = PaymentChannel.flutterwave;
+    var channel = PaymentChannel.mtnMomo;
     final phoneController = TextEditingController(text: initialPhone?.trim() ?? '');
 
     return showModalBottomSheet<PaymentRetryInput>(
@@ -29,63 +29,74 @@ class OrderPaymentRetry {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            16,
-            20,
-            20 + MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Try payment again',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final phoneReady = !channel.requiresPhone || phoneController.text.trim().length >= 9;
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                20 + MediaQuery.of(ctx).viewInsets.bottom,
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Pay with Flutterwave. A $paymentProcessingFeePercent% processing fee is added to your total.',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-              ),
-              const SizedBox(height: 14),
-              PaymentMethodSelector(
-                selected: channel,
-                onChanged: (_) {},
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Mobile number',
-                  hintText: '078XXXXXXX',
-                  border: OutlineInputBorder(),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Try payment again',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 14),
+                    PaymentMethodSelector(
+                      selected: channel,
+                      onChanged: (m) => setModalState(() => channel = m),
+                    ),
+                    if (channel.requiresPhone) ...[
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        onChanged: (_) => setModalState(() {}),
+                        decoration: InputDecoration(
+                          labelText: channel == PaymentChannel.airtelMoney
+                              ? 'Airtel Money number'
+                              : 'MTN MoMo number',
+                          hintText: '078XXXXXXX',
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                    if (orderAmountRwf > 0) ...[
+                      const SizedBox(height: 12),
+                      PaymentFeeBreakdown(subtotalRwf: orderAmountRwf),
+                    ],
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: phoneReady
+                          ? () {
+                              Navigator.pop(
+                                ctx,
+                                PaymentRetryInput(
+                                  channel: channel,
+                                  phone: phoneController.text.trim(),
+                                ),
+                              );
+                            }
+                          : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E9E68),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Continue to Flutterwave'),
+                    ),
+                  ],
                 ),
               ),
-              if (orderAmountRwf > 0) ...[
-                const SizedBox(height: 12),
-                PaymentFeeBreakdown(subtotalRwf: orderAmountRwf),
-              ],
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () {
-                  final phone = phoneController.text.trim();
-                  if (phone.length < 9) return;
-                  Navigator.pop(
-                    ctx,
-                    PaymentRetryInput(channel: channel, phone: phone),
-                  );
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E9E68),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('Continue to Flutterwave'),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -108,6 +119,7 @@ class OrderPaymentRetry {
         email: email,
         redirectUrl:
             '${PatientRepository.apiOrigin}/payment-return?order_id=${order.id}',
+        paymentMethod: channel.apiValue,
       );
 
       if (init.checkoutUrl != null && init.checkoutUrl!.isNotEmpty) {

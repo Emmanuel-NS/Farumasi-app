@@ -144,6 +144,7 @@ class PaymentService:
         email: Optional[str] = None,
         name: Optional[str] = None,
         redirect_url: Optional[str] = None,
+        payment_method: str = "mtn_momo",
     ) -> PaymentInitiateOut:
         order = await self._get_patient_order(order_id, actor)
         if order.payment_status == PaymentStatus.PAID:
@@ -156,12 +157,23 @@ class PaymentService:
         )
 
         phone_raw = (phone or actor_phone or "").strip()
-        if not phone_raw:
-            raise ValidationError("Enter your mobile number for payment.")
-        try:
-            msisdn = normalize_rwanda_phone(phone_raw)
-        except ValueError as exc:
-            raise ValidationError(str(exc)) from exc
+        method = (payment_method or "mtn_momo").lower().strip()
+        if method not in ("mtn_momo", "airtel_money", "card"):
+            raise ValidationError("Invalid payment method. Choose MTN MoMo, Airtel Money, or card.")
+
+        if method in ("mtn_momo", "airtel_money"):
+            if not phone_raw:
+                label = "Airtel Money" if method == "airtel_money" else "MTN MoMo"
+                raise ValidationError(f"Enter your {label} number for this payment.")
+            try:
+                msisdn = normalize_rwanda_phone(phone_raw)
+            except ValueError as exc:
+                raise ValidationError(str(exc)) from exc
+        else:
+            try:
+                msisdn = normalize_rwanda_phone(phone_raw) if phone_raw else normalize_rwanda_phone(actor_phone or "0780000000")
+            except ValueError:
+                msisdn = "250788000000"
 
         due = amount_due_for_order(order)
         processing_fee = payment_processing_fee(due)
@@ -181,9 +193,9 @@ class PaymentService:
                 payment_method="none",
             )
 
-        display_phone = _display_phone(phone_raw)
+        display_phone = _display_phone(phone_raw or actor_phone or "0780000000")
         merchant_ref = _merchant_reference(order)
-        order.payment_method = "flutterwave"
+        order.payment_method = method
         order.payment_phone = msisdn
         order.payment_status = PaymentStatus.PENDING
 
@@ -192,7 +204,7 @@ class PaymentService:
             amount=charge_amount,
             currency=settings.PAYMENT_CURRENCY,
             provider="flutterwave",
-            method="flutterwave",
+            method=method,
             phone=msisdn,
             status=_TX_PENDING,
             external_id=merchant_ref,
@@ -216,7 +228,7 @@ class PaymentService:
                 provider="flutterwave_sandbox",
                 external_id=merchant_ref,
                 message="Sandbox payment confirmed. Use live Flutterwave in production.",
-                payment_method="flutterwave",
+                payment_method=method,
             )
 
         if not self.flutterwave.is_configured():
@@ -240,6 +252,7 @@ class PaymentService:
                 customer_phone=display_phone,
                 customer_name=customer_name,
                 description=f"FARUMASI {order.order_code}",
+                payment_method=method,
             )
             if result.get("flw_ref"):
                 txn.provider_reference = str(result["flw_ref"])
@@ -280,6 +293,11 @@ class PaymentService:
             if processing_fee > 0
             else ""
         )
+        method_messages = {
+            "mtn_momo": f"Complete MTN MoMo payment on Flutterwave.{fee_note}",
+            "airtel_money": f"Complete Airtel Money payment on Flutterwave.{fee_note}",
+            "card": f"Complete your card payment on the secure Flutterwave page.{fee_note}",
+        }
         return PaymentInitiateOut(
             order_id=order.id,
             payment_status=PaymentStatus.PENDING,
@@ -289,10 +307,8 @@ class PaymentService:
             provider="flutterwave",
             external_id=merchant_ref,
             checkout_url=result["link"],
-            message=(
-                f"Complete payment on Flutterwave (card or mobile money).{fee_note}"
-            ),
-            payment_method="flutterwave",
+            message=method_messages.get(method, f"Complete payment on Flutterwave.{fee_note}"),
+            payment_method=method,
         )
 
     async def get_status(self, order_id: str, actor: User) -> PaymentStatusOut:

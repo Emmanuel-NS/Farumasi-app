@@ -32,7 +32,13 @@ class FlutterwaveService:
             settings.FLUTTERWAVE_CLIENT_ID and settings.FLUTTERWAVE_CLIENT_SECRET
         )
 
-    def _payment_options(self) -> str:
+    def _payment_options(self, payment_method: str = "mtn_momo") -> str:
+        method = (payment_method or "mtn_momo").lower().strip()
+        if method == "card":
+            return "card"
+        if method in ("mtn_momo", "airtel_money"):
+            # MoMo first so Flutterwave opens mobile money tab by default.
+            return "mobilemoneyrwanda,card"
         raw = (settings.FLUTTERWAVE_PAYMENT_OPTIONS or "").strip()
         if raw:
             return raw.replace(" ", "")
@@ -105,6 +111,7 @@ class FlutterwaveService:
         customer_name: str,
         title: str = "FARUMASI",
         description: str = "",
+        payment_method: str = "mtn_momo",
     ) -> dict[str, Any]:
         bearer = await self._bearer_token()
         payload = {
@@ -112,7 +119,7 @@ class FlutterwaveService:
             "amount": amount,
             "currency": currency,
             "redirect_url": redirect_url,
-            "payment_options": self._payment_options(),
+            "payment_options": self._payment_options(payment_method),
             "customer": {
                 "email": customer_email,
                 "phonenumber": customer_phone,

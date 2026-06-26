@@ -287,6 +287,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final init = await PatientRepository.instance.initiateFlutterwave(
         order.id,
         phone: _phoneController.text.trim(),
+        paymentMethod: 'mtn_momo',
         redirectUrl:
             '${PatientRepository.apiOrigin}/payment-return?order_id=${order.id}',
       );

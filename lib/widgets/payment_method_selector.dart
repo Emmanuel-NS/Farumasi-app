@@ -1,23 +1,80 @@
 import 'package:flutter/material.dart';
 
-/// Patient checkout via Flutterwave (card + Rwanda mobile money).
+/// Patient checkout methods — maps to API `payment_method`.
 enum PaymentChannel {
-  flutterwave,
+  mtnMomo,
+  airtelMoney,
+  card,
 }
 
 extension PaymentChannelX on PaymentChannel {
-  String get apiValue => 'flutterwave';
+  String get apiValue {
+    switch (this) {
+      case PaymentChannel.mtnMomo:
+        return 'mtn_momo';
+      case PaymentChannel.airtelMoney:
+        return 'airtel_money';
+      case PaymentChannel.card:
+        return 'card';
+    }
+  }
 
-  String get label => 'Flutterwave';
+  String get label {
+    switch (this) {
+      case PaymentChannel.mtnMomo:
+        return 'MTN MoMo';
+      case PaymentChannel.airtelMoney:
+        return 'Airtel Money';
+      case PaymentChannel.card:
+        return 'Debit / Credit Card';
+    }
+  }
 
-  String get subtitle =>
-      'MTN MoMo (default), Airtel, or card — processing fee added to your total';
+  String get network {
+    switch (this) {
+      case PaymentChannel.mtnMomo:
+        return 'MTN Mobile Money';
+      case PaymentChannel.airtelMoney:
+        return 'Airtel Money';
+      case PaymentChannel.card:
+        return 'Visa · Mastercard';
+    }
+  }
 
-  IconData get icon => Icons.payments_rounded;
+  String get hint {
+    switch (this) {
+      case PaymentChannel.mtnMomo:
+        return 'Pay from your MTN wallet';
+      case PaymentChannel.airtelMoney:
+        return 'Pay from your Airtel wallet';
+      case PaymentChannel.card:
+        return 'Secure card checkout via Flutterwave';
+    }
+  }
 
-  Color get accent => const Color(0xFFF5A623);
+  Color get accent {
+    switch (this) {
+      case PaymentChannel.mtnMomo:
+        return const Color(0xFFF59E0B);
+      case PaymentChannel.airtelMoney:
+        return const Color(0xFFEF4444);
+      case PaymentChannel.card:
+        return const Color(0xFF2563EB);
+    }
+  }
 
-  bool get requiresPhone => true;
+  IconData get icon {
+    switch (this) {
+      case PaymentChannel.card:
+        return Icons.credit_card_rounded;
+      default:
+        return Icons.smartphone_rounded;
+    }
+  }
+
+  bool get requiresPhone => this != PaymentChannel.card;
+
+  bool get isDefault => this == PaymentChannel.mtnMomo;
 }
 
 /// Must match API `PAYMENT_PROCESSING_FEE_PERCENT`.
@@ -56,103 +113,332 @@ class PaymentMethodSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        _SecureCheckoutHeader(feePercent: paymentProcessingFeePercent),
+        const SizedBox(height: 16),
+        ...PaymentChannel.values.map((channel) {
+          final active = selected == channel;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _MethodCard(
+              channel: channel,
+              active: active,
+              onTap: () => onChanged(channel),
+            ),
+          );
+        }),
+        const SizedBox(height: 4),
+        _ActiveMethodPanel(channel: selected),
+      ],
+    );
+  }
+}
+
+class _SecureCheckoutHeader extends StatelessWidget {
+  const _SecureCheckoutHeader({required this.feePercent});
+
+  final double feePercent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF064E3B)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.lock_rounded, color: Color(0xFF6EE7B7), size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SECURE CHECKOUT',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                    color: const Color(0xFF6EE7B7).withValues(alpha: 0.9),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Choose how to pay',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'MTN MoMo, Airtel Money, or card — processed by Flutterwave. A $feePercent% fee is added to your total.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 1.4,
+                    color: Colors.white.withValues(alpha: 0.72),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.verified_user_outlined, color: Color(0xFF34D399), size: 24),
+        ],
+      ),
+    );
+  }
+}
+
+class _MethodCard extends StatelessWidget {
+  const _MethodCard({
+    required this.channel,
+    required this.active,
+    required this.onTap,
+  });
+
+  final PaymentChannel channel;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFFECFDF5),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFBBF7D0)),
+            color: active ? Colors.white : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: active ? channel.accent : const Color(0xFFE2E8F0),
+              width: active ? 2 : 1,
+            ),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: channel.accent.withValues(alpha: 0.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             children: [
-              Icon(selected.icon, color: const Color(0xFF0F5132), size: 22),
-              const SizedBox(width: 10),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: channel.accent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(channel.icon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Payment',
-                      style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                    Row(
+                      children: [
+                        Text(
+                          channel.label,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            color: active ? const Color(0xFF0F172A) : const Color(0xFF334155),
+                          ),
+                        ),
+                        if (channel.isDefault) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF059669),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Text(
+                              'DEFAULT',
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      selected.label,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: Color(0xFF0F5132),
-                      ),
+                      channel.hint,
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.check_circle, color: selected.accent, size: 22),
+              Icon(
+                active ? Icons.check_circle_rounded : Icons.circle_outlined,
+                color: active ? const Color(0xFF1E9E68) : const Color(0xFFCBD5E1),
+                size: 24,
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => onChanged(PaymentChannel.flutterwave),
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF9),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF1E9E68), width: 2),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: PaymentChannel.flutterwave.accent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      PaymentChannel.flutterwave.icon,
-                      color: PaymentChannel.flutterwave.accent,
-                      size: 22,
-                    ),
+      ),
+    );
+  }
+}
+
+class _ActiveMethodPanel extends StatelessWidget {
+  const _ActiveMethodPanel({required this.channel});
+
+  final PaymentChannel channel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: channel.accent.withValues(alpha: 0.08),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: channel.accent,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Flutterwave',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                            color: Color(0xFF0F5132),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          PaymentChannel.flutterwave.subtitle,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF475569),
-                          ),
-                        ),
-                      ],
+                  child: Icon(channel.icon, color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'PAY WITH',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF64748B),
+                        letterSpacing: 0.8,
+                      ),
                     ),
-                  ),
-                  const Icon(
-                    Icons.radio_button_checked_rounded,
-                    color: Color(0xFF1E9E68),
-                    size: 24,
-                  ),
-                ],
-              ),
+                    Text(
+                      channel.network,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: channel.accent.withValues(alpha: 0.95),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: channel.requiresPhone
+                ? Text(
+                    channel == PaymentChannel.mtnMomo
+                        ? 'You will approve the payment on your MTN phone (MoMo PIN or USSD prompt).'
+                        : 'Enter your Airtel number — you will confirm on your Airtel Money wallet.',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.4),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'You will be redirected to a secure Flutterwave page to enter your card details.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.4),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0), style: BorderStyle.solid),
+                        ),
+                        child: Row(
+                          children: [
+                            _Badge(label: 'VISA', color: const Color(0xFF1D4ED8)),
+                            const SizedBox(width: 6),
+                            _Badge(label: 'MC', color: const Color(0xFFEA580C)),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                '256-bit encrypted · PCI compliant',
+                                style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
+      ),
     );
   }
 }

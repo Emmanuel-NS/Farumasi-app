@@ -24,11 +24,14 @@ export interface PaymentStatusResult {
   processing_fee?: number | null;
 }
 
+export type PaymentMethodId = "mtn_momo" | "airtel_money" | "card";
+
 export interface FlutterwaveInitiatePayload {
   phone: string;
   email?: string;
   name?: string;
   redirect_url?: string;
+  payment_method?: PaymentMethodId;
 }
 
 const POLL_INTERVAL_MS = 2500;

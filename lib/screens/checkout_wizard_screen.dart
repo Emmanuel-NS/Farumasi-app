@@ -75,7 +75,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
   String? _confirmedOrderCode;
   String? _confirmedOrderId;
   bool _detailsPrefilled = false;
-  PaymentChannel _paymentChannel = PaymentChannel.flutterwave;
+  PaymentChannel _paymentChannel = PaymentChannel.mtnMomo;
 
   @override
   void initState() {
@@ -696,6 +696,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         email: ref.read(authProvider).user?.email,
         redirectUrl:
             '${PatientRepository.apiOrigin}/payment-return?order_id=${order.id}',
+        paymentMethod: _paymentChannel.apiValue,
       );
 
       if (init.checkoutUrl != null && init.checkoutUrl!.isNotEmpty) {
@@ -2205,8 +2206,12 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         ),
         if (_paymentChannel.requiresPhone)
           _detailsSectionCard(
-            title: 'Mobile number',
-            subtitle: 'Used for mobile money on Flutterwave.',
+            title: _paymentChannel == PaymentChannel.airtelMoney
+                ? 'Airtel Money number'
+                : 'MTN MoMo number',
+            subtitle: _paymentChannel == PaymentChannel.mtnMomo
+                ? 'You will approve the payment on your MTN phone.'
+                : 'Enter your Airtel number for wallet payment.',
             children: [
               TextField(
                 key: ValueKey(_paymentChannel),

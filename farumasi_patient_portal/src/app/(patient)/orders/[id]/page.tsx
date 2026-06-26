@@ -14,6 +14,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { useTranslation } from "@/lib/translations";
 import { useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
+import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment-checkout";
 import {
   ArrowLeft, MapPin, Phone, MessageCircle, Package, Store,
   CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink,
@@ -60,11 +61,20 @@ export default function OrderDetailPage() {
   const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [retryingPayment, setRetryingPayment] = useState(false);
+  const [retryPhone, setRetryPhone] = useState("");
+  const [retryPaymentMethod, setRetryPaymentMethod] = useState<PaymentMethodId>("mtn_momo");
+  const PAYMENT_FEE_PCT = 3.8;
   const [reassignOptions, setReassignOptions] = useState<Awaited<ReturnType<typeof ordersService.getReassignmentOptions>> | null>(null);
   const [showCheaperPharmacies, setShowCheaperPharmacies] = useState(false);
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignTick, setReassignTick] = useState(0);
   const authUser = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    if (authUser?.phone && !retryPhone) {
+      setRetryPhone(authUser.phone);
+    }
+  }, [authUser?.phone, retryPhone]);
 
   const loadOrder = async () => {
     if (!id) return;
@@ -194,20 +204,21 @@ export default function OrderDetailPage() {
 
   const handleRetryPayment = async () => {
     if (!order) return;
-    const phone = window.prompt(
-      "Enter your mobile number for payment:",
-      authUser?.phone ?? "",
-    );
-    if (!phone?.trim()) return;
+    const phoneReady = retryPaymentMethod === "card" || retryPhone.trim().length >= 9;
+    if (!phoneReady) {
+      toast.error("Enter a valid mobile number for this payment method.");
+      return;
+    }
 
     setRetryingPayment(true);
     try {
       const redirectUrl = `${window.location.origin}/orders/${order.id}?payment_return=1`;
       const init = await paymentsService.initiateFlutterwave(order.id, {
-        phone: phone.trim(),
+        phone: retryPhone.trim(),
         name: authUser?.name,
         email: authUser?.email,
         redirect_url: redirectUrl,
+        payment_method: retryPaymentMethod,
       });
 
       if (init.checkout_url) {
@@ -266,6 +277,10 @@ export default function OrderDetailPage() {
   const subtotal    = order.subtotal ?? (order.pharmacyPrice ?? 0);
   const deliveryFee = order.deliveryFee ?? 0;
   const total       = subtotal + deliveryFee;
+  const orderAmountDue = Math.round(total);
+  const retryProcessingFee = orderAmountDue > 0 ? Math.round(orderAmountDue * PAYMENT_FEE_PCT / 100) : 0;
+  const retryTotalWithFee = orderAmountDue + retryProcessingFee;
+  const retryPhoneReady = retryPaymentMethod === "card" || retryPhone.trim().length >= 9;
 
   const itemList = order.itemList ?? [];
 
@@ -730,17 +745,48 @@ export default function OrderDetailPage() {
         </a>
       </div>
 
+      {/* ── Retry payment ───────────────────────────────────────────── */}
+      {canRetryPayment && (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-amber-200 dark:border-amber-800/50 shadow-sm p-5 mb-4">
+          <div className="flex items-start gap-2 mb-4">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Payment required</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Complete payment to confirm your order.
+              </p>
+            </div>
+          </div>
+          <PaymentCheckout
+            method={retryPaymentMethod}
+            onMethodChange={setRetryPaymentMethod}
+            phone={retryPhone}
+            onPhoneChange={setRetryPhone}
+            feePercent={PAYMENT_FEE_PCT}
+            orderSubtotal={orderAmountDue}
+            processingFee={retryProcessingFee}
+            totalWithFee={retryTotalWithFee}
+            formatPrice={formatPrice}
+          />
+          <button
+            onClick={handleRetryPayment}
+            disabled={retryingPayment || !retryPhoneReady}
+            className="w-full mt-5 flex items-center justify-center gap-2 h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors disabled:opacity-60"
+          >
+            <Banknote className="w-4 h-4" />
+            {retryingPayment
+              ? "Starting payment…"
+              : `Pay now · ${formatPrice(retryTotalWithFee)}`}
+          </button>
+        </div>
+      )}
+
       {/* ── Actions ──────────────────────────────────────────────────── */}
       <div className="space-y-3">
         {canRetryPayment && (
-          <button
-            onClick={handleRetryPayment}
-            disabled={retryingPayment}
-            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors disabled:opacity-60"
-          >
-            <Banknote className="w-4 h-4" />
-            {retryingPayment ? "Starting payment…" : "Pay with Flutterwave"}
-          </button>
+          <p className="text-center text-xs text-slate-400 dark:text-slate-500">
+            You will be redirected to Flutterwave to complete payment securely.
+          </p>
         )}
 
         {/* Reorder (past / delivered orders) */}
