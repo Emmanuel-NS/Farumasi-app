@@ -269,14 +269,14 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
   return (
     <div className={cn(
       "bg-white dark:bg-slate-800 rounded-3xl border shadow-sm hover:shadow-md dark:hover:shadow-black/20 transition-shadow overflow-hidden",
-      canSwitch ? "border-violet-300 dark:border-violet-700 ring-2 ring-violet-500/15" : "border-slate-100 dark:border-slate-700",
+      awaitingPharmacy ? "border-slate-200 dark:border-slate-700" : "border-slate-100 dark:border-slate-700",
     )}>
       {awaitingPharmacy && (
         <div className={cn(
-          "px-5 py-2.5 flex items-center justify-between gap-2 text-xs font-bold",
+          "px-5 py-2.5 flex items-center justify-between gap-2 text-xs font-bold border-b",
           canSwitch
-            ? "bg-gradient-to-r from-violet-600 to-emerald-600 text-white"
-            : "bg-violet-50 dark:bg-violet-950/30 text-violet-900 dark:text-violet-200 border-b border-violet-100 dark:border-violet-900/50",
+            ? "bg-farumasi-50 text-farumasi-900 border-farumasi-100 dark:bg-farumasi-950/30 dark:text-farumasi-200 dark:border-farumasi-900/50"
+            : "bg-amber-50 text-amber-900 border-amber-100 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-900/50",
         )}>
           <span className="flex items-center gap-1.5">
             {canSwitch ? (
@@ -372,20 +372,6 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
                 <XCircle className="w-3.5 h-3.5" />
                 Cancel
               </button>
-            )}
-            {awaitingPharmacy && (
-              <Link
-                href={`/orders/${order.id}/switch-pharmacy`}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold transition-colors border",
-                  canSwitch
-                    ? "border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300",
-                )}
-              >
-                <Zap className="w-3.5 h-3.5" />
-                {canSwitch ? "Faster options" : "Preview options"}
-              </Link>
             )}
             <Link
               href={`/orders/${order.id}`}

@@ -8,7 +8,6 @@ import {
   Clock,
   Loader2,
   ShieldCheck,
-  Sparkles,
   Store,
   X,
   Zap,
@@ -72,16 +71,16 @@ function CountdownRing({
   return (
     <div className="relative flex h-24 w-24 shrink-0 items-center justify-center">
       <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 96 96">
-        <circle cx="48" cy="48" r="42" fill="none" stroke="currentColor" strokeWidth="6" className="text-violet-200/30" />
+        <circle cx="48" cy="48" r="42" fill="none" stroke="currentColor" strokeWidth="6" className="text-white/20" />
         <circle
           cx="48" cy="48" r="42" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round"
-          className="text-violet-300 transition-all duration-1000"
+          className="text-white/90 transition-all duration-1000"
           strokeDasharray={circumference}
           strokeDashoffset={dash}
         />
       </svg>
       <div className="relative text-center">
-        <p className="text-[9px] font-bold uppercase tracking-wider text-violet-200/90">Ready in</p>
+        <p className="text-[9px] font-bold uppercase tracking-wider text-white/70">Ready in</p>
         <p className="text-xl font-black tabular-nums text-white">{waitLabel ?? "—"}</p>
       </div>
     </div>
@@ -126,15 +125,15 @@ export function PharmacyReassignmentPanel({
   return (
     <>
       {/* Hero — positive framing */}
-      <div className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-violet-700 via-farumasi-700 to-emerald-800 p-6 text-white shadow-xl">
-        <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+      <div className="relative mb-6 overflow-hidden rounded-3xl bg-farumasi-700 p-6 text-white shadow-lg">
+        <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/5 blur-3xl" />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-center">
           {!switchEnabled && waitLabel && (
             <CountdownRing waitLabel={waitLabel} progress={progress} />
           )}
           <div className="min-w-0 flex-1">
             <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
-              <Sparkles className="h-3.5 w-3.5" />
+              <Zap className="h-3.5 w-3.5" />
               Faster delivery helper
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight">Get your order moving faster</h1>
@@ -152,7 +151,7 @@ export function PharmacyReassignmentPanel({
                 </>
               )}
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-emerald-100">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-white/90">
               <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1">
                 <ShieldCheck className="h-3.5 w-3.5" /> Payment stays secure
               </span>
@@ -175,7 +174,7 @@ export function PharmacyReassignmentPanel({
           {(topPicks.length > 0 || switchable.length > 0) && (
             <section>
               <div className="mb-3 flex items-center gap-2">
-                <Brain className="h-5 w-5 text-farumasi-600" />
+                <Brain className="h-5 w-5 text-farumasi-600 dark:text-farumasi-400" />
                 <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
                   AI recommended for speed
                 </h2>
@@ -247,12 +246,12 @@ export function PharmacyReassignmentPanel({
           )}
 
           {/* Below-paid opt-in — friendly, not burdensome */}
-          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-violet-200 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-violet-800">
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-farumasi-200 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-farumasi-800">
             <input
               type="checkbox"
               checked={includeBelowPaid}
               onChange={(e) => onIncludeBelowPaidChange(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded accent-violet-600"
+              className="mt-1 h-4 w-4 rounded accent-farumasi-600"
             />
             <div>
               <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -309,17 +308,17 @@ function PharmacyOptionCard({
     <div
       className={cn(
         "overflow-hidden rounded-2xl border bg-white shadow-sm dark:bg-slate-800",
-        featured ? "border-violet-200 ring-1 ring-violet-100 dark:border-violet-800 dark:ring-violet-900/40" : "border-slate-200 dark:border-slate-700",
+        featured ? "border-farumasi-200 ring-1 ring-farumasi-100 dark:border-farumasi-800 dark:ring-farumasi-900/40" : "border-slate-200 dark:border-slate-700",
         disabled && "grayscale",
       )}
     >
       <div className="flex items-start gap-3 p-4">
         <div className={cn(
           "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white",
-          featured ? "bg-gradient-to-br from-violet-600 to-emerald-600" : "bg-farumasi-600",
+          featured ? "bg-farumasi-600" : "bg-slate-600 dark:bg-slate-500",
         )}>
           {featured && opt.ai_rank === 1 ? (
-            <Sparkles className="h-6 w-6" />
+            <CheckCircle2 className="h-6 w-6" />
           ) : (
             <Store className="h-6 w-6" />
           )}
@@ -328,8 +327,8 @@ function PharmacyOptionCard({
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-base font-extrabold text-slate-900 dark:text-slate-100">{opt.provider_name}</p>
             {opt.ai_rank != null && (
-              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
-                AI #{opt.ai_rank}
+              <span className="rounded-full bg-farumasi-100 px-2 py-0.5 text-[10px] font-bold text-farumasi-800 dark:bg-farumasi-950/50 dark:text-farumasi-300">
+                Top #{opt.ai_rank}
               </span>
             )}
             {opt.price_category === "within_paid" && (
@@ -339,7 +338,7 @@ function PharmacyOptionCard({
             )}
           </div>
           {opt.ai_reasons && opt.ai_reasons.length > 0 && (
-            <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">{opt.ai_reasons[0]}</p>
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{opt.ai_reasons[0]}</p>
           )}
           <p className="mt-1 text-xs text-slate-500">
             Medicines {formatPrice(opt.estimated_subtotal)} · Delivery {formatPrice(opt.delivery_fee)}
@@ -364,7 +363,7 @@ function PharmacyOptionCard({
           type="button"
           disabled={busy || reassigningId != null}
           onClick={onSelect}
-          className="flex w-full items-center justify-center gap-2 border-t border-slate-100 bg-gradient-to-r from-violet-600 to-emerald-600 py-3.5 text-sm font-extrabold text-white hover:from-violet-700 hover:to-emerald-700 disabled:opacity-60 dark:border-slate-700"
+          className="flex w-full items-center justify-center gap-2 border-t border-slate-100 bg-farumasi-600 py-3.5 text-sm font-extrabold text-white hover:bg-farumasi-700 disabled:opacity-60 dark:border-slate-700"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
           {busy ? "Moving your order…" : `Choose ${opt.provider_name.split(" ")[0]}`}
@@ -400,8 +399,8 @@ function ConfirmSwitchModal({
         <button type="button" onClick={onClose} className="absolute right-4 top-4 text-slate-400" aria-label="Close">
           <X className="h-5 w-5" />
         </button>
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 dark:bg-violet-950/50">
-          <Sparkles className="h-6 w-6 text-violet-600" />
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-farumasi-100 dark:bg-farumasi-950/50">
+          <ArrowRightLeft className="h-6 w-6 text-farumasi-700 dark:text-farumasi-400" />
         </div>
         <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">Move to {opt.provider_name}?</h3>
         <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
@@ -418,7 +417,7 @@ function ConfirmSwitchModal({
           <button type="button" onClick={onClose} className="flex-1 rounded-2xl border py-3 text-sm font-bold text-slate-700 dark:border-slate-600 dark:text-slate-200">
             Not now
           </button>
-          <button type="button" onClick={onConfirm} className="flex-1 rounded-2xl bg-violet-600 py-3 text-sm font-bold text-white hover:bg-violet-700">
+          <button type="button" onClick={onConfirm} className="flex-1 rounded-2xl bg-farumasi-600 py-3 text-sm font-bold text-white hover:bg-farumasi-700">
             Yes, move order
           </button>
         </div>
@@ -444,9 +443,9 @@ export function PharmacySwitchTeaser({
   return (
     <a
       href={`/orders/${orderId}/switch-pharmacy`}
-      className="group mb-4 flex items-center gap-4 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 to-emerald-50 p-4 transition-all hover:border-violet-200 hover:shadow-md dark:border-violet-900/40 dark:from-violet-950/30 dark:to-emerald-950/20"
+      className="group mb-4 flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-all hover:border-farumasi-200 hover:bg-farumasi-50/50 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-farumasi-800 dark:hover:bg-farumasi-950/20"
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-emerald-600 text-white shadow-sm">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-farumasi-600 text-white shadow-sm">
         <Zap className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
@@ -461,7 +460,7 @@ export function PharmacySwitchTeaser({
               : `See AI-ranked pharmacies that can fulfill your order.`}
         </p>
       </div>
-      <span className="shrink-0 text-xs font-bold text-violet-700 group-hover:underline dark:text-violet-300">
+      <span className="shrink-0 text-xs font-bold text-farumasi-700 group-hover:underline dark:text-farumasi-400">
         Explore →
       </span>
     </a>
@@ -479,7 +478,7 @@ export function PharmacyReassignmentBadge({
 }) {
   if (canReassign) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-violet-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+      <span className="inline-flex items-center gap-1 rounded-full bg-farumasi-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
         <Zap className="h-3 w-3" />
         Faster options
       </span>
@@ -487,7 +486,7 @@ export function PharmacyReassignmentBadge({
   }
   if (waitLabel && waitMs != null && waitMs > 0) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-1 text-[10px] font-bold text-violet-800 dark:text-violet-200">
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
         <Clock className="h-3 w-3" />
         Preview · {waitLabel}
       </span>

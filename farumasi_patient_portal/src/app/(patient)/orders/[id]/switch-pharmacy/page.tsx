@@ -86,7 +86,7 @@ export default function SwitchPharmacyPage() {
   if (loading) {
     return (
       <div className="p-6 text-center py-24">
-        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-farumasi-600 border-t-transparent" />
       </div>
     );
   }
@@ -96,7 +96,7 @@ export default function SwitchPharmacyPage() {
       <div className="mb-5 flex items-center justify-between gap-3">
         <Link
           href={`/orders/${id}`}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-violet-700 dark:text-slate-400 dark:hover:text-violet-300"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-farumasi-700 dark:text-slate-400 dark:hover:text-farumasi-400"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to order tracking
