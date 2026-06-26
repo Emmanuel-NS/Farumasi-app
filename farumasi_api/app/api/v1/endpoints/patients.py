@@ -259,6 +259,7 @@ from app.schemas.order import ReassignPharmacyRequest, ReassignmentOptionsOut  #
 async def get_my_order_reassignment_options(
     order_id: str,
     include_cheaper_with_refund: bool = Query(False),
+    include_below_paid_without_change: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -266,6 +267,7 @@ async def get_my_order_reassignment_options(
         order_id,
         current_user,
         include_cheaper_with_refund=include_cheaper_with_refund,
+        include_below_paid_without_change=include_below_paid_without_change,
     )
 
 

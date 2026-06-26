@@ -101,12 +101,13 @@ export const ordersService = {
 
   async getReassignmentOptions(
     orderId: string,
-    includeCheaperWithRefund = false,
+    includeBelowPaidWithoutChange = false,
   ) {
     const { data } = await api.get<{
       order_id: string;
       amount_paid: number;
       can_reassign: boolean;
+      switch_enabled?: boolean;
       partner_response_due_at?: string | null;
       options: Array<{
         pharmacy_id?: string | null;
@@ -116,11 +117,19 @@ export const ordersService = {
         delivery_fee: number;
         estimated_total: number;
         amount_paid: number;
-        requires_refund: boolean;
-        refund_amount: number;
+        requires_refund?: boolean;
+        refund_amount?: number;
+        price_category?: "within_paid" | "below_paid" | "above_paid";
+        can_switch?: boolean;
+        requires_no_change_ack?: boolean;
+        forfeit_amount?: number;
+        extra_payment_required?: number;
+        ai_rank?: number | null;
+        ai_score?: number | null;
+        ai_reasons?: string[];
       }>;
     }>(`/patients/me/orders/${orderId}/reassignment-options`, {
-      params: { include_cheaper_with_refund: includeCheaperWithRefund },
+      params: { include_below_paid_without_change: includeBelowPaidWithoutChange },
     });
     return data;
   },
@@ -131,6 +140,7 @@ export const ordersService = {
       pharmacy_id?: string;
       partner_company_id?: string;
       accept_refund_for_difference?: boolean;
+      accept_no_change?: boolean;
     },
   ): Promise<BackendOrder> {
     const { data } = await api.post<BackendOrder>(

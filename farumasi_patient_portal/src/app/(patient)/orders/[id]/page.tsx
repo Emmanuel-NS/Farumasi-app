@@ -15,10 +15,7 @@ import { useTranslation } from "@/lib/translations";
 import { useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
 import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment-checkout";
-import {
-  PharmacyReassignmentPanel,
-  type ReassignmentOption,
-} from "@/components/orders/pharmacy-reassignment-panel";
+import { PharmacySwitchTeaser } from "@/components/orders/pharmacy-reassignment-panel";
 import {
   ArrowLeft, MapPin, Phone, MessageCircle, Package, Store,
   CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink,
@@ -69,10 +66,7 @@ export default function OrderDetailPage() {
   const [retryPaymentMethod, setRetryPaymentMethod] = useState<PaymentMethodId>("mtn_momo");
   const PAYMENT_FEE_PCT = 3.8;
   const [reassignOptions, setReassignOptions] = useState<Awaited<ReturnType<typeof ordersService.getReassignmentOptions>> | null>(null);
-  const [showCheaperPharmacies, setShowCheaperPharmacies] = useState(false);
-  const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignTick, setReassignTick] = useState(0);
-  const [nowTick, setNowTick] = useState(() => Date.now());
   const authUser = useAuthStore((s) => s.user);
 
   const awaitingPharmacyConfirm =
@@ -116,54 +110,19 @@ export default function OrderDetailPage() {
       return;
     }
     ordersService
-      .getReassignmentOptions(id, showCheaperPharmacies)
+      .getReassignmentOptions(id, false)
       .then(setReassignOptions)
       .catch(() => setReassignOptions(null));
-  }, [id, awaitingPharmacyConfirm, showCheaperPharmacies, reassignTick]);
+  }, [id, awaitingPharmacyConfirm, reassignTick]);
 
   useEffect(() => {
-    if (!awaitingPharmacyConfirm) return;
-    const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [awaitingPharmacyConfirm]);
-
-  const reassignDueAt = reassignOptions?.partner_response_due_at ?? order?.partnerResponseDueAt;
-  const reassignDueMs = reassignDueAt ? new Date(reassignDueAt).getTime() : null;
-  const reassignWaitMs = reassignDueMs != null ? Math.max(0, reassignDueMs - nowTick) : null;
-  const reassignWaitLabel = useMemo(() => {
-    if (reassignWaitMs == null) return null;
-    const totalSec = Math.ceil(reassignWaitMs / 1000);
-    const min = Math.floor(totalSec / 60);
-    const sec = totalSec % 60;
-    return `${min}:${sec.toString().padStart(2, "0")}`;
-  }, [reassignWaitMs]);
-
-  useEffect(() => {
-    if (!reassignDueMs || reassignDueMs <= nowTick) return;
-    const timer = window.setTimeout(() => setReassignTick((n) => n + 1), reassignDueMs - nowTick + 500);
+    if (!order?.partnerResponseDueAt || order.canReassignPharmacy) return;
+    const due = new Date(order.partnerResponseDueAt).getTime();
+    const ms = due - Date.now();
+    if (ms <= 0) return;
+    const timer = window.setTimeout(() => setReassignTick((n) => n + 1), ms + 500);
     return () => window.clearTimeout(timer);
-  }, [reassignDueMs, nowTick]);
-
-  const handleReassign = async (opt: ReassignmentOption) => {
-    if (!id) return;
-    const key = opt.pharmacy_id ?? opt.partner_company_id ?? "";
-    setReassigningId(key);
-    try {
-      const raw = await ordersService.reassignPharmacy(id, {
-        pharmacy_id: opt.pharmacy_id ?? undefined,
-        partner_company_id: opt.partner_company_id ?? undefined,
-        accept_refund_for_difference: opt.requires_refund,
-      });
-      setOrder(adaptOrder(raw));
-      setReassignTick((n) => n + 1);
-      toast.success(`Order moved to ${opt.provider_name}`);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Could not change pharmacy";
-      toast.error(message);
-    } finally {
-      setReassigningId(null);
-    }
-  };
+  }, [order?.partnerResponseDueAt, order?.canReassignPharmacy]);
 
   const trackableStatuses = useMemo(
     () => new Set(["out_for_delivery", "delivered", "completed"]),
@@ -306,25 +265,16 @@ export default function OrderDetailPage() {
     ? coordsPair(delivery.destination_latitude, delivery.destination_longitude)
     : null;
   const routeProgress = delivery ? deliveryProgress(delivery) : 0.2;
-  const canSwitchPharmacy =
-    awaitingPharmacyConfirm &&
-    reassignOptions?.can_reassign === true &&
-    (reassignOptions.options.length ?? 0) > 0;
-  const timelineStepsView = timelineSteps.map((step) =>
-    step.key === "pending_review" && awaitingPharmacyConfirm
-      ? {
-          ...step,
-          hint: reassignOptions?.can_reassign
-            ? "Pharmacy slow to respond — switch to another partner below"
-            : reassignWaitLabel && reassignWaitMs != null && reassignWaitMs > 0
-              ? `Waiting for confirmation — you can switch in ${reassignWaitLabel}`
-              : "Waiting for pharmacy to confirm your order",
-        }
-      : step,
-  );
+  const switchableCount = (reassignOptions?.options ?? []).filter((o) => o.can_switch !== false).length;
+  const reassignDueAt = reassignOptions?.partner_response_due_at ?? order.partnerResponseDueAt;
+  const reassignWaitMs = reassignDueAt ? Math.max(0, new Date(reassignDueAt).getTime() - Date.now()) : null;
+  const reassignWaitLabel =
+    reassignWaitMs != null
+      ? `${Math.floor(Math.ceil(reassignWaitMs / 1000) / 60)}:${(Math.ceil(reassignWaitMs / 1000) % 60).toString().padStart(2, "0")}`
+      : null;
 
   return (
-    <div className={cn("p-4 md:p-6 max-w-2xl mx-auto", canSwitchPharmacy ? "pb-28" : "pb-10")}>
+    <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
       {/* Back */}
       <button
         onClick={() => router.back()}
@@ -333,21 +283,6 @@ export default function OrderDetailPage() {
         <ArrowLeft className="w-4 h-4" />
         {t.order_back}
       </button>
-
-      {/* Priority: pharmacy reassignment — top of page */}
-      {awaitingPharmacyConfirm && (
-        <PharmacyReassignmentPanel
-          pharmacyName={order.pharmacy}
-          data={reassignOptions}
-          waitMs={reassignWaitMs}
-          waitLabel={reassignWaitLabel}
-          showCheaperPharmacies={showCheaperPharmacies}
-          onShowCheaperChange={setShowCheaperPharmacies}
-          reassigningId={reassigningId}
-          onReassign={handleReassign}
-          formatPrice={formatPrice}
-        />
-      )}
 
       {/* ── Header card ─────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
@@ -392,6 +327,16 @@ export default function OrderDetailPage() {
           </span>
         )}
       </div>
+
+      {awaitingPharmacyConfirm && (
+        <PharmacySwitchTeaser
+          orderId={order.id}
+          pharmacyName={order.pharmacy}
+          switchEnabled={reassignOptions?.switch_enabled ?? reassignOptions?.can_reassign ?? false}
+          optionCount={switchableCount || reassignOptions?.options.length || 0}
+          waitLabel={reassignWaitLabel}
+        />
+      )}
 
       {/* ── Live tracking map ────────────────────────────────────────── */}
       {order.status === "out_for_delivery" && (
@@ -453,7 +398,7 @@ export default function OrderDetailPage() {
             {isPickup ? "Pickup Progress" : t.order_progress}
           </h2>
           <div className="space-y-0">
-            {timelineStepsView.map((step, i) => {
+            {timelineSteps.map((step, i) => {
               const weight = STATUS_WEIGHTS[step.key] ?? i;
               const done   = weight <= activeWeight;
               const active = step.key === order.status;
@@ -839,28 +784,6 @@ export default function OrderDetailPage() {
         </div>
       )}
 
-      {/* Sticky CTA when switch is available */}
-      {canSwitchPharmacy && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-emerald-200/80 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] backdrop-blur-md dark:border-emerald-900/50 dark:bg-slate-900/95">
-          <div className="mx-auto flex max-w-2xl items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-                Pharmacy slow to respond
-              </p>
-              <p className="truncate text-sm font-extrabold text-slate-900 dark:text-slate-100">
-                {reassignOptions!.options.length} alternative{reassignOptions!.options.length !== 1 ? "s" : ""} ready
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => document.getElementById("pharmacy-reassign")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              className="shrink-0 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/25 hover:bg-emerald-700 active:scale-[0.98] transition-all"
-            >
-              Switch pharmacy
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

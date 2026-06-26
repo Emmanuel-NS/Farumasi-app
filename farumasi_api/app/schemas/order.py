@@ -282,14 +282,24 @@ class ReassignmentOptionOut(FarumasiBaseModel):
     delivery_fee: float
     estimated_total: float
     amount_paid: float
+    # Legacy fields — below_paid uses requires_no_change_ack semantics (no refund issued).
     requires_refund: bool = False
     refund_amount: float = 0.0
+    price_category: str = "within_paid"  # within_paid | below_paid | above_paid
+    can_switch: bool = True
+    requires_no_change_ack: bool = False
+    forfeit_amount: float = 0.0
+    extra_payment_required: float = 0.0
+    ai_rank: Optional[int] = None
+    ai_score: Optional[float] = None
+    ai_reasons: List[str] = []
 
 
 class ReassignmentOptionsOut(FarumasiBaseModel):
     order_id: str
     amount_paid: float
     can_reassign: bool
+    switch_enabled: bool = False
     partner_response_due_at: Optional[datetime] = None
     options: List[ReassignmentOptionOut] = []
 
@@ -298,6 +308,7 @@ class ReassignPharmacyRequest(FarumasiBaseModel):
     pharmacy_id: Optional[str] = None
     partner_company_id: Optional[str] = None
     accept_refund_for_difference: bool = False
+    accept_no_change: bool = False
 
     @model_validator(mode="after")
     def _require_provider(self) -> "ReassignPharmacyRequest":

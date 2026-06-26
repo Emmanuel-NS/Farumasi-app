@@ -278,7 +278,10 @@ async def test_reassignment_not_available_before_timeout(client: AsyncClient, db
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["can_reassign"] is False
-    assert body["options"] == []
+    assert body.get("switch_enabled") is False
+    # Options are visible for AI preview before the timeout elapses.
+    assert len(body["options"]) >= 1
+    assert body["options"][0].get("can_switch") is True
 
 
 async def test_reassignment_moves_order_and_records_partner_ledger(client: AsyncClient, db):

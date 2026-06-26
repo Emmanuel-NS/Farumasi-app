@@ -623,6 +623,7 @@ class OrderService:
         actor: User,
         *,
         include_cheaper_with_refund: bool = False,
+        include_below_paid_without_change: bool = False,
     ) -> ReassignmentOptionsOut:
         order = await self._reload(order_id)
         if not order:
@@ -632,18 +633,25 @@ class OrderService:
 
         amount_paid = float(order.amount_paid_snapshot or order.total_amount or 0)
         can_reassign = self._can_reassign_pharmacy(order)
+        awaiting_confirm = (
+            order.payment_status == PaymentStatus.PAID
+            and normalize_order_status(order.order_status) == OrderStatus.PENDING.value
+            and order.pharmacy_confirmed_at is None
+        )
+        include_below = include_below_paid_without_change or include_cheaper_with_refund
         options: List[ReassignmentOptionOut] = []
-        if can_reassign:
+        if awaiting_confirm:
             options = await self._build_reassignment_options(
                 order,
                 amount_paid=amount_paid,
-                include_cheaper_with_refund=include_cheaper_with_refund,
+                include_below_paid_without_change=include_below,
             )
 
         return ReassignmentOptionsOut(
             order_id=order.id,
             amount_paid=amount_paid,
             can_reassign=can_reassign,
+            switch_enabled=can_reassign,
             partner_response_due_at=order.partner_response_due_at,
             options=options,
         )
@@ -663,10 +671,14 @@ class OrderService:
             )
 
         amount_paid = float(order.amount_paid_snapshot or order.total_amount or 0)
+        include_below = (
+            data.accept_no_change
+            or data.accept_refund_for_difference
+        )
         options = await self._build_reassignment_options(
             order,
             amount_paid=amount_paid,
-            include_cheaper_with_refund=data.accept_refund_for_difference,
+            include_below_paid_without_change=include_below,
         )
         match = None
         for opt in options:
@@ -678,12 +690,19 @@ class OrderService:
                 break
         if not match:
             raise ValidationError(
-                "Selected pharmacy cannot fulfill this order within your paid amount"
+                "Selected pharmacy is not available for this order"
             )
-        if match.requires_refund and not data.accept_refund_for_difference:
+        if not match.can_switch:
+            if match.price_category == "above_paid":
+                raise BusinessRuleError(
+                    "This pharmacy costs more than you paid. "
+                    "Extra payment is not available during a switch yet."
+                )
+            raise BusinessRuleError("This pharmacy cannot be selected for a switch.")
+        if match.requires_no_change_ack and not include_below:
             raise BusinessRuleError(
                 "This pharmacy is cheaper than your payment. "
-                "Accept refund for the difference to continue."
+                "Confirm you are okay not receiving the price difference."
             )
 
         new_lines = await self._resolve_lines_for_provider(
@@ -747,13 +766,7 @@ class OrderService:
 
         await self._adjust_stock_for_items(new_lines, sign=-1)
 
-        if match.refund_amount > _REASSIGN_PRICE_TOLERANCE:
-            await self._queue_partial_refund(
-                order,
-                amount=match.refund_amount,
-                reason=f"Price difference after pharmacy reassignment for {order.order_code}",
-                actor=actor,
-            )
+        # Below-paid switches forfeit the difference — refunds are not issued automatically.
 
         notif = NotificationService(self.db)
         patient_user_id = await self._patient_user_id(order.patient_id)
@@ -1580,8 +1593,11 @@ class OrderService:
         order: Order,
         *,
         amount_paid: float,
-        include_cheaper_with_refund: bool,
+        include_below_paid_without_change: bool,
     ) -> List[ReassignmentOptionOut]:
+        from app.services.recommendation_service import RecommendationService
+        from app.utils.scoring import score_providers
+
         required = await self._required_products_for_order(order)
         if not required:
             return []
@@ -1592,31 +1608,120 @@ class OrderService:
             exclude_pharmacy_id=order.pharmacy_id,
             exclude_partner_id=order.partner_company_id,
         )
+        if not providers:
+            return []
+
+        product_ids = [pid for pid, _, _, _ in required if pid]
+        patient_insurance_id: Optional[str] = None
+        if order.patient_id:
+            from app.models.patient import PatientProfile
+
+            pres = await self.db.execute(
+                select(PatientProfile.insurance_provider_id).where(
+                    PatientProfile.id == order.patient_id
+                )
+            )
+            patient_insurance_id = pres.scalar_one_or_none()
+
+        lat = float(order.delivery_latitude) if order.delivery_latitude is not None else -1.9441
+        lon = float(order.delivery_longitude) if order.delivery_longitude is not None else 30.0619
+        preferred_delivery = order.delivery_method == DeliveryMethod.DELIVERY
+
+        rec_svc = RecommendationService(self.db)
+        candidates = await rec_svc._build_candidates(product_ids)
+        candidates = [
+            c
+            for c in candidates
+            if not (
+                (c.provider_type == "pharmacy" and c.provider_id == order.pharmacy_id)
+                or (c.provider_type == "partner" and c.provider_id == order.partner_company_id)
+            )
+        ]
+        scored = score_providers(
+            candidates,
+            product_ids,
+            lat,
+            lon,
+            patient_insurance_provider_id=patient_insurance_id,
+            preferred_delivery=preferred_delivery,
+        )
+        rank_map: dict[tuple[str, str], tuple[int, object]] = {}
+        for s in scored:
+            if not s.can_fulfill_complete_prescription:
+                continue
+            key = (s.provider_type, s.provider_id)
+            if key not in rank_map:
+                rank_map[key] = (len(rank_map) + 1, s)
 
         options: List[ReassignmentOptionOut] = []
         for provider in providers:
+            pharmacy_id = provider.get("pharmacy_id")
+            partner_id = provider.get("partner_company_id")
+            provider_type = "pharmacy" if pharmacy_id else "partner"
+            provider_key = (provider_type, pharmacy_id or partner_id or "")
+            rank_info = rank_map.get(provider_key)
+
             subtotal = provider["subtotal"]
             total = round(subtotal + delivery_fee, 2)
+            diff = round(amount_paid - total, 2)
+
             if total > amount_paid + _REASSIGN_PRICE_TOLERANCE:
-                continue
-            refund_amount = max(0.0, round(amount_paid - total, 2))
-            requires_refund = refund_amount > _REASSIGN_PRICE_TOLERANCE
-            if requires_refund and not include_cheaper_with_refund:
-                continue
+                price_category = "above_paid"
+                forfeit_amount = 0.0
+                extra_payment = round(total - amount_paid, 2)
+                can_switch = False
+                requires_no_change = False
+            elif diff > _REASSIGN_PRICE_TOLERANCE:
+                price_category = "below_paid"
+                forfeit_amount = diff
+                extra_payment = 0.0
+                can_switch = True
+                requires_no_change = True
+                if not include_below_paid_without_change:
+                    continue
+            else:
+                price_category = "within_paid"
+                forfeit_amount = 0.0
+                extra_payment = 0.0
+                can_switch = True
+                requires_no_change = False
+
+            ai_rank = rank_info[0] if rank_info else None
+            scored_row = rank_info[1] if rank_info else None
+            ai_score = float(scored_row.total_score) if scored_row else None
+            ai_reasons = list(scored_row.reasons[:3]) if scored_row else []
+
             options.append(
                 ReassignmentOptionOut(
-                    pharmacy_id=provider.get("pharmacy_id"),
-                    partner_company_id=provider.get("partner_company_id"),
+                    pharmacy_id=pharmacy_id,
+                    partner_company_id=partner_id,
                     provider_name=provider["name"],
                     estimated_subtotal=subtotal,
                     delivery_fee=delivery_fee,
                     estimated_total=total,
                     amount_paid=amount_paid,
-                    requires_refund=requires_refund,
-                    refund_amount=refund_amount if requires_refund else 0.0,
+                    requires_refund=requires_no_change,
+                    refund_amount=forfeit_amount if requires_no_change else 0.0,
+                    price_category=price_category,
+                    can_switch=can_switch,
+                    requires_no_change_ack=requires_no_change,
+                    forfeit_amount=forfeit_amount,
+                    extra_payment_required=extra_payment,
+                    ai_rank=ai_rank,
+                    ai_score=ai_score,
+                    ai_reasons=ai_reasons,
                 )
             )
-        options.sort(key=lambda o: (o.estimated_total, o.provider_name))
+
+        options.sort(
+            key=lambda o: (
+                not o.can_switch,
+                o.ai_rank is None,
+                o.ai_rank if o.ai_rank is not None else 999,
+                o.estimated_total,
+                o.provider_name,
+            )
+        )
         return options
 
     async def _list_fulfillment_providers(

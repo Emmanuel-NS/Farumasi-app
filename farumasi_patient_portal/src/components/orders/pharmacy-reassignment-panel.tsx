@@ -3,13 +3,15 @@
 import { useMemo, useState } from "react";
 import {
   ArrowRightLeft,
+  Brain,
   CheckCircle2,
   Clock,
   Loader2,
-  RefreshCw,
   ShieldCheck,
+  Sparkles,
   Store,
   X,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,38 +25,42 @@ export type ReassignmentOption = {
   delivery_fee: number;
   estimated_total: number;
   amount_paid: number;
-  requires_refund: boolean;
-  refund_amount: number;
+  requires_refund?: boolean;
+  refund_amount?: number;
+  price_category?: "within_paid" | "below_paid" | "above_paid";
+  can_switch?: boolean;
+  requires_no_change_ack?: boolean;
+  forfeit_amount?: number;
+  extra_payment_required?: number;
+  ai_rank?: number | null;
+  ai_score?: number | null;
+  ai_reasons?: string[];
 };
 
 export type ReassignmentData = {
   amount_paid: number;
   can_reassign: boolean;
+  switch_enabled?: boolean;
   partner_response_due_at?: string | null;
   options: ReassignmentOption[];
 };
-
-type PanelPhase = "loading" | "waiting" | "ready" | "empty";
 
 interface PharmacyReassignmentPanelProps {
   pharmacyName: string;
   data: ReassignmentData | null;
   waitMs: number | null;
   waitLabel: string | null;
-  showCheaperPharmacies: boolean;
-  onShowCheaperChange: (value: boolean) => void;
+  includeBelowPaid: boolean;
+  onIncludeBelowPaidChange: (value: boolean) => void;
   reassigningId: string | null;
-  onReassign: (opt: ReassignmentOption) => void;
+  onReassign: (opt: ReassignmentOption, acceptNoChange: boolean) => void;
   formatPrice: (n: number) => string;
-  variant?: "hero" | "compact";
 }
 
 function CountdownRing({
-  waitMs,
   waitLabel,
   progress,
 }: {
-  waitMs: number | null;
   waitLabel: string | null;
   progress: number;
 }) {
@@ -63,62 +69,20 @@ function CountdownRing({
   const dash = circumference * (1 - pct / 100);
 
   return (
-    <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">
+    <div className="relative flex h-24 w-24 shrink-0 items-center justify-center">
       <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 96 96">
-        <circle cx="48" cy="48" r="42" fill="none" stroke="currentColor" strokeWidth="6" className="text-white/15" />
+        <circle cx="48" cy="48" r="42" fill="none" stroke="currentColor" strokeWidth="6" className="text-violet-200/30" />
         <circle
-          cx="48"
-          cy="48"
-          r="42"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="6"
-          strokeLinecap="round"
-          className="text-amber-300 transition-all duration-1000"
+          cx="48" cy="48" r="42" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round"
+          className="text-violet-300 transition-all duration-1000"
           strokeDasharray={circumference}
           strokeDashoffset={dash}
         />
       </svg>
       <div className="relative text-center">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-amber-200/90">Switch in</p>
-        <p className="text-2xl font-black tabular-nums text-white">{waitLabel ?? "—"}</p>
-        {waitMs != null && waitMs <= 0 && (
-          <p className="text-[10px] font-bold text-emerald-300">Ready now</p>
-        )}
+        <p className="text-[9px] font-bold uppercase tracking-wider text-violet-200/90">Ready in</p>
+        <p className="text-xl font-black tabular-nums text-white">{waitLabel ?? "—"}</p>
       </div>
-    </div>
-  );
-}
-
-function StepPills({ phase }: { phase: PanelPhase }) {
-  const steps = [
-    { id: "paid", label: "Paid" },
-    { id: "waiting", label: "Pharmacy responds" },
-    { id: "switch", label: "Switch if needed" },
-  ] as const;
-
-  const activeIdx = phase === "loading" || phase === "waiting" ? 1 : 2;
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {steps.map((step, i) => {
-        const done = i < activeIdx;
-        const active = i === activeIdx;
-        return (
-          <div
-            key={step.id}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold",
-              done && "bg-emerald-500/20 text-emerald-100",
-              active && "bg-white/15 text-white ring-1 ring-white/25",
-              !done && !active && "bg-white/5 text-white/45",
-            )}
-          >
-            {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <span className="tabular-nums">{i + 1}</span>}
-            {step.label}
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -128,21 +92,25 @@ export function PharmacyReassignmentPanel({
   data,
   waitMs,
   waitLabel,
-  showCheaperPharmacies,
-  onShowCheaperChange,
+  includeBelowPaid,
+  onIncludeBelowPaidChange,
   reassigningId,
   onReassign,
   formatPrice,
-  variant = "hero",
 }: PharmacyReassignmentPanelProps) {
   const [confirmOpt, setConfirmOpt] = useState<ReassignmentOption | null>(null);
 
-  const phase: PanelPhase = useMemo(() => {
-    if (data == null) return "loading";
-    if (!data.can_reassign) return "waiting";
-    if (data.options.length === 0) return "empty";
-    return "ready";
-  }, [data]);
+  const switchEnabled = data?.switch_enabled ?? data?.can_reassign ?? false;
+  const switchable = useMemo(
+    () => (data?.options ?? []).filter((o) => o.can_switch !== false),
+    [data?.options],
+  );
+  const viewOnly = useMemo(
+    () => (data?.options ?? []).filter((o) => o.can_switch === false),
+    [data?.options],
+  );
+  const topPicks = switchable.filter((o) => o.ai_rank != null && o.ai_rank <= 3);
+  const otherSwitchable = switchable.filter((o) => !o.ai_rank || o.ai_rank > 3);
 
   const progress = useMemo(() => {
     if (waitMs == null || data?.partner_response_due_at == null) return 0;
@@ -150,287 +118,354 @@ export function PharmacyReassignmentPanel({
     const start = due - RESPONSE_WINDOW_MIN * 60 * 1000;
     const total = due - start;
     if (total <= 0) return 1;
-    const elapsed = Date.now() - start;
-    return Math.min(1, Math.max(0, elapsed / total));
+    return Math.min(1, Math.max(0, (Date.now() - start) / total));
   }, [waitMs, data?.partner_response_due_at]);
-
-  const isCompact = variant === "compact";
 
   return (
     <>
-      <div
-        id="pharmacy-reassign"
-        className={cn(
-          "relative overflow-hidden rounded-3xl border shadow-lg mb-4",
-          phase === "ready"
-            ? "border-emerald-400/40 bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-950"
-            : phase === "empty"
-              ? "border-amber-400/30 bg-gradient-to-br from-slate-900 via-amber-950 to-slate-900"
-              : "border-amber-400/30 bg-gradient-to-br from-slate-900 via-amber-950 to-orange-950",
-        )}
-      >
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-amber-400/10 blur-3xl" />
-        <div className="absolute -bottom-8 left-1/4 h-32 w-32 rounded-full bg-emerald-400/10 blur-2xl" />
-
-        <div className={cn("relative", isCompact ? "p-4" : "p-5 md:p-6")}>
-          {/* Header row */}
-          <div className={cn("flex gap-4", isCompact ? "flex-col sm:flex-row sm:items-center" : "flex-col md:flex-row md:items-start")}>
-            {phase === "waiting" && !isCompact && (
-              <CountdownRing waitMs={waitMs} waitLabel={waitLabel} progress={progress} />
-            )}
-
-            <div className="min-w-0 flex-1">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-200">
-                  {phase === "ready" ? (
-                    <>
-                      <ArrowRightLeft className="h-3 w-3" /> Action available
-                    </>
-                  ) : phase === "empty" ? (
-                    <>
-                      <RefreshCw className="h-3 w-3" /> No match yet
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="h-3 w-3" /> Awaiting pharmacy
-                    </>
-                  )}
-                </span>
-                {phase === "ready" && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white animate-pulse">
-                    Tap a pharmacy below
-                  </span>
-                )}
-              </div>
-
-              <h2 className="text-lg font-extrabold tracking-tight text-white md:text-xl">
-                {phase === "ready"
-                  ? "Switch to a pharmacy that can confirm faster"
-                  : phase === "empty"
-                    ? "No alternative at your paid price yet"
-                    : phase === "loading"
-                      ? "Checking your options…"
-                      : `${pharmacyName} has not confirmed yet`}
-              </h2>
-
-              <p className="mt-2 text-sm leading-relaxed text-white/75">
-                {phase === "loading" && "We are looking for other pharmacies that can fulfill your order."}
-                {phase === "waiting" && (
-                  <>
-                    Your payment is safe. Partners have{" "}
-                    <span className="font-bold text-white">{RESPONSE_WINDOW_MIN} minutes</span> to accept.
-                    {waitLabel && waitMs != null && waitMs > 0 && (
-                      <> After that you can move your order — same price, no extra payment.</>
-                    )}
-                  </>
-                )}
-                {phase === "ready" && (
-                  <>
-                    {pharmacyName} missed the {RESPONSE_WINDOW_MIN}-minute window. Choose a new partner —
-                    your {formatPrice(data!.amount_paid)} payment transfers automatically.
-                  </>
-                )}
-                {phase === "empty" && (
-                  <>
-                    {pharmacyName} has not accepted. We could not find another partner at{" "}
-                    {formatPrice(data!.amount_paid)}. Try cheaper options below or wait a little longer.
-                  </>
-                )}
-              </p>
-
-              {!isCompact && <div className="mt-4"><StepPills phase={phase} /></div>}
+      {/* Hero — positive framing */}
+      <div className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-violet-700 via-farumasi-700 to-emerald-800 p-6 text-white shadow-xl">
+        <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center">
+          {!switchEnabled && waitLabel && (
+            <CountdownRing waitLabel={waitLabel} progress={progress} />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
+              <Sparkles className="h-3.5 w-3.5" />
+              Faster delivery helper
             </div>
-
-            {phase === "waiting" && isCompact && waitLabel && (
-              <div className="shrink-0 rounded-2xl bg-white/10 px-4 py-3 text-center backdrop-blur">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-200">Switch in</p>
-                <p className="text-xl font-black tabular-nums text-white">{waitLabel}</p>
-              </div>
-            )}
-
-            <ShieldCheck className={cn("shrink-0 text-emerald-400/80", isCompact ? "hidden sm:block h-6 w-6" : "h-7 w-7")} />
+            <h1 className="text-2xl font-extrabold tracking-tight">Get your order moving faster</h1>
+            <p className="mt-2 text-sm leading-relaxed text-white/80">
+              {switchEnabled ? (
+                <>
+                  <span className="font-semibold text-white">{pharmacyName}</span> is taking longer than usual.
+                  FARUMASI AI ranked other pharmacies that can confirm your same order — often within minutes.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-white">{pharmacyName}</span> still has a short window to confirm.
+                  Preview AI-matched alternatives below — you can switch after{" "}
+                  <span className="font-bold text-white">{waitLabel ?? "the timer"}</span> if needed.
+                </>
+              )}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-emerald-100">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1">
+                <ShieldCheck className="h-3.5 w-3.5" /> Payment stays secure
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1">
+                <Zap className="h-3.5 w-3.5" /> Same medicines
+              </span>
+            </div>
           </div>
-
-          {/* Waiting progress bar (mobile-friendly) */}
-          {phase === "waiting" && (
-            <div className="mt-5">
-              <div className="mb-1.5 flex justify-between text-[10px] font-bold uppercase tracking-wide text-white/50">
-                <span>Response window</span>
-                <span>{Math.round(progress * 100)}% elapsed</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000"
-                  style={{ width: `${Math.round(progress * 100)}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Loading */}
-          {phase === "loading" && (
-            <div className="mt-5 flex items-center justify-center gap-2 rounded-2xl bg-white/5 py-8 text-sm font-semibold text-white/70">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Finding pharmacies…
-            </div>
-          )}
-
-          {/* Cheaper toggle */}
-          {(phase === "ready" || phase === "empty") && (
-            <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-white/15 bg-white/5 p-3.5 transition-colors hover:bg-white/10">
-              <input
-                type="checkbox"
-                checked={showCheaperPharmacies}
-                onChange={(e) => onShowCheaperChange(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-white/30 accent-emerald-500"
-              />
-              <div>
-                <p className="text-sm font-bold text-white">Include cheaper pharmacies</p>
-                <p className="text-xs text-white/60 mt-0.5">
-                  We will refund the price difference if the new total is lower.
-                </p>
-              </div>
-            </label>
-          )}
-
-          {/* Pharmacy options */}
-          {phase === "ready" && (
-            <div className="mt-5 space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-200/90">
-                {data!.options.length} alternative{data!.options.length !== 1 ? "s" : ""} available
-              </p>
-              {data!.options.map((opt) => {
-                const key = opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name;
-                const busy = reassigningId === key;
-                return (
-                  <div
-                    key={key}
-                    className="overflow-hidden rounded-2xl border border-white/15 bg-white shadow-md"
-                  >
-                    <div className="flex items-start gap-3 p-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-farumasi-600 text-white shadow-sm">
-                        <Store className="h-6 w-6" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-base font-extrabold text-slate-900">{opt.provider_name}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          Medicines {formatPrice(opt.estimated_subtotal)}
-                          {" · "}Delivery {formatPrice(opt.delivery_fee)}
-                        </p>
-                        {opt.requires_refund && (
-                          <p className="mt-1 text-xs font-semibold text-amber-700">
-                            Refund {formatPrice(opt.refund_amount)} to your wallet
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-lg font-black text-farumasi-700">{formatPrice(opt.estimated_total)}</p>
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Same order</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={reassigningId != null}
-                      onClick={() => setConfirmOpt(opt)}
-                      className={cn(
-                        "flex w-full items-center justify-center gap-2 border-t py-3.5 text-sm font-extrabold transition-colors",
-                        busy
-                          ? "bg-slate-100 text-slate-400"
-                          : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
-                      )}
-                    >
-                      {busy ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" /> Moving order…
-                        </>
-                      ) : (
-                        <>
-                          <ArrowRightLeft className="h-4 w-4" />
-                          Switch to {opt.provider_name.split(" ")[0]}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {phase === "empty" && (
-            <div className="mt-5 rounded-2xl border border-dashed border-white/20 bg-white/5 px-4 py-6 text-center">
-              <Store className="mx-auto h-8 w-8 text-white/30" />
-              <p className="mt-2 text-sm font-semibold text-white/80">
-                Keep this page open — options may appear as more pharmacies come online.
-              </p>
-              <button
-                type="button"
-                onClick={() => onShowCheaperChange(!showCheaperPharmacies)}
-                className="mt-3 text-xs font-bold text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
-              >
-                {showCheaperPharmacies ? "Hide cheaper options" : "Search cheaper pharmacies"}
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Confirm modal */}
-      {confirmOpt && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !reassigningId && setConfirmOpt(null)} />
-          <div className="relative z-10 w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
-            <button
-              type="button"
-              onClick={() => setConfirmOpt(null)}
-              disabled={!!reassigningId}
-              className="absolute right-4 top-4 rounded-full p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-950/50">
-              <ArrowRightLeft className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">Switch pharmacy?</h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              Your order will move from <span className="font-bold">{pharmacyName}</span> to{" "}
-              <span className="font-bold text-farumasi-700 dark:text-emerald-300">{confirmOpt.provider_name}</span>.
-              {" "}No extra payment — total stays {formatPrice(confirmOpt.estimated_total)}.
-            </p>
-            {confirmOpt.requires_refund && (
-              <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                You will receive a {formatPrice(confirmOpt.refund_amount)} refund for the price difference.
-              </p>
-            )}
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                disabled={!!reassigningId}
-                onClick={() => setConfirmOpt(null)}
-                className="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
-              >
-                Keep waiting
-              </button>
-              <button
-                type="button"
-                disabled={!!reassigningId}
-                onClick={() => {
-                  onReassign(confirmOpt);
-                  setConfirmOpt(null);
-                }}
-                className="flex-1 rounded-2xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
-              >
-                Yes, switch
-              </button>
-            </div>
-          </div>
+      {data == null ? (
+        <div className="flex items-center justify-center gap-2 rounded-3xl border border-slate-200 bg-white py-16 text-slate-500 dark:border-slate-700 dark:bg-slate-800">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Finding the best matches for you…
         </div>
+      ) : (
+        <div className="space-y-6">
+          {/* AI recommended */}
+          {(topPicks.length > 0 || switchable.length > 0) && (
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <Brain className="h-5 w-5 text-farumasi-600" />
+                <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                  AI recommended for speed
+                </h2>
+              </div>
+              <div className="space-y-3">
+                {(topPicks.length > 0 ? topPicks : switchable.slice(0, 3)).map((opt) => (
+                  <PharmacyOptionCard
+                    key={opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name}
+                    opt={opt}
+                    switchEnabled={switchEnabled}
+                    reassigningId={reassigningId}
+                    formatPrice={formatPrice}
+                    onSelect={() => setConfirmOpt(opt)}
+                    featured
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {otherSwitchable.length > 0 && (
+            <section>
+              <h2 className="mb-3 text-sm font-bold text-slate-600 dark:text-slate-300">More options</h2>
+              <div className="space-y-3">
+                {otherSwitchable.map((opt) => (
+                  <PharmacyOptionCard
+                    key={opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name}
+                    opt={opt}
+                    switchEnabled={switchEnabled}
+                    reassigningId={reassigningId}
+                    formatPrice={formatPrice}
+                    onSelect={() => setConfirmOpt(opt)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {viewOnly.length > 0 && (
+            <section>
+              <h2 className="mb-1 text-sm font-bold text-slate-600 dark:text-slate-300">Higher-priced matches</h2>
+              <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+                Shown for comparison — switching to these would require paying more (not available yet).
+              </p>
+              <div className="space-y-3 opacity-80">
+                {viewOnly.map((opt) => (
+                  <PharmacyOptionCard
+                    key={opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name}
+                    opt={opt}
+                    switchEnabled={false}
+                    reassigningId={reassigningId}
+                    formatPrice={formatPrice}
+                    onSelect={() => {}}
+                    disabled
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {switchable.length === 0 && viewOnly.length === 0 && (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center dark:border-slate-700 dark:bg-slate-800/50">
+              <Store className="mx-auto h-10 w-10 text-slate-300" />
+              <p className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                No other pharmacies matched your items yet
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Check back shortly — availability updates often.</p>
+            </div>
+          )}
+
+          {/* Below-paid opt-in — friendly, not burdensome */}
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-violet-200 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-violet-800">
+            <input
+              type="checkbox"
+              checked={includeBelowPaid}
+              onChange={(e) => onIncludeBelowPaidChange(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded accent-violet-600"
+            />
+            <div>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Also show lower-price pharmacies
+              </p>
+              <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                Optional. These cost less than you paid — we cannot send change back, so only pick one if you are
+                happy to proceed without a refund of the difference.
+              </p>
+            </div>
+          </label>
+        </div>
+      )}
+
+      {confirmOpt && (
+        <ConfirmSwitchModal
+          pharmacyName={pharmacyName}
+          opt={confirmOpt}
+          reassigningId={reassigningId}
+          formatPrice={formatPrice}
+          onClose={() => setConfirmOpt(null)}
+          onConfirm={() => {
+            onReassign(confirmOpt, confirmOpt.requires_no_change_ack === true);
+            setConfirmOpt(null);
+          }}
+        />
       )}
     </>
   );
 }
 
-/** Inline badge for order list cards */
+function PharmacyOptionCard({
+  opt,
+  switchEnabled,
+  reassigningId,
+  formatPrice,
+  onSelect,
+  featured,
+  disabled,
+}: {
+  opt: ReassignmentOption;
+  switchEnabled: boolean;
+  reassigningId: string | null;
+  formatPrice: (n: number) => string;
+  onSelect: () => void;
+  featured?: boolean;
+  disabled?: boolean;
+}) {
+  const key = opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name;
+  const busy = reassigningId === key;
+  const canTap = switchEnabled && !disabled && opt.can_switch !== false;
+
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-2xl border bg-white shadow-sm dark:bg-slate-800",
+        featured ? "border-violet-200 ring-1 ring-violet-100 dark:border-violet-800 dark:ring-violet-900/40" : "border-slate-200 dark:border-slate-700",
+        disabled && "grayscale",
+      )}
+    >
+      <div className="flex items-start gap-3 p-4">
+        <div className={cn(
+          "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white",
+          featured ? "bg-gradient-to-br from-violet-600 to-emerald-600" : "bg-farumasi-600",
+        )}>
+          {featured && opt.ai_rank === 1 ? (
+            <Sparkles className="h-6 w-6" />
+          ) : (
+            <Store className="h-6 w-6" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-base font-extrabold text-slate-900 dark:text-slate-100">{opt.provider_name}</p>
+            {opt.ai_rank != null && (
+              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+                AI #{opt.ai_rank}
+              </span>
+            )}
+            {opt.price_category === "within_paid" && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                No extra pay
+              </span>
+            )}
+          </div>
+          {opt.ai_reasons && opt.ai_reasons.length > 0 && (
+            <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">{opt.ai_reasons[0]}</p>
+          )}
+          <p className="mt-1 text-xs text-slate-500">
+            Medicines {formatPrice(opt.estimated_subtotal)} · Delivery {formatPrice(opt.delivery_fee)}
+          </p>
+          {opt.price_category === "below_paid" && (opt.forfeit_amount ?? 0) > 0 && (
+            <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+              Lower price — no change back ({formatPrice(opt.forfeit_amount!)})
+            </p>
+          )}
+          {opt.price_category === "above_paid" && (opt.extra_payment_required ?? 0) > 0 && (
+            <p className="mt-1 text-xs text-slate-400">
+              +{formatPrice(opt.extra_payment_required!)} above your payment
+            </p>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-lg font-black text-farumasi-700 dark:text-emerald-300">{formatPrice(opt.estimated_total)}</p>
+        </div>
+      </div>
+      {canTap ? (
+        <button
+          type="button"
+          disabled={busy || reassigningId != null}
+          onClick={onSelect}
+          className="flex w-full items-center justify-center gap-2 border-t border-slate-100 bg-gradient-to-r from-violet-600 to-emerald-600 py-3.5 text-sm font-extrabold text-white hover:from-violet-700 hover:to-emerald-700 disabled:opacity-60 dark:border-slate-700"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
+          {busy ? "Moving your order…" : `Choose ${opt.provider_name.split(" ")[0]}`}
+        </button>
+      ) : !switchEnabled ? (
+        <div className="flex items-center justify-center gap-2 border-t border-slate-100 py-3 text-xs font-semibold text-slate-400 dark:border-slate-700">
+          <Clock className="h-3.5 w-3.5" /> Available when the timer ends
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ConfirmSwitchModal({
+  pharmacyName,
+  opt,
+  reassigningId,
+  formatPrice,
+  onClose,
+  onConfirm,
+}: {
+  pharmacyName: string;
+  opt: ReassignmentOption;
+  reassigningId: string | null;
+  formatPrice: (n: number) => string;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !reassigningId && onClose()} />
+      <div className="relative z-10 w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-800">
+        <button type="button" onClick={onClose} className="absolute right-4 top-4 text-slate-400" aria-label="Close">
+          <X className="h-5 w-5" />
+        </button>
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 dark:bg-violet-950/50">
+          <Sparkles className="h-6 w-6 text-violet-600" />
+        </div>
+        <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">Move to {opt.provider_name}?</h3>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+          We will ask <span className="font-bold">{opt.provider_name}</span> to confirm instead of{" "}
+          <span className="font-bold">{pharmacyName}</span>. Same items, total {formatPrice(opt.estimated_total)}.
+        </p>
+        {opt.requires_no_change_ack && (opt.forfeit_amount ?? 0) > 0 && (
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            This pharmacy is {formatPrice(opt.forfeit_amount!)} cheaper. You will not receive that difference back —
+            you are okay proceeding without change.
+          </p>
+        )}
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-2xl border py-3 text-sm font-bold text-slate-700 dark:border-slate-600 dark:text-slate-200">
+            Not now
+          </button>
+          <button type="button" onClick={onConfirm} className="flex-1 rounded-2xl bg-violet-600 py-3 text-sm font-bold text-white hover:bg-violet-700">
+            Yes, move order
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Compact teaser for order tracking page — links to dedicated switch flow */
+export function PharmacySwitchTeaser({
+  pharmacyName,
+  switchEnabled,
+  optionCount,
+  waitLabel,
+  orderId,
+}: {
+  pharmacyName: string;
+  switchEnabled: boolean;
+  optionCount: number;
+  waitLabel?: string | null;
+  orderId: string;
+}) {
+  return (
+    <a
+      href={`/orders/${orderId}/switch-pharmacy`}
+      className="group mb-4 flex items-center gap-4 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 to-emerald-50 p-4 transition-all hover:border-violet-200 hover:shadow-md dark:border-violet-900/40 dark:from-violet-950/30 dark:to-emerald-950/20"
+    >
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-emerald-600 text-white shadow-sm">
+        <Zap className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
+          {switchEnabled ? "Want it faster?" : "Preview faster pharmacies"}
+        </p>
+        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
+          {switchEnabled
+            ? `${optionCount} AI-matched alternative${optionCount !== 1 ? "s" : ""} may confirm quicker than ${pharmacyName}.`
+            : waitLabel
+              ? `See options now — switch available in ${waitLabel} if ${pharmacyName} has not confirmed.`
+              : `See AI-ranked pharmacies that can fulfill your order.`}
+        </p>
+      </div>
+      <span className="shrink-0 text-xs font-bold text-violet-700 group-hover:underline dark:text-violet-300">
+        Explore →
+      </span>
+    </a>
+  );
+}
+
 export function PharmacyReassignmentBadge({
   canReassign,
   waitLabel,
@@ -442,17 +477,17 @@ export function PharmacyReassignmentBadge({
 }) {
   if (canReassign) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm animate-pulse">
-        <ArrowRightLeft className="h-3 w-3" />
-        Switch pharmacy
+      <span className="inline-flex items-center gap-1 rounded-full bg-violet-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+        <Zap className="h-3 w-3" />
+        Faster options
       </span>
     );
   }
   if (waitLabel && waitMs != null && waitMs > 0) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold text-amber-800 dark:text-amber-200">
+      <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-1 text-[10px] font-bold text-violet-800 dark:text-violet-200">
         <Clock className="h-3 w-3" />
-        Switch in {waitLabel}
+        Preview · {waitLabel}
       </span>
     );
   }

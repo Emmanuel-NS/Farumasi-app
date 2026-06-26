@@ -12,7 +12,7 @@ import { useTranslation } from "@/lib/translations";
 import {
   Package, ChevronRight, Clock, Store, XCircle,
   RefreshCw, Truck, Building2, Pill, AlertTriangle,
-  CheckCircle2, Trash2, ArrowRightLeft,
+  CheckCircle2, Trash2, Zap,
 } from "lucide-react";
 import { PharmacyReassignmentBadge } from "@/components/orders/pharmacy-reassignment-panel";
 import type { Order } from "@/types";
@@ -282,25 +282,25 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
   return (
     <div className={cn(
       "bg-white dark:bg-slate-800 rounded-3xl border shadow-sm hover:shadow-md dark:hover:shadow-black/20 transition-shadow overflow-hidden",
-      canSwitch ? "border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-500/20" : "border-slate-100 dark:border-slate-700",
+      canSwitch ? "border-violet-300 dark:border-violet-700 ring-2 ring-violet-500/15" : "border-slate-100 dark:border-slate-700",
     )}>
       {awaitingPharmacy && (
         <div className={cn(
           "px-5 py-2.5 flex items-center justify-between gap-2 text-xs font-bold",
           canSwitch
-            ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white"
-            : "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-b border-amber-100 dark:border-amber-900/50",
+            ? "bg-gradient-to-r from-violet-600 to-emerald-600 text-white"
+            : "bg-violet-50 dark:bg-violet-950/30 text-violet-900 dark:text-violet-200 border-b border-violet-100 dark:border-violet-900/50",
         )}>
           <span className="flex items-center gap-1.5">
             {canSwitch ? (
               <>
-                <ArrowRightLeft className="w-3.5 h-3.5" />
-                You can switch pharmacy now
+                <Zap className="w-3.5 h-3.5" />
+                Faster pharmacies available
               </>
             ) : (
               <>
                 <Clock className="w-3.5 h-3.5" />
-                Waiting for {order.pharmacy} to confirm
+                Waiting for {order.pharmacy}
               </>
             )}
           </span>
@@ -376,7 +376,7 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
             <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total</p>
             <p className="text-base font-extrabold text-farumasi-700 dark:text-emerald-300">{order.total}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {canCancel && (
               <button
                 onClick={onRequestCancel}
@@ -386,26 +386,26 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
                 Cancel
               </button>
             )}
+            {awaitingPharmacy && (
+              <Link
+                href={`/orders/${order.id}/switch-pharmacy`}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold transition-colors border",
+                  canSwitch
+                    ? "border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300",
+                )}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                {canSwitch ? "Faster options" : "Preview options"}
+              </Link>
+            )}
             <Link
-              href={`/orders/${order.id}${canSwitch ? "#pharmacy-reassign" : ""}`}
-              className={cn(
-                "flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold transition-colors",
-                canSwitch
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20"
-                  : "bg-farumasi-600 hover:bg-farumasi-700 text-white",
-              )}
+              href={`/orders/${order.id}`}
+              className="flex items-center gap-1.5 bg-farumasi-600 hover:bg-farumasi-700 text-white px-4 py-2 rounded-2xl text-sm font-semibold transition-colors"
             >
-              {canSwitch ? (
-                <>
-                  Switch pharmacy
-                  <ArrowRightLeft className="w-4 h-4" />
-                </>
-              ) : (
-                <>
-                  {t.orders_track}
-                  <ChevronRight className="w-4 h-4" />
-                </>
-              )}
+              {t.orders_track}
+              <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
