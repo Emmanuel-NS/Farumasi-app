@@ -628,6 +628,7 @@ class OrderService:
         if not order:
             raise NotFoundError("Order", order_id)
         await self._assert_patient_owns_order(order, actor)
+        await self._ensure_partner_response_due_at(order)
 
         amount_paid = float(order.amount_paid_snapshot or order.total_amount or 0)
         can_reassign = self._can_reassign_pharmacy(order)
@@ -654,6 +655,7 @@ class OrderService:
         if not order:
             raise NotFoundError("Order", order_id)
         await self._assert_patient_owns_order(order, actor)
+        await self._ensure_partner_response_due_at(order)
         if not self._can_reassign_pharmacy(order):
             raise BusinessRuleError(
                 "Pharmacy reassignment is not available for this order yet. "
@@ -1488,7 +1490,7 @@ class OrderService:
     def _can_reassign_pharmacy(order: Order) -> bool:
         if order.payment_status != PaymentStatus.PAID:
             return False
-        if order.order_status != OrderStatus.PENDING:
+        if normalize_order_status(order.order_status) != OrderStatus.PENDING.value:
             return False
         if order.pharmacy_confirmed_at is not None:
             return False
@@ -1498,6 +1500,71 @@ class OrderService:
         if due.tzinfo is None:
             due = due.replace(tzinfo=timezone.utc)
         return _now() >= due
+
+    async def _ensure_partner_response_due_at(self, order: Order) -> None:
+        """Backfill response deadline for paid orders awaiting pharmacy confirmation."""
+        if order.payment_status != PaymentStatus.PAID:
+            return
+        if normalize_order_status(order.order_status) != OrderStatus.PENDING.value:
+            return
+        if order.pharmacy_confirmed_at is not None:
+            return
+        if order.partner_response_due_at:
+            return
+        paid_at = await self._order_paid_at(order.id)
+        anchor = paid_at or order.created_at or _now()
+        if anchor.tzinfo is None:
+            anchor = anchor.replace(tzinfo=timezone.utc)
+        order.partner_response_due_at = anchor + timedelta(minutes=_PARTNER_RESPONSE_MINUTES)
+        await self.db.flush()
+
+    async def _order_paid_at(self, order_id: str) -> Optional[datetime]:
+        from app.models.payment_transaction import PaymentTransaction
+
+        result = await self.db.execute(
+            select(PaymentTransaction.paid_at)
+            .where(
+                PaymentTransaction.order_id == order_id,
+                PaymentTransaction.paid_at.isnot(None),
+            )
+            .order_by(PaymentTransaction.paid_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def _required_products_for_order(
+        self, order: Order
+    ) -> List[Tuple[str, int, str, str]]:
+        """Return (product_id, qty, sell_mode, name) tuples used to match pharmacies."""
+        required: List[Tuple[str, int, str, str]] = []
+        listing_ids: list[str] = []
+        items_by_listing: dict[str, object] = {}
+
+        for oi in order.items:
+            if oi.product_id:
+                required.append(
+                    (oi.product_id, oi.quantity, oi.sell_mode or "pack", oi.product_name)
+                )
+            elif oi.product_listing_id:
+                listing_ids.append(oi.product_listing_id)
+                items_by_listing[oi.product_listing_id] = oi
+
+        if listing_ids:
+            res = await self.db.execute(
+                select(ProductListing).where(ProductListing.id.in_(listing_ids))
+            )
+            for lst in res.scalars().all():
+                oi = items_by_listing.get(lst.id)
+                if lst.product_id and oi is not None:
+                    required.append(
+                        (
+                            lst.product_id,
+                            oi.quantity,
+                            oi.sell_mode or "pack",
+                            oi.product_name,
+                        )
+                    )
+        return required
 
     async def _assert_patient_owns_order(self, order: Order, actor: User) -> None:
         if actor.role == UserRole.SUPER_ADMIN:
@@ -1515,11 +1582,7 @@ class OrderService:
         amount_paid: float,
         include_cheaper_with_refund: bool,
     ) -> List[ReassignmentOptionOut]:
-        required = [
-            (oi.product_id, oi.quantity, oi.sell_mode or "pack", oi.product_name)
-            for oi in order.items
-            if oi.product_id
-        ]
+        required = await self._required_products_for_order(order)
         if not required:
             return []
 

@@ -68,7 +68,11 @@ export default function OrderDetailPage() {
   const [showCheaperPharmacies, setShowCheaperPharmacies] = useState(false);
   const [reassigningId, setReassigningId] = useState<string | null>(null);
   const [reassignTick, setReassignTick] = useState(0);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const authUser = useAuthStore((s) => s.user);
+
+  const awaitingPharmacyConfirm =
+    order?.paymentStatus === "paid" && order?.status === "pending_review";
 
   useEffect(() => {
     if (authUser?.phone && !retryPhone) {
@@ -103,15 +107,7 @@ export default function OrderDetailPage() {
   }, [id, order?.status, order?.deliveryMethod]);
 
   useEffect(() => {
-    if (!id || !order) return;
-    const dueAt = order.partnerResponseDueAt ? new Date(order.partnerResponseDueAt).getTime() : null;
-    const eligible =
-      order.canReassignPharmacy ||
-      (order.paymentStatus === "paid" &&
-        order.status === "pending_review" &&
-        dueAt != null &&
-        Date.now() >= dueAt);
-    if (!eligible) {
+    if (!id || !order || !awaitingPharmacyConfirm) {
       setReassignOptions(null);
       return;
     }
@@ -119,16 +115,30 @@ export default function OrderDetailPage() {
       .getReassignmentOptions(id, showCheaperPharmacies)
       .then(setReassignOptions)
       .catch(() => setReassignOptions(null));
-  }, [id, order?.canReassignPharmacy, order?.paymentStatus, order?.status, order?.partnerResponseDueAt, showCheaperPharmacies, reassignTick]);
+  }, [id, awaitingPharmacyConfirm, showCheaperPharmacies, reassignTick]);
 
   useEffect(() => {
-    if (!order?.partnerResponseDueAt || order.canReassignPharmacy) return;
-    const due = new Date(order.partnerResponseDueAt).getTime();
-    const ms = due - Date.now();
-    if (ms <= 0) return;
-    const timer = window.setTimeout(() => setReassignTick((n) => n + 1), ms + 500);
+    if (!awaitingPharmacyConfirm) return;
+    const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [awaitingPharmacyConfirm]);
+
+  const reassignDueAt = reassignOptions?.partner_response_due_at ?? order?.partnerResponseDueAt;
+  const reassignDueMs = reassignDueAt ? new Date(reassignDueAt).getTime() : null;
+  const reassignWaitMs = reassignDueMs != null ? Math.max(0, reassignDueMs - nowTick) : null;
+  const reassignWaitLabel = useMemo(() => {
+    if (reassignWaitMs == null) return null;
+    const totalSec = Math.ceil(reassignWaitMs / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return `${min}:${sec.toString().padStart(2, "0")}`;
+  }, [reassignWaitMs]);
+
+  useEffect(() => {
+    if (!reassignDueMs || reassignDueMs <= nowTick) return;
+    const timer = window.setTimeout(() => setReassignTick((n) => n + 1), reassignDueMs - nowTick + 500);
     return () => window.clearTimeout(timer);
-  }, [order?.partnerResponseDueAt, order?.canReassignPharmacy]);
+  }, [reassignDueMs, nowTick]);
 
   const handleReassign = async (opt: NonNullable<typeof reassignOptions>["options"][number]) => {
     if (!id) return;
@@ -141,8 +151,8 @@ export default function OrderDetailPage() {
         accept_refund_for_difference: opt.requires_refund,
       });
       setOrder(adaptOrder(raw));
+      setReassignTick((n) => n + 1);
       toast.success(`Order moved to ${opt.provider_name}`);
-      setReassignOptions(null);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Could not change pharmacy";
       toast.error(message);
@@ -349,55 +359,92 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Pharmacy slow to confirm — reassignment after 10 min */}
-      {reassignOptions?.can_reassign && reassignOptions.options.length > 0 && (
+      {awaitingPharmacyConfirm && (
         <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-3xl p-5 mb-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-bold text-amber-900 dark:text-amber-200">Choose another pharmacy</h2>
-              <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 leading-relaxed">
-                Your payment of {formatPrice(reassignOptions.amount_paid)} is confirmed, but{" "}
-                {order.pharmacy} has not accepted within 10 minutes. Pick another partner at the
-                same price — no extra payment required.
-              </p>
-              <label className="flex items-center gap-2 mt-3 text-xs text-amber-900 dark:text-amber-200 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showCheaperPharmacies}
-                  onChange={(e) => setShowCheaperPharmacies(e.target.checked)}
-                  className="rounded border-amber-300"
-                />
-                Show cheaper pharmacies (refund difference)
-              </label>
-              <div className="mt-3 space-y-2">
-                {reassignOptions.options.map((opt) => {
-                  const key = opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      disabled={reassigningId != null}
-                      onClick={() => handleReassign(opt)}
-                      className="w-full text-left bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800/50 rounded-2xl px-4 py-3 hover:border-farumasi-300 dark:hover:border-emerald-600 transition-colors disabled:opacity-60"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{opt.provider_name}</span>
-                        <span className="text-sm font-extrabold text-farumasi-700 dark:text-emerald-300">
-                          {formatPrice(opt.estimated_total)}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Medicines {formatPrice(opt.estimated_subtotal)} · Delivery {formatPrice(opt.delivery_fee)}
-                        {opt.requires_refund && (
-                          <span className="text-amber-700 font-medium">
-                            {" "}· Refund {formatPrice(opt.refund_amount)}
-                          </span>
-                        )}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
+              <h2 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                {reassignOptions?.can_reassign ? "Choose another pharmacy" : "Waiting for pharmacy confirmation"}
+              </h2>
+
+              {reassignOptions == null ? (
+                <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1">
+                  Checking alternative pharmacies…
+                </p>
+              ) : !reassignOptions.can_reassign ? (
+                <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 leading-relaxed">
+                  {order.pharmacy} has up to 10 minutes to accept your paid order.
+                  {reassignWaitLabel != null && reassignWaitMs != null && reassignWaitMs > 0 && (
+                    <>
+                      {" "}You can pick another pharmacy in{" "}
+                      <span className="font-extrabold tabular-nums">{reassignWaitLabel}</span>.
+                    </>
+                  )}
+                </p>
+              ) : reassignOptions.options.length === 0 ? (
+                <>
+                  <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 leading-relaxed">
+                    {order.pharmacy} has not accepted within 10 minutes. We could not find another
+                    partner at your paid amount ({formatPrice(reassignOptions.amount_paid)}).
+                  </p>
+                  <label className="flex items-center gap-2 mt-3 text-xs text-amber-900 dark:text-amber-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showCheaperPharmacies}
+                      onChange={(e) => setShowCheaperPharmacies(e.target.checked)}
+                      className="rounded border-amber-300"
+                    />
+                    Include cheaper pharmacies (refund difference)
+                  </label>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 leading-relaxed">
+                    Your payment of {formatPrice(reassignOptions.amount_paid)} is confirmed, but{" "}
+                    {order.pharmacy} has not accepted within 10 minutes. Pick another partner at the
+                    same price — no extra payment required.
+                  </p>
+                  <label className="flex items-center gap-2 mt-3 text-xs text-amber-900 dark:text-amber-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showCheaperPharmacies}
+                      onChange={(e) => setShowCheaperPharmacies(e.target.checked)}
+                      className="rounded border-amber-300"
+                    />
+                    Show cheaper pharmacies (refund difference)
+                  </label>
+                  <div className="mt-3 space-y-2">
+                    {reassignOptions.options.map((opt) => {
+                      const key = opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          disabled={reassigningId != null}
+                          onClick={() => handleReassign(opt)}
+                          className="w-full text-left bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-800/50 rounded-2xl px-4 py-3 hover:border-farumasi-300 dark:hover:border-emerald-600 transition-colors disabled:opacity-60"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{opt.provider_name}</span>
+                            <span className="text-sm font-extrabold text-farumasi-700 dark:text-emerald-300">
+                              {formatPrice(opt.estimated_total)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Medicines {formatPrice(opt.estimated_subtotal)} · Delivery {formatPrice(opt.delivery_fee)}
+                            {opt.requires_refund && (
+                              <span className="text-amber-700 font-medium">
+                                {" "}· Refund {formatPrice(opt.refund_amount)}
+                              </span>
+                            )}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
