@@ -1641,10 +1641,10 @@ export default function CartPage() {
         )}
 
         {/* Access code — patient chooses their own verification code */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-3 mb-5">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-600 shadow-sm p-5 space-y-3 mb-5">
           <div>
-            <h3 className="text-sm font-bold text-slate-700">{t.cart_access_title}</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.cart_access_title}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {fulfillment === "pickup"
                 ? t.cart_access_pickup
                 : t.cart_access_delivery}
@@ -1652,8 +1652,8 @@ export default function CartPage() {
             </p>
           </div>
           <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5 block">
-              {t.cart_access_label} <span className="text-red-400">*</span>
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+              {t.cart_access_label} <span className="text-red-400 dark:text-red-300">*</span>
             </label>
             <input
               value={accessCode}
@@ -1662,12 +1662,12 @@ export default function CartPage() {
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full h-12 rounded-2xl border-2 border-slate-300 bg-slate-50 px-4 text-base text-slate-900 font-bold tracking-widest outline-none focus:border-farumasi-500 focus:ring-2 focus:ring-farumasi-100 transition-all"
+              className="w-full h-12 rounded-2xl border-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 px-4 text-base text-slate-900 dark:text-slate-100 font-bold tracking-widest outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-farumasi-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-farumasi-100 dark:focus:ring-emerald-900/30 transition-all"
             />
           </div>
-          <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5">
-            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-800 leading-relaxed">
+          <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-3 py-2.5">
+            <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-800 dark:text-amber-200 leading-relaxed">
               This is not generated for you. Pick something you will remember and can tell the{" "}
               {fulfillment === "pickup" ? "pharmacist" : "rider"}.
             </p>
@@ -1759,13 +1759,13 @@ export default function CartPage() {
           <button
             onClick={() => setStep("details")}
             aria-label="Back to delivery details"
-            className="p-2 rounded-xl text-slate-400 hover:text-farumasi-700 hover:bg-farumasi-50 transition-colors"
+            className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:text-farumasi-700 dark:hover:text-emerald-400 hover:bg-farumasi-50 dark:hover:bg-slate-800 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{t.cart_payment_title}</h1>
-            <p className="text-slate-500 text-sm">{t.cart_payment_subtitle}</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t.cart_payment_title}</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">{t.cart_payment_subtitle}</p>
           </div>
         </div>
 
@@ -1796,19 +1796,19 @@ export default function CartPage() {
         </div>
 
         {accessCode.trim().length >= 4 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 mb-6">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Your verification code</p>
+              <p className="text-xs font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide">Your verification code</p>
               <button
                 type="button"
                 onClick={() => setStep("details")}
-                className="text-xs font-bold text-amber-700 hover:text-amber-900"
+                className="text-xs font-bold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100"
               >
                 Change
               </button>
             </div>
-            <p className="text-xl font-extrabold text-amber-950 tracking-[0.2em]">{accessCode.trim()}</p>
-            <p className="text-xs text-amber-700 mt-1.5">
+            <p className="text-xl font-extrabold text-amber-950 dark:text-amber-100 tracking-[0.2em]">{accessCode.trim()}</p>
+            <p className="text-xs text-amber-700 dark:text-amber-300/90 mt-1.5">
               {fulfillment === "pickup"
                 ? "Show this at the pharmacy when you collect your order."
                 : "Give this to the rider to verify and complete delivery."}
@@ -2089,7 +2089,7 @@ export default function CartPage() {
             "w-full rounded-2xl text-white font-bold text-base transition-colors py-3.5",
             canPlace && !isPlacingOrder
               ? "bg-farumasi-600 hover:bg-farumasi-700"
-              : "bg-slate-200 cursor-not-allowed text-slate-400"
+              : "bg-slate-200 dark:bg-slate-700 cursor-not-allowed text-slate-400 dark:text-slate-500"
           )}
         >
           {isPlacingOrder
@@ -2097,7 +2097,7 @@ export default function CartPage() {
             : `${t.cart_place_order} · ${formatPrice(totalWithFee)}`}
         </button>
         {isPlacingOrder && amountDueNow > 0 && (
-          <p className="text-center text-xs text-slate-500 mt-2">
+          <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-2">
             {paymentStepLabel || "Complete payment to continue."}
           </p>
         )}

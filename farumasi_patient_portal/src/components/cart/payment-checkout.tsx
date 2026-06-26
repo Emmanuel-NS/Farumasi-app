@@ -20,9 +20,9 @@ export const PAYMENT_METHODS: {
     label: "MTN MoMo",
     network: "MTN Mobile Money",
     hint: "Pay from your MTN wallet",
-    accent: "text-amber-700",
+    accent: "text-amber-700 dark:text-amber-300",
     accentSoft: "bg-amber-400",
-    border: "border-amber-400",
+    border: "border-amber-400 dark:border-amber-500",
     badge: "Default",
   },
   {
@@ -30,9 +30,9 @@ export const PAYMENT_METHODS: {
     label: "Debit / Credit Card",
     network: "Visa · Mastercard",
     hint: "Secure card checkout via Pesapal",
-    accent: "text-blue-700",
+    accent: "text-blue-700 dark:text-blue-300",
     accentSoft: "bg-blue-600",
-    border: "border-blue-500",
+    border: "border-blue-500 dark:border-blue-400",
   },
 ];
 
@@ -104,8 +104,11 @@ export function PaymentCheckout({
               className={cn(
                 "group relative flex flex-col rounded-2xl border-2 p-4 text-left transition-all duration-200",
                 active
-                  ? cn("border-l-4 bg-white shadow-md ring-2 ring-farumasi-100", m.border)
-                  : "border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-white",
+                  ? cn(
+                      "border-l-4 bg-white shadow-md ring-2 ring-farumasi-100 dark:bg-slate-800 dark:ring-farumasi-900/40",
+                      m.border,
+                    )
+                  : "border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-white dark:border-slate-600 dark:bg-slate-800/90 dark:hover:border-slate-500 dark:hover:bg-slate-800",
               )}
             >
               {m.badge && (
@@ -123,24 +126,29 @@ export function PaymentCheckout({
                   <MethodIcon id={m.id} className="h-5 w-5" />
                 </div>
                 {active && (
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-farumasi-600" />
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-farumasi-600 dark:text-emerald-400" />
                 )}
               </div>
-              <p className={cn("mt-3 text-sm font-bold", active ? "text-slate-900" : "text-slate-700")}>
+              <p
+                className={cn(
+                  "mt-3 text-sm font-bold",
+                  active ? "text-slate-900 dark:text-slate-100" : "text-slate-700 dark:text-slate-200",
+                )}
+              >
                 {m.label}
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-500">{m.hint}</p>
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{m.hint}</p>
             </button>
           );
         })}
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-800">
         <div
           className={cn(
             "flex items-center gap-3 border-b px-5 py-3.5",
-            selected.id === "mtn_momo" && "bg-amber-50/80 border-amber-100",
-            selected.id === "card" && "bg-blue-50/80 border-blue-100",
+            selected.id === "mtn_momo" && "bg-amber-50/80 border-amber-100 dark:bg-amber-950/40 dark:border-amber-900/50",
+            selected.id === "card" && "bg-blue-50/80 border-blue-100 dark:bg-blue-950/40 dark:border-blue-900/50",
           )}
         >
           <div
@@ -152,7 +160,7 @@ export function PaymentCheckout({
             <MethodIcon id={selected.id} className="h-4 w-4" />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Pay with</p>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Pay with</p>
             <p className={cn("text-sm font-extrabold", selected.accent)}>{selected.network}</p>
           </div>
         </div>
@@ -160,14 +168,14 @@ export function PaymentCheckout({
         <div className="p-5">
           {needsPhone ? (
             <>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                {momoNumberLabel} <span className="text-red-400">*</span>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {momoNumberLabel} <span className="text-red-400 dark:text-red-300">*</span>
               </label>
-              <p className="mb-3 text-[11px] text-slate-500">
+              <p className="mb-3 text-[11px] text-slate-500 dark:text-slate-400">
                 You will approve the payment on your MTN phone (MoMo PIN or USSD prompt).
               </p>
               <div className="relative">
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500">
                   +250
                 </span>
                 <input
@@ -176,21 +184,21 @@ export function PaymentCheckout({
                   placeholder="0781 234 567"
                   type="tel"
                   autoComplete="tel"
-                  className="h-12 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 pl-14 pr-4 text-base font-semibold tracking-wide text-slate-900 outline-none transition-all focus:border-farumasi-400 focus:bg-white focus:ring-4 focus:ring-farumasi-100"
+                  className="h-12 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 pl-14 pr-4 text-base font-semibold tracking-wide text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-farumasi-400 focus:bg-white focus:ring-4 focus:ring-farumasi-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-emerald-500 dark:focus:bg-slate-900 dark:focus:ring-emerald-900/30"
                 />
               </div>
             </>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 You will be redirected to a secure Pesapal page to enter your card details.
               </p>
-              <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-600 dark:bg-slate-900/60">
                 <div className="flex gap-1.5">
                   <span className="rounded-md bg-blue-700 px-2 py-1 text-[10px] font-bold text-white">VISA</span>
                   <span className="rounded-md bg-orange-600 px-2 py-1 text-[10px] font-bold text-white">MC</span>
                 </div>
-                <p className="text-xs text-slate-500">256-bit encrypted · PCI compliant</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">256-bit encrypted · PCI compliant</p>
               </div>
             </div>
           )}
@@ -198,28 +206,28 @@ export function PaymentCheckout({
       </div>
 
       {orderSubtotal > 0 && (
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Payment summary
           </p>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between text-slate-600">
+            <div className="flex justify-between text-slate-600 dark:text-slate-300">
               <span>Order amount</span>
-              <span className="font-semibold text-slate-900">{formatPrice(orderSubtotal)}</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{formatPrice(orderSubtotal)}</span>
             </div>
             {processingFee > 0 && (
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-slate-600 dark:text-slate-300">
                 <span>Processing fee ({feePercent}%)</span>
-                <span className="font-semibold text-slate-900">{formatPrice(processingFee)}</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{formatPrice(processingFee)}</span>
               </div>
             )}
           </div>
-          <p className="mt-2 text-[11px] text-slate-400">
+          <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
             Processing fee is paid by you, not FARUMASI.
           </p>
-          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
-            <span className="text-sm font-bold text-slate-800">Total to pay now</span>
-            <span className="text-xl font-extrabold text-farumasi-700">{formatPrice(totalWithFee)}</span>
+          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-700">
+            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">Total to pay now</span>
+            <span className="text-xl font-extrabold text-farumasi-700 dark:text-emerald-400">{formatPrice(totalWithFee)}</span>
           </div>
         </div>
       )}
