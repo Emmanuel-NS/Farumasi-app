@@ -188,7 +188,7 @@ export default function OrderDetailPage() {
     setRetryingPayment(true);
     try {
       const redirectUrl = `${window.location.origin}/orders/${order.id}?payment_return=1`;
-      const init = await paymentsService.initiateFlutterwave(order.id, {
+      const init = await paymentsService.initiate(order.id, {
         phone: retryPhone.trim(),
         name: authUser?.name,
         email: authUser?.email,
@@ -724,7 +724,7 @@ export default function OrderDetailPage() {
       <div className="space-y-3">
         {canRetryPayment && (
           <p className="text-center text-xs text-slate-400 dark:text-slate-500">
-            You will be redirected to Flutterwave to complete payment securely.
+            You will be redirected to Pesapal to complete card payment securely.
           </p>
         )}
 

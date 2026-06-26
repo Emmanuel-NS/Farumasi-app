@@ -10,7 +10,10 @@ class FlutterwavePaymentInitiate(FarumasiBaseModel):
     email: Optional[str] = None
     name: Optional[str] = None
     redirect_url: Optional[str] = None
-    payment_method: str = "mtn_momo"  # mtn_momo | airtel_money | card
+    payment_method: str = "mtn_momo"  # mtn_momo | card
+
+
+PaymentInitiate = FlutterwavePaymentInitiate
 
 
 class PaymentInitiateOut(FarumasiBaseModel):

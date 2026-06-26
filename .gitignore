@@ -95,3 +95,4 @@ Desktop.ini
 .env
 .env.local
 .env.*.local
+farumasi_api/scripts/output/mtn_momo_credentials.*

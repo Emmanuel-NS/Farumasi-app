@@ -212,21 +212,17 @@ async def create_my_order(
     return await OrderService(db).create_order(data, current_user)
 
 
-from app.schemas.payment import PaymentInitiateOut, PaymentStatusOut, FlutterwavePaymentInitiate  # noqa: E402
+from app.schemas.payment import PaymentInitiate, PaymentInitiateOut, PaymentStatusOut  # noqa: E402
 from app.services.payments.payment_service import PaymentService  # noqa: E402
 
 
-@router.post(
-    "/me/orders/{order_id}/payments/flutterwave/initiate",
-    response_model=PaymentInitiateOut,
-)
-async def initiate_my_order_flutterwave_payment(
+async def _initiate_order_payment(
     order_id: str,
-    data: FlutterwavePaymentInitiate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    return await PaymentService(db).initiate_flutterwave(
+    data: PaymentInitiate,
+    current_user: User,
+    db: AsyncSession,
+) -> PaymentInitiateOut:
+    return await PaymentService(db).initiate_payment(
         order_id,
         current_user,
         phone=data.phone,
@@ -235,6 +231,33 @@ async def initiate_my_order_flutterwave_payment(
         redirect_url=data.redirect_url,
         payment_method=data.payment_method,
     )
+
+
+@router.post(
+    "/me/orders/{order_id}/payments/initiate",
+    response_model=PaymentInitiateOut,
+)
+async def initiate_my_order_payment(
+    order_id: str,
+    data: PaymentInitiate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _initiate_order_payment(order_id, data, current_user, db)
+
+
+@router.post(
+    "/me/orders/{order_id}/payments/flutterwave/initiate",
+    response_model=PaymentInitiateOut,
+)
+async def initiate_my_order_flutterwave_payment(
+    order_id: str,
+    data: PaymentInitiate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Backward-compatible alias for MTN MADAPI / Pesapal checkout."""
+    return await _initiate_order_payment(order_id, data, current_user, db)
 
 
 @router.get(

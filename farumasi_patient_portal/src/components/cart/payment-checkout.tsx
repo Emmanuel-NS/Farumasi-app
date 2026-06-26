@@ -3,7 +3,7 @@
 import { CheckCircle2, CreditCard, Lock, ShieldCheck, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type PaymentMethodId = "mtn_momo" | "airtel_money" | "card";
+export type PaymentMethodId = "mtn_momo" | "card";
 
 export const PAYMENT_METHODS: {
   id: PaymentMethodId;
@@ -26,19 +26,10 @@ export const PAYMENT_METHODS: {
     badge: "Default",
   },
   {
-    id: "airtel_money",
-    label: "Airtel Money",
-    network: "Airtel Money",
-    hint: "Pay from your Airtel wallet",
-    accent: "text-red-700",
-    accentSoft: "bg-red-500",
-    border: "border-red-500",
-  },
-  {
     id: "card",
     label: "Debit / Credit Card",
     network: "Visa · Mastercard",
-    hint: "Secure card checkout via Flutterwave",
+    hint: "Secure card checkout via Pesapal",
     accent: "text-blue-700",
     accentSoft: "bg-blue-600",
     border: "border-blue-500",
@@ -75,14 +66,13 @@ export function PaymentCheckout({
   processingFee,
   totalWithFee,
   formatPrice,
-  momoNumberLabel = "Mobile number",
+  momoNumberLabel = "MTN MoMo number",
 }: PaymentCheckoutProps) {
   const selected = PAYMENT_METHODS.find((m) => m.id === method)!;
   const needsPhone = method !== "card";
 
   return (
     <div className="space-y-5">
-      {/* Secure header */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 p-5 text-white shadow-lg">
         <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-emerald-500/10 blur-2xl" />
         <div className="absolute -bottom-6 left-1/3 h-24 w-24 rounded-full bg-amber-400/10 blur-xl" />
@@ -96,15 +86,14 @@ export function PaymentCheckout({
             </p>
             <h2 className="text-lg font-extrabold tracking-tight">Choose how to pay</h2>
             <p className="mt-1 text-xs leading-relaxed text-slate-300">
-              MTN MoMo, Airtel Money, or card — processed by Flutterwave. A {feePercent}% fee is added to your total.
+              MTN MoMo or card — MoMo via MTN, cards via Pesapal. A {feePercent}% fee is added to your total.
             </p>
           </div>
           <ShieldCheck className="h-6 w-6 shrink-0 text-emerald-400/80" />
         </div>
       </div>
 
-      {/* Method grid */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         {PAYMENT_METHODS.map((m) => {
           const active = method === m.id;
           return (
@@ -146,13 +135,11 @@ export function PaymentCheckout({
         })}
       </div>
 
-      {/* Active method form */}
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div
           className={cn(
             "flex items-center gap-3 border-b px-5 py-3.5",
             selected.id === "mtn_momo" && "bg-amber-50/80 border-amber-100",
-            selected.id === "airtel_money" && "bg-red-50/80 border-red-100",
             selected.id === "card" && "bg-blue-50/80 border-blue-100",
           )}
         >
@@ -174,13 +161,10 @@ export function PaymentCheckout({
           {needsPhone ? (
             <>
               <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                {selected.id === "airtel_money" ? "Airtel Money number" : momoNumberLabel}{" "}
-                <span className="text-red-400">*</span>
+                {momoNumberLabel} <span className="text-red-400">*</span>
               </label>
               <p className="mb-3 text-[11px] text-slate-500">
-                {selected.id === "mtn_momo"
-                  ? "You will approve the payment on your MTN phone (MoMo PIN or USSD prompt)."
-                  : "Enter your Airtel number — you will confirm on your Airtel Money wallet."}
+                You will approve the payment on your MTN phone (MoMo PIN or USSD prompt).
               </p>
               <div className="relative">
                 <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -199,7 +183,7 @@ export function PaymentCheckout({
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-slate-600">
-                You will be redirected to a secure Flutterwave page to enter your card details.
+                You will be redirected to a secure Pesapal page to enter your card details.
               </p>
               <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3">
                 <div className="flex gap-1.5">
@@ -213,7 +197,6 @@ export function PaymentCheckout({
         </div>
       </div>
 
-      {/* Summary */}
       {orderSubtotal > 0 && (
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">

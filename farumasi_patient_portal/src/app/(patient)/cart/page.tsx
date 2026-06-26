@@ -208,7 +208,7 @@ export default function CartPage() {
       .catch(() => {});
   }, [step, user, isGuest]);
 
-  // Return from Flutterwave hosted checkout
+  // Return from Pesapal hosted checkout (card)
   useEffect(() => {
     const paymentReturn = searchParams.get("payment_return");
     const orderId = searchParams.get("order_id");
@@ -2050,8 +2050,10 @@ export default function CartPage() {
               const orderCode = result.order_code ?? result.id ?? ORDER_NUM;
 
               const redirectUrl = `${window.location.origin}/cart?payment_return=1&order_id=${orderId}`;
-              setPaymentStepLabel("Opening Flutterwave checkout…");
-              const init = await paymentsService.initiateFlutterwave(orderId, {
+              setPaymentStepLabel(
+                paymentMethod === "card" ? "Opening Pesapal checkout…" : "Sending MTN MoMo request…",
+              );
+              const init = await paymentsService.initiate(orderId, {
                 phone: phone.trim(),
                 name: name.trim() || undefined,
                 redirect_url: redirectUrl,
@@ -2096,7 +2098,7 @@ export default function CartPage() {
         </button>
         {isPlacingOrder && amountDueNow > 0 && (
           <p className="text-center text-xs text-slate-500 mt-2">
-            {paymentStepLabel || "Complete payment on Flutterwave to continue."}
+            {paymentStepLabel || "Complete payment to continue."}
           </p>
         )}
       </div>
@@ -2279,7 +2281,7 @@ export default function CartPage() {
         )}
         <div className="flex justify-between text-sm">
           <span className="text-slate-500">{t.cart_payment_label}</span>
-          <span className="font-bold text-slate-900">Flutterwave</span>
+          <span className="font-bold text-slate-900">MTN MoMo / Pesapal</span>
         </div>
         {showRxInsurance && rxInsuranceProvider && (
           <div className="flex justify-between text-sm">
@@ -2317,7 +2319,7 @@ export default function CartPage() {
           <Truck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
           <p className="text-xs text-blue-700">
             <span className="font-semibold">{t.cart_defer_banner}</span>{" "}
-            {formatPrice(deliveryFeeAmount)} will be charged via Flutterwave once your order is delivered.
+            {formatPrice(deliveryFeeAmount)} will be charged via MTN MoMo once your order is delivered.
           </p>
         </div>
       )}

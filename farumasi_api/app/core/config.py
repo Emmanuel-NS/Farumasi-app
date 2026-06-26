@@ -66,22 +66,51 @@ class Settings(BaseSettings):
     SMS_SENDER_ID: str = "FARUMASI"
     SMS_HTTP_URL: str = ""
 
-    # ── Patient payments (Flutterwave) ────────────────────────────────────
-    # sandbox = auto-confirm for local/dev E2E; live = Flutterwave hosted checkout
+    # ── Patient payments ─────────────────────────────────────────────────
+    # sandbox = auto-confirm MoMo/card for local E2E; live = MTN MADAPI + Pesapal
     PAYMENT_MODE: str = "sandbox"
     PAYMENT_CURRENCY: str = "RWF"
-    # Added to patient checkout total — not absorbed by FARUMASI (tune to cover gateway fees)
     PAYMENT_PROCESSING_FEE_PERCENT: float = 3.8
-    FLUTTERWAVE_SECRET_KEY: str = ""  # optional v3 key: FLWSECK_TEST-… or FLWSECK-…
-    FLUTTERWAVE_CLIENT_ID: str = ""  # v4 sandbox / production (Settings → Developers)
+
+    # MTN MADAPI — developers.mtn.com app (Payments V1, Rwanda)
+    MTN_MADAPI_CONSUMER_KEY: str = ""
+    MTN_MADAPI_CONSUMER_SECRET: str = ""
+    MTN_MADAPI_BASE_URL: str = "https://api.mtn.com/v1"
+    MTN_MADAPI_COUNTRY_CODE: str = "RW"
+    MTN_MADAPI_TARGET_SYSTEM: str = ""
+    MTN_MADAPI_CALLBACK_URL: str = ""
+
+    # Pesapal — card checkout (Rwanda)
+    PESAPAL_CONSUMER_KEY: str = ""
+    PESAPAL_CONSUMER_SECRET: str = ""
+    PESAPAL_ENV: str = "sandbox"  # sandbox | live
+    PESAPAL_IPN_ID: str = ""
+    PESAPAL_IPN_URL: str = ""
+
+    # Legacy Flutterwave (optional fallback — not used when MTN/Pesapal configured)
+    FLUTTERWAVE_SECRET_KEY: str = ""
+    FLUTTERWAVE_CLIENT_ID: str = ""
     FLUTTERWAVE_CLIENT_SECRET: str = ""
-    FLUTTERWAVE_ENCRYPTION_KEY: str = ""  # only needed for direct card charge APIs
-    FLUTTERWAVE_PUBLIC_KEY: str = ""  # FLWPUBK_TEST-… (optional; inline checkout)
-    FLUTTERWAVE_WEBHOOK_SECRET: str = ""  # Settings → Webhooks → secret hash
-    # Rwanda default: MoMo first (default tab), then card. No spaces between values.
+    FLUTTERWAVE_ENCRYPTION_KEY: str = ""
+    FLUTTERWAVE_PUBLIC_KEY: str = ""
+    FLUTTERWAVE_WEBHOOK_SECRET: str = ""
     FLUTTERWAVE_PAYMENT_OPTIONS: str = "mobilemoneyrwanda,card"
     API_PUBLIC_URL: str = "http://localhost:8000"
     PATIENT_PORTAL_URL: str = "http://localhost:3002"
+
+    # ── MTN MoMo Collection (direct API — alternative to Flutterwave) ─────
+    # Primary key = subscription key from https://momodeveloper.mtn.com → Profile
+    # after subscribing to "Collection" product. Run scripts/provision_mtn_momo.py
+    # (sandbox) to generate MTN_MOMO_API_USER + MTN_MOMO_API_KEY.
+    MTN_MOMO_PRIMARY_KEY: str = ""
+    MTN_MOMO_SECONDARY_KEY: str = ""
+    MTN_MOMO_SUBSCRIPTION_KEY: str = ""
+    MTN_MOMO_API_USER: str = ""
+    MTN_MOMO_API_KEY: str = ""
+    MTN_MOMO_ENV: str = "sandbox"  # sandbox | production
+    MTN_MOMO_TARGET_ENVIRONMENT: str = "sandbox"  # sandbox | mtnrwanda (live Rwanda)
+    MTN_MOMO_CURRENCY: str = "RWF"
+    MTN_MOMO_CALLBACK_URL: str = ""  # e.g. https://api.farumasi.com/api/v1/webhooks/mtn-momo
 
     # OAuth (public anon values — exposed via /config/public for mobile clients)
     SUPABASE_URL: str = ""
@@ -192,6 +221,30 @@ class Settings(BaseSettings):
             )
         # PAYMENT_MODE=sandbox is allowed in production for fake checkout until
         # Flutterwave live credentials are approved (orders auto-confirm, no gateway).
+        return self
+
+    @model_validator(mode="after")
+    def _normalize_mtn_momo(self) -> "Settings":
+        def clean(v: str) -> str:
+            s = (v or "").strip().strip('"').strip("'")
+            return s.replace("\r", "").replace("\n", "")
+
+        self.MTN_MOMO_PRIMARY_KEY = clean(self.MTN_MOMO_PRIMARY_KEY)
+        self.MTN_MOMO_SECONDARY_KEY = clean(self.MTN_MOMO_SECONDARY_KEY)
+        self.MTN_MOMO_SUBSCRIPTION_KEY = clean(self.MTN_MOMO_SUBSCRIPTION_KEY)
+        self.MTN_MOMO_API_USER = clean(self.MTN_MOMO_API_USER)
+        self.MTN_MOMO_API_KEY = clean(self.MTN_MOMO_API_KEY)
+
+        primary = self.MTN_MOMO_PRIMARY_KEY
+        sub = self.MTN_MOMO_SUBSCRIPTION_KEY
+        if primary and not sub:
+            self.MTN_MOMO_SUBSCRIPTION_KEY = primary
+        elif sub and not primary:
+            self.MTN_MOMO_PRIMARY_KEY = sub
+
+        env = (self.MTN_MOMO_ENV or "sandbox").lower()
+        if env == "production" and self.MTN_MOMO_TARGET_ENVIRONMENT == "sandbox":
+            self.MTN_MOMO_TARGET_ENVIRONMENT = "mtnrwanda"
         return self
 
     @computed_field  # type: ignore[misc]

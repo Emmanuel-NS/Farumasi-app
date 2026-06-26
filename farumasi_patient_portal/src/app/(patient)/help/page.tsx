@@ -18,7 +18,7 @@ const FAQ = [
   },
   {
     q: "What payment methods are supported?",
-    a: "MTN MoMo, Airtel Money, and card via Flutterwave. A small processing fee is added to your total at checkout.",
+    a: "MTN MoMo and card via Pesapal. A small processing fee is added to your total at checkout.",
   },
   {
     q: "How do I cancel an order?",

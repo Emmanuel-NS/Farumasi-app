@@ -20,8 +20,9 @@ from app.repositories.order_repository import OrderRepository
 from app.schemas.payment import PaymentInitiateOut, PaymentStatusOut
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
-from app.services.payments.flutterwave_service import FlutterwaveService
 from app.services.payments.momo_collection_service import normalize_rwanda_phone
+from app.services.payments.mtn_madapi_service import MtnMadapiService
+from app.services.payments.pesapal_service import PesapalService
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,6 @@ _TX_FAILED = "failed"
 
 
 def amount_due_for_order(order: Order) -> float:
-    """Whole RWF due at checkout (may exclude deferred delivery fee)."""
     total = float(order.total_amount)
     if order.defer_delivery_fee and float(order.delivery_fee) > 0:
         return round(total - float(order.delivery_fee), 2)
@@ -65,27 +65,21 @@ def _safe_payment_email(email: str, order_id: str) -> str:
 
 
 def payment_processing_fee(amount: float) -> float:
-    """Gateway fee passed to the patient (not absorbed by FARUMASI)."""
     pct = float(settings.PAYMENT_PROCESSING_FEE_PERCENT or 0)
     if pct <= 0 or amount <= 0:
         return 0.0
     return round(amount * pct / 100.0, 0)
 
 
-def _flutterwave_user_message(exc: Exception) -> str:
+def _payment_user_message(exc: Exception) -> str:
     raw = str(exc).strip()
     if not raw:
         return "Could not start payment. Please try again."
     low = raw.lower()
     if "amount" in low and "limit" in low:
-        return (
-            "This order exceeds the current payment limit. Contact FARUMASI support "
-            "or try a smaller order."
-        )
-    if "email" in low:
-        return "Payment could not start: check your profile email and try again."
-    if "phone" in low or "mobile" in low:
-        return "Enter a valid Rwanda mobile number (e.g. 0781234567)."
+        return "This order exceeds the current payment limit. Contact FARUMASI support."
+    if "phone" in low or "msisdn" in low or "mobile" in low:
+        return "Enter a valid Rwanda MTN number (e.g. 0781234567)."
     return f"Payment could not start: {raw[:220]}"
 
 
@@ -108,11 +102,19 @@ def _payment_return_base() -> str:
     return settings.API_PUBLIC_URL.rstrip("/")
 
 
+def _split_name(full_name: str) -> tuple[str, str]:
+    parts = (full_name or "FARUMASI Patient").strip().split(None, 1)
+    if len(parts) == 1:
+        return parts[0], "Patient"
+    return parts[0], parts[1]
+
+
 class PaymentService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.orders = OrderRepository(db)
-        self.flutterwave = FlutterwaveService()
+        self.mtn = MtnMadapiService()
+        self.pesapal = PesapalService()
 
     async def _get_patient_order(self, order_id: str, actor: User) -> Order:
         order = await self.orders.get_by_id(order_id)
@@ -135,7 +137,7 @@ class PaymentService:
         phone = actor.phone or order.payment_phone or ""
         return name, email, phone
 
-    async def initiate_flutterwave(
+    async def initiate_payment(
         self,
         order_id: str,
         actor: User,
@@ -156,24 +158,25 @@ class PaymentService:
             (email or default_email).strip() or default_email, order.id
         )
 
-        phone_raw = (phone or actor_phone or "").strip()
         method = (payment_method or "mtn_momo").lower().strip()
-        if method not in ("mtn_momo", "airtel_money", "card"):
-            raise ValidationError("Invalid payment method. Choose MTN MoMo, Airtel Money, or card.")
+        if method not in ("mtn_momo", "card"):
+            raise ValidationError("Choose MTN MoMo or card.")
 
-        if method in ("mtn_momo", "airtel_money"):
+        phone_raw = (phone or actor_phone or "").strip()
+        if method == "mtn_momo":
             if not phone_raw:
-                label = "Airtel Money" if method == "airtel_money" else "MTN MoMo"
-                raise ValidationError(f"Enter your {label} number for this payment.")
+                raise ValidationError("Enter your MTN MoMo number for this payment.")
             try:
                 msisdn = normalize_rwanda_phone(phone_raw)
             except ValueError as exc:
                 raise ValidationError(str(exc)) from exc
         else:
+            msisdn = ""
             try:
-                msisdn = normalize_rwanda_phone(phone_raw) if phone_raw else normalize_rwanda_phone(actor_phone or "0780000000")
+                if phone_raw:
+                    msisdn = normalize_rwanda_phone(phone_raw)
             except ValueError:
-                msisdn = "250788000000"
+                msisdn = ""
 
         due = amount_due_for_order(order)
         processing_fee = payment_processing_fee(due)
@@ -193,28 +196,27 @@ class PaymentService:
                 payment_method="none",
             )
 
-        display_phone = _display_phone(phone_raw or actor_phone or "0780000000")
         merchant_ref = _merchant_reference(order)
         order.payment_method = method
-        order.payment_phone = msisdn
+        order.payment_phone = msisdn or phone_raw or None
         order.payment_status = PaymentStatus.PENDING
-
-        txn = PaymentTransaction(
-            order_id=order.id,
-            amount=charge_amount,
-            currency=settings.PAYMENT_CURRENCY,
-            provider="flutterwave",
-            method=method,
-            phone=msisdn,
-            status=_TX_PENDING,
-            external_id=merchant_ref,
-            idempotency_key=f"{order.id}:{merchant_ref}",
-        )
-        self.db.add(txn)
-        await self.db.flush()
 
         mode = (settings.PAYMENT_MODE or "sandbox").lower()
         if mode == "sandbox":
+            provider = "mtn_madapi_sandbox" if method == "mtn_momo" else "pesapal_sandbox"
+            txn = PaymentTransaction(
+                order_id=order.id,
+                amount=charge_amount,
+                currency=settings.PAYMENT_CURRENCY,
+                provider=provider,
+                method=method,
+                phone=msisdn or phone_raw or None,
+                status=_TX_PENDING,
+                external_id=merchant_ref,
+                idempotency_key=f"{order.id}:{merchant_ref}",
+            )
+            self.db.add(txn)
+            await self.db.flush()
             await self._confirm_transaction(
                 txn, order, provider_reference=f"SANDBOX-{merchant_ref[:16]}"
             )
@@ -225,55 +227,91 @@ class PaymentService:
                 amount=charge_amount,
                 order_amount=due,
                 processing_fee=processing_fee,
-                provider="flutterwave_sandbox",
+                provider=provider,
                 external_id=merchant_ref,
-                message="Sandbox payment confirmed. Use live Flutterwave in production.",
+                message="Sandbox payment confirmed.",
                 payment_method=method,
             )
 
-        if not self.flutterwave.is_configured():
+        if method == "mtn_momo":
+            return await self._initiate_mtn_momo(
+                order,
+                actor,
+                merchant_ref=merchant_ref,
+                msisdn=msisdn,
+                customer_name=customer_name,
+                due=due,
+                charge_amount=charge_amount,
+                processing_fee=processing_fee,
+            )
+        return await self._initiate_pesapal_card(
+            order,
+            actor,
+            merchant_ref=merchant_ref,
+            customer_name=customer_name,
+            customer_email=customer_email,
+            phone_raw=phone_raw or actor_phone,
+            redirect_url=redirect_url,
+            due=due,
+            charge_amount=charge_amount,
+            processing_fee=processing_fee,
+        )
+
+    async def initiate_flutterwave(self, *args, **kwargs) -> PaymentInitiateOut:
+        """Backward-compatible alias — routes to MTN MADAPI / Pesapal."""
+        return await self.initiate_payment(*args, **kwargs)
+
+    async def _initiate_mtn_momo(
+        self,
+        order: Order,
+        actor: User,
+        *,
+        merchant_ref: str,
+        msisdn: str,
+        customer_name: str,
+        due: float,
+        charge_amount: float,
+        processing_fee: float,
+    ) -> PaymentInitiateOut:
+        if not self.mtn.is_configured():
             order.payment_status = PaymentStatus.FAILED
-            txn.status = _TX_FAILED
-            txn.failure_reason = "Flutterwave not configured"
             await self.db.commit()
             raise BusinessRuleError(
-                "Online payments are not configured. Contact FARUMASI support."
+                "MTN MoMo payments are not configured. Contact FARUMASI support."
             )
 
-        callback = _sanitize_callback_url(redirect_url or "", order.id)
+        txn = PaymentTransaction(
+            order_id=order.id,
+            amount=charge_amount,
+            currency=settings.PAYMENT_CURRENCY,
+            provider="mtn_madapi",
+            method="mtn_momo",
+            phone=msisdn,
+            status=_TX_PENDING,
+            external_id=merchant_ref,
+            idempotency_key=f"{order.id}:{merchant_ref}",
+        )
+        self.db.add(txn)
+        await self.db.flush()
 
         try:
-            result = await self.flutterwave.initialize_payment(
-                tx_ref=merchant_ref,
+            result = await self.mtn.request_momo_payment(
+                transaction_id=merchant_ref,
                 amount=charge_amount,
                 currency=settings.PAYMENT_CURRENCY,
-                redirect_url=callback,
-                customer_email=customer_email,
-                customer_phone=display_phone,
-                customer_name=customer_name,
+                msisdn=msisdn,
+                payer_name=customer_name,
                 description=f"FARUMASI {order.order_code}",
-                payment_method=method,
             )
-            if result.get("flw_ref"):
-                txn.provider_reference = str(result["flw_ref"])
+            txn.provider_reference = result.get("provider_transaction_id") or merchant_ref
         except Exception as exc:
-            logger.exception("Flutterwave initiate failed for order %s", order.id)
+            logger.exception("MTN MADAPI initiate failed for order %s", order.id)
             order.payment_status = PaymentStatus.FAILED
             txn.status = _TX_FAILED
             txn.failure_reason = str(exc)[:500]
-            patient_user_id = (
-                await self.db.execute(
-                    select(PatientProfile.user_id).where(
-                        PatientProfile.id == order.patient_id
-                    )
-                )
-            ).scalar_one_or_none()
-            if patient_user_id:
-                await NotificationService(self.db).payment_failed(
-                    patient_user_id, order.id, order_code=order.order_code
-                )
+            await self._notify_payment_failed(order)
             await self.db.commit()
-            raise BusinessRuleError(_flutterwave_user_message(exc)) from exc
+            raise BusinessRuleError(_payment_user_message(exc)) from exc
 
         await AuditService(self.db).log(
             actor_user_id=actor.id,
@@ -282,33 +320,116 @@ class PaymentService:
             entity_id=order.id,
             new_value={
                 "amount": charge_amount,
-                "order_amount": due,
-                "processing_fee": processing_fee,
-                "provider": "flutterwave",
+                "provider": "mtn_madapi",
+                "method": "mtn_momo",
             },
         )
         await self.db.commit()
+
         fee_note = (
-            f" Includes {int(settings.PAYMENT_PROCESSING_FEE_PERCENT or 0)}% payment processing fee."
+            f" Includes {int(settings.PAYMENT_PROCESSING_FEE_PERCENT or 0)}% processing fee."
             if processing_fee > 0
             else ""
         )
-        method_messages = {
-            "mtn_momo": f"Complete MTN MoMo payment on Flutterwave.{fee_note}",
-            "airtel_money": f"Complete Airtel Money payment on Flutterwave.{fee_note}",
-            "card": f"Complete your card payment on the secure Flutterwave page.{fee_note}",
-        }
         return PaymentInitiateOut(
             order_id=order.id,
             payment_status=PaymentStatus.PENDING,
             amount=charge_amount,
             order_amount=due,
             processing_fee=processing_fee,
-            provider="flutterwave",
+            provider="mtn_madapi",
             external_id=merchant_ref,
-            checkout_url=result["link"],
-            message=method_messages.get(method, f"Complete payment on Flutterwave.{fee_note}"),
-            payment_method=method,
+            message=(
+                f"Check your phone — approve the MTN MoMo prompt for RWF {int(charge_amount):,}.{fee_note}"
+            ),
+            payment_method="mtn_momo",
+        )
+
+    async def _initiate_pesapal_card(
+        self,
+        order: Order,
+        actor: User,
+        *,
+        merchant_ref: str,
+        customer_name: str,
+        customer_email: str,
+        phone_raw: str,
+        redirect_url: Optional[str],
+        due: float,
+        charge_amount: float,
+        processing_fee: float,
+    ) -> PaymentInitiateOut:
+        if not self.pesapal.is_configured():
+            order.payment_status = PaymentStatus.FAILED
+            await self.db.commit()
+            raise BusinessRuleError(
+                "Card payments are not configured. Contact FARUMASI support."
+            )
+
+        first, last = _split_name(customer_name)
+        callback = _sanitize_callback_url(redirect_url or "", order.id)
+
+        txn = PaymentTransaction(
+            order_id=order.id,
+            amount=charge_amount,
+            currency=settings.PAYMENT_CURRENCY,
+            provider="pesapal",
+            method="card",
+            phone=phone_raw or None,
+            status=_TX_PENDING,
+            external_id=merchant_ref,
+            idempotency_key=f"{order.id}:{merchant_ref}",
+        )
+        self.db.add(txn)
+        await self.db.flush()
+
+        try:
+            result = await self.pesapal.submit_order(
+                merchant_reference=merchant_ref,
+                amount=charge_amount,
+                currency=settings.PAYMENT_CURRENCY,
+                description=f"FARUMASI {order.order_code}",
+                callback_url=callback,
+                email=customer_email,
+                phone=_display_phone(phone_raw or "0780000000"),
+                first_name=first,
+                last_name=last,
+            )
+            txn.provider_reference = result.get("order_tracking_id") or merchant_ref
+        except Exception as exc:
+            logger.exception("Pesapal initiate failed for order %s", order.id)
+            order.payment_status = PaymentStatus.FAILED
+            txn.status = _TX_FAILED
+            txn.failure_reason = str(exc)[:500]
+            await self._notify_payment_failed(order)
+            await self.db.commit()
+            raise BusinessRuleError(_payment_user_message(exc)) from exc
+
+        await AuditService(self.db).log(
+            actor_user_id=actor.id,
+            action="payment.initiated",
+            entity_type="Order",
+            entity_id=order.id,
+            new_value={"amount": charge_amount, "provider": "pesapal", "method": "card"},
+        )
+        await self.db.commit()
+
+        fee_note = (
+            f" Includes {int(settings.PAYMENT_PROCESSING_FEE_PERCENT or 0)}% processing fee."
+            if processing_fee > 0
+            else ""
+        )
+        return PaymentInitiateOut(
+            order_id=order.id,
+            payment_status=PaymentStatus.PENDING,
+            amount=charge_amount,
+            order_amount=due,
+            processing_fee=processing_fee,
+            provider="pesapal",
+            external_id=merchant_ref,
+            checkout_url=result["redirect_url"],
+            message=f"Complete your card payment on Pesapal.{fee_note}",
+            payment_method="card",
         )
 
     async def get_status(self, order_id: str, actor: User) -> PaymentStatusOut:
@@ -318,9 +439,11 @@ class PaymentService:
 
         if order.payment_status == PaymentStatus.PENDING:
             txn = await self._latest_transaction(order.id)
-            if txn and txn.status == _TX_PENDING and txn.provider == "flutterwave":
-                if self.flutterwave.is_configured():
-                    await self._sync_flutterwave_transaction(txn, order)
+            if txn and txn.status == _TX_PENDING:
+                if txn.provider == "mtn_madapi":
+                    await self._sync_mtn_transaction(txn, order)
+                elif txn.provider == "pesapal":
+                    await self._sync_pesapal_transaction(txn, order)
 
         return PaymentStatusOut(
             order_id=order.id,
@@ -330,50 +453,95 @@ class PaymentService:
             payment_method=order.payment_method,
             payment_reference=order.payment_reference,
             processing_fee=fee if order.payment_status != PaymentStatus.PAID else None,
-            message=self._status_message(order.payment_status),
+            message=self._status_message(order),
         )
 
-    async def handle_flutterwave_webhook(self, body: dict, *, verif_hash: str) -> dict:
-        if not FlutterwaveService.verify_webhook_hash(verif_hash):
-            logger.warning("Flutterwave webhook rejected: invalid verif-hash")
-            return {"status": "error", "message": "invalid signature"}
-
-        event = str(body.get("event") or "")
-        data = body.get("data") or {}
-        if event != "charge.completed":
-            return {"status": "ok", "message": "ignored"}
-
-        tx_ref = str(data.get("tx_ref") or "")
-        if not tx_ref:
-            return {"status": "error", "message": "missing tx_ref"}
-
-        txn = await self._find_transaction_by_ref(tx_ref)
+    async def handle_pesapal_webhook(
+        self,
+        *,
+        order_tracking_id: Optional[str] = None,
+        merchant_reference: Optional[str] = None,
+    ) -> dict:
+        ref = merchant_reference or ""
+        txn = None
+        if ref:
+            txn = await self._find_transaction_by_ref(ref)
+        if not txn and order_tracking_id:
+            txn = await self._find_transaction_by_provider_ref(order_tracking_id)
         if not txn:
-            logger.warning("Flutterwave webhook for unknown tx_ref=%s", tx_ref)
             return {"status": "error", "message": "unknown transaction"}
 
         order = await self.orders.get_by_id(txn.order_id)
         if not order:
             return {"status": "error", "message": "order not found"}
 
-        try:
-            if FlutterwaveService.is_payment_successful(data):
-                flw_id = str(data.get("id") or "")
-                await self._confirm_transaction(
-                    txn,
-                    order,
-                    provider_reference=flw_id or tx_ref,
-                )
-            elif FlutterwaveService.is_payment_failed(data):
-                order.payment_status = PaymentStatus.FAILED
-                txn.status = _TX_FAILED
-                txn.failure_reason = str(data.get("processor_response") or "failed")[:500]
-            await self.db.commit()
-        except Exception:
-            logger.exception("Flutterwave webhook processing failed for %s", tx_ref)
-            return {"status": "error", "message": "processing failed"}
+        if order_tracking_id and not txn.provider_reference:
+            txn.provider_reference = order_tracking_id
 
+        await self._sync_pesapal_transaction(txn, order)
+        await self.db.commit()
         return {"status": "ok"}
+
+    async def handle_mtn_madapi_webhook(self, body: dict) -> dict:
+        ref = (
+            str(body.get("externalTransactionId") or body.get("correlatorId") or body.get("transactionId") or "")
+        ).strip()
+        if not ref:
+            return {"status": "ignored"}
+        txn = await self._find_transaction_by_ref(ref)
+        if not txn:
+            return {"status": "error", "message": "unknown transaction"}
+        order = await self.orders.get_by_id(txn.order_id)
+        if not order:
+            return {"status": "error", "message": "order not found"}
+        await self._sync_mtn_transaction(txn, order)
+        await self.db.commit()
+        return {"status": "ok"}
+
+    async def handle_flutterwave_webhook(self, body: dict, *, verif_hash: str) -> dict:
+        return {"status": "ignored", "message": "flutterwave disabled"}
+
+    async def _sync_mtn_transaction(self, txn: PaymentTransaction, order: Order) -> None:
+        ref = txn.external_id
+        if not ref:
+            return
+        try:
+            data = await self.mtn.get_transaction_status(ref)
+        except Exception:
+            logger.exception("MTN status sync failed for %s", ref)
+            return
+        if not data:
+            return
+        if MtnMadapiService.is_payment_successful(data):
+            provider_ref = str(data.get("transactionId") or txn.provider_reference or ref)
+            await self._confirm_transaction(txn, order, provider_reference=provider_ref)
+            await self.db.commit()
+        elif MtnMadapiService.is_payment_failed(data):
+            order.payment_status = PaymentStatus.FAILED
+            txn.status = _TX_FAILED
+            txn.failure_reason = str(data.get("statusMessage") or "failed")[:500]
+            await self.db.commit()
+
+    async def _sync_pesapal_transaction(self, txn: PaymentTransaction, order: Order) -> None:
+        tracking_id = txn.provider_reference
+        if not tracking_id:
+            return
+        try:
+            data = await self.pesapal.get_transaction_status(tracking_id)
+        except Exception:
+            logger.exception("Pesapal status sync failed for %s", tracking_id)
+            return
+        if not data:
+            return
+        if PesapalService.is_payment_completed(data):
+            ref = str(data.get("confirmation_code") or tracking_id)
+            await self._confirm_transaction(txn, order, provider_reference=ref)
+            await self.db.commit()
+        elif PesapalService.is_payment_failed(data):
+            order.payment_status = PaymentStatus.FAILED
+            txn.status = _TX_FAILED
+            txn.failure_reason = str(data.get("payment_status_description") or "failed")[:500]
+            await self.db.commit()
 
     async def _find_transaction_by_ref(self, tx_ref: str) -> Optional[PaymentTransaction]:
         result = await self.db.execute(
@@ -381,30 +549,11 @@ class PaymentService:
         )
         return result.scalar_one_or_none()
 
-    async def _sync_flutterwave_transaction(
-        self,
-        txn: PaymentTransaction,
-        order: Order,
-    ) -> None:
-        ref = txn.external_id
-        if not ref:
-            return
-        try:
-            data = await self.flutterwave.verify_by_reference(ref)
-        except Exception:
-            logger.exception("Flutterwave status sync failed for %s", ref)
-            return
-        if not data:
-            return
-        if FlutterwaveService.is_payment_successful(data):
-            flw_id = str(data.get("id") or ref)
-            await self._confirm_transaction(txn, order, provider_reference=flw_id)
-            await self.db.commit()
-        elif FlutterwaveService.is_payment_failed(data):
-            order.payment_status = PaymentStatus.FAILED
-            txn.status = _TX_FAILED
-            txn.failure_reason = str(data.get("processor_response") or "failed")[:500]
-            await self.db.commit()
+    async def _find_transaction_by_provider_ref(self, provider_ref: str) -> Optional[PaymentTransaction]:
+        result = await self.db.execute(
+            select(PaymentTransaction).where(PaymentTransaction.provider_reference == provider_ref)
+        )
+        return result.scalar_one_or_none()
 
     async def _latest_transaction(self, order_id: str) -> Optional[PaymentTransaction]:
         result = await self.db.execute(
@@ -458,12 +607,25 @@ class PaymentService:
                 action_url=f"/orders/{order.id}",
             )
 
+    async def _notify_payment_failed(self, order: Order) -> None:
+        patient_user_id = (
+            await self.db.execute(
+                select(PatientProfile.user_id).where(PatientProfile.id == order.patient_id)
+            )
+        ).scalar_one_or_none()
+        if patient_user_id:
+            await NotificationService(self.db).payment_failed(
+                patient_user_id, order.id, order_code=order.order_code
+            )
+
     @staticmethod
-    def _status_message(status: str) -> str:
-        if status == PaymentStatus.PAID:
+    def _status_message(order: Order) -> str:
+        if order.payment_status == PaymentStatus.PAID:
             return "Payment confirmed."
-        if status == PaymentStatus.PENDING:
-            return "Waiting for payment on Flutterwave."
-        if status == PaymentStatus.FAILED:
+        if order.payment_status == PaymentStatus.PENDING:
+            if order.payment_method == "card":
+                return "Waiting for card payment on Pesapal."
+            return "Waiting for MTN MoMo approval on your phone."
+        if order.payment_status == PaymentStatus.FAILED:
             return "Payment failed. You can try again."
         return "Payment not started yet."

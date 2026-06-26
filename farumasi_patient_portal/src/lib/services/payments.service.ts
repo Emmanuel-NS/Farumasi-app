@@ -11,6 +11,7 @@ export interface PaymentInitiateResult {
   external_id?: string | null;
   checkout_url?: string | null;
   message: string;
+  payment_method?: string | null;
 }
 
 export interface PaymentStatusResult {
@@ -24,9 +25,9 @@ export interface PaymentStatusResult {
   processing_fee?: number | null;
 }
 
-export type PaymentMethodId = "mtn_momo" | "airtel_money" | "card";
+export type PaymentMethodId = "mtn_momo" | "card";
 
-export interface FlutterwaveInitiatePayload {
+export interface PaymentInitiatePayload {
   phone: string;
   email?: string;
   name?: string;
@@ -38,16 +39,24 @@ const POLL_INTERVAL_MS = 2500;
 const POLL_MAX_ATTEMPTS = 48;
 
 export const paymentsService = {
-  async initiateFlutterwave(
+  async initiate(
     orderId: string,
-    payload: FlutterwaveInitiatePayload,
+    payload: PaymentInitiatePayload,
   ): Promise<PaymentInitiateResult> {
     const { data } = await api.post<PaymentInitiateResult>(
-      `/patients/me/orders/${orderId}/payments/flutterwave/initiate`,
+      `/patients/me/orders/${orderId}/payments/initiate`,
       payload,
       { timeout: 45_000 },
     );
     return data;
+  },
+
+  /** @deprecated Use initiate() — kept for older call sites */
+  async initiateFlutterwave(
+    orderId: string,
+    payload: PaymentInitiatePayload,
+  ): Promise<PaymentInitiateResult> {
+    return this.initiate(orderId, payload);
   },
 
   async getStatus(orderId: string): Promise<PaymentStatusResult> {
