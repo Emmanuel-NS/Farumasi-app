@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatPrice, formatDate, cn } from "@/lib/utils";
+import { formatPrice, formatDateTime, timeAgoLabel, cn } from "@/lib/utils";
 import {
   ordersService,
   isPrescriptionOrder,
@@ -13,7 +13,7 @@ import { startVisibleInterval } from "@/lib/polling";
 import { toast } from "sonner";
 import {
   ShoppingBag, ChevronRight, MapPin, Truck, PackageCheck,
-  RefreshCw, Loader2, Pill, AlertTriangle, Eye, Building2, FileText,
+  RefreshCw, Loader2, Pill, AlertTriangle, Eye, Building2, FileText, Clock,
 } from "lucide-react";
 import type { OrderStatus } from "@/types";
 
@@ -38,6 +38,12 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
 
   const load = useCallback(async (append = false) => {
     if (append) setLoadingMore(true);
@@ -221,7 +227,22 @@ export default function OrdersPage() {
                       {order.patient?.user?.full_name ?? "Unknown Patient"}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {order.patient?.user?.phone ?? "—"} · {formatDate(order.created_at)}
+                      {order.patient?.user?.phone ?? "—"}
+                    </p>
+                    <p className="text-xs text-slate-500 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
+                      <Clock className="w-3 h-3 shrink-0 text-slate-400" />
+                      <span title={order.created_at}>{formatDateTime(order.created_at)}</span>
+                      <span className="text-slate-300">·</span>
+                      <span
+                        className={cn(
+                          isAwaitingConfirmation(order)
+                            ? "font-semibold text-amber-700"
+                            : "text-slate-500",
+                        )}
+                      >
+                        {isAwaitingConfirmation(order) ? "Waiting " : "Placed "}
+                        {timeAgoLabel(order.created_at, nowTick)}
+                      </span>
                     </p>
                     <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                       <Building2 className="w-3.5 h-3.5 text-farumasi-600" />

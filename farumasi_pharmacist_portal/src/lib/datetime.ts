@@ -27,17 +27,33 @@ export function parseApiDateTime(
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function timeAgo(dateStr: string): string {
+export function timeAgoShort(dateStr: string, nowMs: number = Date.now()): string {
   const d = parseApiDateTime(dateStr);
   if (!d) return "";
 
-  const diff = Date.now() - d.getTime();
+  const diff = nowMs - d.getTime();
+  if (diff < 0) return "just now";
   const m = Math.floor(diff / 60000);
   if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return `${h}h`;
+  const days = Math.floor(h / 24);
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w`;
+  return `${Math.floor(days / 30)}mo`;
+}
+
+export function timeAgo(dateStr: string, nowMs: number = Date.now()): string {
+  const short = timeAgoShort(dateStr, nowMs);
+  if (!short || short === "just now") return "just now";
+  return `${short} ago`;
+}
+
+/** Relative time with trailing "ago" for prose, e.g. "2h ago". */
+export function timeAgoLabel(dateStr: string, nowMs: number = Date.now()): string {
+  return timeAgo(dateStr, nowMs);
 }
 
 export function formatDate(dateStr: string): string {
@@ -49,5 +65,11 @@ export function formatDate(dateStr: string): string {
 export function formatDateTime(dateStr: string): string {
   const d = parseApiDateTime(dateStr);
   if (!d) return "";
-  return d.toLocaleString("en-RW", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString("en-RW", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

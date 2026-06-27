@@ -6,6 +6,7 @@ import {
   formatDateTime as formatDateTimeFromApi,
   parseApiDateTime,
   timeAgo as timeAgoFromApi,
+  timeAgoLabel as timeAgoLabelFromApi,
 } from "@/lib/datetime";
 
 export { parseApiDateTime } from "@/lib/datetime";
@@ -32,8 +33,12 @@ export function formatPriceRange(min: number, max: number): string {
   return min === max ? `RWF ${fmt(min)}` : `RWF ${fmt(min)} – ${fmt(max)}`;
 }
 
-export function timeAgo(dateStr: string): string {
-  return timeAgoFromApi(dateStr);
+export function timeAgo(dateStr: string, nowMs?: number): string {
+  return timeAgoFromApi(dateStr, nowMs);
+}
+
+export function timeAgoLabel(dateStr: string, nowMs?: number): string {
+  return timeAgoLabelFromApi(dateStr, nowMs);
 }
 
 export function formatDate(dateStr: string): string {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatPrice, formatDateTime } from "@/lib/utils";
+import { formatPrice, formatDateTime, timeAgoLabel } from "@/lib/utils";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
   FileText,
   Eye,
   UserCheck,
+  Clock,
 } from "lucide-react";
 import type { BackendOrder } from "@/lib/services/orders.service";
 import {
@@ -35,6 +36,12 @@ export default function OrderDetailPage() {
   const [reviews, setReviews] = useState<PrescriptionReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -142,6 +149,18 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3 mb-4 text-sm">
+          <div className="rounded-xl bg-slate-50 p-3 flex gap-2">
+            <Clock className="w-5 h-5 text-slate-500 shrink-0" />
+            <div>
+              <p className="text-xs text-slate-500 uppercase font-bold">Placed</p>
+              <p className="font-semibold text-slate-800">{formatDateTime(order.created_at)}</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {order.order_status === "pending" && order.payment_status === "paid"
+                  ? `Waiting ${timeAgoLabel(order.created_at, nowTick)} for partner confirmation`
+                  : `${timeAgoLabel(order.created_at, nowTick)} on platform`}
+              </p>
+            </div>
+          </div>
           <div className="rounded-xl bg-slate-50 p-3 flex gap-2">
             <Building2 className="w-5 h-5 text-farumasi-600 shrink-0" />
             <div>
