@@ -339,7 +339,8 @@ async def list_my_pharmacy_revenue(
     current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST)),
 ):
     pharmacy = await _get_my_pharmacy(db, current_user)
-    return await RevenueService(db).list_records(pharmacy_id=pharmacy.id)
+    records = await RevenueService(db).list_records(pharmacy_id=pharmacy.id)
+    return RevenueService.records_to_out(records)
 
 
 @router.get("/me/revenue/summary", response_model=RevenueSummary)

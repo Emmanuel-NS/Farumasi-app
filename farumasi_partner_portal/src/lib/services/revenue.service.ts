@@ -1,5 +1,6 @@
 import api from "@/lib/api";
 import { getSellerMeBase } from "@/lib/seller-api";
+import { coerceAmount, normalizeRevenueRecord, normalizeRevenueSummary } from "@/lib/revenue-utils";
 
 export interface BackendRevenueRecord {
   id: string;
@@ -58,17 +59,17 @@ export interface WithdrawalCreatePayload {
 export const revenueService = {
   async getSummary(): Promise<BackendRevenueSummary> {
     const { data } = await api.get<BackendRevenueSummary>(`${getSellerMeBase()}/revenue/summary`);
-    return data;
+    return normalizeRevenueSummary(data);
   },
 
   async listTransactions(): Promise<BackendRevenueRecord[]> {
     const { data } = await api.get<BackendRevenueRecord[]>(`${getSellerMeBase()}/revenue`);
-    return data;
+    return data.map(normalizeRevenueRecord);
   },
 
   async listWithdrawals(): Promise<BackendWithdrawal[]> {
     const { data } = await api.get<BackendWithdrawal[]>(`${getSellerMeBase()}/withdrawals`);
-    return data;
+    return data.map((w) => ({ ...w, amount: coerceAmount(w.amount) }));
   },
 
   async requestWithdrawal(payload: WithdrawalCreatePayload): Promise<BackendWithdrawal> {

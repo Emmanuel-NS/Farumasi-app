@@ -37,7 +37,10 @@ export function RevenueChart({ data, height = 220 }: RevenueChartProps) {
         <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
         <YAxis tickFormatter={(v) => formatRWF(v)} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={70} />
         <Tooltip
-          formatter={(value: number, name: string) => [formatRWF(value), name === "value" ? "Revenue" : "Commission"]}
+          formatter={(value: number, name: string) => [
+            formatRWF(value),
+            name === "value" ? "Net earnings" : "Commission",
+          ]}
           contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)" }}
         />
         <Area type="monotone" dataKey="secondary" name="commission" stroke="#6366f1" strokeWidth={1.5} fill="url(#commissionGrad)" dot={false} />

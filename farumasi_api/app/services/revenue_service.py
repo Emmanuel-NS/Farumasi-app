@@ -89,6 +89,28 @@ class RevenueService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    @staticmethod
+    def records_to_out(records: list[RevenueRecord]) -> list:
+        from app.schemas.revenue import RevenueRecordOut
+
+        return [
+            RevenueRecordOut(
+                id=r.id,
+                order_id=r.order_id,
+                order_code=r.order.order_code if r.order else None,
+                order_status=r.order.order_status if r.order else None,
+                partner_type=r.partner_type,
+                pharmacy_id=r.pharmacy_id,
+                partner_company_id=r.partner_company_id,
+                gross_amount=float(r.gross_amount),
+                platform_commission=float(r.platform_commission),
+                net_amount=float(r.net_amount),
+                status=r.status,
+                created_at=r.created_at,
+            )
+            for r in records
+        ]
+
     async def _owner_entity_ids(
         self, owner_user_id: str
     ) -> tuple[list[str], list[str]]:
@@ -235,7 +257,7 @@ class RevenueService:
 
         order_q = select(func.count(Order.id))
         completed_q = select(func.count(Order.id)).where(
-            Order.order_status == OrderStatus.COMPLETED
+            Order.order_status.in_([OrderStatus.COMPLETED, OrderStatus.DELIVERED])
         )
         if pharmacy_id and partner_company_id:
             scope = or_(
@@ -316,13 +338,26 @@ class RevenueService:
             await self.db.execute(
                 select(func.count(Order.id)).where(
                     order_scope,
-                    Order.order_status == OrderStatus.COMPLETED,
+                    Order.order_status.in_([OrderStatus.COMPLETED, OrderStatus.DELIVERED]),
                 )
             )
         ).scalar_one() or 0
 
+        reassigned_orders = 0
+        reassigned_lost_net = 0.0
+        for pid in pharmacy_ids:
+            c, lost = await self._reassignment_stats(pharmacy_id=pid)
+            reassigned_orders += c
+            reassigned_lost_net += lost
+        for pid in partner_ids:
+            c, lost = await self._reassignment_stats(partner_company_id=pid)
+            reassigned_orders += c
+            reassigned_lost_net += lost
+
         return self._build_summary(
-            records, withdrawals, int(total_orders), int(completed_orders)
+            records, withdrawals, int(total_orders), int(completed_orders),
+            reassigned_orders=reassigned_orders,
+            reassigned_lost_net=reassigned_lost_net,
         )
 
     async def list_records(

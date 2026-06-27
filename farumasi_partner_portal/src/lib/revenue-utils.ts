@@ -6,6 +6,62 @@ import type { ChartDataPoint } from "@/types";
 
 export const MIN_WITHDRAWAL_AMOUNT = 1000;
 
+/** API may return Numeric columns as strings — always coerce before math. */
+export function coerceAmount(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export function normalizeRevenueRecord(tx: BackendRevenueRecord): BackendRevenueRecord {
+  return {
+    ...tx,
+    gross_amount: coerceAmount(tx.gross_amount),
+    platform_commission: coerceAmount(tx.platform_commission),
+    net_amount: coerceAmount(tx.net_amount),
+  };
+}
+
+export function normalizeRevenueSummary(raw: BackendRevenueSummary): BackendRevenueSummary {
+  return {
+    ...raw,
+    total_gross: coerceAmount(raw.total_gross),
+    total_commission: coerceAmount(raw.total_commission),
+    total_net: coerceAmount(raw.total_net),
+    available_balance: coerceAmount(raw.available_balance),
+    pending_balance: coerceAmount(raw.pending_balance),
+    withdrawn_total: coerceAmount(raw.withdrawn_total),
+    gross_revenue: coerceAmount(raw.gross_revenue),
+    platform_commission: coerceAmount(raw.platform_commission),
+    net_revenue: coerceAmount(raw.net_revenue),
+    withdrawn_amount: coerceAmount(raw.withdrawn_amount),
+    pending_withdrawals: coerceAmount(raw.pending_withdrawals),
+    paid_withdrawals: coerceAmount(raw.paid_withdrawals),
+    reassigned_lost_net: coerceAmount(raw.reassigned_lost_net ?? 0),
+    total_orders: Number(raw.total_orders) || 0,
+    completed_orders: Number(raw.completed_orders) || 0,
+    reassigned_orders: Number(raw.reassigned_orders) || 0,
+  };
+}
+
+export interface TransactionTotals {
+  gross: number;
+  commission: number;
+  net: number;
+  count: number;
+}
+
+export function summarizeTransactions(transactions: BackendRevenueRecord[]): TransactionTotals {
+  return transactions.reduce(
+    (acc, tx) => ({
+      gross: acc.gross + coerceAmount(tx.gross_amount),
+      commission: acc.commission + coerceAmount(tx.platform_commission),
+      net: acc.net + coerceAmount(tx.net_amount),
+      count: acc.count + 1,
+    }),
+    { gross: 0, commission: 0, net: 0, count: 0 },
+  );
+}
+
 /** Inline validation for the withdrawal amount field (net balance, no extra fees). */
 export function validateWithdrawAmount(
   raw: string,
@@ -78,8 +134,8 @@ export function buildRevenueChartData(
       rows.push({ label, value: 0, secondary: 0, sortKey });
     }
     const i = index.get(key)!;
-    rows[i].value += tx.net_amount;
-    rows[i].secondary += tx.platform_commission;
+    rows[i].value += coerceAmount(tx.net_amount);
+    rows[i].secondary += coerceAmount(tx.platform_commission);
   }
 
   return rows

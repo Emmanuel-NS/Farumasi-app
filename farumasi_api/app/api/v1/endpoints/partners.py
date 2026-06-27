@@ -355,23 +355,7 @@ async def list_my_partner_revenue(
     current_user: User = Depends(require_roles(UserRole.PARTNER_COMPANY_ADMIN)),
 ):
     records = await RevenueService(db).list_records_for_owner(current_user.id)
-    return [
-        RevenueRecordOut(
-            id=r.id,
-            order_id=r.order_id,
-            order_code=r.order.order_code if r.order else None,
-            order_status=r.order.order_status if r.order else None,
-            partner_type=r.partner_type,
-            pharmacy_id=r.pharmacy_id,
-            partner_company_id=r.partner_company_id,
-            gross_amount=float(r.gross_amount),
-            platform_commission=float(r.platform_commission),
-            net_amount=float(r.net_amount),
-            status=r.status,
-            created_at=r.created_at,
-        )
-        for r in records
-    ]
+    return RevenueService.records_to_out(records)
 
 
 @router.get("/me/revenue/summary", response_model=RevenueSummary)

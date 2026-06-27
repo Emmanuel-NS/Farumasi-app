@@ -30,6 +30,7 @@ import {
   buildRevenueChartData,
   filterByDateRange,
   MIN_WITHDRAWAL_AMOUNT,
+  summarizeTransactions,
   syncWalletToLayout,
   validateWithdrawAmount,
 } from "@/lib/revenue-utils";
@@ -124,6 +125,25 @@ export default function RevenuePage() {
     [transactions, range],
   );
 
+  const periodTotals = useMemo(
+    () => summarizeTransactions(filteredTransactions),
+    [filteredTransactions],
+  );
+
+  const allTimeTotals = useMemo(
+    () => summarizeTransactions(transactions),
+    [transactions],
+  );
+
+  const available = summary?.available_balance ?? 0;
+  const pending = summary?.pending_balance ?? 0;
+  const lockedWithdrawals = summary?.pending_withdrawals ?? 0;
+  const earningsPaidOut = summary?.withdrawn_total ?? summary?.withdrawn_amount ?? 0;
+  const commissionPaid = summary?.total_commission ?? summary?.platform_commission ?? 0;
+  const paidOutViaWithdrawals = summary?.paid_withdrawals ?? 0;
+  const totalNetAllTime = summary?.total_net ?? summary?.net_revenue ?? allTimeTotals.net;
+  const settledOrderCount = allTimeTotals.count;
+
   const exportRevenue = () => {
     downloadCsv(
       `revenue-${range}-${new Date().toISOString().slice(0, 10)}`,
@@ -140,7 +160,6 @@ export default function RevenuePage() {
     toast.success("Revenue exported");
   };
 
-  const available = summary?.available_balance ?? 0;
   const amountError = useMemo(
     () => (withdrawAmount.trim() ? validateWithdrawAmount(withdrawAmount, available) : null),
     [withdrawAmount, available],
@@ -197,14 +216,6 @@ export default function RevenuePage() {
     );
   }
 
-  const totalRevenue = summary?.total_gross ?? 0;
-  const netRevenue = summary?.total_net ?? 0;
-  const pending = summary?.pending_balance ?? 0;
-  const lockedWithdrawals = summary?.pending_withdrawals ?? 0;
-  const totalWithdrawn = summary?.withdrawn_total ?? summary?.withdrawn_amount ?? 0;
-  const commissionPaid = summary?.total_commission ?? summary?.platform_commission ?? 0;
-  const paidOut = summary?.paid_withdrawals ?? 0;
-
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -228,12 +239,12 @@ export default function RevenuePage() {
 
       <div className="flex items-center gap-2 flex-wrap">
         <DateRangeFilter value={range} onChange={setRange} />
-        <span className="text-[11px] text-muted-foreground">{RANGE_LABELS[range]}</span>
+        <span className="text-[11px] text-muted-foreground">
+          Period view: {RANGE_LABELS[range].toLowerCase()} · wallet balances are always current
+        </span>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard title="Total Revenue" value={formatRWF(totalRevenue)} icon={TrendingUp} />
-        <KpiCard title="Net Earnings" value={formatRWF(netRevenue)} icon={DollarSign} />
         <KpiCard
           title="Available Balance"
           value={formatRWF(available)}
@@ -248,6 +259,40 @@ export default function RevenuePage() {
           iconBg="bg-amber-100"
           iconColor="text-amber-600"
         />
+        <KpiCard
+          title="Net Earnings (all time)"
+          value={formatRWF(totalNetAllTime)}
+          icon={TrendingUp}
+        />
+        <KpiCard
+          title="Settled Orders (all time)"
+          value={String(settledOrderCount)}
+          icon={DollarSign}
+          iconBg="bg-slate-100"
+          iconColor="text-slate-600"
+        />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide w-full sm:w-auto">
+          {RANGE_LABELS[range]}
+        </span>
+        <span>
+          <span className="text-muted-foreground">Gross sales </span>
+          <span className="font-semibold">{formatRWF(periodTotals.gross)}</span>
+        </span>
+        <span>
+          <span className="text-muted-foreground">Commission </span>
+          <span className="font-semibold text-amber-700">−{formatRWF(periodTotals.commission)}</span>
+        </span>
+        <span>
+          <span className="text-muted-foreground">Net earnings </span>
+          <span className="font-semibold text-green-700">{formatRWF(periodTotals.net)}</span>
+        </span>
+        <span>
+          <span className="text-muted-foreground">Orders </span>
+          <span className="font-semibold">{periodTotals.count}</span>
+        </span>
       </div>
 
       {(summary?.reassigned_orders ?? 0) > 0 && (
@@ -283,14 +328,14 @@ export default function RevenuePage() {
             </div>
             <div className="space-y-2">
               {[
-                { label: "Pending Clearance", value: pending, color: "text-amber-600" },
-                { label: "Locked in Withdrawals", value: lockedWithdrawals, color: "text-indigo-600" },
-                { label: "Withdrawals requested", value: totalWithdrawn, color: "text-slate-700" },
-                { label: "Paid withdrawals", value: paidOut, color: "text-green-700" },
-                { label: "Commission Paid", value: commissionPaid, color: "text-slate-500" },
+                { label: "Pending clearance", value: pending, color: "text-amber-600" },
+                { label: "Locked in withdrawals", value: lockedWithdrawals, color: "text-indigo-600" },
+                { label: "Earnings marked paid out", value: earningsPaidOut, color: "text-slate-700" },
+                { label: "Withdrawals paid (requests)", value: paidOutViaWithdrawals, color: "text-green-700" },
+                { label: "Commission to FARUMASI", value: commissionPaid, color: "text-slate-500" },
                 {
-                  label: "Completed Orders",
-                  value: summary?.completed_orders ?? 0,
+                  label: "Settled orders (all time)",
+                  value: settledOrderCount,
                   color: "text-slate-500",
                   isCount: true,
                 },
@@ -303,6 +348,10 @@ export default function RevenuePage() {
                 </div>
               ))}
             </div>
+            <p className="text-[10px] text-muted-foreground">
+              Available + pending clearance + paid-out earnings = {formatRWF(totalNetAllTime)} total net
+              {lockedWithdrawals > 0 && ` (${formatRWF(lockedWithdrawals)} currently locked in withdrawal requests)`}
+            </p>
             <Separator />
             <Button
               className="w-full gap-1.5 text-sm"
