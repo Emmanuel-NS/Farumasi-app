@@ -560,6 +560,8 @@ export default function OrderDetailPage() {
                 dispatchBatchNumber: undefined as string | undefined,
                 dispatchExpiryDate: undefined as string | undefined,
                 dispatchManufacturer: undefined as string | undefined,
+                dispatchDosage: undefined as string | undefined,
+                dispatchNotes: undefined as string | undefined,
               }))
           ).map((item) => {
             const productHref = item.productId ? `/store/${item.productId}` : null;
@@ -603,9 +605,11 @@ export default function OrderDetailPage() {
                         View product <ChevronRight className="w-2.5 h-2.5" />
                       </span>
                     )}
-                    {item.dispatchBatchNumber && (
+                    {(item.dispatchBatchNumber || item.dispatchDosage || item.dispatchNotes) && (
                       <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 rounded-lg px-2 py-1.5 space-y-0.5">
-                        <p><span className="font-semibold text-slate-600 dark:text-slate-300">Batch:</span> {item.dispatchBatchNumber}</p>
+                        {item.dispatchBatchNumber && (
+                          <p><span className="font-semibold text-slate-600 dark:text-slate-300">Batch:</span> {item.dispatchBatchNumber}</p>
+                        )}
                         {item.dispatchExpiryDate && (
                           <p><span className="font-semibold text-slate-600 dark:text-slate-300">Expires:</span>{" "}
                             {new Date(item.dispatchExpiryDate).toLocaleDateString("en-GB", {
@@ -615,6 +619,12 @@ export default function OrderDetailPage() {
                         )}
                         {item.dispatchManufacturer && (
                           <p><span className="font-semibold text-slate-600 dark:text-slate-300">Manufacturer:</span> {item.dispatchManufacturer}</p>
+                        )}
+                        {item.dispatchDosage && (
+                          <p><span className="font-semibold text-slate-600 dark:text-slate-300">Dosage:</span> {item.dispatchDosage}</p>
+                        )}
+                        {item.dispatchNotes && (
+                          <p><span className="font-semibold text-slate-600 dark:text-slate-300">Notes:</span> {item.dispatchNotes}</p>
                         )}
                       </div>
                     )}

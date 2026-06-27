@@ -20,6 +20,22 @@ import { PharmacySwitchHistory } from "@/components/orders/pharmacy-switch-histo
 import { OrderActivityTimeline } from "@/components/orders/order-activity-timeline";
 import { downloadCsv } from "@/lib/export-csv";
 import type { OrderStatus } from "@/types";
+import type { BackendOrderItem } from "@/lib/services/orders.service";
+
+function suggestedDispatchFromPrescription(
+  item: BackendOrderItem,
+  prescription: BackendPrescription | null,
+): { dosage: string; notes: string } {
+  if (!prescription?.items?.length) return { dosage: "", notes: "" };
+  const name = (item.product_name ?? item.product?.name ?? "").trim().toLowerCase();
+  const match = prescription.items.find((rx) =>
+    (item.product_id && rx.product_id === item.product_id)
+    || (rx.medicine_name?.trim().toLowerCase() === name && name.length > 0),
+  );
+  if (!match) return { dosage: "", notes: "" };
+  const dosage = [match.dosage, match.frequency, match.duration].filter(Boolean).join(" · ");
+  return { dosage, notes: match.instructions ?? "" };
+}
 
 const PROGRESS_FORWARD: Record<string, { next: OrderStatus; label: string }> = {
   pending:           { next: "accepted",         label: "Accept Order" },
@@ -110,13 +126,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     if (!order) return;
     downloadCsv(
       `dispatch-${orderDisplayCode(order.id, order.order_code)}`,
-      ["Product", "Qty", "Batch", "Expiry", "Manufacturer", "Dispatch confirmed"],
+      ["Product", "Qty", "Batch", "Expiry", "Manufacturer", "Dosage", "Notes", "Dispatch confirmed"],
       order.items.map((item) => [
         item.product_name ?? item.product?.name ?? "Item",
         item.quantity,
         item.dispatch_batch_number ?? "",
         item.dispatch_expiry_date ?? "",
         item.dispatch_manufacturer ?? "",
+        item.dispatch_dosage ?? "",
+        item.dispatch_notes ?? "",
         item.dispatch_confirmed_at ?? order.dispatch_confirmed_at ?? "",
       ]),
     );
@@ -179,14 +197,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     if (!order) return;
     const rows: Record<string, { batch_number: string; expiry_date: string; manufacturer: string; dosage: string; notes: string }> = {};
     for (const item of order.items) {
+      const suggested = suggestedDispatchFromPrescription(item, prescription);
       rows[item.id] = {
         batch_number: item.dispatch_batch_number ?? "",
         expiry_date: item.dispatch_expiry_date
           ? item.dispatch_expiry_date.slice(0, 10)
           : "",
         manufacturer: item.dispatch_manufacturer ?? "",
-        dosage: item.dispatch_dosage ?? "",
-        notes: item.dispatch_notes ?? "",
+        dosage: item.dispatch_dosage ?? suggested.dosage,
+        notes: item.dispatch_notes ?? suggested.notes,
       };
     }
     setDispatchRows(rows);
@@ -338,17 +357,36 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                           View in catalogue →
                         </Link>
                       )}
-                      {item.dispatch_batch_number && (
+                      {(item.dispatch_batch_number || item.dispatch_dosage || item.dispatch_notes) && (
                         <div className="mt-2 text-[10px] text-muted-foreground bg-slate-50 border rounded-lg px-2 py-1.5 space-y-0.5">
-                          <p><span className="font-semibold">Batch:</span> {item.dispatch_batch_number}</p>
+                          {item.dispatch_batch_number && (
+                            <p><span className="font-semibold">Batch:</span> {item.dispatch_batch_number}</p>
+                          )}
                           {item.dispatch_expiry_date && (
                             <p><span className="font-semibold">Expires:</span> {formatDateTime(item.dispatch_expiry_date)}</p>
                           )}
                           {item.dispatch_manufacturer && (
                             <p><span className="font-semibold">Manufacturer:</span> {item.dispatch_manufacturer}</p>
                           )}
+                          {item.dispatch_dosage && (
+                            <p><span className="font-semibold">Dosage:</span> {item.dispatch_dosage}</p>
+                          )}
+                          {item.dispatch_notes && (
+                            <p><span className="font-semibold">Notes:</span> {item.dispatch_notes}</p>
+                          )}
                         </div>
                       )}
+                      {!item.dispatch_batch_number && !item.dispatch_dosage && !item.dispatch_notes && order.prescription_id && (() => {
+                        const suggested = suggestedDispatchFromPrescription(item, prescription);
+                        if (!suggested.dosage && !suggested.notes) return null;
+                        return (
+                          <div className="mt-2 text-[10px] text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2 py-1.5 space-y-0.5">
+                            <p className="font-semibold text-violet-800">Suggested by FARUMASI pharmacist</p>
+                            {suggested.dosage && <p><span className="font-semibold">Dosage:</span> {suggested.dosage}</p>}
+                            {suggested.notes && <p><span className="font-semibold">Notes:</span> {suggested.notes}</p>}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <p className="font-semibold shrink-0">{formatRWF(item.total_price)}</p>
                   </div>
@@ -548,6 +586,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   </p>
                   {order.items.map((item) => {
                     const name = item.product_name ?? item.product?.name ?? "Item";
+                    const suggested = suggestedDispatchFromPrescription(item, prescription);
                     const row = dispatchRows[item.id] ?? {
                       batch_number: "",
                       expiry_date: "",
@@ -555,9 +594,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       dosage: "",
                       notes: "",
                     };
+                    const fromPharmacist = Boolean(
+                      (suggested.dosage || suggested.notes)
+                      && !item.dispatch_dosage
+                      && !item.dispatch_notes,
+                    );
                     return (
                       <div key={item.id} className="bg-white border rounded-lg p-2.5 space-y-2">
                         <p className="text-xs font-bold truncate">{name} ×{item.quantity}</p>
+                        {fromPharmacist && (
+                          <p className="text-[10px] text-violet-700 bg-violet-50 border border-violet-100 rounded px-2 py-1">
+                            Dosage/notes pre-filled from FARUMASI pharmacist — edit or keep as-is.
+                          </p>
+                        )}
                         <Input placeholder="Batch number *" value={row.batch_number} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, batch_number: e.target.value } }))} className="h-8 text-xs" />
                         <Input type="date" value={row.expiry_date} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, expiry_date: e.target.value } }))} className="h-8 text-xs" />
                         <Input placeholder="Manufacturer *" value={row.manufacturer} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, manufacturer: e.target.value } }))} className="h-8 text-xs" />

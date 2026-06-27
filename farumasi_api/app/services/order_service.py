@@ -92,6 +92,18 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _suggested_dispatch_from_rx_item(rx_item: PrescriptionItem) -> tuple[Optional[str], Optional[str]]:
+    """Pharmacist cart dosage/instructions copied to order items for partner pre-fill."""
+    parts = [
+        (rx_item.dosage or "").strip(),
+        (rx_item.frequency or "").strip(),
+        (rx_item.duration or "").strip(),
+    ]
+    dosage = " · ".join(p for p in parts if p) or None
+    notes = (rx_item.instructions or "").strip() or None
+    return dosage, notes
+
+
 class OrderService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -177,6 +189,8 @@ class OrderService:
                     sell_mode=it.get("sell_mode", "pack"),
                     unit_price=it["unit_price"],
                     total_price=round(it["unit_price"] * it["quantity"], 2),
+                    dispatch_dosage=it.get("dispatch_dosage"),
+                    dispatch_notes=it.get("dispatch_notes"),
                 )
             )
         await self.db.flush()
@@ -1091,6 +1105,7 @@ class OrderService:
                 raise BusinessRuleError(
                     f"Insufficient stock for '{rx_item.medicine_name}'"
                 )
+            suggested_dosage, suggested_notes = _suggested_dispatch_from_rx_item(rx_item)
             items.append(
                 {
                     "product_listing_id": lst.id,
@@ -1098,6 +1113,8 @@ class OrderService:
                     "product_name": lst.product.name if lst.product else rx_item.medicine_name,
                     "quantity": qty,
                     "unit_price": float(lst.price),
+                    "dispatch_dosage": suggested_dosage,
+                    "dispatch_notes": suggested_notes,
                 }
             )
 

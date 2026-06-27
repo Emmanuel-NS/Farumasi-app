@@ -298,15 +298,17 @@ export default function OrderDetailPage() {
                   </span>
                   <span className="font-medium">{formatPrice(item.total_price)} RWF</span>
                 </div>
-                {item.dispatch_batch_number && (
-                  <div className="mt-1.5 text-[11px] text-slate-500 bg-slate-50 rounded-lg px-2 py-1.5">
-                    <p>Batch: {item.dispatch_batch_number}</p>
+                {(item.dispatch_batch_number || item.dispatch_dosage || item.dispatch_notes) && (
+                  <div className="mt-1.5 text-[11px] text-slate-500 bg-slate-50 rounded-lg px-2 py-1.5 space-y-0.5">
+                    {item.dispatch_batch_number && <p>Batch: {item.dispatch_batch_number}</p>}
                     {item.dispatch_expiry_date && (
                       <p>Expires: {formatDateTime(item.dispatch_expiry_date)}</p>
                     )}
                     {item.dispatch_manufacturer && (
                       <p>Manufacturer: {item.dispatch_manufacturer}</p>
                     )}
+                    {item.dispatch_dosage && <p>Dosage: {item.dispatch_dosage}</p>}
+                    {item.dispatch_notes && <p>Notes: {item.dispatch_notes}</p>}
                   </div>
                 )}
               </li>

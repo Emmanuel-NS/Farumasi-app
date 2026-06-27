@@ -15,6 +15,8 @@ export interface BackendOrderItem {
   dispatch_batch_number?: string | null;
   dispatch_expiry_date?: string | null;
   dispatch_manufacturer?: string | null;
+  dispatch_dosage?: string | null;
+  dispatch_notes?: string | null;
   dispatch_confirmed_at?: string | null;
   created_at?: string;
 }
@@ -134,6 +136,8 @@ export function adaptOrder(o: BackendOrder): Order {
       dispatchBatchNumber: it.dispatch_batch_number ?? undefined,
       dispatchExpiryDate: it.dispatch_expiry_date ?? undefined,
       dispatchManufacturer: it.dispatch_manufacturer ?? undefined,
+      dispatchDosage: it.dispatch_dosage ?? undefined,
+      dispatchNotes: it.dispatch_notes ?? undefined,
     })),
   };
 }

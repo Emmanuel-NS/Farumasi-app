@@ -152,6 +152,8 @@ export interface Order {
     dispatchBatchNumber?: string;
     dispatchExpiryDate?: string;
     dispatchManufacturer?: string;
+    dispatchDosage?: string;
+    dispatchNotes?: string;
   }>;
   notes?: string;
   patientAccessCode?: string;
