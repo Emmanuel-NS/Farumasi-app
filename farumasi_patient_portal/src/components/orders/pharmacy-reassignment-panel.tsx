@@ -111,6 +111,7 @@ export function PharmacyReassignmentPanel({
   );
   const topPicks = switchable.filter((o) => o.ai_rank != null && o.ai_rank <= 3);
   const otherSwitchable = switchable.filter((o) => !o.ai_rank || o.ai_rank > 3);
+  const timerPending = waitMs != null && waitMs > 0;
 
   const progress = useMemo(() => {
     if (waitMs == null || data?.partner_response_due_at == null) return 0;
@@ -128,7 +129,7 @@ export function PharmacyReassignmentPanel({
       <div className="relative mb-6 overflow-hidden rounded-3xl bg-farumasi-700 p-6 text-white shadow-lg">
         <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/5 blur-3xl" />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-center">
-          {!switchEnabled && waitLabel && (
+          {!switchEnabled && timerPending && waitLabel && (
             <CountdownRing waitLabel={waitLabel} progress={progress} />
           )}
           <div className="min-w-0 flex-1">
@@ -139,15 +140,29 @@ export function PharmacyReassignmentPanel({
             <h1 className="text-2xl font-extrabold tracking-tight">Get your order moving faster</h1>
             <p className="mt-2 text-sm leading-relaxed text-white/80">
               {switchEnabled ? (
-                <>
-                  <span className="font-semibold text-white">{pharmacyName}</span> is taking longer than usual.
-                  FARUMASI AI ranked other pharmacies that can confirm your same order — often within minutes.
-                </>
-              ) : (
+                switchable.length > 0 ? (
+                  <>
+                    <span className="font-semibold text-white">{pharmacyName}</span> is taking longer than usual.
+                    FARUMASI AI ranked other pharmacies that can confirm your same order — often within minutes.
+                  </>
+                ) : (
+                  <>
+                    The {RESPONSE_WINDOW_MIN}-minute window for{" "}
+                    <span className="font-semibold text-white">{pharmacyName}</span> has passed, but no pharmacy at
+                    your paid price is available to switch to right now. Try lower-price options below, or wait for{" "}
+                    {pharmacyName} to confirm.
+                  </>
+                )
+              ) : timerPending ? (
                 <>
                   <span className="font-semibold text-white">{pharmacyName}</span> still has a short window to confirm.
                   Preview AI-matched alternatives below — you can switch after{" "}
                   <span className="font-bold text-white">{waitLabel ?? "the timer"}</span> if needed.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-white">{pharmacyName}</span> has not confirmed yet. Checking
+                  whether switching is available… refresh in a moment if options stay locked.
                 </>
               )}
             </p>
@@ -371,6 +386,12 @@ function PharmacyOptionCard({
       ) : !switchEnabled ? (
         <div className="flex items-center justify-center gap-2 border-t border-slate-100 py-3 text-xs font-semibold text-slate-400 dark:border-slate-700">
           <Clock className="h-3.5 w-3.5" /> Available when the timer ends
+        </div>
+      ) : disabled || opt.can_switch === false ? (
+        <div className="flex items-center justify-center gap-2 border-t border-slate-100 py-3 text-xs font-semibold text-slate-400 dark:border-slate-700">
+          {opt.price_category === "above_paid"
+            ? "Costs more than you paid — extra payment not supported yet"
+            : "Not available for switching"}
         </div>
       ) : null}
     </div>

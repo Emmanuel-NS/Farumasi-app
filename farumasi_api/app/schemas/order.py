@@ -199,7 +199,7 @@ class OrderOut(FarumasiBaseModel):
     def can_reassign_pharmacy(self) -> bool:
         if self.payment_status != PaymentStatus.PAID:
             return False
-        if self.order_status != OrderStatus.PENDING:
+        if normalize_order_status(self.order_status) != OrderStatus.PENDING.value:
             return False
         if self.pharmacy_confirmed_at is not None:
             return False

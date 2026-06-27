@@ -42,6 +42,13 @@ export default function SwitchPharmacyPage() {
       .catch(() => setOptions(null));
   }, [id, includeBelowPaid, refreshTick]);
 
+  // Poll while the response window may still be resolving (missing or expired deadline).
+  useEffect(() => {
+    if (!id) return;
+    const poll = window.setInterval(() => setRefreshTick((n) => n + 1), 30_000);
+    return () => window.clearInterval(poll);
+  }, [id]);
+
   useEffect(() => {
     const t = window.setInterval(() => setNowTick(Date.now()), 1000);
     return () => window.clearInterval(t);
@@ -50,6 +57,7 @@ export default function SwitchPharmacyPage() {
   const dueAt = options?.partner_response_due_at;
   const dueMs = dueAt ? parseApiDateTime(dueAt)?.getTime() ?? null : null;
   const waitMs = dueMs != null ? Math.max(0, dueMs - nowTick) : null;
+  const switchEnabled = options?.switch_enabled ?? options?.can_reassign ?? false;
   const waitLabel = useMemo(() => {
     if (waitMs == null) return null;
     const totalSec = Math.ceil(waitMs / 1000);
@@ -59,10 +67,15 @@ export default function SwitchPharmacyPage() {
   }, [waitMs]);
 
   useEffect(() => {
-    if (!dueMs || dueMs <= nowTick) return;
-    const timer = window.setTimeout(() => setRefreshTick((n) => n + 1), dueMs - nowTick + 500);
+    if (switchEnabled || !dueMs) return;
+    if (dueMs > nowTick) {
+      const timer = window.setTimeout(() => setRefreshTick((n) => n + 1), dueMs - nowTick + 500);
+      return () => window.clearTimeout(timer);
+    }
+    // Deadline passed but API still says locked — refresh soon.
+    const timer = window.setTimeout(() => setRefreshTick((n) => n + 1), 2_000);
     return () => window.clearTimeout(timer);
-  }, [dueMs, nowTick]);
+  }, [dueMs, nowTick, switchEnabled]);
 
   const handleReassign = async (opt: ReassignmentOption, acceptNoChange: boolean) => {
     if (!id) return;

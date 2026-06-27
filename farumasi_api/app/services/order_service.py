@@ -632,7 +632,7 @@ class OrderService:
         await self._ensure_partner_response_due_at(order)
 
         amount_paid = float(order.amount_paid_snapshot or order.total_amount or 0)
-        can_reassign = self._can_reassign_pharmacy(order)
+        can_reassign = await self._can_reassign_pharmacy(order)
         awaiting_confirm = (
             order.payment_status == PaymentStatus.PAID
             and normalize_order_status(order.order_status) == OrderStatus.PENDING.value
@@ -664,7 +664,7 @@ class OrderService:
             raise NotFoundError("Order", order_id)
         await self._assert_patient_owns_order(order, actor)
         await self._ensure_partner_response_due_at(order)
-        if not self._can_reassign_pharmacy(order):
+        if not await self._can_reassign_pharmacy(order):
             raise BusinessRuleError(
                 "Pharmacy reassignment is not available for this order yet. "
                 f"Partners must confirm within {_PARTNER_RESPONSE_MINUTES} minutes of payment."
@@ -1499,36 +1499,62 @@ class OrderService:
 
     # ── Stock reservation & prescription validation ───────────────────────
 
-    @staticmethod
-    def _can_reassign_pharmacy(order: Order) -> bool:
+    async def _can_reassign_pharmacy(self, order: Order) -> bool:
         if order.payment_status != PaymentStatus.PAID:
             return False
         if normalize_order_status(order.order_status) != OrderStatus.PENDING.value:
             return False
         if order.pharmacy_confirmed_at is not None:
             return False
-        if not order.partner_response_due_at:
-            return False
-        due = order.partner_response_due_at
-        if due.tzinfo is None:
-            due = due.replace(tzinfo=timezone.utc)
-        return _now() >= due
+        due = await self._partner_response_deadline(order)
+        return due is not None and _now() >= due
 
-    async def _ensure_partner_response_due_at(self, order: Order) -> None:
-        """Backfill response deadline for paid orders awaiting pharmacy confirmation."""
-        if order.payment_status != PaymentStatus.PAID:
-            return
-        if normalize_order_status(order.order_status) != OrderStatus.PENDING.value:
-            return
-        if order.pharmacy_confirmed_at is not None:
-            return
-        if order.partner_response_due_at:
-            return
+    async def _partner_response_anchor(self, order: Order) -> Optional[datetime]:
         paid_at = await self._order_paid_at(order.id)
         anchor = paid_at or order.created_at or _now()
         if anchor.tzinfo is None:
             anchor = anchor.replace(tzinfo=timezone.utc)
-        order.partner_response_due_at = anchor + timedelta(minutes=_PARTNER_RESPONSE_MINUTES)
+        return anchor
+
+    async def _partner_response_deadline(self, order: Order) -> Optional[datetime]:
+        """Paid + pending + unconfirmed orders get a deadline anchored at payment time."""
+        if order.payment_status != PaymentStatus.PAID:
+            return None
+        if normalize_order_status(order.order_status) != OrderStatus.PENDING.value:
+            return None
+        if order.pharmacy_confirmed_at is not None:
+            return None
+        await self._ensure_partner_response_due_at(order)
+        if not order.partner_response_due_at:
+            return None
+        due = order.partner_response_due_at
+        if due.tzinfo is None:
+            due = due.replace(tzinfo=timezone.utc)
+        return due
+
+    async def _ensure_partner_response_due_at(self, order: Order) -> None:
+        """Backfill or correct the pharmacy response deadline for paid, unconfirmed orders."""
+        if order.payment_status != PaymentStatus.PAID:
+            return
+        if normalize_order_status(order.order_status) != OrderStatus.PENDING.value:
+            return
+        if order.pharmacy_confirmed_at is not None:
+            return
+
+        anchor = await self._partner_response_anchor(order)
+        canonical_due = anchor + timedelta(minutes=_PARTNER_RESPONSE_MINUTES)
+
+        if order.partner_response_due_at:
+            existing = order.partner_response_due_at
+            if existing.tzinfo is None:
+                existing = existing.replace(tzinfo=timezone.utc)
+            # A retry or late webhook must not push the deadline past payment + window.
+            if existing > canonical_due and _now() >= canonical_due:
+                order.partner_response_due_at = canonical_due
+                await self.db.flush()
+            return
+
+        order.partner_response_due_at = canonical_due
         await self.db.flush()
 
     async def _order_paid_at(self, order_id: str) -> Optional[datetime]:
