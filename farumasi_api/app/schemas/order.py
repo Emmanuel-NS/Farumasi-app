@@ -301,6 +301,7 @@ class ReassignmentOptionsOut(FarumasiBaseModel):
     can_reassign: bool
     switch_enabled: bool = False
     partner_response_due_at: Optional[datetime] = None
+    below_paid_count: int = 0
     options: List[ReassignmentOptionOut] = []
 
 

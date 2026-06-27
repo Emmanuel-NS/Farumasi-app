@@ -109,6 +109,7 @@ export const ordersService = {
       can_reassign: boolean;
       switch_enabled?: boolean;
       partner_response_due_at?: string | null;
+      below_paid_count?: number;
       options: Array<{
         pharmacy_id?: string | null;
         partner_company_id?: string | null;

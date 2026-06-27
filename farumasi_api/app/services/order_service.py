@@ -247,6 +247,7 @@ class OrderService:
         if not order:
             raise NotFoundError("Order", order_id)
         await self._assert_can_view(order, actor)
+        await self._ensure_partner_response_due_at(order)
         return order
 
     async def list_patient_orders(
@@ -640,12 +641,22 @@ class OrderService:
         )
         include_below = include_below_paid_without_change or include_cheaper_with_refund
         options: List[ReassignmentOptionOut] = []
+        below_paid_count = 0
         if awaiting_confirm:
             options = await self._build_reassignment_options(
                 order,
                 amount_paid=amount_paid,
                 include_below_paid_without_change=include_below,
             )
+            if not include_below:
+                with_below = await self._build_reassignment_options(
+                    order,
+                    amount_paid=amount_paid,
+                    include_below_paid_without_change=True,
+                )
+                below_paid_count = sum(
+                    1 for opt in with_below if opt.price_category == "below_paid"
+                )
 
         return ReassignmentOptionsOut(
             order_id=order.id,
@@ -653,6 +664,7 @@ class OrderService:
             can_reassign=can_reassign,
             switch_enabled=can_reassign,
             partner_response_due_at=order.partner_response_due_at,
+            below_paid_count=below_paid_count,
             options=options,
         )
 
@@ -1548,8 +1560,8 @@ class OrderService:
             existing = order.partner_response_due_at
             if existing.tzinfo is None:
                 existing = existing.replace(tzinfo=timezone.utc)
-            # A retry or late webhook must not push the deadline past payment + window.
-            if existing > canonical_due and _now() >= canonical_due:
+            # A retry or late webhook must not keep the deadline in the future after payment + window.
+            if _now() >= canonical_due and existing > canonical_due:
                 order.partner_response_due_at = canonical_due
                 await self.db.flush()
             return

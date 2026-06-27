@@ -42,6 +42,7 @@ export type ReassignmentData = {
   can_reassign: boolean;
   switch_enabled?: boolean;
   partner_response_due_at?: string | null;
+  below_paid_count?: number;
   options: ReassignmentOption[];
 };
 
@@ -112,6 +113,7 @@ export function PharmacyReassignmentPanel({
   const topPicks = switchable.filter((o) => o.ai_rank != null && o.ai_rank <= 3);
   const otherSwitchable = switchable.filter((o) => !o.ai_rank || o.ai_rank > 3);
   const timerPending = waitMs != null && waitMs > 0;
+  const belowPaidHidden = (data?.below_paid_count ?? 0) > 0 && !includeBelowPaid;
 
   const progress = useMemo(() => {
     if (waitMs == null || data?.partner_response_due_at == null) return 0;
@@ -185,6 +187,24 @@ export function PharmacyReassignmentPanel({
         </div>
       ) : (
         <div className="space-y-6">
+          {switchEnabled && switchable.length === 0 && (belowPaidHidden || viewOnly.length > 0) && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+              {belowPaidHidden ? (
+                <>
+                  No pharmacy at your paid price can take this order right now.{" "}
+                  <span className="font-bold">{data?.below_paid_count} lower-price option(s)</span> are available —
+                  tick <span className="font-bold">Also show lower-price pharmacies</span> below to switch (no refund of
+                  the difference).
+                </>
+              ) : (
+                <>
+                  Switching is unlocked, but every match costs more than you paid. Higher-priced switches are not
+                  supported yet — wait for {pharmacyName} to confirm, or cancel and reorder.
+                </>
+              )}
+            </div>
+          )}
+
           {/* AI recommended */}
           {(topPicks.length > 0 || switchable.length > 0) && (
             <section>
@@ -239,7 +259,7 @@ export function PharmacyReassignmentPanel({
                   <PharmacyOptionCard
                     key={opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name}
                     opt={opt}
-                    switchEnabled={false}
+                    switchEnabled={switchEnabled}
                     reassigningId={reassigningId}
                     formatPrice={formatPrice}
                     onSelect={() => {}}
@@ -261,7 +281,14 @@ export function PharmacyReassignmentPanel({
           )}
 
           {/* Below-paid opt-in — friendly, not burdensome */}
-          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-farumasi-200 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-farumasi-800">
+          <label
+            className={cn(
+              "flex cursor-pointer items-start gap-3 rounded-2xl border bg-white p-4 shadow-sm transition-colors dark:bg-slate-800",
+              belowPaidHidden
+                ? "border-amber-300 ring-1 ring-amber-200 dark:border-amber-800 dark:ring-amber-900/40"
+                : "border-slate-200 hover:border-farumasi-200 dark:border-slate-700 dark:hover:border-farumasi-800",
+            )}
+          >
             <input
               type="checkbox"
               checked={includeBelowPaid}
