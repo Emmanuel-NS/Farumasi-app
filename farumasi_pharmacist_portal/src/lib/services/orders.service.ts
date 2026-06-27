@@ -31,6 +31,11 @@ export interface BackendOrder {
   notes?: string;
   patient_access_code?: string | null;
   rider_access_code?: string | null;
+  partner_fulfilled_at?: string | null;
+  partner_fulfilment_complete?: boolean;
+  requires_physical_prescription?: boolean;
+  platform_fulfilment_complete?: boolean;
+  physical_prescription_collected_at?: string | null;
   created_at: string;
   updated_at: string;
   items: BackendOrderItem[];
@@ -138,6 +143,13 @@ export const ordersService = {
     const { data } = await api.post<BackendOrder>(`/orders/${orderId}/verify-access-code`, {
       access_code: accessCode,
     });
+    return norm(data);
+  },
+
+  async confirmPhysicalPrescription(orderId: string): Promise<BackendOrder> {
+    const { data } = await api.post<BackendOrder>(
+      `/orders/${orderId}/confirm-physical-prescription`,
+    );
     return norm(data);
   },
 

@@ -395,6 +395,8 @@ class PrescriptionService:
                 if not (0 <= data.insurance_discount_pct <= 100):
                     raise BusinessRuleError("Insurance discount must be between 0 and 100%")
                 rx.insurance_discount_pct = data.insurance_discount_pct
+            if data.requires_physical_collection is not None:
+                rx.requires_physical_collection = data.requires_physical_collection
             await self.db.flush()
             return await self._get_or_404(rx.id)
 
@@ -525,6 +527,9 @@ class PrescriptionService:
         pharmacist = await self._resolve_pharmacist(actor)
 
         rx = await self._get_or_404(data.prescription_id)
+
+        if data.requires_physical_collection is not None:
+            rx.requires_physical_collection = data.requires_physical_collection
 
         review = PrescriptionReview(
             prescription_id=rx.id,

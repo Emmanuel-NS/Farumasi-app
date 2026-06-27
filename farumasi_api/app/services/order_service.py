@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.constants import (
     DeliveryMethod,
+    DeliveryStatus,
     EntityStatus,
     ListingAvailability,
     OrderStatus,
@@ -45,7 +46,7 @@ from app.models.user import User
 from app.repositories.order_repository import OrderRepository
 from app.schemas.order import (
     ConfirmDispatchRequest,
-    DispatchItemRecord,
+    ConfirmRiderHandoverRequest,
     OrderCreate,
     OrderItemCreate,
     OrderStatusUpdate,
@@ -460,7 +461,9 @@ class OrderService:
                 await self._queue_refund(order, actor)
 
         if data.order_status in (OrderStatus.COMPLETED, OrderStatus.DELIVERED):
-            await self._create_revenue(order)
+            # Revenue is credited when stock leaves the partner (pickup verify or rider handover).
+            if order.partner_fulfilled_at is None:
+                await self._create_revenue(order)
 
         await self.db.flush()
 
@@ -530,12 +533,7 @@ class OrderService:
     async def verify_access_code(
         self, order_id: str, data: VerifyAccessCodeRequest, actor: User
     ) -> Order:
-        """Verify the patient access code (by pharmacy/rider at completion).
-
-        On success advances the order status:
-        - pickup orders at ready_for_pickup → completed
-        - delivery orders at out_for_delivery → delivered
-        """
+        """Verify patient access code at pickup or final delivery to patient."""
         order = await self.repo.get_by_id(order_id)
         if not order:
             raise NotFoundError("Order", order_id)
@@ -544,17 +542,36 @@ class OrderService:
             raise BusinessRuleError("This order has no access code set")
         if order.patient_access_code.lower() != data.access_code.lower():
             raise AuthorizationError("Incorrect access code")
-        if order.delivery_method == "pickup":
+
+        if order.delivery_method == DeliveryMethod.PICKUP.value:
             if order.order_status != OrderStatus.READY_FOR_PICKUP:
                 raise BusinessRuleError("Order must be ready_for_pickup to complete with access code")
+            if order.partner_fulfilled_at is not None:
+                raise BusinessRuleError("This order was already fulfilled by the partner")
+            if await self._requires_physical_prescription(order):
+                if not data.physical_prescription_present:
+                    raise BusinessRuleError(
+                        "Physical prescription must be verified before completing pickup"
+                    )
+            now = _now()
             order.order_status = OrderStatus.COMPLETED
+            order.partner_fulfilled_at = now
+            await self.db.flush()
+            await self._credit_partner_revenue(order)
+            await self._close_partner_assignment(order, "completed")
         else:
             if order.order_status != OrderStatus.OUT_FOR_DELIVERY:
                 raise BusinessRuleError("Order must be out_for_delivery to verify delivery access code")
+            if order.partner_fulfilled_at is None:
+                raise BusinessRuleError(
+                    "Partner must hand medicines to the rider before patient delivery verification"
+                )
             order.order_status = OrderStatus.DELIVERED
-        await self.db.flush()
-        if order.order_status in (OrderStatus.COMPLETED, OrderStatus.DELIVERED):
-            await self._create_revenue(order)
+            await self.db.flush()
+            if not await self._requires_physical_prescription(order):
+                order.order_status = OrderStatus.COMPLETED
+                await self.db.flush()
+
         await self.db.flush()
 
         patient_user_id = await self._patient_user_id(order.patient_id)
@@ -563,6 +580,121 @@ class OrderService:
                 patient_user_id,
                 order.id,
                 order.order_status,
+                order_code=order.order_code,
+            )
+
+        return await self._reload(order.id)
+
+    async def confirm_rider_handover(
+        self, order_id: str, data: ConfirmRiderHandoverRequest, actor: User
+    ) -> Order:
+        """Partner releases stock to a FARUMASI rider — credits partner wallet."""
+        order = await self.repo.get_by_id(order_id)
+        if not order:
+            raise NotFoundError("Order", order_id)
+
+        if order.delivery_method != DeliveryMethod.DELIVERY.value:
+            raise BusinessRuleError("Rider handover applies to delivery orders only")
+        if order.order_status != OrderStatus.READY_FOR_PICKUP:
+            raise BusinessRuleError("Order must be ready_for_pickup before rider handover")
+        if order.partner_fulfilled_at is not None:
+            raise BusinessRuleError("Partner already fulfilled this order")
+        await self._assert_can_change_status(order, actor, OrderStatus.OUT_FOR_DELIVERY)
+        await self._assert_paid_before_fulfilment(order, OrderStatus.OUT_FOR_DELIVERY, actor)
+
+        if not order.rider_access_code:
+            raise BusinessRuleError(
+                "Rider access code is not set yet. FARUMASI must assign a rider first."
+            )
+        if not order.patient_access_code:
+            raise BusinessRuleError("Patient access code is required on this order")
+        if order.rider_access_code.lower() != data.rider_access_code.strip().lower():
+            raise AuthorizationError("Incorrect rider access code")
+        if order.patient_access_code.lower() != data.patient_access_code.strip().lower():
+            raise AuthorizationError("Incorrect patient access code")
+
+        now = _now()
+        order.partner_fulfilled_at = now
+        order.order_status = OrderStatus.OUT_FOR_DELIVERY
+        await self.db.flush()
+
+        delivery_res = await self.db.execute(
+            select(Delivery).where(Delivery.order_id == order.id)
+        )
+        delivery = delivery_res.scalar_one_or_none()
+        if delivery and delivery.status not in {
+            DeliveryStatus.PICKED_UP.value,
+            DeliveryStatus.OUT_FOR_DELIVERY.value,
+            DeliveryStatus.DELIVERED.value,
+        }:
+            delivery.status = DeliveryStatus.PICKED_UP.value
+            delivery.picked_up_at = now
+            await self.db.flush()
+
+        await self._credit_partner_revenue(order)
+        await self._close_partner_assignment(order, "handed_to_rider")
+
+        await AuditService(self.db).log(
+            actor_user_id=actor.id,
+            action="order.rider_handover",
+            entity_type="Order",
+            entity_id=order.id,
+        )
+
+        patient_user_id = await self._patient_user_id(order.patient_id)
+        if patient_user_id:
+            await NotificationService(self.db).order_status_changed(
+                patient_user_id,
+                order.id,
+                OrderStatus.OUT_FOR_DELIVERY,
+                order_code=order.order_code,
+            )
+
+        return await self._reload(order.id)
+
+    async def confirm_physical_prescription_collected(
+        self, order_id: str, actor: User
+    ) -> Order:
+        """Farumasi pharmacist confirms physical prescription paper was collected."""
+        if actor.role not in (UserRole.PHARMACIST, UserRole.SUPER_ADMIN):
+            raise AuthorizationError(
+                "Only Farumasi pharmacists can confirm physical prescription collection"
+            )
+        order = await self.repo.get_by_id(order_id)
+        if not order:
+            raise NotFoundError("Order", order_id)
+        if not order.prescription_id:
+            raise BusinessRuleError("This order has no prescription")
+        if not await self._requires_physical_prescription(order):
+            raise BusinessRuleError(
+                "This prescription is marked soft/digital — no physical collection required"
+            )
+        if order.order_status not in (OrderStatus.DELIVERED, OrderStatus.OUT_FOR_DELIVERY):
+            raise BusinessRuleError(
+                "Order must be delivered to the patient before prescription collection is confirmed"
+            )
+        if order.physical_prescription_collected_at is not None:
+            raise BusinessRuleError("Physical prescription already marked as collected")
+        if order.partner_fulfilled_at is None:
+            raise BusinessRuleError("Partner has not fulfilled this order yet")
+
+        order.physical_prescription_collected_at = _now()
+        order.order_status = OrderStatus.COMPLETED
+        await self.db.flush()
+
+        await AuditService(self.db).log(
+            actor_user_id=actor.id,
+            action="order.physical_prescription_collected",
+            entity_type="Order",
+            entity_id=order.id,
+        )
+
+        patient_user_id = await self._patient_user_id(order.patient_id)
+        if patient_user_id:
+            await NotificationService(self.db).order_status_changed(
+                patient_user_id,
+                order.id,
+                OrderStatus.COMPLETED,
                 order_code=order.order_code,
             )
 
@@ -583,10 +715,6 @@ class OrderService:
             raise BusinessRuleError(
                 "Order must be accepted or preparing before dispatch confirmation"
             )
-        if not order.patient_access_code:
-            raise BusinessRuleError("Patient access code is required on this order")
-        if order.patient_access_code.lower() != data.access_code.strip().lower():
-            raise AuthorizationError("Incorrect patient access code")
 
         item_by_id = {oi.id: oi for oi in order.items}
         if set(item_by_id) != {rec.order_item_id for rec in data.items}:
@@ -607,6 +735,8 @@ class OrderService:
             oi.dispatch_batch_number = rec.batch_number.strip()
             oi.dispatch_expiry_date = expiry
             oi.dispatch_manufacturer = rec.manufacturer.strip()
+            oi.dispatch_dosage = (rec.dosage or "").strip() or None
+            oi.dispatch_notes = (rec.notes or "").strip() or None
             oi.dispatch_confirmed_at = now
 
         order.dispatch_confirmed_at = now
@@ -1412,6 +1542,7 @@ class OrderService:
             selectinload(Order.pharmacy),
             selectinload(Order.partner_company),
             selectinload(Order.patient).selectinload(PatientProfile.user),
+            selectinload(Order.prescription),
             selectinload(Order.delivery).selectinload(Delivery.rider).selectinload(
                 RiderProfile.user
             ),
@@ -1566,6 +1697,24 @@ class OrderService:
                 return float(pct) / 100.0
         return settings.PLATFORM_COMMISSION_RATE
 
+    async def _requires_physical_prescription(self, order: Order) -> bool:
+        if order.prescription is not None:
+            return bool(order.prescription.requires_physical_collection)
+        if not order.prescription_id:
+            return False
+        rx = await self.db.get(DigitalPrescription, order.prescription_id)
+        return bool(rx and rx.requires_physical_collection)
+
+    async def _credit_partner_revenue(self, order: Order) -> None:
+        await self._create_revenue(order)
+
+    async def _mark_partner_fulfilled(self, order: Order, *, end_reason: str) -> None:
+        if order.partner_fulfilled_at is None:
+            order.partner_fulfilled_at = _now()
+            await self.db.flush()
+        await self._credit_partner_revenue(order)
+        await self._close_partner_assignment(order, end_reason)
+
     async def _create_revenue(self, order: Order) -> None:
         """Create a revenue record when order is completed.
 
@@ -1595,7 +1744,7 @@ class OrderService:
             )
         )
         await self.db.flush()
-        await self._close_partner_assignment(order, "completed")
+        # Partner assignment closure is handled by the fulfilment action (pickup, rider handover).
 
     async def _open_partner_assignment(self, order: Order) -> None:
         self.db.add(

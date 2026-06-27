@@ -339,6 +339,7 @@ export default function RequestDetailPage() {
   const [insuranceApplies, setInsuranceApplies]   = useState(false);
   const [insuranceProvider, setInsuranceProvider] = useState("");
   const [insuranceDiscount, setInsuranceDiscount] = useState<number | "">(0);
+  const [requiresPhysicalRx, setRequiresPhysicalRx] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -368,6 +369,7 @@ export default function RequestDetailPage() {
           setInsuranceProvider(data.insurance_provider);
           setInsuranceDiscount(data.insurance_discount_pct ?? 0);
         }
+        setRequiresPhysicalRx(data.requires_physical_collection !== false);
         setCartMode("view");
       } else {
         // Non-reviewed prescription: pharmacist starts with a blank cart.
@@ -492,6 +494,7 @@ export default function RequestDetailPage() {
         insurance_discount_pct: insuranceApplies
           ? Number(insuranceDiscount || 0)
           : null,
+        requires_physical_collection: requiresPhysicalRx,
       });
 
       const updated = await prescriptionsService.getOne(rx.id);
@@ -622,6 +625,25 @@ export default function RequestDetailPage() {
           discount={insuranceDiscount}
           onDiscountChange={setInsuranceDiscount}
         />
+      )}
+
+      {canBuildCart && cartMode === "build" && (
+        <div className="bg-violet-50 border border-violet-100 rounded-2xl p-4 mb-5">
+          <label className="flex items-start gap-3 text-sm text-violet-900 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={requiresPhysicalRx}
+              onChange={(e) => setRequiresPhysicalRx(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              <strong>Physical prescription required</strong>
+              <span className="block text-xs text-violet-800/90 mt-1">
+                Uncheck for soft/digital-only prescriptions (e.g. RSSB) — no paper collection at delivery.
+              </span>
+            </span>
+          </label>
+        </div>
       )}
 
       {canBuildCart && cartMode === "view" && !rx.insurance_provider && (

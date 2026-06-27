@@ -14,6 +14,8 @@ export interface BackendOrderItem {
   dispatch_batch_number?: string | null;
   dispatch_expiry_date?: string | null;
   dispatch_manufacturer?: string | null;
+  dispatch_dosage?: string | null;
+  dispatch_notes?: string | null;
   dispatch_confirmed_at?: string | null;
   product?: {
     id: string;
@@ -63,6 +65,11 @@ export interface BackendOrder {
   pharmacy_confirmed_at?: string | null;
   pharmacy_assigned_at?: string | null;
   dispatch_confirmed_at?: string | null;
+  partner_fulfilled_at?: string | null;
+  partner_fulfilment_complete?: boolean;
+  requires_physical_prescription?: boolean;
+  platform_fulfilment_complete?: boolean;
+  physical_prescription_collected_at?: string | null;
   reassignment_count?: number;
   amount_paid_snapshot?: number | null;
 }
@@ -163,22 +170,39 @@ export const ordersService = {
     return norm(data);
   },
 
-  async verifyAccessCode(orderId: string, accessCode: string): Promise<BackendOrder> {
+  async verifyAccessCode(
+    orderId: string,
+    accessCode: string,
+    physicalPrescriptionPresent = false,
+  ): Promise<BackendOrder> {
     const { data } = await api.post<BackendOrder>(`/orders/${orderId}/verify-access-code`, {
       access_code: accessCode,
+      physical_prescription_present: physicalPrescriptionPresent,
     });
+    return norm(data);
+  },
+
+  async confirmRiderHandover(
+    orderId: string,
+    payload: { rider_access_code: string; patient_access_code: string },
+  ): Promise<BackendOrder> {
+    const { data } = await api.post<BackendOrder>(
+      `/orders/${orderId}/confirm-rider-handover`,
+      payload,
+    );
     return norm(data);
   },
 
   async confirmDispatch(
     orderId: string,
     payload: {
-      access_code: string;
       items: Array<{
         order_item_id: string;
         batch_number: string;
         expiry_date: string;
         manufacturer: string;
+        dosage?: string;
+        notes?: string;
       }>;
     },
   ): Promise<BackendOrder> {

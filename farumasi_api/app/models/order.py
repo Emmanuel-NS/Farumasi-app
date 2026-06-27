@@ -90,6 +90,12 @@ class Order(Base, UUIDMixin, TimestampMixin):
     dispatch_confirmed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    partner_fulfilled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    physical_prescription_collected_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # ── Relationships ─────────────────────────────────────────────────────
     patient: Mapped["PatientProfile"] = relationship("PatientProfile", back_populates="orders")
@@ -114,6 +120,12 @@ class Order(Base, UUIDMixin, TimestampMixin):
     payment_transactions: Mapped[List["PaymentTransaction"]] = relationship(
         "PaymentTransaction", back_populates="order", cascade="all, delete-orphan"
     )
+
+    @property
+    def requires_physical_prescription(self) -> bool:
+        if self.prescription_id and self.prescription is not None:
+            return bool(self.prescription.requires_physical_collection)
+        return False
 
     def __repr__(self) -> str:
         return f"<Order {self.order_code} status={self.order_status}>"
@@ -143,6 +155,8 @@ class OrderItem(Base, UUIDMixin, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
     dispatch_manufacturer: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    dispatch_dosage: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    dispatch_notes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     dispatch_confirmed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

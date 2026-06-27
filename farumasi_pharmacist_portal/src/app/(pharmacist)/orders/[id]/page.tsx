@@ -16,6 +16,7 @@ import {
   Eye,
   UserCheck,
   Clock,
+  Key,
 } from "lucide-react";
 import type { BackendOrder } from "@/lib/services/orders.service";
 import {
@@ -41,6 +42,9 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const [riderCode, setRiderCode] = useState("");
+  const [savingRiderCode, setSavingRiderCode] = useState(false);
+  const [confirmingRx, setConfirmingRx] = useState(false);
 
   useEffect(() => {
     const t = window.setInterval(() => setNowTick(Date.now()), 30_000);
@@ -127,10 +131,73 @@ export default function OrderDetailPage() {
       <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900 flex gap-2">
         <Eye className="w-5 h-5 shrink-0" />
         <span>
-          This view is <strong>read-only</strong>. Partner pharmacies manage accept/decline and fulfilment.
-          Prescription review and cart building happen under <Link href="/requests" className="underline font-semibold">Requests</Link>.
+          Partner pharmacies manage accept/prepare/handover. FARUMASI actions here: assign rider access code
+          and confirm physical prescription collection when required.
         </span>
       </div>
+
+      {order.delivery_method === "delivery" &&
+        order.order_status === "ready_for_pickup" &&
+        !order.partner_fulfilment_complete && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-3">
+          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Key className="w-4 h-4" /> Rider access code
+          </h2>
+          <p className="text-xs text-slate-600">
+            Set the code the rider must show at the partner pharmacy. Share it with the assigned rider only.
+          </p>
+          <input
+            value={riderCode}
+            onChange={(e) => setRiderCode(e.target.value.toUpperCase())}
+            placeholder={order.rider_access_code ?? "Enter rider code"}
+            className="w-full h-10 rounded-xl border px-3 font-mono text-sm"
+          />
+          <button
+            type="button"
+            disabled={savingRiderCode || !riderCode.trim()}
+            onClick={async () => {
+              setSavingRiderCode(true);
+              try {
+                const updated = await ordersService.setRiderCode(order.id, riderCode.trim());
+                setOrder(updated);
+                setRiderCode("");
+              } finally {
+                setSavingRiderCode(false);
+              }
+            }}
+            className="px-4 py-2 rounded-xl bg-farumasi-600 text-white text-sm font-semibold disabled:opacity-50"
+          >
+            {savingRiderCode ? "Saving…" : "Save rider code"}
+          </button>
+        </div>
+      )}
+
+      {order.requires_physical_prescription &&
+        order.order_status === "delivered" &&
+        !order.physical_prescription_collected_at && (
+        <div className="bg-white rounded-3xl border border-violet-100 shadow-sm p-6 space-y-3">
+          <h2 className="text-sm font-bold text-violet-900">Physical prescription collection</h2>
+          <p className="text-xs text-slate-600">
+            Confirm when the rider returns the patient&apos;s signed physical prescription paper.
+          </p>
+          <button
+            type="button"
+            disabled={confirmingRx}
+            onClick={async () => {
+              setConfirmingRx(true);
+              try {
+                const updated = await ordersService.confirmPhysicalPrescription(order.id);
+                setOrder(updated);
+              } finally {
+                setConfirmingRx(false);
+              }
+            }}
+            className="px-4 py-2 rounded-xl bg-violet-600 text-white text-sm font-semibold disabled:opacity-50"
+          >
+            {confirmingRx ? "Confirming…" : "Mark physical prescription collected"}
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">

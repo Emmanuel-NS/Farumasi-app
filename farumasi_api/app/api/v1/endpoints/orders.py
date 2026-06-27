@@ -10,6 +10,7 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.delivery import DeliveryOut
 from app.schemas.order import (
     ConfirmDispatchRequest,
+    ConfirmRiderHandoverRequest,
     OrderActivityEntry,
     OrderCreate,
     OrderOut,
@@ -201,5 +202,26 @@ async def confirm_dispatch(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    """Partner confirms dispatch with batch traceability and patient access code."""
+    """Partner records batch traceability and marks order ready for handover."""
     return await OrderService(db).confirm_dispatch(order_id, data, actor)
+
+
+@router.post("/{order_id}/confirm-rider-handover", response_model=OrderOut)
+async def confirm_rider_handover(
+    order_id: str,
+    data: ConfirmRiderHandoverRequest,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    """Partner verifies rider + patient codes when medicines leave the pharmacy."""
+    return await OrderService(db).confirm_rider_handover(order_id, data, actor)
+
+
+@router.post("/{order_id}/confirm-physical-prescription", response_model=OrderOut)
+async def confirm_physical_prescription_collected(
+    order_id: str,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    """FARUMASI pharmacist confirms physical prescription paper was collected."""
+    return await OrderService(db).confirm_physical_prescription_collected(order_id, actor)

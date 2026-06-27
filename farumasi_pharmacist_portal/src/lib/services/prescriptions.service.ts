@@ -25,6 +25,7 @@ export interface BackendPrescription {
   items: PrescriptionItem[];
   insurance_provider?: string | null;
   insurance_discount_pct?: number | null;
+  requires_physical_collection?: boolean;
   patient?: {
     id: string;
     user?: { id: string; full_name: string; email: string; phone?: string; profile_image_url?: string };
@@ -142,6 +143,7 @@ export const prescriptionsService = {
       status?: string;
       insurance_provider?: string | null;
       insurance_discount_pct?: number | null;
+      requires_physical_collection?: boolean;
     },
   ): Promise<BackendPrescription> {
     const { data } = await api.patch<BackendPrescription>(`/prescriptions/${id}`, payload);

@@ -39,10 +39,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [delivery, setDelivery] = useState<BackendDelivery | null>(null);
   const [prescription, setPrescription] = useState<BackendPrescription | null>(null);
   const [verifyCodeInput, setVerifyCodeInput] = useState("");
+  const [physicalRxPresent, setPhysicalRxPresent] = useState(false);
+  const [riderCodeInput, setRiderCodeInput] = useState("");
+  const [patientCodeInput, setPatientCodeInput] = useState("");
+  const [handoverSubmitting, setHandoverSubmitting] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [dispatchOpen, setDispatchOpen] = useState(false);
-  const [dispatchAccessCode, setDispatchAccessCode] = useState("");
-  const [dispatchRows, setDispatchRows] = useState<Record<string, { batch_number: string; expiry_date: string; manufacturer: string }>>({});
+  const [dispatchRows, setDispatchRows] = useState<
+    Record<string, { batch_number: string; expiry_date: string; manufacturer: string; dosage: string; notes: string }>
+  >({});
   const [activity, setActivity] = useState<OrderActivityEntry[]>([]);
   const [assignments, setAssignments] = useState<OrderPartnerAssignment[]>([]);
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -136,20 +141,43 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     if (!order || !verifyCodeInput.trim()) return;
     setVerifying(true);
     try {
-      const updated = await ordersService.verifyAccessCode(order.id, verifyCodeInput.trim());
+      const updated = await ordersService.verifyAccessCode(
+        order.id,
+        verifyCodeInput.trim(),
+        physicalRxPresent,
+      );
       setOrder(updated);
-      toast.success("Access code verified — order completed!");
+      toast.success("Pickup verified — your earnings are in your wallet");
       setVerifyCodeInput("");
     } catch (err: unknown) {
-      toast.error(getApiError(err, "Incorrect access code"));
+      toast.error(getApiError(err, "Could not verify pickup"));
     } finally {
       setVerifying(false);
     }
   };
 
+  const handleRiderHandover = async () => {
+    if (!order || !riderCodeInput.trim() || !patientCodeInput.trim()) return;
+    setHandoverSubmitting(true);
+    try {
+      const updated = await ordersService.confirmRiderHandover(order.id, {
+        rider_access_code: riderCodeInput.trim(),
+        patient_access_code: patientCodeInput.trim(),
+      });
+      setOrder(updated);
+      toast.success("Handover confirmed — earnings credited to your wallet");
+      setRiderCodeInput("");
+      setPatientCodeInput("");
+    } catch (err: unknown) {
+      toast.error(getApiError(err, "Rider handover failed"));
+    } finally {
+      setHandoverSubmitting(false);
+    }
+  };
+
   const openDispatchDialog = () => {
     if (!order) return;
-    const rows: Record<string, { batch_number: string; expiry_date: string; manufacturer: string }> = {};
+    const rows: Record<string, { batch_number: string; expiry_date: string; manufacturer: string; dosage: string; notes: string }> = {};
     for (const item of order.items) {
       rows[item.id] = {
         batch_number: item.dispatch_batch_number ?? "",
@@ -157,19 +185,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           ? item.dispatch_expiry_date.slice(0, 10)
           : "",
         manufacturer: item.dispatch_manufacturer ?? "",
+        dosage: item.dispatch_dosage ?? "",
+        notes: item.dispatch_notes ?? "",
       };
     }
     setDispatchRows(rows);
-    setDispatchAccessCode("");
     setDispatchOpen(true);
   };
 
   const submitDispatch = async () => {
     if (!order) return;
-    if (!dispatchAccessCode.trim()) {
-      toast.error("Enter the patient's access code");
-      return;
-    }
     const items = order.items.map((item) => {
       const row = dispatchRows[item.id];
       return {
@@ -177,6 +202,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         batch_number: row?.batch_number?.trim() ?? "",
         expiry_date: row?.expiry_date ? `${row.expiry_date}T12:00:00Z` : "",
         manufacturer: row?.manufacturer?.trim() ?? "",
+        dosage: row?.dosage?.trim() || undefined,
+        notes: row?.notes?.trim() || undefined,
       };
     });
     if (items.some((it) => !it.batch_number || !it.expiry_date || !it.manufacturer)) {
@@ -185,13 +212,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
     setActing(true);
     try {
-      const updated = await ordersService.confirmDispatch(order.id, {
-        access_code: dispatchAccessCode.trim(),
-        items,
-      });
+      const updated = await ordersService.confirmDispatch(order.id, { items });
       setOrder(updated);
       setDispatchOpen(false);
-      toast.success("Dispatch confirmed — order is ready for pickup");
+      toast.success(order.is_delivery
+        ? "Medicines prepared — ready for FARUMASI rider pickup"
+        : "Ready for patient pickup");
     } catch (err: unknown) {
       toast.error(getApiError(err, "Failed to confirm dispatch"));
     } finally {
@@ -231,8 +257,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const deliveryFee = order.delivery_fee ?? 0;
   const commission = order.commission ?? 0;
   const net = order.net_amount ?? order.total_amount;
-  const forward = PROGRESS_FORWARD[order.status];
-  const canCancel = !["completed", "delivered", "cancelled", "rejected", "failed"].includes(order.status);
+  const forward = order.partner_fulfilment_complete ? undefined : PROGRESS_FORWARD[order.status];
+  const canCancel = !order.partner_fulfilment_complete && !["cancelled", "rejected", "failed"].includes(order.status);
   const canReject = order.status === "pending";
   const customerName = order.patient?.user?.full_name || "—";
   const customerPhone = order.patient?.user?.phone || "";
@@ -247,8 +273,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <h1 className="text-lg font-bold">{orderDisplayCode(order.id, order.order_code)}</h1>
           <p className="text-xs text-muted-foreground">
             Placed {formatDateTime(order.created_at)}
-            {order.payment_status && <> · Payment {order.payment_status}</>}
+            {order.payment_status && (
+              <> · Payment{" "}
+                <span className={order.payment_status === "paid" ? "text-green-700 font-semibold" : "text-amber-700 font-semibold"}>
+                  {order.payment_status}
+                </span>
+              </>
+            )}
           </p>
+          {order.partner_fulfilment_complete && (
+            <p className="text-xs text-emerald-700 font-medium mt-0.5">
+              Your part is complete — earnings should appear in Revenue & Wallet
+            </p>
+          )}
         </div>
         <StatusBadge status={order.status as OrderStatus} type="order" className="ml-auto" />
       </div>
@@ -507,56 +544,31 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               {dispatchOpen && (
                 <div className="rounded-xl border bg-slate-50 p-3 space-y-3">
                   <p className="text-xs font-semibold text-slate-700">
-                    FDA dispatch records — required before handover
+                    Step 1 — Record medicine details before handover
                   </p>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Patient access code</Label>
-                    <Input
-                      value={dispatchAccessCode}
-                      onChange={(e) => setDispatchAccessCode(e.target.value)}
-                      placeholder="Verify patient's code"
-                      className="h-9 text-sm"
-                    />
-                  </div>
                   {order.items.map((item) => {
                     const name = item.product_name ?? item.product?.name ?? "Item";
-                    const row = dispatchRows[item.id] ?? { batch_number: "", expiry_date: "", manufacturer: "" };
+                    const row = dispatchRows[item.id] ?? {
+                      batch_number: "",
+                      expiry_date: "",
+                      manufacturer: "",
+                      dosage: "",
+                      notes: "",
+                    };
                     return (
                       <div key={item.id} className="bg-white border rounded-lg p-2.5 space-y-2">
                         <p className="text-xs font-bold truncate">{name} ×{item.quantity}</p>
-                        <Input
-                          placeholder="Batch number"
-                          value={row.batch_number}
-                          onChange={(e) => setDispatchRows((prev) => ({
-                            ...prev,
-                            [item.id]: { ...row, batch_number: e.target.value },
-                          }))}
-                          className="h-8 text-xs"
-                        />
-                        <Input
-                          type="date"
-                          value={row.expiry_date}
-                          onChange={(e) => setDispatchRows((prev) => ({
-                            ...prev,
-                            [item.id]: { ...row, expiry_date: e.target.value },
-                          }))}
-                          className="h-8 text-xs"
-                        />
-                        <Input
-                          placeholder="Manufacturer"
-                          value={row.manufacturer}
-                          onChange={(e) => setDispatchRows((prev) => ({
-                            ...prev,
-                            [item.id]: { ...row, manufacturer: e.target.value },
-                          }))}
-                          className="h-8 text-xs"
-                        />
+                        <Input placeholder="Batch number *" value={row.batch_number} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, batch_number: e.target.value } }))} className="h-8 text-xs" />
+                        <Input type="date" value={row.expiry_date} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, expiry_date: e.target.value } }))} className="h-8 text-xs" />
+                        <Input placeholder="Manufacturer *" value={row.manufacturer} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, manufacturer: e.target.value } }))} className="h-8 text-xs" />
+                        <Input placeholder="Dosage (optional)" value={row.dosage} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, dosage: e.target.value } }))} className="h-8 text-xs" />
+                        <Input placeholder="Notes (optional)" value={row.notes} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, notes: e.target.value } }))} className="h-8 text-xs" />
                       </div>
                     );
                   })}
                   <div className="flex gap-2">
                     <Button size="sm" className="flex-1" disabled={acting} onClick={submitDispatch}>
-                      {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm dispatch"}
+                      {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Mark ready for handover"}
                     </Button>
                     <Button size="sm" variant="outline" disabled={acting} onClick={() => setDispatchOpen(false)}>
                       Cancel
@@ -565,16 +577,22 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
               )}
 
-              {/* Pickup access code verification: pharmacy confirms patient's code */}
-              {!order.is_delivery && order.status === "ready_for_pickup" && (
+              {!order.is_delivery && order.status === "ready_for_pickup" && !order.partner_fulfilment_complete && (
                 <div className="border border-amber-200 rounded-xl p-3 space-y-2 bg-amber-50">
                   <p className="text-xs font-semibold text-amber-700 flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    Verify Patient Code
+                    Step 2 — Patient pickup
                   </p>
                   <p className="text-xs text-amber-600">
-                    Ask the patient for their access code. Correct code completes the order.
+                    Verify the patient&apos;s access code
+                    {order.requires_physical_prescription ? " and physical prescription" : ""}.
                   </p>
+                  {order.requires_physical_prescription && (
+                    <label className="flex items-center gap-2 text-xs text-amber-800">
+                      <input type="checkbox" checked={physicalRxPresent} onChange={(e) => setPhysicalRxPresent(e.target.checked)} />
+                      Physical prescription verified
+                    </label>
+                  )}
                   <input
                     value={verifyCodeInput}
                     onChange={(e) => setVerifyCodeInput(e.target.value.toUpperCase())}
@@ -587,28 +605,53 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     onClick={handleVerifyCode}
                   >
                     {verifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
-                    Confirm Pickup
+                    Confirm pickup & credit wallet
                   </Button>
                 </div>
               )}
 
-              {/* Delivery: show rider access code so pharmacy knows which rider to release to */}
-              {order.is_delivery && order.rider_access_code && order.status === "ready_for_pickup" && (
-                <div className="border border-blue-100 rounded-xl p-3 space-y-1 bg-blue-50">
-                  <p className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5" />
-                    Rider Access Code
+              {order.is_delivery && order.status === "ready_for_pickup" && !order.partner_fulfilment_complete && (
+                <div className="border border-blue-200 rounded-xl p-3 space-y-3 bg-blue-50">
+                  <p className="text-xs font-semibold text-blue-800">
+                    Step 2 — Release to FARUMASI rider
                   </p>
-                  <p className="text-lg font-extrabold text-blue-900 font-mono tracking-widest">
-                    {order.rider_access_code}
-                  </p>
-                  <p className="text-xs text-blue-600">Rider must show this code to collect the medicines.</p>
+                  {!order.rider_access_code ? (
+                    <p className="text-xs text-blue-700">
+                      Waiting for FARUMASI to assign a rider and set the rider access code.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-xs text-blue-700">
+                        When the rider arrives, enter the rider code (from FARUMASI) and the patient code
+                        (the rider should have received it from the patient).
+                      </p>
+                      <Input
+                        placeholder="Rider access code"
+                        value={riderCodeInput}
+                        onChange={(e) => setRiderCodeInput(e.target.value.toUpperCase())}
+                        className="h-9 text-sm font-mono"
+                      />
+                      <Input
+                        placeholder="Patient access code"
+                        value={patientCodeInput}
+                        onChange={(e) => setPatientCodeInput(e.target.value.toUpperCase())}
+                        className="h-9 text-sm font-mono"
+                      />
+                      <Button
+                        className="w-full gap-1.5 text-sm"
+                        disabled={handoverSubmitting || !riderCodeInput.trim() || !patientCodeInput.trim()}
+                        onClick={() => void handleRiderHandover()}
+                      >
+                        {handoverSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
+                        Confirm rider handover
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
-              {order.is_delivery && order.status === "ready_for_pickup" && (
-                <div className="border border-emerald-100 rounded-xl p-3 bg-emerald-50 text-xs text-emerald-800">
-                  Order is ready. A FARUMASI rider will be assigned to collect and deliver to the patient.
-                  Share the rider access code above when they arrive at your pharmacy.
+              {order.is_delivery && order.partner_fulfilment_complete && (
+                <div className="border border-emerald-200 rounded-xl p-3 bg-emerald-50 text-xs text-emerald-800">
+                  Medicines handed to FARUMASI rider. Delivery continues on the FARUMASI side — your earnings are in your wallet.
                 </div>
               )}
               {canReject && (

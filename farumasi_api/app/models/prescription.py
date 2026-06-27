@@ -43,6 +43,8 @@ class DigitalPrescription(Base, UUIDMixin, TimestampMixin):
     insurance_provider: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     insurance_discount_pct: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     valid_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # False for soft/digital-only prescriptions (e.g. RSSB) — no physical paper to collect at delivery
+    requires_physical_collection: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # ── Relationships ─────────────────────────────────────────────────────
     patient: Mapped["PatientProfile"] = relationship(

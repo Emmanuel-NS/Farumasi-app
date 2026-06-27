@@ -112,6 +112,8 @@ class OrderItemOut(FarumasiBaseModel):
     dispatch_batch_number: Optional[str] = None
     dispatch_expiry_date: Optional[datetime] = None
     dispatch_manufacturer: Optional[str] = None
+    dispatch_dosage: Optional[str] = None
+    dispatch_notes: Optional[str] = None
     dispatch_confirmed_at: Optional[datetime] = None
     created_at: datetime
 
@@ -191,8 +193,21 @@ class OrderOut(FarumasiBaseModel):
     amount_paid_snapshot: Optional[float] = None
     reassignment_count: int = 0
     dispatch_confirmed_at: Optional[datetime] = None
+    partner_fulfilled_at: Optional[datetime] = None
+    physical_prescription_collected_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    requires_physical_prescription: bool = False
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def partner_fulfilment_complete(self) -> bool:
+        return self.partner_fulfilled_at is not None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def platform_fulfilment_complete(self) -> bool:
+        return normalize_order_status(self.order_status) == OrderStatus.COMPLETED.value
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -244,6 +259,13 @@ class SetRiderAccessCodeRequest(FarumasiBaseModel):
 class VerifyAccessCodeRequest(FarumasiBaseModel):
     """Verify the patient's access code at pickup or delivery completion."""
     access_code: str
+    physical_prescription_present: bool = False
+
+
+class ConfirmRiderHandoverRequest(FarumasiBaseModel):
+    """Partner releases medicines to a FARUMASI rider at the pharmacy."""
+    rider_access_code: str
+    patient_access_code: str
 
 
 class DispatchItemRecord(FarumasiBaseModel):
@@ -252,6 +274,8 @@ class DispatchItemRecord(FarumasiBaseModel):
     batch_number: str
     expiry_date: datetime
     manufacturer: str
+    dosage: Optional[str] = None
+    notes: Optional[str] = None
 
     @field_validator("batch_number", "manufacturer")
     @classmethod
@@ -263,8 +287,7 @@ class DispatchItemRecord(FarumasiBaseModel):
 
 
 class ConfirmDispatchRequest(FarumasiBaseModel):
-    """Partner confirms dispatch with batch traceability and patient access code."""
-    access_code: str
+    """Partner records batch traceability and marks order ready for handover."""
     items: List[DispatchItemRecord]
 
     @model_validator(mode="after")

@@ -56,6 +56,7 @@ class PrescriptionUpdate(FarumasiBaseModel):
     status: Optional[PrescriptionStatus] = None
     insurance_provider: Optional[str] = None
     insurance_discount_pct: Optional[float] = None
+    requires_physical_collection: Optional[bool] = None
 
 
 class PatientUserOut(FarumasiBaseModel):
@@ -84,6 +85,7 @@ class PrescriptionOut(FarumasiBaseModel):
     qr_code: Optional[str] = None
     insurance_provider: Optional[str] = None
     insurance_discount_pct: Optional[float] = None
+    requires_physical_collection: bool = True
     items: List[PrescriptionItemOut] = []
     patient: Optional[PatientSummaryOut] = None
     created_at: datetime
@@ -105,6 +107,7 @@ class PrescriptionReviewCreate(FarumasiBaseModel):
     review_status: ReviewStatus = ReviewStatus.PENDING
     review_notes: Optional[str] = None
     safety_flags: Optional[List[str]] = None
+    requires_physical_collection: Optional[bool] = None
 
 
 class PrescriptionReviewUpdate(FarumasiBaseModel):

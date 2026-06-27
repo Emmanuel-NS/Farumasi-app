@@ -204,7 +204,6 @@ async def test_confirm_dispatch_records_batch_and_advances_status(client: AsyncC
         f"/api/v1/orders/{order_id}/confirm-dispatch",
         headers=_h(admin_a),
         json={
-            "access_code": "Rx-1234",
             "items": [
                 {
                     "order_item_id": item_id,
@@ -225,7 +224,7 @@ async def test_confirm_dispatch_records_batch_and_advances_status(client: AsyncC
     assert item["dispatch_expiry_date"] is not None
 
 
-async def test_confirm_dispatch_rejects_wrong_access_code(client: AsyncClient, db):
+async def test_confirm_dispatch_succeeds_without_access_code(client: AsyncClient, db):
     admin_a, _, _, _, listing_a, _, _ = await _setup_two_pharmacies_same_product(client, db)
     patient = await _register(client, "patient", db)
     order = await _create_pickup_order(
@@ -245,7 +244,6 @@ async def test_confirm_dispatch_rejects_wrong_access_code(client: AsyncClient, d
         f"/api/v1/orders/{order_id}/confirm-dispatch",
         headers=_h(admin_a),
         json={
-            "access_code": "wrong-code",
             "items": [
                 {
                     "order_item_id": item_id,
@@ -256,7 +254,8 @@ async def test_confirm_dispatch_rejects_wrong_access_code(client: AsyncClient, d
             ],
         },
     )
-    assert r.status_code == 403, r.text
+    assert r.status_code == 200, r.text
+    assert r.json()["order_status"] == "ready_for_pickup"
 
 
 # ── Pharmacy reassignment ───────────────────────────────────────────────
