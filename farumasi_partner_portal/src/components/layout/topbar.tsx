@@ -98,7 +98,7 @@ export function Topbar({ onToggle }: TopbarProps) {
             className="bg-transparent text-sm flex-1 outline-none placeholder:text-slate-400 text-slate-700"
             placeholder="Search products, orders, pharmacies…"
           />
-          <button type="button" className="p-1 text-slate-400 hover:text-farumasi-600 transition-colors">
+          <button type="button" className="p-1 text-slate-400 hover:text-farumasi-600 transition-colors" title="Search only">
             <SlidersHorizontal className="w-4 h-4" />
           </button>
         </div>

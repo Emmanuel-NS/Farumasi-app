@@ -213,6 +213,23 @@ export default function ListedProductsPage() {
         }
       />
 
+      <Card className="border-blue-200 bg-blue-50/40">
+        <CardContent className="p-4 flex gap-3">
+          <FlaskConical className="w-5 h-5 text-blue-700 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-semibold text-blue-900">Listing batch vs dispatch batch</p>
+            <p className="text-xs text-blue-800/90 mt-1">
+              Optional batch fields here are for your inventory only. When you fulfil an order,{" "}
+              <strong>Confirm dispatch</strong> on the order page records the exact batch, expiry, and manufacturer
+              handed to the patient — that is the RFDA traceability record.
+            </p>
+            <Button variant="link" size="sm" className="h-auto p-0 text-xs text-blue-700 mt-1" asChild>
+              <Link href="/compliance">Learn more in Compliance</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <ProductInsightsStrip
         stats={[
           { label: "Total listings", value: total || counts.total, hint: "From API", icon: Package },

@@ -250,6 +250,21 @@ export default function RevenuePage() {
         />
       </div>
 
+      {(summary?.reassigned_orders ?? 0) > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Orders lost to pharmacy switches</p>
+            <p className="text-xs text-amber-800 mt-0.5">
+              {summary?.reassigned_orders} order{(summary?.reassigned_orders ?? 0) === 1 ? "" : "s"} reassigned away
+              after patients switched partners.
+            </p>
+          </div>
+          <p className="text-sm font-bold text-amber-900">
+            Lost net: {formatRWF(summary?.reassigned_lost_net ?? 0)}
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <Card>
           <CardHeader>

@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authService } from "@/lib/services/auth.service";
 import { partnerService } from "@/lib/services/partner.service";
+import { pharmacyService } from "@/lib/services/pharmacy.service";
 import { payoutCredentialsService } from "@/lib/services/payout-credentials.service";
 import { uploadService } from "@/lib/services/upload.service";
 import { PAYOUT_METHODS, selectedPayoutMethod, type PayoutMethodValue } from "@/lib/payout-methods";
@@ -69,6 +70,9 @@ export default function RegisterPage() {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
 
+  const isPharmacySignup = businessType.toLowerCase() === "pharmacy";
+  const registrationRole = isPharmacySignup ? "pharmacy_admin" as const : "partner_company_admin" as const;
+
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
       toast.error("Geolocation is not supported on this device.");
@@ -90,7 +94,7 @@ export default function RegisterPage() {
     );
   };
 
-  const completePartnerProfile = async (accessToken: string, refreshToken: string) => {
+  const completeSellerProfile = async (accessToken: string, refreshToken: string) => {
     if (typeof window !== "undefined") {
       localStorage.setItem("farumasi_partner_token", accessToken);
       localStorage.setItem("farumasi_partner_refresh", refreshToken);
@@ -105,21 +109,39 @@ export default function RegisterPage() {
       logoUrl = await uploadService.uploadBrandImage(brandImageFile);
     }
 
-    await partnerService.updateMine({
-      name: businessName.trim(),
-      company_type: businessType.toLowerCase(),
-      email: (businessEmail || email).trim(),
-      phone: businessPhone.trim() || undefined,
-      address: [address.trim(), sector.trim()].filter(Boolean).join(", ") || undefined,
-      district: district.trim() || undefined,
-      latitude: latitude ?? undefined,
-      longitude: longitude ?? undefined,
-      business_registration_number: registrationNumber.trim() || undefined,
-      regulatory_authority: regulatoryAuthority.trim() || undefined,
-      regulatory_license_number: licenseNumber.trim() || undefined,
-      regulatory_license_document_url: licenseDocumentUrl,
-      logo_url: logoUrl,
-    });
+    const addressLine = [address.trim(), sector.trim()].filter(Boolean).join(", ") || undefined;
+
+    if (isPharmacySignup) {
+      await pharmacyService.create({
+        name: businessName.trim(),
+        email: (businessEmail || email).trim(),
+        phone: businessPhone.trim() || undefined,
+        address: addressLine,
+        district: district.trim() || undefined,
+        latitude: latitude ?? undefined,
+        longitude: longitude ?? undefined,
+        license_number: licenseNumber.trim() || undefined,
+        logo_url: logoUrl,
+        accepts_delivery: true,
+        is_open: true,
+      });
+    } else {
+      await partnerService.updateMine({
+        name: businessName.trim(),
+        company_type: businessType.toLowerCase(),
+        email: (businessEmail || email).trim(),
+        phone: businessPhone.trim() || undefined,
+        address: addressLine,
+        district: district.trim() || undefined,
+        latitude: latitude ?? undefined,
+        longitude: longitude ?? undefined,
+        business_registration_number: registrationNumber.trim() || undefined,
+        regulatory_authority: regulatoryAuthority.trim() || undefined,
+        regulatory_license_number: licenseNumber.trim() || undefined,
+        regulatory_license_document_url: licenseDocumentUrl,
+        logo_url: logoUrl,
+      });
+    }
 
     const accountValue = payoutAccount.trim();
     await payoutCredentialsService.set({
@@ -150,7 +172,7 @@ export default function RegisterPage() {
         password,
         full_name: fullName.trim(),
         phone: businessPhone.trim() || undefined,
-        role: "partner_company_admin",
+        role: registrationRole,
       });
       setPendingVerification(true);
       toast.success("Verification code sent — check your email or phone.");
@@ -169,8 +191,8 @@ export default function RegisterPage() {
     }
     setSubmitting(true);
     try {
-      const tokens = await authService.verifyRegistration(email.trim(), otp.trim());
-      await completePartnerProfile(tokens.access_token, tokens.refresh_token);
+      const tokens = await authService.verifyRegistration(email.trim(), otp.trim(), registrationRole);
+      await completeSellerProfile(tokens.access_token, tokens.refresh_token);
     } catch (err: unknown) {
       toast.error(getApiError(err, "Verification failed. Check the code and try again."));
     } finally {

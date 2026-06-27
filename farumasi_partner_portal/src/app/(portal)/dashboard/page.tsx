@@ -24,6 +24,7 @@ import { partnerService, type BackendPartnerCompany } from "@/lib/services/partn
 import { listingsService, type BackendListing } from "@/lib/services/listings.service";
 import { revenueService, type BackendRevenueRecord, type BackendRevenueSummary } from "@/lib/services/revenue.service";
 import { buildRevenueChartData } from "@/lib/revenue-utils";
+import { fetchAllPages } from "@/lib/pagination";
 import type { ChartDataPoint } from "@/types";
 import type { OrderStatus, ProductStatus } from "@/types";
 import { toast } from "@/lib/toast";
@@ -63,6 +64,7 @@ export default function DashboardPage() {
   const [listingsTotal, setListingsTotal] = useState(0);
   const [revenue, setRevenue] = useState<BackendRevenueRecord[]>([]);
   const [revenueSummary, setRevenueSummary] = useState<BackendRevenueSummary | null>(null);
+  const [allOrdersForStats, setAllOrdersForStats] = useState<BackendOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [partnerProfile, setPartnerProfile] = useState<BackendPartnerCompany | null>(null);
   const [pharmacyProfile, setPharmacyProfile] = useState<{ verification_status?: string; status?: string } | null>(null);
@@ -103,6 +105,14 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchAllPages((offset, limit) => ordersService.listPartnerOrders({ offset, limit }))
+      .then((rows) => { if (!cancelled) setAllOrdersForStats(rows); })
+      .catch(() => { if (!cancelled) setAllOrdersForStats([]); });
+    return () => { cancelled = true; };
+  }, []);
+
   // Orders reload when range changes — use from_date to get full chart data for the period
   useEffect(() => {
     let cancelled = false;
@@ -123,8 +133,11 @@ export default function DashboardPage() {
   }, [range]);
 
   const kpis = useMemo(() => {
-    const inProgressOrders = orders.filter(o =>
+    const inProgressOrders = allOrdersForStats.filter(o =>
       IN_PROGRESS_STATUSES.has((o.status || o.order_status || "").toLowerCase()),
+    ).length;
+    const pendingOrders = allOrdersForStats.filter(o =>
+      (o.status || o.order_status || "").toLowerCase() === "pending",
     ).length;
     const totalProducts = listingsTotal || listings.length;
     const activeListings = listings.filter(l => uiStatus(l) === "available").length;
@@ -136,11 +149,12 @@ export default function DashboardPage() {
       availableBalance: revenueSummary?.available_balance ?? 0,
       netEarnings: revenueSummary?.total_net ?? 0,
       inProgressOrders,
+      pendingOrders,
       totalProducts,
       activeListings,
       lowStockCount,
     };
-  }, [orders, listings, listingsTotal, revenueSummary]);
+  }, [allOrdersForStats, listings, listingsTotal, revenueSummary]);
 
   // Build orders chart filtered by the selected date range (mirrors buildRevenueChartData)
   const ordersChart = useMemo<ChartDataPoint[]>(() => {
@@ -207,8 +221,8 @@ export default function DashboardPage() {
           <div>
             <p className="font-semibold">Application under review</p>
             <p className="text-xs mt-1 text-amber-800">
-              FARUMASI is reviewing your regulatory license and business details. You can set up
-              products and profile settings, but your store will go live after approval.
+              FARUMASI is reviewing your regulatory license and business details. You can configure
+              your profile and view orders; new listings go live after approval.
             </p>
           </div>
         </div>
@@ -251,7 +265,7 @@ export default function DashboardPage() {
         />
         <KpiCard
           title="Open Orders (pending)"
-          value={String(orders.filter(o => o.status === "pending").length)}
+          value={String(kpis.pendingOrders)}
           icon={ShoppingCart}
           iconBg="bg-slate-100"
           iconColor="text-slate-600"

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ShoppingCart, Filter, Download, ChevronRight, Loader2, Clock } from "lucide-react";
+import { ShoppingCart, Download, ChevronRight, Loader2, Clock } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -16,8 +16,14 @@ import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
 import { formatCompactRWF, timeAgo } from "@/lib/utils";
 import { downloadCsv } from "@/lib/export-csv";
-import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import { DEFAULT_PAGE_SIZE, fetchAllPages } from "@/lib/pagination";
 import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
+import {
+  formatCountdown,
+  isAwaitingPartnerConfirm,
+  isReassignmentRisk,
+  partnerResponseRemainingMs,
+} from "@/lib/order-sla";
 import type { OrderStatus } from "@/types";
 
 const ORDER_TABS: { label: string; value: string; statuses?: OrderStatus[] }[] = [
@@ -51,6 +57,14 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deliveryFilter, setDeliveryFilter] = useState<"all" | "delivery" | "pickup">("all");
+  const [statsOrders, setStatsOrders] = useState<BackendOrder[]>([]);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const q = searchParams.get("q");
@@ -75,6 +89,14 @@ export default function OrdersPage() {
         toast.error(msg);
       })
       .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAllPages((offset, limit) => ordersService.listPartnerOrders({ offset, limit }))
+      .then((rows) => { if (!cancelled) setStatsOrders(rows); })
+      .catch(() => { if (!cancelled) setStatsOrders([]); });
     return () => { cancelled = true; };
   }, []);
 
@@ -110,18 +132,19 @@ export default function OrdersPage() {
   };
 
   const kpis = useMemo(() => {
-    const pending = orders.filter(o => orderStatus(o) === "pending").length;
-    const inProgress = orders.filter(o =>
+    const source = statsOrders.length > 0 ? statsOrders : orders;
+    const pending = source.filter(o => orderStatus(o) === "pending").length;
+    const inProgress = source.filter(o =>
       IN_PROGRESS_STATUSES.includes(orderStatus(o) as OrderStatus),
     ).length;
-    const completed = orders.filter(o =>
+    const completed = source.filter(o =>
       ["completed", "delivered"].includes(orderStatus(o)),
     ).length;
-    const cancelled = orders.filter(o =>
+    const cancelled = source.filter(o =>
       ["cancelled", "rejected", "failed"].includes(orderStatus(o)),
     ).length;
     return { pending, inProgress, completed, cancelled };
-  }, [orders]);
+  }, [statsOrders, orders]);
 
   return (
     <div className="space-y-6">
@@ -161,8 +184,29 @@ export default function OrdersPage() {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            <Button variant="outline" size="sm" className="text-xs h-8 gap-1.5">
-              <Filter className="w-3.5 h-3.5" /> Filter
+            <Button
+              variant={deliveryFilter === "all" ? "default" : "outline"}
+              size="sm"
+              className="text-xs h-8"
+              onClick={() => setDeliveryFilter("all")}
+            >
+              All types
+            </Button>
+            <Button
+              variant={deliveryFilter === "delivery" ? "default" : "outline"}
+              size="sm"
+              className="text-xs h-8"
+              onClick={() => setDeliveryFilter("delivery")}
+            >
+              Delivery
+            </Button>
+            <Button
+              variant={deliveryFilter === "pickup" ? "default" : "outline"}
+              size="sm"
+              className="text-xs h-8"
+              onClick={() => setDeliveryFilter("pickup")}
+            >
+              Pickup
             </Button>
           </div>
 
@@ -192,6 +236,11 @@ export default function OrdersPage() {
                     : true,
                 )
                 .filter(o => {
+                  if (deliveryFilter === "delivery") return o.is_delivery;
+                  if (deliveryFilter === "pickup") return !o.is_delivery;
+                  return true;
+                })
+                .filter(o => {
                   if (!q) return true;
                   const num = shortId(o.id).toLowerCase();
                   const name = o.patient?.user?.full_name?.toLowerCase() || "";
@@ -208,6 +257,7 @@ export default function OrdersPage() {
                         <TableHead>Type</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>SLA</TableHead>
                         <TableHead>Placed</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                       </TableRow>
@@ -215,7 +265,7 @@ export default function OrdersPage() {
                     <TableBody>
                       {loading && (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
+                          <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
                             <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
                             Loading orders…
                           </TableCell>
@@ -246,6 +296,21 @@ export default function OrdersPage() {
                               <p className="text-[11px] text-muted-foreground">subtotal {formatCompactRWF(subtotal)}</p>
                             </TableCell>
                             <TableCell><StatusBadge status={order.status as OrderStatus} type="order" /></TableCell>
+                            <TableCell className="text-xs">
+                              {isAwaitingPartnerConfirm(order) ? (
+                                isReassignmentRisk({ ...order, now: nowTick }) ? (
+                                  <span className="text-red-600 font-semibold">Switch open</span>
+                                ) : partnerResponseRemainingMs(order.partner_response_due_at, nowTick) != null ? (
+                                  <span className="text-amber-700 font-medium">
+                                    {formatCountdown(partnerResponseRemainingMs(order.partner_response_due_at, nowTick)!)}
+                                  </span>
+                                ) : (
+                                  <span className="text-amber-600">Confirm soon</span>
+                                )
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
                             <TableCell className="text-xs text-muted-foreground">{timeAgo(order.created_at)}</TableCell>
                             <TableCell className="text-right">
                               <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" asChild>
@@ -257,7 +322,7 @@ export default function OrdersPage() {
                       })}
                       {!loading && filtered.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
+                          <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
                             {error || "No orders in this category."}
                           </TableCell>
                         </TableRow>

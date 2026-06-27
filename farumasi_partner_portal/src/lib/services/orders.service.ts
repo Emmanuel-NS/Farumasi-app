@@ -59,6 +59,39 @@ export interface BackendOrder {
     rider?: { id: string; user?: { id: string; full_name: string } };
   };
   rider?: { id: string; user?: { id: string; full_name: string } };
+  partner_response_due_at?: string | null;
+  pharmacy_confirmed_at?: string | null;
+  pharmacy_assigned_at?: string | null;
+  dispatch_confirmed_at?: string | null;
+  reassignment_count?: number;
+  amount_paid_snapshot?: number | null;
+}
+
+export interface OrderActivityEntry {
+  id: string;
+  action: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  old_value?: Record<string, unknown> | null;
+  new_value?: Record<string, unknown> | null;
+  created_at: string;
+  actor_user_id?: string | null;
+  actor_name?: string | null;
+  actor_role?: string | null;
+}
+
+export interface OrderPartnerAssignment {
+  id: string;
+  order_id: string;
+  pharmacy_id?: string | null;
+  partner_company_id?: string | null;
+  provider_name: string;
+  subtotal: number;
+  net_partner_amount: number;
+  assigned_at: string;
+  ended_at?: string | null;
+  end_reason?: string | null;
+  is_current: boolean;
 }
 
 export interface PaginatedOrders {
@@ -151,5 +184,25 @@ export const ordersService = {
   ): Promise<BackendOrder> {
     const { data } = await api.post<BackendOrder>(`/orders/${orderId}/confirm-dispatch`, payload);
     return norm(data);
+  },
+
+  async getOrderActivity(orderId: string): Promise<OrderActivityEntry[]> {
+    try {
+      const { data } = await api.get<OrderActivityEntry[]>(`/orders/${orderId}/activity`);
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async getPartnerAssignments(orderId: string): Promise<OrderPartnerAssignment[]> {
+    try {
+      const { data } = await api.get<OrderPartnerAssignment[]>(
+        `/orders/${orderId}/partner-assignments`,
+      );
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
   },
 };

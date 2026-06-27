@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Package, ShoppingCart,
-  DollarSign, Settings, HelpCircle, ChevronDown, FileSearch,
+  DollarSign, Settings, HelpCircle, ChevronDown, FileSearch, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED } from "@/lib/layout-constants";
@@ -31,6 +31,7 @@ const baseNavigation: NavItem[] = [
     ],
   },
   { name: "Orders", href: "/orders", icon: ShoppingCart },
+  { name: "Compliance", href: "/compliance", icon: ShieldCheck },
   { name: "Revenue", href: "/revenue", icon: DollarSign },
   { name: "Requests", href: "/requests", icon: FileSearch },
   { name: "Settings", href: "/settings", icon: Settings },

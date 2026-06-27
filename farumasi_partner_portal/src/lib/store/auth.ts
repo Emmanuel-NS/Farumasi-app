@@ -20,11 +20,17 @@ interface AuthState {
   logout: () => void;
 }
 
-/**
- * Partner portal auth store. Persisted to localStorage under the same
- * keys that `@/lib/api` reads from so axios always finds a token without
- * needing to subscribe to this store.
- */
+const AUTH_COOKIE = "farumasi_partner_auth";
+
+function setAuthCookie() {
+  if (typeof document === "undefined") return;
+  document.cookie = `${AUTH_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+}
+
+function clearAuthCookie() {
+  if (typeof document === "undefined") return;
+  document.cookie = `${AUTH_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+}
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -36,6 +42,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem(tokenKeys.TOKEN_KEY, access_token);
           localStorage.setItem(tokenKeys.REFRESH_KEY, refresh_token);
           localStorage.setItem(tokenKeys.USER_KEY, JSON.stringify(user));
+          setAuthCookie();
         }
         set({ token: access_token, refreshToken: refresh_token, user });
       },
@@ -50,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.removeItem(tokenKeys.TOKEN_KEY);
           localStorage.removeItem(tokenKeys.REFRESH_KEY);
           localStorage.removeItem(tokenKeys.USER_KEY);
+          clearAuthCookie();
         }
         set({ token: null, refreshToken: null, user: null });
       },

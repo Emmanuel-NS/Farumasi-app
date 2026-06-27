@@ -8,7 +8,7 @@ import { PortalLoadingShell } from "@/components/layout/portal-loading-shell";
 import { useAuthStore } from "@/lib/store/auth";
 import { useLayoutDataStore } from "@/lib/store/layout-data";
 
-const ALLOWED_ROLES = new Set(["partner_company_admin", "pharmacy_admin", "pharmacist", "super_admin"]);
+const ALLOWED_ROLES = new Set(["partner_company_admin", "pharmacy_admin", "pharmacist"]);
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -47,6 +47,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     if (!ready) return;
     return startPolling(120_000);
   }, [ready, startPolling]);
+
+  useEffect(() => {
+    if (!ready || !token) return;
+    if (typeof document !== "undefined") {
+      document.cookie = "farumasi_partner_auth=1; path=/; max-age=604800; SameSite=Lax";
+    }
+  }, [ready, token]);
 
   if (!mounted || !ready) {
     return <PortalLoadingShell />;

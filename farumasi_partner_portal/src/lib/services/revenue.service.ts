@@ -31,6 +31,8 @@ export interface BackendRevenueSummary {
   paid_withdrawals: number;
   total_orders: number;
   completed_orders: number;
+  reassigned_orders?: number;
+  reassigned_lost_net?: number;
 }
 
 export interface BackendWithdrawal {

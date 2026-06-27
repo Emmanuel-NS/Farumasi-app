@@ -37,11 +37,15 @@ export const authService = {
     return data;
   },
 
-  async verifyRegistration(email: string, code: string): Promise<LoginResponse> {
+  async verifyRegistration(
+    email: string,
+    code: string,
+    role: RegisterPayload["role"] = "partner_company_admin",
+  ): Promise<LoginResponse> {
     const { data } = await api.post<LoginResponse>("/auth/verify-registration", {
       email: email.trim(),
       code: code.trim(),
-      role: "partner_company_admin",
+      role,
     });
     return data;
   },

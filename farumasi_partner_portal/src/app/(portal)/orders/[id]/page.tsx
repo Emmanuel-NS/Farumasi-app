@@ -12,9 +12,13 @@ import { Label } from "@/components/ui/label";
 import { formatRWF, formatDateTime, mediaUrl, orderDisplayCode } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
-import { ordersService, type BackendOrder } from "@/lib/services/orders.service";
+import { ordersService, type BackendOrder, type OrderActivityEntry, type OrderPartnerAssignment } from "@/lib/services/orders.service";
 import { deliveriesService, type BackendDelivery } from "@/lib/services/deliveries.service";
 import { prescriptionsService, type BackendPrescription } from "@/lib/services/prescriptions.service";
+import { PartnerResponseSlaBanner } from "@/components/orders/partner-response-sla-banner";
+import { PharmacySwitchHistory } from "@/components/orders/pharmacy-switch-history";
+import { OrderActivityTimeline } from "@/components/orders/order-activity-timeline";
+import { downloadCsv } from "@/lib/export-csv";
 import type { OrderStatus } from "@/types";
 
 const PROGRESS_FORWARD: Record<string, { next: OrderStatus; label: string }> = {
@@ -39,6 +43,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [dispatchOpen, setDispatchOpen] = useState(false);
   const [dispatchAccessCode, setDispatchAccessCode] = useState("");
   const [dispatchRows, setDispatchRows] = useState<Record<string, { batch_number: string; expiry_date: string; manufacturer: string }>>({});
+  const [activity, setActivity] = useState<OrderActivityEntry[]>([]);
+  const [assignments, setAssignments] = useState<OrderPartnerAssignment[]>([]);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +86,37 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
     return () => { cancelled = true; };
   }, [order]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    Promise.all([
+      ordersService.getOrderActivity(id),
+      ordersService.getPartnerAssignments(id),
+    ]).then(([logs, ledger]) => {
+      if (cancelled) return;
+      setActivity(logs);
+      setAssignments(ledger);
+    });
+    return () => { cancelled = true; };
+  }, [id, order?.updated_at]);
+
+  const exportTraceability = () => {
+    if (!order) return;
+    downloadCsv(
+      `dispatch-${orderDisplayCode(order.id, order.order_code)}`,
+      ["Product", "Qty", "Batch", "Expiry", "Manufacturer", "Dispatch confirmed"],
+      order.items.map((item) => [
+        item.product_name ?? item.product?.name ?? "Item",
+        item.quantity,
+        item.dispatch_batch_number ?? "",
+        item.dispatch_expiry_date ?? "",
+        item.dispatch_manufacturer ?? "",
+        item.dispatch_confirmed_at ?? order.dispatch_confirmed_at ?? "",
+      ]),
+    );
+    toast.success("Dispatch traceability exported");
+  };
 
   const updateStatus = async (status: OrderStatus, successMsg: string) => {
     if (!order) return;
@@ -209,6 +252,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
         <StatusBadge status={order.status as OrderStatus} type="order" className="ml-auto" />
       </div>
+
+      <PartnerResponseSlaBanner order={order} nowTick={nowTick} />
+
+      {(order.reassignment_count ?? 0) > 0 && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          This order was reassigned {order.reassignment_count} time{order.reassignment_count === 1 ? "" : "s"} before
+          reaching your pharmacy. See assignment history below.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
@@ -586,6 +638,27 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </Card>
         </div>
       </div>
+
+      <PharmacySwitchHistory
+        assignments={assignments}
+        activity={activity}
+        reassignmentCount={order.reassignment_count}
+        amountPaidSnapshot={order.amount_paid_snapshot}
+      />
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="text-base">Order activity & audit trail</CardTitle>
+          {order.items.some((i) => i.dispatch_batch_number) && (
+            <Button variant="outline" size="sm" className="text-xs shrink-0" onClick={exportTraceability}>
+              Export dispatch CSV
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <OrderActivityTimeline entries={activity} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

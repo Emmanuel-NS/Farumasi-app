@@ -40,9 +40,12 @@ export default function SupportPage() {
   };
 
   const handleContact = (type: string) => {
-    if (type === "Live Chat") toast.info("Live chat is available Mon–Fri 8am–6pm CAT");
-    if (type === "Documentation") toast.info("Opening documentation portal…");
-    if (type === "Email Support") toast.info("Email: partners@farumasi.rw");
+    if (type === "Documentation") {
+      document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    const subject = encodeURIComponent(type === "Live Chat" ? "[Partner Portal] Live support request" : "[Partner Portal] Support");
+    window.location.href = `mailto:partners@farumasi.rw?subject=${subject}`;
   };
   return (
     <div className="space-y-6 max-w-4xl">
@@ -70,7 +73,7 @@ export default function SupportPage() {
       </div>
 
       {/* FAQ */}
-      <Card>
+      <Card id="faq">
         <CardHeader>
           <CardTitle>Frequently Asked Questions</CardTitle>
         </CardHeader>
