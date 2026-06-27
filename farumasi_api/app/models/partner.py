@@ -45,6 +45,9 @@ class PartnerCompany(Base, UUIDMixin, TimestampMixin):
     drafted_by_pharmacist_id: Mapped[Optional[str]] = mapped_column(
         ForeignKey("pharmacist_profiles.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    drafted_by_user_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     is_open: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # ── Relationships ─────────────────────────────────────────────────────

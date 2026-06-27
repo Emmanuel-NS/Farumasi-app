@@ -52,6 +52,20 @@ _ACTIVE_APPLICATION_STATUSES = (
 )
 
 
+def _pharmacy_is_draft() -> object:
+    return or_(
+        Pharmacy.drafted_by_user_id.isnot(None),
+        Pharmacy.drafted_by_pharmacist_id.isnot(None),
+    )
+
+
+def _partner_is_draft() -> object:
+    return or_(
+        PartnerCompany.drafted_by_user_id.isnot(None),
+        PartnerCompany.drafted_by_pharmacist_id.isnot(None),
+    )
+
+
 class SellerApplicationService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -67,7 +81,7 @@ class SellerApplicationService:
             await self.db.execute(
                 select(Pharmacy)
                 .where(
-                    Pharmacy.drafted_by_pharmacist_id.isnot(None),
+                    _pharmacy_is_draft(),
                     Pharmacy.owner_user_id.is_(None),
                     Pharmacy.verification_status == VerificationStatus.PENDING,
                     Pharmacy.id.notin_(busy),
@@ -86,7 +100,7 @@ class SellerApplicationService:
             await self.db.execute(
                 select(PartnerCompany)
                 .where(
-                    PartnerCompany.drafted_by_pharmacist_id.isnot(None),
+                    _partner_is_draft(),
                     PartnerCompany.owner_user_id.is_(None),
                     PartnerCompany.verification_status == VerificationStatus.PENDING,
                     PartnerCompany.id.notin_(busy),
@@ -378,7 +392,7 @@ class SellerApplicationService:
 
     async def _assert_pharmacy_draft_available(self, pharmacy_id: str) -> Pharmacy:
         pharmacy = await self.db.get(Pharmacy, pharmacy_id)
-        if not pharmacy or not pharmacy.drafted_by_pharmacist_id or pharmacy.owner_user_id:
+        if not pharmacy or not (pharmacy.drafted_by_user_id or pharmacy.drafted_by_pharmacist_id) or pharmacy.owner_user_id:
             raise ValidationError("Selected pharmacy draft is not available")
         existing = (
             await self.db.execute(
@@ -394,7 +408,7 @@ class SellerApplicationService:
 
     async def _assert_partner_draft_available(self, partner_id: str) -> PartnerCompany:
         company = await self.db.get(PartnerCompany, partner_id)
-        if not company or not company.drafted_by_pharmacist_id or company.owner_user_id:
+        if not company or not (company.drafted_by_user_id or company.drafted_by_pharmacist_id) or company.owner_user_id:
             raise ValidationError("Selected partner draft is not available")
         existing = (
             await self.db.execute(

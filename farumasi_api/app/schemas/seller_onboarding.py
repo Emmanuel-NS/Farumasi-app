@@ -8,7 +8,7 @@ from app.schemas.common import FarumasiBaseModel
 
 
 class DraftPharmacyOnboardRequest(FarumasiBaseModel):
-    """Pharmacist creates a pharmacy shell — owner applies publicly later."""
+    """Super admin creates a pharmacy shell — owner applies publicly later."""
 
     name: str = Field(min_length=2, max_length=255)
     email: Optional[str] = None

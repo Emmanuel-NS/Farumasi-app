@@ -28,7 +28,13 @@ from app.schemas.admin_management import (
     OrderAdminSummary,
     PrescriptionAdminSummary,
 )
+from app.schemas.seller_onboarding import (
+    DraftPartnerOnboardRequest,
+    DraftPharmacyOnboardRequest,
+    DraftSellerOut,
+)
 from app.schemas.seller_change_request import SellerChangeRequestCreate, SellerChangeRequestOut
+from app.services.seller_onboarding_service import SellerOnboardingService
 from app.services.seller_change_request_service import SellerChangeRequestService
 from app.services.admin_management_service import AdminManagementService
 
@@ -173,30 +179,31 @@ async def admin_create_user(
 
 @router.post(
     "/onboard/pharmacy",
-    response_model=OnboardSellerResponse,
+    response_model=DraftSellerOut,
     status_code=201,
     dependencies=[Depends(require_super_admin())],
 )
-async def admin_onboard_pharmacy(
-    data: OnboardPharmacyRequest,
+async def admin_draft_pharmacy(
+    data: DraftPharmacyOnboardRequest,
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    return await AdminManagementService(db).onboard_pharmacy(data, actor)
+    """Super admin pre-registers a pharmacy shell for public owner application."""
+    return await SellerOnboardingService(db).draft_pharmacy(data, actor)
 
 
 @router.post(
     "/onboard/partner",
-    response_model=OnboardSellerResponse,
+    response_model=DraftSellerOut,
     status_code=201,
     dependencies=[Depends(require_super_admin())],
 )
-async def admin_onboard_partner(
-    data: OnboardPartnerRequest,
+async def admin_draft_partner(
+    data: DraftPartnerOnboardRequest,
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    return await AdminManagementService(db).onboard_partner(data, actor)
+    return await SellerOnboardingService(db).draft_partner(data, actor)
 
 
 @router.get(

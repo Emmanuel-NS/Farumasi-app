@@ -348,7 +348,7 @@ export default function RegisterPage() {
             <h1 className="text-xl font-extrabold text-slate-900">Apply to join FARUMASI</h1>
             <p className="text-sm text-muted-foreground mt-2">
               Select a pharmacy or partner FARUMASI has pre-registered for you, or start a new application.
-              Your submission is stored separately and never overwrites our draft records until approved.
+              Your submission is stored separately and never overwrites admin draft records until approved.
             </p>
           </div>
 
@@ -372,7 +372,7 @@ export default function RegisterPage() {
 
             {isPharmacySignup ? (
               <>
-                <p className="text-xs font-semibold text-slate-600">Pharmacies prepared by FARUMASI</p>
+                <p className="text-xs font-semibold text-slate-600">Pharmacies prepared by FARUMASI admin</p>
                 {pharmacyDrafts.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No pre-registered pharmacies yet — start a new application below.</p>
                 ) : (
@@ -396,7 +396,7 @@ export default function RegisterPage() {
               </>
             ) : (
               <>
-                <p className="text-xs font-semibold text-slate-600">Partner companies prepared by FARUMASI</p>
+                <p className="text-xs font-semibold text-slate-600">Partner companies prepared by FARUMASI admin</p>
                 {partnerDrafts.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No pre-registered partners yet — start a new application below.</p>
                 ) : (

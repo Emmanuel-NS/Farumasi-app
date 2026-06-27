@@ -14,6 +14,44 @@ export interface AdminCreateUserResult {
   temporary_password: string;
 }
 
+export interface DraftPharmacyPayload {
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  district?: string;
+  latitude?: number;
+  longitude?: number;
+  license_number?: string;
+  license_document_url?: string;
+  supervising_pharmacist_name?: string;
+  supervising_pharmacist_license?: string;
+  accepts_delivery?: boolean;
+}
+
+export interface DraftPartnerPayload {
+  name: string;
+  company_type?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  district?: string;
+  latitude?: number;
+  longitude?: number;
+  business_registration_number?: string;
+  regulatory_authority?: string;
+  regulatory_license_number?: string;
+  regulatory_license_document_url?: string;
+  description?: string;
+}
+
+export interface DraftSellerResult {
+  pharmacy_id?: string;
+  partner_company_id?: string;
+  name: string;
+}
+
+/** @deprecated Legacy full owner registration — use draft payloads instead */
 export interface OnboardPharmacyPayload {
   owner_full_name: string;
   owner_email: string;
@@ -182,13 +220,13 @@ export const adminManagementService = {
     return data;
   },
 
-  async onboardPharmacy(payload: OnboardPharmacyPayload): Promise<OnboardSellerResult> {
-    const { data } = await api.post<OnboardSellerResult>("/admin/onboard/pharmacy", payload);
+  async draftPharmacy(payload: DraftPharmacyPayload): Promise<DraftSellerResult> {
+    const { data } = await api.post<DraftSellerResult>("/admin/onboard/pharmacy", payload);
     return data;
   },
 
-  async onboardPartner(payload: OnboardPartnerPayload): Promise<OnboardSellerResult> {
-    const { data } = await api.post<OnboardSellerResult>("/admin/onboard/partner", payload);
+  async draftPartner(payload: DraftPartnerPayload): Promise<DraftSellerResult> {
+    const { data } = await api.post<DraftSellerResult>("/admin/onboard/partner", payload);
     return data;
   },
 

@@ -222,14 +222,14 @@ export default function PharmaciesPage() {
 
         title="Pharmacies & Companies"
 
-        subtitle="Register partners, set commission, and review B2B earnings"
+        subtitle="Draft sellers for public application, review submissions, and manage B2B earnings"
 
         breadcrumb="Platform"
 
       >
         <Button size="sm" onClick={() => setOnboardOpen(true)}>
           <Plus className="w-3.5 h-3.5" />
-          Register {tab === "Pharmacies" ? "pharmacy" : "company"}
+          Draft {tab === "Pharmacies" ? "pharmacy" : "company"}
         </Button>
       </PageHeader>
 

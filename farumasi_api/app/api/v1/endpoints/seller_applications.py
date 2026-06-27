@@ -57,7 +57,7 @@ async def upload_application_document(file: UploadFile = File(...)):
 
 @router.get("/drafts/pharmacies", response_model=List[SellerDraftPharmacyOut])
 async def list_pharmacy_drafts(db: AsyncSession = Depends(get_db)):
-    """Public: pharmacist-drafted pharmacies open for owner application."""
+    """Public: admin-drafted pharmacies open for owner application."""
     return await SellerApplicationService(db).list_pharmacy_drafts()
 
 
