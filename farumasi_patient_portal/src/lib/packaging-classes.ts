@@ -84,6 +84,10 @@ export function cartLineKey(productId: string, sellMode: SellMode): string {
   return `${productId}:${sellMode}`;
 }
 
+export function oppositeSellMode(sellMode: SellMode): SellMode {
+  return sellMode === "pack" ? "partial" : "pack";
+}
+
 export function lineUnitLabel(
   sellMode: SellMode,
   partialUnitName?: string,

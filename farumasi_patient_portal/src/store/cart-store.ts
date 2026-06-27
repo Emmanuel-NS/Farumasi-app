@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Medicine } from "@/types";
-import { cartLineKey, type SellMode } from "@/lib/packaging-classes";
+import { cartLineKey, oppositeSellMode, type SellMode } from "@/lib/packaging-classes";
 
 export interface CartEntry {
   medicine: Medicine;
@@ -31,9 +31,12 @@ export const useCartStore = create<CartStore>()(
       add: (medicine, qty = 1, sellMode = "pack") =>
         set((s) => {
           const key = cartLineKey(medicine.id, sellMode);
+          const otherKey = cartLineKey(medicine.id, oppositeSellMode(sellMode));
+          const next = { ...s.items };
+          delete next[otherKey];
           return {
             items: {
-              ...s.items,
+              ...next,
               [key]: {
                 medicine,
                 sellMode,
@@ -66,7 +69,7 @@ export const useCartStore = create<CartStore>()(
     }),
     {
       name: "farumasi-cart",
-      version: 2,
+      version: 3,
       migrate: (persisted) => {
         const state = persisted as { items?: Record<string, CartEntry & { sellMode?: SellMode }> };
         if (!state?.items) return persisted as object;
@@ -76,6 +79,19 @@ export const useCartStore = create<CartStore>()(
           const productId = entry.medicine?.id ?? key.split(":")[0] ?? key;
           const newKey = key.includes(":") ? key : cartLineKey(productId, sellMode);
           next[newKey] = { ...entry, sellMode };
+        }
+        for (const productId of new Set(
+          Object.values(next).map((e) => e.medicine?.id).filter(Boolean) as string[],
+        )) {
+          const packKey = cartLineKey(productId, "pack");
+          const partialKey = cartLineKey(productId, "partial");
+          if (next[packKey] && next[partialKey]) {
+            if ((next[partialKey]?.qty ?? 0) > (next[packKey]?.qty ?? 0)) {
+              delete next[packKey];
+            } else {
+              delete next[partialKey];
+            }
+          }
         }
         return { ...state, items: next };
       },

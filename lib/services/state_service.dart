@@ -199,6 +199,11 @@ class StateService extends ChangeNotifier {
     int quantity, {
     SellMode sellMode = SellMode.pack,
   }) {
+    final otherMode =
+        sellMode == SellMode.pack ? SellMode.partial : SellMode.pack;
+    final otherKey = cartLineKey(medicine.id, otherMode);
+    _cartItems.removeWhere((item) => item.lineKey == otherKey);
+
     final key = cartLineKey(medicine.id, sellMode);
     final existingIndex = _cartItems.indexWhere((item) => item.lineKey == key);
     if (existingIndex >= 0) {

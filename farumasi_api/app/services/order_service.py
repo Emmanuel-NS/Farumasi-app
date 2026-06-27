@@ -1057,7 +1057,26 @@ class OrderService:
             partner_id = derived_partner
             pharmacy_id = None
 
+        self._assert_unique_sell_mode_per_product(items)
+
         return items, pharmacy_id, partner_id
+
+    @staticmethod
+    def _assert_unique_sell_mode_per_product(items: List[dict]) -> None:
+        """One product cannot appear as both pack and partial on the same order."""
+        modes_by_product: dict[str, set[str]] = {}
+        for it in items:
+            product_id = it.get("product_id")
+            if not product_id:
+                continue
+            mode = str(it.get("sell_mode") or SellMode.PACK.value)
+            seen = modes_by_product.setdefault(product_id, set())
+            if seen and mode not in seen:
+                raise BusinessRuleError(
+                    "Each product must be ordered as either a whole pack or "
+                    "partial units, not both."
+                )
+            seen.add(mode)
 
     # ── Access control ────────────────────────────────────────────────────
 
