@@ -357,6 +357,54 @@ async def test_reassignment_moves_order_and_records_partner_ledger(client: Async
     assert summary.reassigned_lost_net == float(rows[0].net_partner_amount)
 
 
+async def test_reassignment_below_paid_hidden_until_opt_in(client: AsyncClient, db):
+    admin_a, admin_b, pharm_a, pharm_b, listing_a, listing_b, _ = (
+        await _setup_two_pharmacies_same_product(client, db, price=1000.0)
+    )
+    await client.patch(
+        f"/api/v1/pharmacies/me/listings/{listing_b}",
+        headers=_h(admin_b),
+        json={"price": 800},
+    )
+
+    patient = await _register(client, "patient", db)
+    order = await _create_pickup_order(client, patient_tokens=patient, listing_id=listing_a)
+    order_id = order["id"]
+    original_paid = float(order["total_amount"])
+    await _mark_order_paid(db, order_id, overdue=True)
+
+    default_opts = await client.get(
+        f"/api/v1/patients/me/orders/{order_id}/reassignment-options",
+        headers=_h(patient),
+    )
+    assert default_opts.status_code == 200, default_opts.text
+    body = default_opts.json()
+    assert body["below_paid_count"] == 1
+    assert not any(o.get("pharmacy_id") == pharm_b for o in body["options"])
+
+    with_below = await client.get(
+        f"/api/v1/patients/me/orders/{order_id}/reassignment-options",
+        headers=_h(patient),
+        params={"include_below_paid_without_change": True},
+    )
+    assert with_below.status_code == 200, with_below.text
+    below = [o for o in with_below.json()["options"] if o.get("pharmacy_id") == pharm_b]
+    assert len(below) == 1
+    assert below[0]["price_category"] == "below_paid"
+    assert below[0]["can_switch"] is True
+
+    r = await client.post(
+        f"/api/v1/patients/me/orders/{order_id}/reassign-pharmacy",
+        headers=_h(patient),
+        json={"pharmacy_id": pharm_b, "accept_no_change": True},
+    )
+    assert r.status_code == 200, r.text
+    switched = r.json()
+    assert switched["pharmacy_id"] == pharm_b
+    assert float(switched["amount_paid_snapshot"]) == original_paid
+    assert float(switched["total_amount"]) < original_paid
+
+
 async def test_reassignment_rejects_pharmacy_above_paid_amount(client: AsyncClient, db):
     admin_a, admin_b, _, pharm_b, listing_a, listing_b, product_id = (
         await _setup_two_pharmacies_same_product(client, db, price=1000.0)

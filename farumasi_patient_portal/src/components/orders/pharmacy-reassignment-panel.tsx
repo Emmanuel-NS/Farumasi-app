@@ -106,12 +106,23 @@ export function PharmacyReassignmentPanel({
     () => (data?.options ?? []).filter((o) => o.can_switch !== false),
     [data?.options],
   );
+  const samePriceOptions = useMemo(
+    () =>
+      switchable.filter(
+        (o) => o.price_category === "within_paid" || o.price_category == null,
+      ),
+    [switchable],
+  );
+  const lowerPriceOptions = useMemo(
+    () => switchable.filter((o) => o.price_category === "below_paid"),
+    [switchable],
+  );
   const viewOnly = useMemo(
     () => (data?.options ?? []).filter((o) => o.can_switch === false),
     [data?.options],
   );
-  const topPicks = switchable.filter((o) => o.ai_rank != null && o.ai_rank <= 3);
-  const otherSwitchable = switchable.filter((o) => !o.ai_rank || o.ai_rank > 3);
+  const topPicks = samePriceOptions.filter((o) => o.ai_rank != null && o.ai_rank <= 3);
+  const otherSamePrice = samePriceOptions.filter((o) => !o.ai_rank || o.ai_rank > 3);
   const timerPending = waitMs != null && waitMs > 0;
   const belowPaidHidden = (data?.below_paid_count ?? 0) > 0 && !includeBelowPaid;
 
@@ -142,7 +153,7 @@ export function PharmacyReassignmentPanel({
             <h1 className="text-2xl font-extrabold tracking-tight">Get your order moving faster</h1>
             <p className="mt-2 text-sm leading-relaxed text-white/80">
               {switchEnabled ? (
-                switchable.length > 0 ? (
+                samePriceOptions.length > 0 || lowerPriceOptions.length > 0 ? (
                   <>
                     <span className="font-semibold text-white">{pharmacyName}</span> is taking longer than usual.
                     FARUMASI AI ranked other pharmacies that can confirm your same order — often within minutes.
@@ -187,7 +198,10 @@ export function PharmacyReassignmentPanel({
         </div>
       ) : (
         <div className="space-y-6">
-          {switchEnabled && switchable.length === 0 && (belowPaidHidden || viewOnly.length > 0) && (
+          {switchEnabled &&
+            samePriceOptions.length === 0 &&
+            lowerPriceOptions.length === 0 &&
+            (belowPaidHidden || viewOnly.length > 0) && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
               {belowPaidHidden ? (
                 <>
@@ -205,17 +219,53 @@ export function PharmacyReassignmentPanel({
             </div>
           )}
 
-          {/* AI recommended */}
-          {(topPicks.length > 0 || switchable.length > 0) && (
+          {/* Lower-price opt-in — show before options so it is easy to discover */}
+          <label
+            className={cn(
+              "flex cursor-pointer items-start gap-3 rounded-2xl border bg-white p-4 shadow-sm transition-colors dark:bg-slate-800",
+              belowPaidHidden
+                ? "border-amber-300 ring-1 ring-amber-200 dark:border-amber-800 dark:ring-amber-900/40"
+                : "border-slate-200 hover:border-farumasi-200 dark:border-slate-700 dark:hover:border-farumasi-800",
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={includeBelowPaid}
+              onChange={(e) => onIncludeBelowPaidChange(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded accent-farumasi-600"
+            />
+            <div>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Also show lower-price pharmacies
+                {(data?.below_paid_count ?? 0) > 0 && (
+                  <span className="ml-1.5 font-bold text-amber-700 dark:text-amber-300">
+                    ({data!.below_paid_count} available)
+                  </span>
+                )}
+              </p>
+              <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                Optional. Same medicines and rules as above, but cheaper than you paid — we cannot send change back.
+                If you switch again later, we still compare against your original payment (
+                {formatPrice(data?.amount_paid ?? 0)}).
+              </p>
+            </div>
+          </label>
+
+          {/* AI recommended — same price as original payment */}
+          {(topPicks.length > 0 || samePriceOptions.length > 0) && (
             <section>
               <div className="mb-3 flex items-center gap-2">
                 <Brain className="h-5 w-5 text-farumasi-600 dark:text-farumasi-400" />
                 <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
-                  AI recommended for speed
+                  Best matches at your price
                 </h2>
               </div>
+              <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+                Same total as you paid ({formatPrice(data?.amount_paid ?? 0)}) — all items in stock, open now
+                {data?.options.some((o) => o.ai_reasons?.length) ? ", ranked by speed and distance" : ""}.
+              </p>
               <div className="space-y-3">
-                {(topPicks.length > 0 ? topPicks : switchable.slice(0, 3)).map((opt) => (
+                {(topPicks.length > 0 ? topPicks : samePriceOptions.slice(0, 3)).map((opt) => (
                   <PharmacyOptionCard
                     key={opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name}
                     opt={opt}
@@ -230,11 +280,11 @@ export function PharmacyReassignmentPanel({
             </section>
           )}
 
-          {otherSwitchable.length > 0 && (
+          {otherSamePrice.length > 0 && (
             <section>
-              <h2 className="mb-3 text-sm font-bold text-slate-600 dark:text-slate-300">More options</h2>
+              <h2 className="mb-3 text-sm font-bold text-slate-600 dark:text-slate-300">More at your price</h2>
               <div className="space-y-3">
-                {otherSwitchable.map((opt) => (
+                {otherSamePrice.map((opt) => (
                   <PharmacyOptionCard
                     key={opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name}
                     opt={opt}
@@ -246,6 +296,34 @@ export function PharmacyReassignmentPanel({
                 ))}
               </div>
             </section>
+          )}
+
+          {includeBelowPaid && lowerPriceOptions.length > 0 && (
+            <section>
+              <h2 className="mb-1 text-sm font-bold text-slate-600 dark:text-slate-300">Lower-price options</h2>
+              <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+                Cheaper than your original payment — no refund of the difference.
+              </p>
+              <div className="space-y-3">
+                {lowerPriceOptions.map((opt) => (
+                  <PharmacyOptionCard
+                    key={opt.pharmacy_id ?? opt.partner_company_id ?? opt.provider_name}
+                    opt={opt}
+                    switchEnabled={switchEnabled}
+                    reassigningId={reassigningId}
+                    formatPrice={formatPrice}
+                    onSelect={() => setConfirmOpt(opt)}
+                    featured={opt.ai_rank != null && opt.ai_rank <= 3}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {includeBelowPaid && lowerPriceOptions.length === 0 && (data?.below_paid_count ?? 0) === 0 && switchEnabled && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              No lower-price pharmacies matched your cart with the same rules (all medicines, open, insurance if applicable).
+            </p>
           )}
 
           {viewOnly.length > 0 && (
@@ -270,7 +348,10 @@ export function PharmacyReassignmentPanel({
             </section>
           )}
 
-          {switchable.length === 0 && viewOnly.length === 0 && (
+          {samePriceOptions.length === 0 &&
+            lowerPriceOptions.length === 0 &&
+            viewOnly.length === 0 &&
+            !belowPaidHidden && (
             <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center dark:border-slate-700 dark:bg-slate-800/50">
               <Store className="mx-auto h-10 w-10 text-slate-300" />
               <p className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -279,32 +360,6 @@ export function PharmacyReassignmentPanel({
               <p className="mt-1 text-xs text-slate-500">Check back shortly — availability updates often.</p>
             </div>
           )}
-
-          {/* Below-paid opt-in — friendly, not burdensome */}
-          <label
-            className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-2xl border bg-white p-4 shadow-sm transition-colors dark:bg-slate-800",
-              belowPaidHidden
-                ? "border-amber-300 ring-1 ring-amber-200 dark:border-amber-800 dark:ring-amber-900/40"
-                : "border-slate-200 hover:border-farumasi-200 dark:border-slate-700 dark:hover:border-farumasi-800",
-            )}
-          >
-            <input
-              type="checkbox"
-              checked={includeBelowPaid}
-              onChange={(e) => onIncludeBelowPaidChange(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded accent-farumasi-600"
-            />
-            <div>
-              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Also show lower-price pharmacies
-              </p>
-              <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                Optional. These cost less than you paid — we cannot send change back, so only pick one if you are
-                happy to proceed without a refund of the difference.
-              </p>
-            </div>
-          </label>
         </div>
       )}
 
@@ -376,6 +431,11 @@ function PharmacyOptionCard({
             {opt.price_category === "within_paid" && (
               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
                 No extra pay
+              </span>
+            )}
+            {opt.price_category === "below_paid" && (opt.forfeit_amount ?? 0) > 0 && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+                Save {formatPrice(opt.forfeit_amount!)} · no refund
               </span>
             )}
           </div>

@@ -632,7 +632,7 @@ class OrderService:
         await self._assert_patient_owns_order(order, actor)
         await self._ensure_partner_response_due_at(order)
 
-        amount_paid = float(order.amount_paid_snapshot or order.total_amount or 0)
+        amount_paid = self._reassignment_amount_paid(order)
         can_reassign = await self._can_reassign_pharmacy(order)
         awaiting_confirm = (
             order.payment_status == PaymentStatus.PAID
@@ -682,7 +682,7 @@ class OrderService:
                 f"Partners must confirm within {_PARTNER_RESPONSE_MINUTES} minutes of payment."
             )
 
-        amount_paid = float(order.amount_paid_snapshot or order.total_amount or 0)
+        amount_paid = self._reassignment_amount_paid(order)
         include_below = (
             data.accept_no_change
             or data.accept_refund_for_difference
@@ -762,6 +762,8 @@ class OrderService:
         order.platform_commission = commission
         order.total_amount = total
         order.net_partner_amount = round(subtotal - commission, 2)
+        # amount_paid_snapshot stays at the original checkout total — later switches
+        # still compare against what the patient paid the first time.
         await self.db.flush()
 
         await self._open_partner_assignment(order)
@@ -1511,6 +1513,11 @@ class OrderService:
 
     # ── Stock reservation & prescription validation ───────────────────────
 
+    @staticmethod
+    def _reassignment_amount_paid(order: Order) -> float:
+        """Original patient payment; unchanged after cheaper reassignments."""
+        return float(order.amount_paid_snapshot or order.total_amount or 0)
+
     async def _can_reassign_pharmacy(self, order: Order) -> bool:
         if order.payment_status != PaymentStatus.PAID:
             return False
@@ -1675,6 +1682,12 @@ class OrderService:
                 or (c.provider_type == "partner" and c.provider_id == order.partner_company_id)
             )
         ]
+        if patient_insurance_id:
+            candidates = [
+                c
+                for c in candidates
+                if patient_insurance_id in c.accepted_insurance_ids
+            ]
         scored = score_providers(
             candidates,
             product_ids,
@@ -1698,6 +1711,9 @@ class OrderService:
             provider_type = "pharmacy" if pharmacy_id else "partner"
             provider_key = (provider_type, pharmacy_id or partner_id or "")
             rank_info = rank_map.get(provider_key)
+            # Only pharmacies that can fulfill the full cart (and pass insurance filter).
+            if rank_info is None:
+                continue
 
             subtotal = provider["subtotal"]
             total = round(subtotal + delivery_fee, 2)
