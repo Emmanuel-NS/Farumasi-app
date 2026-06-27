@@ -757,6 +757,10 @@ class OrderService:
 
         await self._release_stock_for_order(order)
 
+        old_provider_name = await self._resolve_provider_display_name(
+            order.pharmacy_id, order.partner_company_id
+        )
+
         await self._close_partner_assignment(order, "reassigned")
 
         order.previous_pharmacy_id = order.pharmacy_id
@@ -862,6 +866,9 @@ class OrderService:
                 "partner_company_id": order.partner_company_id,
                 "previous_pharmacy_id": order.previous_pharmacy_id,
                 "previous_partner_company_id": order.previous_partner_company_id,
+                "previous_provider_name": old_provider_name,
+                "new_provider_name": match.provider_name,
+                "initiated_by": "patient",
                 "new_total": total,
                 "amount_paid": amount_paid,
             },
@@ -1450,6 +1457,49 @@ class OrderService:
             )
         return out
 
+    async def list_partner_assignments(
+        self, order_id: str, actor: User
+    ) -> list:
+        """Pharmacy/partner assignment ledger for an order (includes switches)."""
+        order = await self._reload(order_id)
+        if not order:
+            raise NotFoundError("Order", order_id)
+        await self._assert_can_view(order, actor)
+
+        stmt = (
+            select(OrderPartnerAssignment)
+            .where(OrderPartnerAssignment.order_id == order_id)
+            .options(
+                selectinload(OrderPartnerAssignment.pharmacy),
+                selectinload(OrderPartnerAssignment.partner_company),
+            )
+            .order_by(OrderPartnerAssignment.assigned_at.asc())
+        )
+        rows = (await self.db.execute(stmt)).scalars().all()
+        out = []
+        for row in rows:
+            name = None
+            if row.pharmacy:
+                name = row.pharmacy.name
+            elif row.partner_company:
+                name = row.partner_company.name
+            out.append(
+                {
+                    "id": row.id,
+                    "order_id": row.order_id,
+                    "pharmacy_id": row.pharmacy_id,
+                    "partner_company_id": row.partner_company_id,
+                    "provider_name": name or "Unknown partner",
+                    "subtotal": float(row.subtotal),
+                    "net_partner_amount": float(row.net_partner_amount),
+                    "assigned_at": row.assigned_at,
+                    "ended_at": row.ended_at,
+                    "end_reason": row.end_reason,
+                    "is_current": row.ended_at is None,
+                }
+            )
+        return out
+
     async def _reload(self, order_id: str) -> Optional[Order]:
         res = await self.db.execute(
             select(Order)
@@ -1574,6 +1624,21 @@ class OrderService:
         row.ended_at = _now()
         row.end_reason = reason
         await self.db.flush()
+
+    async def _resolve_provider_display_name(
+        self,
+        pharmacy_id: Optional[str],
+        partner_company_id: Optional[str],
+    ) -> str:
+        if pharmacy_id:
+            row = await self.db.get(Pharmacy, pharmacy_id)
+            if row and row.name:
+                return row.name
+        if partner_company_id:
+            row = await self.db.get(PartnerCompany, partner_company_id)
+            if row and row.name:
+                return row.name
+        return "Previous partner"
 
     # ── Stock reservation & prescription validation ───────────────────────
 

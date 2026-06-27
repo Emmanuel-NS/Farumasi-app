@@ -50,6 +50,24 @@ export interface BackendOrder {
       user?: { id: string; full_name: string };
     };
   };
+  reassignment_count?: number;
+  amount_paid_snapshot?: number | null;
+  previous_pharmacy_id?: string | null;
+  previous_partner_company_id?: string | null;
+}
+
+export interface OrderPartnerAssignment {
+  id: string;
+  order_id: string;
+  pharmacy_id?: string | null;
+  partner_company_id?: string | null;
+  provider_name: string;
+  subtotal: number;
+  net_partner_amount: number;
+  assigned_at: string;
+  ended_at?: string | null;
+  end_reason?: string | null;
+  is_current: boolean;
 }
 
 export interface PaginatedOrders {
@@ -127,6 +145,19 @@ export const ordersService = {
     try {
       const { data } = await api.get<OrderActivityEntry[]>(
         `/orders/${orderId}/activity`,
+      );
+      return Array.isArray(data) ? data : [];
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) return [];
+      throw err;
+    }
+  },
+
+  async getPartnerAssignments(orderId: string): Promise<OrderPartnerAssignment[]> {
+    try {
+      const { data } = await api.get<OrderPartnerAssignment[]>(
+        `/orders/${orderId}/partner-assignments`,
       );
       return Array.isArray(data) ? data : [];
     } catch (err: unknown) {

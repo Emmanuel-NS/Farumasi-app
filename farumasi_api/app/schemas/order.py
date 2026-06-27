@@ -331,3 +331,19 @@ class OrderActivityEntry(FarumasiBaseModel):
     actor_user_id: Optional[str] = None
     actor_name: Optional[str] = None
     actor_role: Optional[str] = None
+
+
+class OrderPartnerAssignmentOut(FarumasiBaseModel):
+    """Partner pharmacy assignment ledger row for transparency (switches, earnings)."""
+
+    id: str
+    order_id: str
+    pharmacy_id: Optional[str] = None
+    partner_company_id: Optional[str] = None
+    provider_name: str
+    subtotal: float
+    net_partner_amount: float
+    assigned_at: datetime
+    ended_at: Optional[datetime] = None
+    end_reason: Optional[str] = None
+    is_current: bool = False

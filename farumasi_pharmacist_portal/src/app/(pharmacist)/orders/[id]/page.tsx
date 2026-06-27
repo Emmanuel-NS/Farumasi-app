@@ -22,10 +22,12 @@ import {
   ordersService,
   isPrescriptionOrder,
   type OrderActivityEntry,
+  type OrderPartnerAssignment,
 } from "@/lib/services/orders.service";
 import { prescriptionsService, type PrescriptionReview } from "@/lib/services/prescriptions.service";
 import { OrderActivityTimeline } from "@/components/orders/order-activity-timeline";
 import { OrderProgressTracker } from "@/components/orders/order-progress-tracker";
+import { PharmacySwitchHistory } from "@/components/orders/pharmacy-switch-history";
 import type { OrderStatus } from "@/types";
 
 export default function OrderDetailPage() {
@@ -34,6 +36,7 @@ export default function OrderDetailPage() {
 
   const [order, setOrder] = useState<BackendOrder | null>(null);
   const [activity, setActivity] = useState<OrderActivityEntry[]>([]);
+  const [assignments, setAssignments] = useState<OrderPartnerAssignment[]>([]);
   const [reviews, setReviews] = useState<PrescriptionReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -57,6 +60,13 @@ export default function OrderDetailPage() {
         setActivity(logs);
       } catch {
         setActivity([]);
+      }
+
+      try {
+        const ledger = await ordersService.getPartnerAssignments(id);
+        setAssignments(ledger);
+      } catch {
+        setAssignments([]);
       }
 
       if (data.prescription_id) {
@@ -242,6 +252,13 @@ export default function OrderDetailPage() {
       </div>
 
       <OrderProgressTracker order={order} fulfillerName={fulfiller} />
+
+      <PharmacySwitchHistory
+        assignments={assignments}
+        activity={activity}
+        reassignmentCount={order.reassignment_count}
+        amountPaidSnapshot={order.amount_paid_snapshot}
+      />
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
         <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4">

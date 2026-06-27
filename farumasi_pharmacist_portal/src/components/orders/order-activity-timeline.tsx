@@ -5,6 +5,17 @@ import { formatDateTime } from "@/lib/utils";
 import type { OrderActivityEntry } from "@/lib/services/orders.service";
 
 function describeEntry(entry: OrderActivityEntry): string {
+  if (entry.action === "order.pharmacy_reassigned" && entry.new_value && typeof entry.new_value === "object") {
+    const v = entry.new_value as {
+      previous_provider_name?: string;
+      new_provider_name?: string;
+      previous_pharmacy_id?: string;
+      pharmacy_id?: string;
+    };
+    const from = v.previous_provider_name ?? "previous pharmacy";
+    const to = v.new_provider_name ?? "new pharmacy";
+    return `Patient switched pharmacy from ${from} to ${to}`;
+  }
   const action = entry.action.replace(/\./g, " · ");
   if (entry.action === "order.status_changed" && entry.new_value && typeof entry.new_value === "object") {
     const status = (entry.new_value as { status?: string }).status;

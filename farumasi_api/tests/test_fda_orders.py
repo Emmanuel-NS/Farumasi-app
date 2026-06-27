@@ -348,6 +348,29 @@ async def test_reassignment_moves_order_and_records_partner_ledger(client: Async
     assert rows[1].pharmacy_id == pharm_b
     assert rows[1].end_reason is None
 
+    pharmacist = await _register(client, "pharmacist", db)
+    ledger = await client.get(
+        f"/api/v1/orders/{order_id}/partner-assignments",
+        headers=_h(pharmacist),
+    )
+    assert ledger.status_code == 200, ledger.text
+    body = ledger.json()
+    assert len(body) == 2
+    assert body[0]["provider_name"]
+    assert body[0]["end_reason"] == "reassigned"
+    assert body[1]["is_current"] is True
+    assert body[1]["pharmacy_id"] == pharm_b
+
+    activity = await client.get(
+        f"/api/v1/orders/{order_id}/activity",
+        headers=_h(pharmacist),
+    )
+    assert activity.status_code == 200
+    switch_logs = [e for e in activity.json() if e["action"] == "order.pharmacy_reassigned"]
+    assert len(switch_logs) == 1
+    assert switch_logs[0]["new_value"]["new_provider_name"]
+    assert switch_logs[0]["new_value"]["previous_provider_name"]
+
     # Old partner revenue summary reflects lost expected net from reassignment
     pharm_a_row = (
         await db.execute(select(Pharmacy).where(Pharmacy.id == pharm_a))
