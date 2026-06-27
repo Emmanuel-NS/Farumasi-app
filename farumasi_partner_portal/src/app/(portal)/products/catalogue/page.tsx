@@ -181,9 +181,13 @@ export default function CataloguePage() {
     <div className="space-y-6">
       <PageHeader
         title="Approved Catalogue"
-        description="Live FARUMASI-approved products from the platform catalogue — list them for your customers"
+        description="Medical devices, supplements, and cosmetics only — medicines are stocked exclusively by licensed pharmacies on FARUMASI."
         icon={Pill}
       />
+
+      <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+        <strong>FDA compliance:</strong> Partner companies cannot list pharmaceuticals. Browse non-medicine products below and mark your stock as available after verification.
+      </div>
 
       <ProductInsightsStrip
         stats={[

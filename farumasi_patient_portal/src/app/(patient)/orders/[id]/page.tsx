@@ -620,6 +620,9 @@ export default function OrderDetailPage() {
                         {item.dispatchManufacturer && (
                           <p><span className="font-semibold text-slate-600 dark:text-slate-300">Manufacturer:</span> {item.dispatchManufacturer}</p>
                         )}
+                        {item.dispatchCountryOfOrigin && (
+                          <p><span className="font-semibold text-slate-600 dark:text-slate-300">Country of origin:</span> {item.dispatchCountryOfOrigin}</p>
+                        )}
                         {item.dispatchDosage && (
                           <p><span className="font-semibold text-slate-600 dark:text-slate-300">Dosage:</span> {item.dispatchDosage}</p>
                         )}

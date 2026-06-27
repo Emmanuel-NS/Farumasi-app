@@ -19,6 +19,9 @@ class PharmacyBase(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     license_number: Optional[str] = None
+    license_document_url: Optional[str] = None
+    supervising_pharmacist_name: Optional[str] = None
+    supervising_pharmacist_license: Optional[str] = None
     is_open: bool = True
     accepts_delivery: bool = False
     logo_url: Optional[str] = None
@@ -38,6 +41,9 @@ class PharmacyUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     logo_url: Optional[str] = None
+    license_document_url: Optional[str] = None
+    supervising_pharmacist_name: Optional[str] = None
+    supervising_pharmacist_license: Optional[str] = None
     is_open: Optional[bool] = None
     accepts_delivery: Optional[bool] = None
 
@@ -70,4 +76,6 @@ class PharmacyOut(PharmacyBase):
     commission_rate_percent: Optional[float] = None
     effective_commission_rate_percent: Optional[float] = None
     commission_rate_source: Optional[str] = None
+    onboarding_completed: bool = False
+    drafted_by_pharmacist_id: Optional[str] = None
     accepted_insurances: List[InsuranceBrief] = []

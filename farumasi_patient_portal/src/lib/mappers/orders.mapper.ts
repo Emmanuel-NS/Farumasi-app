@@ -17,6 +17,7 @@ export interface BackendOrderItem {
   dispatch_manufacturer?: string | null;
   dispatch_dosage?: string | null;
   dispatch_notes?: string | null;
+  dispatch_country_of_origin?: string | null;
   dispatch_confirmed_at?: string | null;
   created_at?: string;
 }
@@ -138,6 +139,7 @@ export function adaptOrder(o: BackendOrder): Order {
       dispatchManufacturer: it.dispatch_manufacturer ?? undefined,
       dispatchDosage: it.dispatch_dosage ?? undefined,
       dispatchNotes: it.dispatch_notes ?? undefined,
+      dispatchCountryOfOrigin: it.dispatch_country_of_origin ?? undefined,
     })),
   };
 }

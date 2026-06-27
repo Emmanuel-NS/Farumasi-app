@@ -307,6 +307,9 @@ export default function OrderDetailPage() {
                     {item.dispatch_manufacturer && (
                       <p>Manufacturer: {item.dispatch_manufacturer}</p>
                     )}
+                    {item.dispatch_country_of_origin && (
+                      <p>Country of origin: {item.dispatch_country_of_origin}</p>
+                    )}
                     {item.dispatch_dosage && <p>Dosage: {item.dispatch_dosage}</p>}
                     {item.dispatch_notes && <p>Notes: {item.dispatch_notes}</p>}
                   </div>

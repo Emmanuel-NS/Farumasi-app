@@ -98,6 +98,9 @@ async def update_my_company(
         from app.services.seller_branding import sync_partner_logo_to_pharmacies
 
         await sync_partner_logo_to_pharmacies(db, company)
+    from app.utils.partner_profile import partner_profile_complete
+
+    company.onboarding_completed = partner_profile_complete(company)
     await db.commit()
     await db.refresh(company)
     return _partner_out(company)

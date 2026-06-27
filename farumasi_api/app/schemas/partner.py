@@ -87,4 +87,6 @@ class PartnerCompanyOut(BaseModel):
     is_open: bool = True
     verification_status: str
     status: str
+    onboarding_completed: bool = False
+    drafted_by_pharmacist_id: Optional[str] = None
     created_at: datetime

@@ -7,14 +7,17 @@ import { Topbar } from "@/components/layout/topbar";
 import { PortalLoadingShell } from "@/components/layout/portal-loading-shell";
 import { useAuthStore } from "@/lib/store/auth";
 import { useLayoutDataStore } from "@/lib/store/layout-data";
+import { applicationsService } from "@/lib/services/applications.service";
 
 const ALLOWED_ROLES = new Set(["partner_company_admin", "pharmacy_admin", "pharmacist"]);
+const SELLER_ROLES = new Set(["partner_company_admin", "pharmacy_admin"]);
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [ready, setReady] = useState(false);
+  const [applicationChecked, setApplicationChecked] = useState(false);
   // Guard against Zustand not having hydrated from localStorage yet (SSR / Fast Refresh).
   // We defer auth checks until after client-side mount so the persisted token is available.
   const [hydrated, setHydrated] = useState(false);
@@ -42,6 +45,30 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     setReady(true);
   }, [hydrated, token, user, router, logout]);
 
+  useEffect(() => {
+    if (!ready || !user || !SELLER_ROLES.has(user.role)) {
+      setApplicationChecked(true);
+      return;
+    }
+    let cancelled = false;
+    applicationsService
+      .getMine()
+      .then((app) => {
+        if (cancelled) return;
+        if (app && app.status !== "approved") {
+          router.replace("/application-status");
+          return;
+        }
+        setApplicationChecked(true);
+      })
+      .catch(() => {
+        if (!cancelled) setApplicationChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user, router]);
+
   // Single poller — 2 min, pauses when tab is hidden (saves CPU/RAM)
   useEffect(() => {
     if (!ready) return;
@@ -55,7 +82,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     }
   }, [ready, token]);
 
-  if (!mounted || !ready) {
+  if (!mounted || !ready || !applicationChecked) {
     return <PortalLoadingShell />;
   }
 

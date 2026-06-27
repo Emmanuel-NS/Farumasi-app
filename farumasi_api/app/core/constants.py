@@ -32,6 +32,13 @@ class VerificationStatus(str, Enum):
     REJECTED = "rejected"
 
 
+class SellerApplicationStatus(str, Enum):
+    SUBMITTED = "submitted"
+    UNDER_REVIEW = "under_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class EntityStatus(str, Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"

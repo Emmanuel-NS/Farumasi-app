@@ -28,6 +28,7 @@ class ProductCreate(FarumasiBaseModel):
     manufacturer: Optional[str] = None
     brand: Optional[str] = None
     country_of_origin: Optional[str] = None
+    information_source_url: Optional[str] = None
     prescription_required: bool = False
     regulatory_status: Optional[str] = None
     image_url: Optional[str] = None
@@ -75,6 +76,7 @@ class ProductOut(FarumasiBaseModel):
     manufacturer: Optional[str] = None
     brand: Optional[str] = None
     country_of_origin: Optional[str] = None
+    information_source_url: Optional[str] = None
     prescription_required: bool
     regulatory_status: Optional[str] = None
     approval_status: str

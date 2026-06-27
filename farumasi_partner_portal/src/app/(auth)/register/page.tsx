@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -16,14 +16,13 @@ import {
   Loader2,
   Mail,
   ImageIcon,
+  Store,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authService } from "@/lib/services/auth.service";
-import { partnerService } from "@/lib/services/partner.service";
-import { pharmacyService } from "@/lib/services/pharmacy.service";
-import { payoutCredentialsService } from "@/lib/services/payout-credentials.service";
+import { applicationsService, type PharmacyDraft, type PartnerDraft } from "@/lib/services/applications.service";
 import { uploadService } from "@/lib/services/upload.service";
 import { PAYOUT_METHODS, selectedPayoutMethod, type PayoutMethodValue } from "@/lib/payout-methods";
 import { useAuthStore } from "@/lib/store/auth";
@@ -35,6 +34,13 @@ const PLATFORM_COMMISSION_PERCENT = 10;
 const REGULATORY_AUTHORITIES = ["RFDA", "RDB", "RBC", "Other regulatory authority"];
 
 export default function RegisterPage() {
+  const [wizardStarted, setWizardStarted] = useState(false);
+  const [pharmacyDrafts, setPharmacyDrafts] = useState<PharmacyDraft[]>([]);
+  const [partnerDrafts, setPartnerDrafts] = useState<PartnerDraft[]>([]);
+  const [selectedPharmacyDraftId, setSelectedPharmacyDraftId] = useState<string | null>(null);
+  const [selectedPartnerDraftId, setSelectedPartnerDraftId] = useState<string | null>(null);
+  const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [applicationCode, setApplicationCode] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [otp, setOtp] = useState("");
@@ -51,6 +57,8 @@ export default function RegisterPage() {
   const [businessEmail, setBusinessEmail] = useState("");
   const [regulatoryAuthority, setRegulatoryAuthority] = useState("RFDA");
   const [licenseNumber, setLicenseNumber] = useState("");
+  const [supervisingPharmacistName, setSupervisingPharmacistName] = useState("");
+  const [supervisingPharmacistLicense, setSupervisingPharmacistLicense] = useState("");
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [licenseFileName, setLicenseFileName] = useState("");
   const [brandImageFile, setBrandImageFile] = useState<File | null>(null);
@@ -71,7 +79,57 @@ export default function RegisterPage() {
   const setSession = useAuthStore((s) => s.setSession);
 
   const isPharmacySignup = businessType.toLowerCase() === "pharmacy";
-  const registrationRole = isPharmacySignup ? "pharmacy_admin" as const : "partner_company_admin" as const;
+
+  useEffect(() => {
+    if (!wizardStarted) {
+      Promise.all([
+        applicationsService.listPharmacyDrafts().catch(() => [] as PharmacyDraft[]),
+        applicationsService.listPartnerDrafts().catch(() => [] as PartnerDraft[]),
+      ]).then(([ph, pt]) => {
+        setPharmacyDrafts(ph);
+        setPartnerDrafts(pt);
+      });
+    }
+  }, [wizardStarted]);
+
+  const applyPharmacyDraft = (draft: PharmacyDraft) => {
+    setSelectedPharmacyDraftId(draft.id);
+    setSelectedPartnerDraftId(null);
+    setBusinessName(draft.name);
+    setDistrict(draft.district ?? "Kigali");
+    setAddress(draft.address ?? "");
+    setBusinessPhone(draft.phone ?? "");
+    setBusinessEmail(draft.email ?? "");
+    setLicenseNumber(draft.license_number ?? "");
+    setSupervisingPharmacistName(draft.supervising_pharmacist_name ?? "");
+    setSupervisingPharmacistLicense(draft.supervising_pharmacist_license ?? "");
+    setLatitude(draft.latitude ?? null);
+    setLongitude(draft.longitude ?? null);
+    setWizardStarted(true);
+  };
+
+  const applyPartnerDraft = (draft: PartnerDraft) => {
+    setSelectedPartnerDraftId(draft.id);
+    setSelectedPharmacyDraftId(null);
+    setBusinessName(draft.name);
+    setBusinessType(draft.company_type ?? "Distributor");
+    setDistrict(draft.district ?? "Kigali");
+    setAddress(draft.address ?? "");
+    setBusinessPhone(draft.phone ?? "");
+    setBusinessEmail(draft.email ?? "");
+    setRegistrationNumber(draft.business_registration_number ?? "");
+    setRegulatoryAuthority(draft.regulatory_authority ?? "RFDA");
+    setLicenseNumber(draft.regulatory_license_number ?? "");
+    setLatitude(draft.latitude ?? null);
+    setLongitude(draft.longitude ?? null);
+    setWizardStarted(true);
+  };
+
+  const startFreshApplication = () => {
+    setSelectedPharmacyDraftId(null);
+    setSelectedPartnerDraftId(null);
+    setWizardStarted(true);
+  };
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -94,69 +152,42 @@ export default function RegisterPage() {
     );
   };
 
-  const completeSellerProfile = async (accessToken: string, refreshToken: string) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("farumasi_partner_token", accessToken);
-      localStorage.setItem("farumasi_partner_refresh", refreshToken);
-    }
-
+  const buildApplicationPayload = async () => {
     let licenseDocumentUrl: string | undefined;
     let logoUrl: string | undefined;
     if (licenseFile) {
-      licenseDocumentUrl = await uploadService.uploadLicenseDocument(licenseFile);
+      licenseDocumentUrl = await uploadService.uploadLicenseDocument(licenseFile, true);
     }
     if (brandImageFile) {
-      logoUrl = await uploadService.uploadBrandImage(brandImageFile);
+      logoUrl = await uploadService.uploadBrandImage(brandImageFile, true);
     }
-
     const addressLine = [address.trim(), sector.trim()].filter(Boolean).join(", ") || undefined;
-
-    if (isPharmacySignup) {
-      await pharmacyService.create({
-        name: businessName.trim(),
-        email: (businessEmail || email).trim(),
-        phone: businessPhone.trim() || undefined,
-        address: addressLine,
-        district: district.trim() || undefined,
-        latitude: latitude ?? undefined,
-        longitude: longitude ?? undefined,
-        license_number: licenseNumber.trim() || undefined,
-        logo_url: logoUrl,
-        accepts_delivery: true,
-        is_open: true,
-      });
-    } else {
-      await partnerService.updateMine({
-        name: businessName.trim(),
-        company_type: businessType.toLowerCase(),
-        email: (businessEmail || email).trim(),
-        phone: businessPhone.trim() || undefined,
-        address: addressLine,
-        district: district.trim() || undefined,
-        latitude: latitude ?? undefined,
-        longitude: longitude ?? undefined,
-        business_registration_number: registrationNumber.trim() || undefined,
-        regulatory_authority: regulatoryAuthority.trim() || undefined,
-        regulatory_license_number: licenseNumber.trim() || undefined,
-        regulatory_license_document_url: licenseDocumentUrl,
-        logo_url: logoUrl,
-      });
-    }
-
     const accountValue = payoutAccount.trim();
-    await payoutCredentialsService.set({
+    return {
+      email: (businessEmail || email).trim(),
+      phone: businessPhone.trim() || undefined,
+      address: addressLine,
+      district: district.trim() || undefined,
+      latitude: latitude ?? undefined,
+      longitude: longitude ?? undefined,
+      license_number: licenseNumber.trim() || undefined,
+      license_document_url: licenseDocumentUrl,
+      logo_url: logoUrl,
+      supervising_pharmacist_name: supervisingPharmacistName.trim() || undefined,
+      supervising_pharmacist_license: supervisingPharmacistLicense.trim() || undefined,
+      company_type: businessType.toLowerCase(),
+      business_registration_number: registrationNumber.trim() || undefined,
+      regulatory_authority: regulatoryAuthority.trim() || undefined,
+      regulatory_license_number: licenseNumber.trim() || undefined,
+      regulatory_license_document_url: licenseDocumentUrl,
+      accepts_delivery: true,
       payout_method: payoutMethod,
       payout_details: {
         account: accountValue,
         account_name: payoutAccountName.trim(),
         ...(payoutMethod === "momo_code" ? { momo_code: accountValue } : {}),
       },
-    });
-
-    const me = await authService.getMe();
-    setSession({ access_token: accessToken, refresh_token: refreshToken }, me);
-    toast.success("Application submitted. We will review your license and activate your account.");
-    router.push("/dashboard");
+    };
   };
 
   const handleRegister = async () => {
@@ -167,17 +198,24 @@ export default function RegisterPage() {
     }
     setSubmitting(true);
     try {
-      await authService.register({
-        email: email.trim(),
+      const payload = await buildApplicationPayload();
+      const res = await applicationsService.submit({
+        seller_type: isPharmacySignup ? "pharmacy" : "partner",
+        source_pharmacy_id: selectedPharmacyDraftId,
+        source_partner_id: selectedPartnerDraftId,
+        owner_full_name: fullName.trim(),
+        owner_email: email.trim(),
+        owner_phone: businessPhone.trim() || undefined,
         password,
-        full_name: fullName.trim(),
-        phone: businessPhone.trim() || undefined,
-        role: registrationRole,
+        business_name: businessName.trim(),
+        payload,
       });
+      setApplicationId(res.application_id);
+      setApplicationCode(res.application_code);
       setPendingVerification(true);
-      toast.success("Verification code sent — check your email or phone.");
+      toast.success(`Application ${res.application_code} submitted — check your email for the verification code.`);
     } catch (err: unknown) {
-      toast.error(getApiError(err, "Registration failed. Please try again."));
+      toast.error(getApiError(err, "Application submission failed. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -185,14 +223,22 @@ export default function RegisterPage() {
 
   const handleVerifyAndSubmit = async () => {
     if (submitting) return;
-    if (!otp.trim()) {
+    if (!otp.trim() || !applicationId) {
       toast.error("Enter the verification code.");
       return;
     }
     setSubmitting(true);
     try {
-      const tokens = await authService.verifyRegistration(email.trim(), otp.trim(), registrationRole);
-      await completeSellerProfile(tokens.access_token, tokens.refresh_token);
+      const tokens = await applicationsService.verify(applicationId, email.trim(), otp.trim());
+      if (typeof window !== "undefined") {
+        localStorage.setItem("farumasi_partner_token", tokens.access_token);
+        localStorage.setItem("farumasi_partner_refresh", tokens.refresh_token);
+        document.cookie = "farumasi_partner_auth=1; path=/; max-age=604800; SameSite=Lax";
+      }
+      const me = await authService.getMe();
+      setSession({ access_token: tokens.access_token, refresh_token: tokens.refresh_token }, me);
+      toast.success("Application confirmed. FARUMASI will review your documents.");
+      router.push("/application-status");
     } catch (err: unknown) {
       toast.error(getApiError(err, "Verification failed. Check the code and try again."));
     } finally {
@@ -227,6 +273,10 @@ export default function RegisterPage() {
     if (step === 2) {
       if (!licenseNumber.trim()) {
         toast.error("Enter your regulatory license number.");
+        return false;
+      }
+      if (isPharmacySignup && (!supervisingPharmacistName.trim() || !supervisingPharmacistLicense.trim())) {
+        toast.error("Enter supervising pharmacist name and license number.");
         return false;
       }
       if (!licenseFile) {
@@ -290,6 +340,100 @@ export default function RegisterPage() {
   const stepIcons = [Building2, MapPin, Shield, Wallet, User];
   const StepIcon = pendingVerification ? Mail : stepIcons[step];
 
+  if (!wizardStarted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="w-full max-w-xl space-y-6">
+          <div className="text-center">
+            <h1 className="text-xl font-extrabold text-slate-900">Apply to join FARUMASI</h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              Select a pharmacy or partner FARUMASI has pre-registered for you, or start a new application.
+              Your submission is stored separately and never overwrites our draft records until approved.
+            </p>
+          </div>
+
+          <div className="bg-white border rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setBusinessType("Pharmacy")}
+                className={`flex-1 py-2 rounded-xl text-sm font-bold border ${isPharmacySignup ? "bg-farumasi-600 text-white border-farumasi-600" : "border-border"}`}
+              >
+                Pharmacy
+              </button>
+              <button
+                type="button"
+                onClick={() => setBusinessType("Distributor")}
+                className={`flex-1 py-2 rounded-xl text-sm font-bold border ${!isPharmacySignup ? "bg-farumasi-600 text-white border-farumasi-600" : "border-border"}`}
+              >
+                Partner company
+              </button>
+            </div>
+
+            {isPharmacySignup ? (
+              <>
+                <p className="text-xs font-semibold text-slate-600">Pharmacies prepared by FARUMASI</p>
+                {pharmacyDrafts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No pre-registered pharmacies yet — start a new application below.</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {pharmacyDrafts.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => applyPharmacyDraft(d)}
+                        className="w-full text-left border rounded-xl p-3 hover:border-farumasi-400 hover:bg-farumasi-50 transition-colors"
+                      >
+                        <p className="font-bold text-sm">{d.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {d.district ?? "Rwanda"}
+                          {d.address ? ` · ${d.address}` : ""}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-slate-600">Partner companies prepared by FARUMASI</p>
+                {partnerDrafts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No pre-registered partners yet — start a new application below.</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {partnerDrafts.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => applyPartnerDraft(d)}
+                        className="w-full text-left border rounded-xl p-3 hover:border-farumasi-400 hover:bg-farumasi-50 transition-colors"
+                      >
+                        <p className="font-bold text-sm">{d.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {d.company_type ?? "Partner"}
+                          {d.district ? ` · ${d.district}` : ""}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            <Button type="button" className="w-full gap-2" onClick={startFreshApplication}>
+              <Store className="w-4 h-4" />
+              Start new application from scratch
+            </Button>
+          </div>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Already applied? <Link href="/login" className="text-farumasi-600 font-medium hover:underline">Sign in</Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (pendingVerification) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -317,7 +461,13 @@ export default function RegisterPage() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              After verification we will save your business profile, license, and payout details.
+              After verification your application is queued for FARUMASI review. You can sign in to track status.
+              {applicationCode ? (
+                <>
+                  {" "}
+                  Reference: <strong>{applicationCode}</strong>
+                </>
+              ) : null}
             </p>
             <div className="flex gap-3 pt-2">
               <Button variant="outline" onClick={back} disabled={submitting}>
@@ -558,6 +708,26 @@ export default function RegisterPage() {
                   onChange={(e) => setLicenseNumber(e.target.value)}
                 />
               </div>
+              {isPharmacySignup && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Supervising pharmacist <span className="text-red-500">*</span></Label>
+                    <Input
+                      placeholder="Full name"
+                      value={supervisingPharmacistName}
+                      onChange={(e) => setSupervisingPharmacistName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Pharmacist license # <span className="text-red-500">*</span></Label>
+                    <Input
+                      placeholder="RPPB license number"
+                      value={supervisingPharmacistLicense}
+                      onChange={(e) => setSupervisingPharmacistLicense(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>License document <span className="text-red-500">*</span></Label>
                 <button

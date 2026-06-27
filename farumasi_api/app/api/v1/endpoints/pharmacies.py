@@ -11,6 +11,7 @@ from app.core.constants import EntityStatus, UserRole
 from app.models.user import User
 from app.models.pharmacy import Pharmacy
 from app.schemas.pharmacy import PharmacyOut, PharmacyCreate, PharmacyUpdate, PharmacyAdminUpdate
+from app.schemas.seller_onboarding import PharmacyProfileCompletionOut
 from app.schemas.common import PaginatedResponse
 from app.core.exceptions import NotFoundError, AuthorizationError, AuthenticationError
 
@@ -112,8 +113,29 @@ async def update_my_pharmacy(
         raise NotFoundError("Pharmacy")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(pharmacy, field, value)
+    from app.utils.pharmacy_profile import pharmacy_profile_complete
+
+    pharmacy.onboarding_completed = pharmacy_profile_complete(pharmacy)
     await db.commit()
     return await _load_pharmacy_out(db, pharmacy.id)
+
+
+@router.get("/me/completion", response_model=PharmacyProfileCompletionOut)
+async def get_my_pharmacy_completion(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST, UserRole.SUPER_ADMIN)),
+):
+    from app.services.pharmacy_access import resolve_user_pharmacy
+    from app.utils.pharmacy_profile import pharmacy_missing_fields
+
+    pharmacy = await resolve_user_pharmacy(db, current_user)
+    if not pharmacy:
+        raise NotFoundError("Pharmacy")
+    return PharmacyProfileCompletionOut(
+        onboarding_completed=bool(pharmacy.onboarding_completed),
+        missing_fields=pharmacy_missing_fields(pharmacy),
+        verification_status=pharmacy.verification_status,
+    )
 
 
 @router.get("/", response_model=PaginatedResponse[PharmacyOut])

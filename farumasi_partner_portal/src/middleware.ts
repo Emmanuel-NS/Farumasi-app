@@ -7,6 +7,7 @@ const PUBLIC_PREFIXES = [
   "/forgot-password",
   "/reset-password",
   "/terms",
+  "/application-status",
 ];
 
 export function middleware(request: NextRequest) {

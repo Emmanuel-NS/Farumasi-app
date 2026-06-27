@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authService } from "@/lib/services/auth.service";
+import { applicationsService } from "@/lib/services/applications.service";
 import { useAuthStore } from "@/lib/store/auth";
 import { toast } from "@/lib/toast";
 import { getApiError } from "@/lib/api";
@@ -42,7 +43,17 @@ export default function LoginPage() {
         return;
       }
       setSession(tokens, me);
+      if (typeof window !== "undefined") {
+        document.cookie = "farumasi_partner_auth=1; path=/; max-age=604800; SameSite=Lax";
+      }
       toast.success(`Welcome back, ${me.full_name.split(" ")[0]}!`);
+      if (me.role === "pharmacy_admin" || me.role === "partner_company_admin") {
+        const app = await applicationsService.getMine().catch(() => null);
+        if (app && app.status !== "approved") {
+          router.push("/application-status");
+          return;
+        }
+      }
       router.push("/dashboard");
     } catch (err: unknown) {
       toast.error(getApiError(err, "Sign-in failed. Check your email and password."));

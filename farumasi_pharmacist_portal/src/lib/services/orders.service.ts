@@ -12,6 +12,7 @@ export interface BackendOrderItem {
   dispatch_batch_number?: string | null;
   dispatch_expiry_date?: string | null;
   dispatch_manufacturer?: string | null;
+  dispatch_country_of_origin?: string | null;
   dispatch_dosage?: string | null;
   dispatch_notes?: string | null;
   product?: { id: string; name: string; image_url?: string | null } | null;

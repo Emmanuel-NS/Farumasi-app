@@ -154,6 +154,7 @@ export interface Order {
     dispatchManufacturer?: string;
     dispatchDosage?: string;
     dispatchNotes?: string;
+    dispatchCountryOfOrigin?: string;
   }>;
   notes?: string;
   patientAccessCode?: string;

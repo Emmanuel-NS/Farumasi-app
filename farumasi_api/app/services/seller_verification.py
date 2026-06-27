@@ -33,6 +33,10 @@ async def assert_seller_verified_for_mutation(
             )
         if row.status != EntityStatus.ACTIVE:
             raise BusinessRuleError("Your pharmacy account is not active.")
+        if not row.onboarding_completed:
+            raise BusinessRuleError(
+                "Complete your pharmacy registration profile before managing listings or orders."
+            )
         return
 
     if partner_company_id:
@@ -49,3 +53,7 @@ async def assert_seller_verified_for_mutation(
             )
         if row.status != EntityStatus.ACTIVE:
             raise BusinessRuleError("Your partner account is not active.")
+        if not row.onboarding_completed:
+            raise BusinessRuleError(
+                "Complete your company registration profile before managing listings or orders."
+            )

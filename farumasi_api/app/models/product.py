@@ -41,6 +41,7 @@ class ProductCatalogueItem(Base, UUIDMixin, TimestampMixin):
     manufacturer: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     brand: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     country_of_origin: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    information_source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     prescription_required: Mapped[bool] = mapped_column(Boolean, default=False)
     regulatory_status: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     approval_status: Mapped[str] = mapped_column(

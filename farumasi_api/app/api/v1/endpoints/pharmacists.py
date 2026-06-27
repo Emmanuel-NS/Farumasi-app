@@ -14,6 +14,8 @@ from app.schemas.pharmacist import (
     PharmacistAvailabilityUpdate,
 )
 from app.schemas.common import PaginatedResponse
+from app.schemas.seller_onboarding import DraftPartnerOnboardRequest, DraftPharmacyOnboardRequest, DraftSellerOut
+from app.services.seller_onboarding_service import SellerOnboardingService
 from app.core.exceptions import NotFoundError
 from app.core.constants import EntityStatus
 
@@ -89,6 +91,24 @@ async def update_my_availability(
     await db.commit()
     await db.refresh(profile)
     return profile
+
+
+@router.post("/onboard/pharmacy", response_model=DraftSellerOut, status_code=201)
+async def draft_pharmacy_onboarding(
+    data: DraftPharmacyOnboardRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await SellerOnboardingService(db).draft_pharmacy(data, current_user)
+
+
+@router.post("/onboard/partner", response_model=DraftSellerOut, status_code=201)
+async def draft_partner_onboarding(
+    data: DraftPartnerOnboardRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await SellerOnboardingService(db).draft_partner(data, current_user)
 
 
 # ── Prescription Reviews (Phase 4) ───────────────────────────────────────

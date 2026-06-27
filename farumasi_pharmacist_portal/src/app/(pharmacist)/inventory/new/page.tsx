@@ -105,6 +105,7 @@ export default function NewProductPage() {
   const [strength, setStrength] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [informationSourceUrl, setInformationSourceUrl] = useState("");
   const [requiresRx, setRequiresRx] = useState(false);
 
   /* Packaging / partial selling */
@@ -137,6 +138,10 @@ export default function NewProductPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { toast.error("Product name is required"); return; }
+    if (productType === "medicine" && !informationSourceUrl.trim()) {
+      toast.error("Medicines require a Rwanda FDA PIL or official information source URL");
+      return;
+    }
     const priceNum = Number(price);
     const stockNum = Number(stock);
     if (!Number.isFinite(priceNum) || priceNum < 0) { toast.error("Enter a valid price"); return; }
@@ -160,6 +165,7 @@ export default function NewProductPage() {
         dosage_form: dosageForm || null,
         strength: strength.trim() || null,
         description: description.trim() || null,
+        information_source_url: informationSourceUrl.trim() || null,
         image_url: imageUrl.trim() || null,
         prescription_required: requiresRx,        packaging_class: packagingClass || null,
         units_per_pack: allowsPartial && unitsPerPack ? Number(unitsPerPack) : null,
@@ -274,6 +280,23 @@ export default function NewProductPage() {
             className={cn(inp, "resize-none")}
           />
         </SectionCard>
+
+        {productType === "medicine" && (
+          <SectionCard
+            title="Regulatory information source"
+            subtitle="Link to Rwanda FDA patient information leaflet (PIL) or other official source used to build this product page."
+          >
+            <Field label="Information source URL (PIL)" required hint="e.g. Rwanda FDA PIL link">
+              <input
+                type="url"
+                value={informationSourceUrl}
+                onChange={(e) => setInformationSourceUrl(e.target.value)}
+                placeholder="https://…/patient-information-leaflet-pil-2"
+                className={inp}
+              />
+            </Field>
+          </SectionCard>
+        )}
 
         {/* Packaging & Partial Selling */}
         <SectionCard title="Packaging & Partial Selling" subtitle="Controls whether patients can buy individual units from a pack.">

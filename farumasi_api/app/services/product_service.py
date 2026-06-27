@@ -13,6 +13,7 @@ from app.core.constants import (
     ListingAvailability,
     ProductApprovalStatus,
     ProductRequestStatus,
+    ProductType,
     UserRole,
 )
 from app.core.exceptions import (
@@ -44,6 +45,7 @@ from app.schemas.product import (
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.utils.packaging import validate_listing_prices, validate_product_packaging_fields
+from app.utils.seller_catalogue import is_medicine_product, partner_may_list_product
 
 
 # ─── role helpers ─────────────────────────────────────────────────────────
@@ -133,6 +135,11 @@ class ProductService:
             min_partial_quantity=data.min_partial_quantity,
             partial_unit_name=data.partial_unit_name,
         )
+        if is_medicine_product(data.product_type.value if hasattr(data.product_type, "value") else data.product_type):
+            if not (data.information_source_url or "").strip():
+                raise ValidationError(
+                    "Medicines require a Rwanda FDA PIL or official information source URL"
+                )
         # Pharmacists list their own stock immediately; super admin approves catalogue entries.
         approval = (
             ProductApprovalStatus.APPROVED
@@ -150,6 +157,7 @@ class ProductService:
             manufacturer=data.manufacturer,
             brand=data.brand,
             country_of_origin=data.country_of_origin,
+            information_source_url=(data.information_source_url or "").strip() or None,
             prescription_required=data.prescription_required,
             regulatory_status=data.regulatory_status,
             image_url=data.image_url,
@@ -180,6 +188,11 @@ class ProductService:
         validate_product_packaging_fields(**merged)
         for field, value in patch.items():
             setattr(product, field, value)
+        if is_medicine_product(product.product_type):
+            if not (product.information_source_url or "").strip():
+                raise ValidationError(
+                    "Medicines require a Rwanda FDA PIL or official information source URL"
+                )
         await self.db.commit()
         await self.db.refresh(product)
         return product
@@ -247,6 +260,7 @@ class ProductService:
         include_unapproved: bool = False,
         only_with_listings: bool = True,
         require_open_seller: bool = False,
+        catalogue_scope: Optional[str] = None,
     ) -> Tuple[List[ProductCatalogueItem], int]:
         # Patient store uses only_with_listings=True → prices from open sellers only.
         if only_with_listings:
@@ -259,6 +273,13 @@ class ProductService:
         ]
         if require_open_seller:
             listing_conditions.append(open_seller_listing_filter())
+        # Medicines may only be stocked by pharmacies — never partner companies.
+        listing_conditions.append(
+            or_(
+                ProductCatalogueItem.product_type != ProductType.MEDICINE.value,
+                ProductListing.pharmacy_id.isnot(None),
+            )
+        )
         listing_stats = (
             select(
                 ProductListing.product_id.label("product_id"),
@@ -266,6 +287,10 @@ class ProductService:
                 func.max(ProductListing.price).label("price_to"),
                 func.count(ProductListing.id).label("listing_count"),
                 func.min(ProductListing.unit_price).label("unit_price_from"),
+            )
+            .join(
+                ProductCatalogueItem,
+                ProductListing.product_id == ProductCatalogueItem.id,
             )
             .where(and_(*listing_conditions))
             .group_by(ProductListing.product_id)
@@ -302,6 +327,10 @@ class ProductService:
             )
         if category and category.lower() != "all":
             q = q.where(ProductCatalogueItem.category == category)
+        if catalogue_scope == "partner":
+            q = q.where(ProductCatalogueItem.product_type != ProductType.MEDICINE.value)
+        elif catalogue_scope == "pharmacy":
+            pass  # pharmacies may browse all approved product types
 
         total = (
             await self.db.execute(select(func.count()).select_from(q.subquery()))
@@ -434,6 +463,11 @@ class ProductService:
         product = await self._get_product_or_404(data.product_id)
         if product.approval_status != ProductApprovalStatus.APPROVED:
             raise BusinessRuleError("Cannot list an unapproved product")
+        if data.partner_company_id and not partner_may_list_product(product.product_type):
+            raise BusinessRuleError(
+                "Medicines and pharmaceuticals may only be listed by licensed pharmacies. "
+                "Partner companies may list medical devices, supplements, and cosmetics."
+            )
         validate_listing_prices(product, data.price, data.unit_price)
         # 3b. prevent duplicate listing by same entity
         dup_q = select(ProductListing).where(ProductListing.product_id == data.product_id)
@@ -652,6 +686,12 @@ class ProductService:
                 )
             partner_company_id = company.id
             requester_type = "partner"
+            ptype = data.product_type.value if hasattr(data.product_type, "value") else data.product_type
+            if not partner_may_list_product(ptype):
+                raise BusinessRuleError(
+                    "Partner companies cannot request new medicine catalogue entries. "
+                    "Contact FARUMASI pharmacy operations."
+                )
 
         req = ProductRequest(
             requester_user_id=actor.id,

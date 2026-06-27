@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     pharmacies,
     partners,
     sellers,
+    seller_applications,
     riders,
     products,
     product_requests,
@@ -54,6 +55,7 @@ api_router.include_router(pharmacists.router, prefix="/pharmacists", tags=[f"Pha
 api_router.include_router(pharmacies.router, prefix="/pharmacies", tags=[f"Pharmacies ({_EXP})"])
 api_router.include_router(partners.router, prefix="/partners", tags=[f"Partners ({_EXP})"])
 api_router.include_router(sellers.router, prefix="/sellers", tags=[f"Sellers ({_EXP})"])
+api_router.include_router(seller_applications.router, prefix="/seller-applications", tags=[f"Seller Applications ({_EXP})"])
 api_router.include_router(riders.router, prefix="/riders", tags=[f"Riders ({_EXP})"])
 api_router.include_router(products.router, prefix="/products", tags=[f"Products ({_EXP})"])
 api_router.include_router(product_requests.router, prefix="/product-requests", tags=[f"Product Requests ({_EXP})"])

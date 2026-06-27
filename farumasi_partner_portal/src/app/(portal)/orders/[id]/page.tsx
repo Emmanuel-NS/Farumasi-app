@@ -62,7 +62,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [verifying, setVerifying] = useState(false);
   const [dispatchOpen, setDispatchOpen] = useState(false);
   const [dispatchRows, setDispatchRows] = useState<
-    Record<string, { batch_number: string; expiry_date: string; manufacturer: string; dosage: string; notes: string }>
+    Record<string, { batch_number: string; expiry_date: string; manufacturer: string; country_of_origin: string; dosage: string; notes: string }>
   >({});
   const [activity, setActivity] = useState<OrderActivityEntry[]>([]);
   const [assignments, setAssignments] = useState<OrderPartnerAssignment[]>([]);
@@ -126,13 +126,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     if (!order) return;
     downloadCsv(
       `dispatch-${orderDisplayCode(order.id, order.order_code)}`,
-      ["Product", "Qty", "Batch", "Expiry", "Manufacturer", "Dosage", "Notes", "Dispatch confirmed"],
+      ["Product", "Qty", "Batch", "Expiry", "Manufacturer", "Country", "Dosage", "Notes", "Dispatch confirmed"],
       order.items.map((item) => [
         item.product_name ?? item.product?.name ?? "Item",
         item.quantity,
         item.dispatch_batch_number ?? "",
         item.dispatch_expiry_date ?? "",
         item.dispatch_manufacturer ?? "",
+        item.dispatch_country_of_origin ?? "",
         item.dispatch_dosage ?? "",
         item.dispatch_notes ?? "",
         item.dispatch_confirmed_at ?? order.dispatch_confirmed_at ?? "",
@@ -195,7 +196,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const openDispatchDialog = () => {
     if (!order) return;
-    const rows: Record<string, { batch_number: string; expiry_date: string; manufacturer: string; dosage: string; notes: string }> = {};
+    const rows: Record<string, { batch_number: string; expiry_date: string; manufacturer: string; country_of_origin: string; dosage: string; notes: string }> = {};
     for (const item of order.items) {
       const suggested = suggestedDispatchFromPrescription(item, prescription);
       rows[item.id] = {
@@ -204,6 +205,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           ? item.dispatch_expiry_date.slice(0, 10)
           : "",
         manufacturer: item.dispatch_manufacturer ?? "",
+        country_of_origin: item.dispatch_country_of_origin ?? "",
         dosage: item.dispatch_dosage ?? suggested.dosage,
         notes: item.dispatch_notes ?? suggested.notes,
       };
@@ -221,12 +223,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         batch_number: row?.batch_number?.trim() ?? "",
         expiry_date: row?.expiry_date ? `${row.expiry_date}T12:00:00Z` : "",
         manufacturer: row?.manufacturer?.trim() ?? "",
+        country_of_origin: row?.country_of_origin?.trim() ?? "",
         dosage: row?.dosage?.trim() || undefined,
         notes: row?.notes?.trim() || undefined,
       };
     });
-    if (items.some((it) => !it.batch_number || !it.expiry_date || !it.manufacturer)) {
-      toast.error("Batch number, expiry date, and manufacturer are required for every item");
+    if (items.some((it) => !it.batch_number || !it.expiry_date || !it.manufacturer || !it.country_of_origin)) {
+      toast.error("Batch number, expiry date, manufacturer, and country of origin are required for every item");
       return;
     }
     setActing(true);
@@ -367,6 +370,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                           )}
                           {item.dispatch_manufacturer && (
                             <p><span className="font-semibold">Manufacturer:</span> {item.dispatch_manufacturer}</p>
+                          )}
+                          {item.dispatch_country_of_origin && (
+                            <p><span className="font-semibold">Country of origin:</span> {item.dispatch_country_of_origin}</p>
                           )}
                           {item.dispatch_dosage && (
                             <p><span className="font-semibold">Dosage:</span> {item.dispatch_dosage}</p>
@@ -591,6 +597,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       batch_number: "",
                       expiry_date: "",
                       manufacturer: "",
+                      country_of_origin: "",
                       dosage: "",
                       notes: "",
                     };
@@ -610,6 +617,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         <Input placeholder="Batch number *" value={row.batch_number} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, batch_number: e.target.value } }))} className="h-8 text-xs" />
                         <Input type="date" value={row.expiry_date} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, expiry_date: e.target.value } }))} className="h-8 text-xs" />
                         <Input placeholder="Manufacturer *" value={row.manufacturer} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, manufacturer: e.target.value } }))} className="h-8 text-xs" />
+                        <Input placeholder="Country of origin *" value={row.country_of_origin} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, country_of_origin: e.target.value } }))} className="h-8 text-xs" />
                         <Input placeholder="Dosage (optional)" value={row.dosage} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, dosage: e.target.value } }))} className="h-8 text-xs" />
                         <Input placeholder="Notes (optional)" value={row.notes} onChange={(e) => setDispatchRows((prev) => ({ ...prev, [item.id]: { ...row, notes: e.target.value } }))} className="h-8 text-xs" />
                       </div>

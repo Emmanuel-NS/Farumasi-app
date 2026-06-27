@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { formatDate, mediaUrl } from "@/lib/utils";
 import {
   PageHeader,
@@ -18,6 +17,7 @@ import {
   Button,
   StatCard,
   ErrorBanner,
+  FilterTabs,
 } from "@/components/ui";
 import {
   ClipboardList,
@@ -25,95 +25,105 @@ import {
   XCircle,
   ExternalLink,
   Loader2,
-  MapPin,
   FileText,
 } from "lucide-react";
 import {
-  partnersService,
-  type BackendPartner,
-} from "@/lib/services/partners.service";
+  sellerApplicationsService,
+  type SellerApplication,
+} from "@/lib/services/seller-applications.service";
 import { getApiError } from "@/lib/services/auth.service";
+import { toast } from "sonner";
+
+type FilterStatus = "submitted" | "under_review" | "approved" | "rejected" | "all";
+const STATUS_FILTERS: { id: FilterStatus; label: string }[] = [
+  { id: "submitted", label: "Submitted" },
+  { id: "under_review", label: "Under review" },
+  { id: "approved", label: "Approved" },
+  { id: "rejected", label: "Rejected" },
+  { id: "all", label: "All" },
+];
+
+function licenseUrl(app: SellerApplication): string | null {
+  const payload = app.payload ?? {};
+  const url =
+    (payload.license_document_url as string | undefined) ||
+    (payload.regulatory_license_document_url as string | undefined);
+  return url ?? null;
+}
 
 export default function PartnerApplicationsPage() {
-  const [items, setItems] = useState<BackendPartner[]>([]);
+  const [items, setItems] = useState<SellerApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [status, setStatus] = useState<FilterStatus>("submitted");
 
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    partnersService
-      .listApplications({ limit: 100 })
+    sellerApplicationsService
+      .list({
+        limit: 100,
+        status: status === "all" ? undefined : status,
+      })
       .then((res) => setItems(res.items))
-      .catch((err) => setError(getApiError(err, "Failed to load partner applications")))
+      .catch((err) => setError(getApiError(err, "Failed to load seller applications")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [status]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const approve = async (id: string) => {
+  const review = async (id: string, nextStatus: "approved" | "rejected" | "under_review") => {
+    if (nextStatus === "rejected" && !window.confirm("Reject this application?")) return;
     setActingId(id);
     try {
-      await partnersService.updatePartner(id, {
-        verification_status: "verified",
-        status: "active",
-      });
+      await sellerApplicationsService.review(id, { status: nextStatus });
+      toast.success(nextStatus === "approved" ? "Application approved" : nextStatus === "rejected" ? "Application rejected" : "Marked under review");
       load();
     } catch (err) {
-      setError(getApiError(err, "Could not approve application"));
+      toast.error(getApiError(err, "Could not update application"));
     } finally {
       setActingId(null);
     }
   };
 
-  const reject = async (id: string) => {
-    if (!window.confirm("Reject this partner application? The account will remain inactive.")) return;
-    setActingId(id);
-    try {
-      await partnersService.updatePartner(id, {
-        verification_status: "rejected",
-        status: "inactive",
-      });
-      load();
-    } catch (err) {
-      setError(getApiError(err, "Could not reject application"));
-    } finally {
-      setActingId(null);
-    }
-  };
+  const pending = items.filter((a) => a.status === "submitted" || a.status === "under_review").length;
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Partner Applications"
-        subtitle="Review self-service partner sign-ups, licenses, and activate approved sellers"
-        breadcrumb="Compliance · Partner Applications"
+        title="Seller Applications"
+        subtitle="Review pharmacy and partner applications submitted through the public form"
+        breadcrumb="Compliance · Seller Applications"
       />
 
       {error && <ErrorBanner message={error} onRetry={load} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Awaiting review" value={items.length} icon={ClipboardList} color="text-amber-700" />
+        <StatCard label="In this view" value={items.length} icon={ClipboardList} color="text-amber-700" />
         <StatCard
           label="With license document"
-          value={items.filter((p) => p.regulatory_license_document_url).length}
+          value={items.filter((a) => licenseUrl(a)).length}
           icon={FileText}
           color="text-farumasi-700"
         />
-        <StatCard
-          label="With map coordinates"
-          value={items.filter((p) => p.latitude != null && p.longitude != null).length}
-          icon={MapPin}
-          color="text-emerald-700"
-        />
+        <StatCard label="Awaiting decision" value={pending} icon={Loader2} color="text-emerald-700" />
       </div>
+
+      <FilterTabs
+        options={STATUS_FILTERS.map((f) => f.label)}
+        value={STATUS_FILTERS.find((f) => f.id === status)?.label ?? "Submitted"}
+        onChange={(label) => {
+          const next = STATUS_FILTERS.find((f) => f.label === label);
+          if (next) setStatus(next.id);
+        }}
+      />
 
       <Card>
         <CardHeader>
-          <CardTitle>Pending applications</CardTitle>
+          <CardTitle>Applications</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -121,82 +131,95 @@ export default function PartnerApplicationsPage() {
               <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading applications…
             </div>
           ) : items.length === 0 ? (
-            <p className="text-sm text-slate-500 py-12 text-center">No partner applications awaiting review.</p>
+            <p className="text-sm text-slate-500 py-12 text-center">No applications in this view.</p>
           ) : (
             <Table>
               <Thead>
                 <Tr>
+                  <Th>Applicant</Th>
                   <Th>Business</Th>
                   <Th>License</Th>
-                  <Th>Location</Th>
-                  <Th>Commission</Th>
                   <Th>Submitted</Th>
+                  <Th>Status</Th>
                   <Th>Actions</Th>
                 </Tr>
               </Thead>
               <tbody>
-                {items.map((p) => (
-                  <Tr key={p.id}>
-                    <Td>
-                      <p className="text-[13px] font-semibold text-slate-900">{p.name}</p>
-                      <p className="text-[11px] text-slate-500">{p.email ?? "—"}</p>
-                      <p className="text-[11px] text-slate-400 capitalize">{p.company_type ?? "—"}</p>
-                    </Td>
-                    <Td>
-                      <p className="text-[11px] text-slate-600">
-                        {p.regulatory_authority ?? "—"}
-                        {p.regulatory_license_number ? ` · ${p.regulatory_license_number}` : ""}
-                      </p>
-                      {p.regulatory_license_document_url ? (
-                        <a
-                          href={mediaUrl(p.regulatory_license_document_url)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-farumasi-700 font-medium hover:underline mt-1"
-                        >
-                          View document <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ) : (
-                        <Badge variant="warning" className="mt-1">No file</Badge>
-                      )}
-                    </Td>
-                    <Td className="text-[11px] text-slate-600">
-                      <p>{p.district ?? "—"}</p>
-                      {p.latitude != null && p.longitude != null && (
-                        <p className="font-mono text-slate-400 mt-0.5">
-                          {p.latitude}, {p.longitude}
+                {items.map((app) => {
+                  const doc = licenseUrl(app);
+                  return (
+                    <Tr key={app.id}>
+                      <Td>
+                        <p className="text-[13px] font-semibold text-slate-900">{app.owner_full_name}</p>
+                        <p className="text-[11px] text-slate-500">{app.owner_email}</p>
+                        <p className="text-[11px] text-slate-400 font-mono">{app.application_code}</p>
+                      </Td>
+                      <Td>
+                        <p className="text-[13px] font-semibold text-slate-900">{app.business_name}</p>
+                        <p className="text-[11px] text-slate-500 capitalize">{app.seller_type}</p>
+                        <p className="text-[11px] text-slate-400">{app.district ?? "—"}</p>
+                      </Td>
+                      <Td>
+                        <p className="text-[11px] text-slate-600">
+                          {(app.payload?.regulatory_authority as string) ?? "—"}
+                          {app.payload?.license_number ? ` · ${String(app.payload.license_number)}` : ""}
                         </p>
-                      )}
-                    </Td>
-                    <Td className="text-[12px] font-semibold text-slate-700">
-                      {p.commission_rate_percent != null ? `${p.commission_rate_percent}%` : "10%"}
-                    </Td>
-                    <Td className="text-[11px] text-slate-500">{formatDate(p.created_at)}</Td>
-                    <Td>
-                      <div className="flex flex-wrap gap-1.5">
-                        <Link href={`/pharmacies/companies/${p.id}`}>
-                          <Button variant="outline" size="xs">Review</Button>
-                        </Link>
-                        <Button
-                          variant="primary"
-                          size="xs"
-                          disabled={actingId === p.id}
-                          onClick={() => void approve(p.id)}
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Approve
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          disabled={actingId === p.id}
-                          onClick={() => void reject(p.id)}
-                        >
-                          <XCircle className="w-3.5 h-3.5" /> Reject
-                        </Button>
-                      </div>
-                    </Td>
-                  </Tr>
-                ))}
+                        {doc ? (
+                          <a
+                            href={mediaUrl(doc)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-farumasi-700 font-medium hover:underline mt-1"
+                          >
+                            View document <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <Badge variant="warning" className="mt-1">No file</Badge>
+                        )}
+                      </Td>
+                      <Td className="text-[11px] text-slate-500">
+                        {app.submitted_at ? formatDate(app.submitted_at) : formatDate(app.created_at)}
+                      </Td>
+                      <Td>
+                        <Badge variant={app.status === "approved" ? "success" : app.status === "rejected" ? "error" : "warning"}>
+                          {app.status.replace("_", " ")}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        {app.status === "approved" || app.status === "rejected" ? (
+                          <span className="text-[11px] text-slate-400">Finalised</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              disabled={actingId === app.id}
+                              onClick={() => void review(app.id, "under_review")}
+                            >
+                              Review
+                            </Button>
+                            <Button
+                              variant="primary"
+                              size="xs"
+                              disabled={actingId === app.id}
+                              onClick={() => void review(app.id, "approved")}
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              disabled={actingId === app.id}
+                              onClick={() => void review(app.id, "rejected")}
+                            >
+                              <XCircle className="w-3.5 h-3.5" /> Reject
+                            </Button>
+                          </div>
+                        )}
+                      </Td>
+                    </Tr>
+                  );
+                })}
               </tbody>
             </Table>
           )}

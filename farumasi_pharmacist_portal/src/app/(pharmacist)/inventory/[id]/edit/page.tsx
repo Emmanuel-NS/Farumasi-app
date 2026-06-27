@@ -407,6 +407,7 @@ export default function EditProductPage({
   const [overview,      setOverview]      = useState("");
   const [dosageDetails, setDosageDetails] = useState("");
   const [safety,        setSafety]        = useState("");
+  const [informationSourceUrl, setInformationSourceUrl] = useState("");
 
   /* fetch product */
   useEffect(() => {
@@ -437,6 +438,7 @@ export default function EditProductPage({
         setOverview(desc.overview);
         setDosageDetails(desc.dosage_details);
         setSafety(desc.safety);
+        setInformationSourceUrl(p.information_source_url ?? "");
         setLoading(false);
       })
       .catch(() => {
@@ -451,6 +453,10 @@ export default function EditProductPage({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { toast.error("Product name is required"); return; }
+    if (productType === "medicine" && !informationSourceUrl.trim()) {
+      toast.error("Information source URL (PIL) is required for medicines");
+      return;
+    }
     setSaving(true);
     try {
       const input: UpdateProductInput = {
@@ -475,6 +481,7 @@ export default function EditProductPage({
         units_per_pack:        allowsPartial && unitsPerPack ? Number(unitsPerPack) : null,
         min_partial_quantity:  allowsPartial && minPartialQty ? Number(minPartialQty) : null,
         partial_unit_name:     allowsPartial ? (partialUnitName.trim() || null) : null,
+        information_source_url: informationSourceUrl.trim() || null,
       };
       await productsService.updateProduct(id, input);
       toast.success("Product updated");
@@ -850,6 +857,25 @@ export default function EditProductPage({
                   />
                 </div>
               </div>
+
+              {productType === "medicine" && (
+                <div className={cardCls}>
+                  <p className={sectionHeadCls}>Regulatory information source</p>
+                  <p className="text-xs text-slate-500">
+                    Link to Rwanda FDA patient information leaflet (PIL) or other official source used for this product page.
+                  </p>
+                  <div>
+                    <label className={labelCls}>Information source URL (PIL) *</label>
+                    <input
+                      type="url"
+                      value={informationSourceUrl}
+                      onChange={(e) => setInformationSourceUrl(e.target.value)}
+                      placeholder="https://…/patient-information-leaflet-pil-2"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Bottom CTA row */}
               <div className="flex gap-3 pb-6">

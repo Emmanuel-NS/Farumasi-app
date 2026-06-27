@@ -25,8 +25,6 @@ from app.services.email_verification_service import (
 
 _PUBLIC_REGISTER_ROLES = frozenset({
     UserRole.PATIENT,
-    UserRole.PARTNER_COMPANY_ADMIN,
-    UserRole.PHARMACY_ADMIN,
     UserRole.RIDER,
 })
 
@@ -326,31 +324,4 @@ class AuthService:
             from app.models.rider import RiderProfile
 
             self.db.add(RiderProfile(user_id=user.id))
-        elif user.role == UserRole.PARTNER_COMPANY_ADMIN:
-            from app.models.partner import PartnerCompany
-
-            self.db.add(
-                PartnerCompany(
-                    owner_user_id=user.id,
-                    name=f"{user.full_name}'s Company",
-                    email=user.email,
-                    phone=user.phone,
-                    status=EntityStatus.INACTIVE,
-                    verification_status=VerificationStatus.PENDING,
-                    commission_rate_percent=10.0,
-                )
-            )
-        elif user.role == UserRole.PHARMACY_ADMIN:
-            from app.models.pharmacy import Pharmacy
-
-            self.db.add(
-                Pharmacy(
-                    owner_user_id=user.id,
-                    name=f"{user.full_name}'s Pharmacy",
-                    email=user.email,
-                    phone=user.phone,
-                    status=EntityStatus.INACTIVE,
-                    verification_status=VerificationStatus.PENDING,
-                )
-            )
         await self.db.flush()

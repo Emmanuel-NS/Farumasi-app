@@ -16,6 +16,7 @@ export interface BackendProduct {
   regulatory_status?: string | null;
   approval_status: string;
   image_url?: string | null;
+  information_source_url?: string | null;
   created_at: string;
   price_from?: number | null;
   price_to?: number | null;
@@ -46,6 +47,7 @@ export interface CreateProductInput {
   brand?: string | null;
   prescription_required?: boolean;
   image_url?: string | null;
+  information_source_url?: string | null;
   /** Packaging & partial selling */
   packaging_class?: string | null;
   units_per_pack?: number | null;

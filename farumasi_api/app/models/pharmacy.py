@@ -33,8 +33,8 @@ pharmacy_insurance = Table(
 class Pharmacy(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "pharmacies"
 
-    owner_user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=False, index=True
+    owner_user_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -44,6 +44,13 @@ class Pharmacy(Base, UUIDMixin, TimestampMixin):
     latitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
     license_number: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    license_document_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    supervising_pharmacist_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    supervising_pharmacist_license: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    drafted_by_pharmacist_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("pharmacist_profiles.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     verification_status: Mapped[str] = mapped_column(
         String(50), default=VerificationStatus.UNVERIFIED
     )

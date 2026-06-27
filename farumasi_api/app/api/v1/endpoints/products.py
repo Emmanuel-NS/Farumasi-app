@@ -87,6 +87,10 @@ async def list_products(
     category: Optional[str] = Query(None),
     include_unapproved: bool = Query(False, description="Manager-only filter"),
     only_with_listings: bool = Query(True, description="Only return products stocked by at least one active pharmacy/partner"),
+    catalogue_scope: Optional[str] = Query(
+        None,
+        description="Filter catalogue for seller type: pharmacy | partner (excludes medicines for partners)",
+    ),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -100,6 +104,7 @@ async def list_products(
         category=category,
         include_unapproved=include_unapproved,
         only_with_listings=only_with_listings,
+        catalogue_scope=catalogue_scope,
     )
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 

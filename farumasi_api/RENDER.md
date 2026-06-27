@@ -213,7 +213,7 @@ Or use Cloudinary (`STORAGE_BACKEND=cloudinary`).
 | Slow first request | Free tier cold start (~1 min) — upgrade to Starter |
 | CORS errors | Add exact portal URLs to `CORS_ORIGINS` (https, no trailing slash) |
 | DB connection failed | Use **Internal** Database URL for API on Render |
-| Migrations fail | Check deploy logs; run `alembic upgrade head` in Shell |
+| Migrations fail | Check **Logs** (not Shell) for `Running database migrations...`. From your PC: copy **External** DB URL from Render → **farumasi-db** → **Connect**, then `python scripts/migrate_database.py --url "postgresql://..."` or `python scripts/ensure_fulfilment_handover_columns.py --url "..."` |
 | Health check fails | Confirm `/health` returns 200 |
 
 ---
@@ -227,7 +227,7 @@ Or use Cloudinary (`STORAGE_BACKEND=cloudinary`).
 - [ ] Health check path = `/health`
 - [ ] `API_PUBLIC_URL` matches public Render URL
 - [ ] `CORS_ORIGINS` lists all portal URLs
-- [ ] `python scripts/seed.py` run once in Shell
+- [ ] `python scripts/seed.py` run once (locally with `--url` if Shell unavailable — see below)
 - [ ] Portals: `NEXT_PUBLIC_API_URL=.../api/v1`
 - [ ] Object storage for uploads (production)
 - [ ] Upgrade Postgres before 30-day free expiry
@@ -236,7 +236,39 @@ Or use Cloudinary (`STORAGE_BACKEND=cloudinary`).
 
 ## Useful dashboard links
 
-- **Logs** — deploy and runtime output
-- **Shell** — run `seed.py`, migrations, Pesapal script
-- **Environment** — secrets and config
+- **Logs** — deploy and runtime output (migrations run here on every deploy when `RUN_MIGRATIONS=true`)
+- **Environment** — secrets and config (copy External Database URL for local scripts)
 - **Settings → Custom Domains** — e.g. `api.farumasi.com`
+
+---
+
+## Run DB tasks from your PC (no Render Shell)
+
+Render Shell is paid on some plans. You do **not** need it for migrations: the API container runs `alembic upgrade head` on every deploy when `RUN_MIGRATIONS=true` (see `docker-entrypoint.sh`).
+
+After a git push, open **farumasi-api → Logs** and confirm:
+
+```
+Running database migrations...
+Starting FARUMASI API on port ...
+```
+
+If a migration failed or you need to apply manually:
+
+1. Render dashboard → **farumasi-db** → **Connect** → copy **External Database URL**
+2. From PowerShell:
+
+```powershell
+cd farumasi_api
+python scripts/migrate_database.py --url "postgresql://USER:PASS@HOST/farumasi"
+# or idempotent column patch only:
+python scripts/ensure_fulfilment_handover_columns.py --url "postgresql://USER:PASS@HOST/farumasi"
+```
+
+Check revision:
+
+```powershell
+python scripts/migrate_database.py --url "postgresql://..." --check
+```
+
+Same `--url` pattern works for one-off scripts (`seed.py`, etc.) if you set `DATABASE_URL` in the command env before running.

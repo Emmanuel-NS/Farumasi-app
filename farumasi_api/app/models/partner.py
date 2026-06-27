@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 class PartnerCompany(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "partner_companies"
 
-    owner_user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=False, index=True
+    owner_user_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     company_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -41,6 +41,10 @@ class PartnerCompany(Base, UUIDMixin, TimestampMixin):
     logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     commission_rate_percent: Mapped[Optional[float]] = mapped_column(Numeric(5, 2), nullable=True)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    drafted_by_pharmacist_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("pharmacist_profiles.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     is_open: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # ── Relationships ─────────────────────────────────────────────────────

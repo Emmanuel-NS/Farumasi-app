@@ -16,6 +16,7 @@ export interface BackendOrderItem {
   dispatch_manufacturer?: string | null;
   dispatch_dosage?: string | null;
   dispatch_notes?: string | null;
+  dispatch_country_of_origin?: string | null;
   dispatch_confirmed_at?: string | null;
   product?: {
     id: string;
@@ -201,6 +202,7 @@ export const ordersService = {
         batch_number: string;
         expiry_date: string;
         manufacturer: string;
+        country_of_origin: string;
         dosage?: string;
         notes?: string;
       }>;

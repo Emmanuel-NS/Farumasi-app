@@ -749,6 +749,7 @@ class OrderService:
             oi.dispatch_batch_number = rec.batch_number.strip()
             oi.dispatch_expiry_date = expiry
             oi.dispatch_manufacturer = rec.manufacturer.strip()
+            oi.dispatch_country_of_origin = rec.country_of_origin.strip()
             oi.dispatch_dosage = (rec.dosage or "").strip() or None
             oi.dispatch_notes = (rec.notes or "").strip() or None
             oi.dispatch_confirmed_at = now

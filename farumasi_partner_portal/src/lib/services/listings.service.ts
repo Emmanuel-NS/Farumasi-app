@@ -91,9 +91,10 @@ export const listingsService = {
     limit?: number;
     search?: string;
     category?: string;
+    catalogue_scope?: "pharmacy" | "partner";
   }): Promise<PaginatedProducts> {
     const { data } = await api.get<PaginatedProducts>("/products/", {
-      params: { only_with_listings: false, ...params },
+      params: { only_with_listings: false, catalogue_scope: "partner", ...params },
     });
     return data;
   },

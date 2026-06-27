@@ -112,6 +112,7 @@ class OrderItemOut(FarumasiBaseModel):
     dispatch_batch_number: Optional[str] = None
     dispatch_expiry_date: Optional[datetime] = None
     dispatch_manufacturer: Optional[str] = None
+    dispatch_country_of_origin: Optional[str] = None
     dispatch_dosage: Optional[str] = None
     dispatch_notes: Optional[str] = None
     dispatch_confirmed_at: Optional[datetime] = None
@@ -274,10 +275,11 @@ class DispatchItemRecord(FarumasiBaseModel):
     batch_number: str
     expiry_date: datetime
     manufacturer: str
+    country_of_origin: str
     dosage: Optional[str] = None
     notes: Optional[str] = None
 
-    @field_validator("batch_number", "manufacturer")
+    @field_validator("batch_number", "manufacturer", "country_of_origin")
     @classmethod
     def _non_empty(cls, v: str) -> str:
         v = (v or "").strip()

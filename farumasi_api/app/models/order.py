@@ -155,6 +155,7 @@ class OrderItem(Base, UUIDMixin, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
     dispatch_manufacturer: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    dispatch_country_of_origin: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     dispatch_dosage: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     dispatch_notes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     dispatch_confirmed_at: Mapped[Optional[datetime]] = mapped_column(
