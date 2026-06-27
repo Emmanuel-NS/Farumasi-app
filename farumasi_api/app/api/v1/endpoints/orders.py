@@ -81,7 +81,7 @@ async def pharmacy_orders(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    items, total = await OrderService(db).list_pharmacy_orders(
+    items, total = await OrderService(db).list_platform_pharmacist_monitor_orders(
         actor, offset=offset, limit=limit, status=status
     )
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)

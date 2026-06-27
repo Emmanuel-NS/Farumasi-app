@@ -19,7 +19,11 @@ import type { OrderStatus } from "@/types";
 
 const CANCELLED_STATUSES = new Set(["cancelled", "rejected", "failed"]);
 
-type OrderTab = "prescription" | "partner" | "cancelled";
+type OrderTab = "all" | "prescription" | "partner" | "cancelled";
+
+function isAwaitingConfirmation(o: BackendOrder): boolean {
+  return o.order_status === "pending" && o.payment_status === "paid";
+}
 
 function fulfillerLabel(order: BackendOrder): string {
   if (order.partner_company?.name) return order.partner_company.name;
@@ -28,40 +32,60 @@ function fulfillerLabel(order: BackendOrder): string {
 }
 
 export default function OrdersPage() {
-  const [mainTab, setMainTab] = useState<OrderTab>("prescription");
+  const [mainTab, setMainTab] = useState<OrderTab>("all");
   const [orders, setOrders] = useState<BackendOrder[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
+  const load = useCallback(async (append = false) => {
+    if (append) setLoadingMore(true);
+    else {
+      setLoading(true);
+      setLoadError(null);
+    }
     try {
-      const res = await ordersService.getPharmacyOrders({ limit: 100 });
-      setOrders(res.items);
+      const offset = append ? orders.length : 0;
+      const res = await ordersService.getPharmacyOrders({ offset, limit: 100 });
+      setTotal(res.total);
+      setOrders((prev) => (append ? [...prev, ...res.items] : res.items));
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      if (status === 404) {
-        setLoadError(typeof detail === "string" ? detail : "Account not linked to a pharmacy.");
+      if (!append) {
+        if (status === 403 || status === 404) {
+          setLoadError(typeof detail === "string" ? detail : "Not allowed to view platform orders.");
+        } else {
+          toast.error("Failed to load orders");
+        }
       } else {
-        toast.error("Failed to load orders");
+        toast.error("Failed to load more orders");
       }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, []);
+  }, [orders.length]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => startVisibleInterval(() => { void load(); }, 60_000), [load]);
+  useEffect(() => { void load(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => startVisibleInterval(() => { void load(false); }, 60_000), [load]);
 
-  const prescriptionOrders = useMemo(
-    () => orders.filter((o) => isPrescriptionOrder(o) && !CANCELLED_STATUSES.has(o.order_status)),
+  const activeOrders = useMemo(
+    () => orders.filter((o) => !CANCELLED_STATUSES.has(o.order_status)),
     [orders],
   );
+  const awaitingConfirmation = useMemo(
+    () => activeOrders.filter(isAwaitingConfirmation),
+    [activeOrders],
+  );
+  const prescriptionOrders = useMemo(
+    () => activeOrders.filter((o) => isPrescriptionOrder(o)),
+    [activeOrders],
+  );
   const partnerOrders = useMemo(
-    () => orders.filter((o) => !isPrescriptionOrder(o) && !CANCELLED_STATUSES.has(o.order_status)),
-    [orders],
+    () => activeOrders.filter((o) => !isPrescriptionOrder(o)),
+    [activeOrders],
   );
   const cancelledOrders = useMemo(
     () => orders.filter((o) => CANCELLED_STATUSES.has(o.order_status)),
@@ -69,11 +93,13 @@ export default function OrdersPage() {
   );
 
   const displayOrders =
-    mainTab === "prescription"
-      ? prescriptionOrders
-      : mainTab === "partner"
-        ? partnerOrders
-        : cancelledOrders;
+    mainTab === "all"
+      ? activeOrders
+      : mainTab === "prescription"
+        ? prescriptionOrders
+        : mainTab === "partner"
+          ? partnerOrders
+          : cancelledOrders;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -85,7 +111,7 @@ export default function OrdersPage() {
           </p>
         </div>
         <button
-          onClick={load}
+          onClick={() => void load(false)}
           disabled={loading}
           className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-farumasi-600 transition-colors"
         >
@@ -94,8 +120,16 @@ export default function OrdersPage() {
         </button>
       </div>
 
+      {awaitingConfirmation.length > 0 && mainTab !== "cancelled" && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <span className="font-bold">{awaitingConfirmation.length}</span> paid order
+          {awaitingConfirmation.length !== 1 ? "s" : ""} awaiting pharmacy/partner confirmation — shown first in the list.
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-2xl w-fit mb-5">
         {([
+          { key: "all" as const, label: "All active", count: activeOrders.length, icon: ShoppingBag },
           { key: "prescription" as const, label: "Prescription Orders", count: prescriptionOrders.length, icon: FileText },
           { key: "partner" as const, label: "Partner / Store Orders", count: partnerOrders.length, icon: Building2 },
           { key: "cancelled" as const, label: "Cancelled", count: cancelledOrders.length, icon: AlertTriangle },
@@ -177,6 +211,11 @@ export default function OrdersPage() {
                       <span className="text-xs font-bold text-slate-400">
                         {order.order_code ? `#${order.order_code}` : `#${order.id.slice(0, 8).toUpperCase()}`}
                       </span>
+                      {isAwaitingConfirmation(order) && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                          Awaiting confirm
+                        </span>
+                      )}
                     </div>
                     <p className="text-base font-bold text-slate-900 truncate">
                       {order.patient?.user?.full_name ?? "Unknown Patient"}
@@ -240,6 +279,22 @@ export default function OrdersPage() {
               </div>
             );
           })}
+          {orders.length < total && (
+            <button
+              type="button"
+              onClick={() => void load(true)}
+              disabled={loadingMore}
+              className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-600 hover:border-farumasi-200 hover:text-farumasi-700"
+            >
+              {loadingMore ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                </span>
+              ) : (
+                `Load more (${orders.length} of ${total})`
+              )}
+            </button>
+          )}
         </div>
       )}
     </div>

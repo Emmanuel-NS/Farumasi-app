@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Sequence, Tuple
 
-from sqlalchemy import select, func, update as sa_update
+from sqlalchemy import select, func, update as sa_update, case, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -287,7 +287,34 @@ class OrderService:
             conds.append(Order.order_status == status)
         if from_date:
             conds.append(Order.created_at >= from_date)
-        return await self._paginate(*conds, offset=offset, limit=limit)
+        return await self._paginate(
+            *conds, offset=offset, limit=limit, pending_confirmation_first=True
+        )
+
+    async def list_platform_pharmacist_monitor_orders(
+        self,
+        actor: User,
+        *,
+        offset: int,
+        limit: int,
+        status: Optional[str] = None,
+        from_date: Optional[datetime] = None,
+    ) -> Tuple[List[Order], int]:
+        """All platform orders for internal Farumasi pharmacists (read-only monitor).
+
+        Unlike ``list_pharmacy_orders``, this ignores pharmacy-staff affiliation so
+        the pharmacist portal shows every order awaiting partner confirmation.
+        """
+        if actor.role not in (UserRole.PHARMACIST, UserRole.SUPER_ADMIN):
+            raise AuthorizationError("Not allowed to list platform orders")
+        conds: list = []
+        if status:
+            conds.append(Order.order_status == status)
+        if from_date:
+            conds.append(Order.created_at >= from_date)
+        return await self._paginate(
+            *conds, offset=offset, limit=limit, pending_confirmation_first=True
+        )
 
     async def list_partner_orders(
         self,
@@ -343,7 +370,9 @@ class OrderService:
             conds.append(Order.order_status == status)
         if from_date:
             conds.append(Order.created_at >= from_date)
-        return await self._paginate(*conds, offset=offset, limit=limit)
+        return await self._paginate(
+            *conds, offset=offset, limit=limit, pending_confirmation_first=True
+        )
 
     async def list_all_orders(
         self,
@@ -1430,7 +1459,11 @@ class OrderService:
         return res.scalar_one_or_none()
 
     async def _paginate(
-        self, *conds, offset: int, limit: int
+        self,
+        *conds,
+        offset: int,
+        limit: int,
+        pending_confirmation_first: bool = False,
     ) -> Tuple[List[Order], int]:
         count_q = select(func.count(Order.id))
         if conds:
@@ -1440,7 +1473,18 @@ class OrderService:
         q = select(Order).options(*self._order_options())
         if conds:
             q = q.where(*conds)
-        q = q.order_by(Order.created_at.desc()).offset(offset).limit(limit)
+        if pending_confirmation_first:
+            awaiting = and_(
+                Order.order_status == OrderStatus.PENDING.value,
+                Order.pharmacy_confirmed_at.is_(None),
+            )
+            q = q.order_by(
+                case((awaiting, 0), else_=1),
+                Order.created_at.desc(),
+            )
+        else:
+            q = q.order_by(Order.created_at.desc())
+        q = q.offset(offset).limit(limit)
         res = await self.db.execute(q)
         return list(res.scalars().all()), int(total)
 
