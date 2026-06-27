@@ -25,6 +25,7 @@ import {
 } from "@/lib/services/orders.service";
 import { prescriptionsService, type PrescriptionReview } from "@/lib/services/prescriptions.service";
 import { OrderActivityTimeline } from "@/components/orders/order-activity-timeline";
+import { OrderProgressTracker } from "@/components/orders/order-progress-tracker";
 import type { OrderStatus } from "@/types";
 
 export default function OrderDetailPage() {
@@ -239,6 +240,8 @@ export default function OrderDetailPage() {
           </p>
         </div>
       </div>
+
+      <OrderProgressTracker order={order} fulfillerName={fulfiller} />
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
         <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-4">
