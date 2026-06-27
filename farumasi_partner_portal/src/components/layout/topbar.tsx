@@ -31,6 +31,7 @@ export function Topbar({ onToggle }: TopbarProps) {
   const notifications = useLayoutDataStore(s => s.recentNotifications);
   const availableBalance = useLayoutDataStore(s => s.availableBalance);
   const pendingBalance = useLayoutDataStore(s => s.pendingBalance);
+  const sellerName = useLayoutDataStore(s => s.sellerName);
 
   const handleSignout = () => {
     logout();
@@ -68,11 +69,24 @@ export function Topbar({ onToggle }: TopbarProps) {
         <Menu className="w-5 h-5" />
       </button>
 
-      <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0">
-        <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center overflow-hidden">
+      <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0 min-w-0 max-w-[min(42vw,320px)]">
+        <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0">
           <Image src="/logo.png" alt="FARUMASI" width={28} height={28} className="object-contain" />
         </div>
-        <span className="text-white font-bold text-lg tracking-wide hidden sm:block">FARUMASI</span>
+        <div className="hidden sm:flex items-center gap-1.5 min-w-0">
+          <span className="text-white font-bold text-lg tracking-wide shrink-0">FARUMASI</span>
+          {sellerName && (
+            <>
+              <span className="text-white/45 text-sm shrink-0">/</span>
+              <span
+                className="text-white/90 text-sm font-semibold truncate"
+                title={sellerName}
+              >
+                {sellerName}
+              </span>
+            </>
+          )}
+        </div>
       </Link>
 
       <form className="flex-1 max-w-xl mx-auto" onSubmit={handleSearchSubmit}>
@@ -212,6 +226,11 @@ export function Topbar({ onToggle }: TopbarProps) {
             <div className="absolute right-0 top-12 w-52 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden">
               <div className="px-4 py-3 border-b bg-farumasi-50">
                 <p className="text-xs font-semibold mt-1">{user?.full_name || "Partner User"}</p>
+                {sellerName && (
+                  <p className="text-[10px] font-medium text-farumasi-700 truncate mt-0.5" title={sellerName}>
+                    {sellerName}
+                  </p>
+                )}
                 <p className="text-[10px] text-slate-500">{user?.email || ""}</p>
               </div>
               {[

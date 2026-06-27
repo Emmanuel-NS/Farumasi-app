@@ -9,6 +9,7 @@ import { notificationsService, type BackendNotification } from "@/lib/services/n
 import { revenueService } from "@/lib/services/revenue.service";
 import { productRequestsService } from "@/lib/services/product-requests.service";
 import { sellerChangeRequestsService } from "@/lib/services/seller-change-requests.service";
+import { sellerService } from "@/lib/services/seller.service";
 
 interface LayoutDataState {
   unreadCount: number;
@@ -16,6 +17,7 @@ interface LayoutDataState {
   availableBalance: number;
   pendingBalance: number;
   pendingRequests: number;
+  sellerName: string | null;
   lastFetchedAt: number;
   fetch: () => Promise<void>;
   startPolling: (intervalMs?: number) => () => void;
@@ -30,6 +32,7 @@ export const useLayoutDataStore = create<LayoutDataState>()((set) => ({
   availableBalance: 0,
   pendingBalance: 0,
   pendingRequests: 0,
+  sellerName: null,
   lastFetchedAt: 0,
 
   fetch: async () => {
@@ -40,6 +43,7 @@ export const useLayoutDataStore = create<LayoutDataState>()((set) => ({
       productRequestsService.list({ offset: 0, limit: 50 }),
       sellerChangeRequestsService.listPending(),
       revenueService.listWithdrawals(),
+      sellerService.getProfileBrief(),
     ]);
 
     const unreadCount = results[0].status === "fulfilled" ? (results[0].value as number) : undefined;
@@ -48,6 +52,7 @@ export const useLayoutDataStore = create<LayoutDataState>()((set) => ({
     const requests = results[3].status === "fulfilled" ? results[3].value : undefined;
     const pendingChanges = results[4].status === "fulfilled" ? results[4].value : undefined;
     const withdrawals = results[5].status === "fulfilled" ? results[5].value : undefined;
+    const sellerProfile = results[6].status === "fulfilled" ? results[6].value : undefined;
 
     const openProducts =
       requests?.items?.filter((r) => OPEN_PRODUCT_STATUSES.has(r.status)).length ?? 0;
@@ -68,6 +73,7 @@ export const useLayoutDataStore = create<LayoutDataState>()((set) => ({
       availableBalance: summary ? summary.available_balance : prev.availableBalance,
       pendingBalance: summary ? summary.pending_balance : prev.pendingBalance,
       pendingRequests: totalPending ?? prev.pendingRequests,
+      sellerName: sellerProfile?.name ?? prev.sellerName,
       lastFetchedAt: Date.now(),
     }));
   },
