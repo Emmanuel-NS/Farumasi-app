@@ -560,6 +560,7 @@ export default function OrderDetailPage() {
                 dispatchBatchNumber: undefined as string | undefined,
                 dispatchExpiryDate: undefined as string | undefined,
                 dispatchManufacturer: undefined as string | undefined,
+                dispatchCountryOfOrigin: undefined as string | undefined,
                 dispatchDosage: undefined as string | undefined,
                 dispatchNotes: undefined as string | undefined,
               }))
@@ -605,7 +606,7 @@ export default function OrderDetailPage() {
                         View product <ChevronRight className="w-2.5 h-2.5" />
                       </span>
                     )}
-                    {(item.dispatchBatchNumber || item.dispatchDosage || item.dispatchNotes) && (
+                    {(item.dispatchBatchNumber || item.dispatchCountryOfOrigin || item.dispatchDosage || item.dispatchNotes) && (
                       <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 rounded-lg px-2 py-1.5 space-y-0.5">
                         {item.dispatchBatchNumber && (
                           <p><span className="font-semibold text-slate-600 dark:text-slate-300">Batch:</span> {item.dispatchBatchNumber}</p>
