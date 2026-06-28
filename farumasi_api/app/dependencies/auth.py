@@ -60,8 +60,10 @@ async def get_current_user(
         if iat_dt < user.session_invalidated_at:
             raise AuthenticationError("Session expired. Please sign in again.")
 
-    # Update last login
-    user.last_login_at = datetime.now(timezone.utc)
+    # Update last active timestamp (throttled to reduce write churn).
+    now = datetime.now(timezone.utc)
+    if user.last_login_at is None or (now - user.last_login_at).total_seconds() >= 300:
+        user.last_login_at = now
 
     return user
 

@@ -8,8 +8,10 @@ export interface BackendUser {
   phone?: string | null;
   role: string;
   status: string;
-  is_verified: boolean;
+  email_verified?: boolean;
+  is_verified?: boolean;
   created_at: string;
+  last_login_at?: string | null;
   last_login?: string | null;
 }
 
@@ -66,7 +68,7 @@ function adapt(u: BackendUser): User {
     phone: u.phone ?? "",
     role: (roleMap[u.role] ?? u.role) as User["role"],
     status: statusMap[u.status] ?? "Active",
-    lastActive: u.last_login ?? u.created_at,
+    lastActive: u.last_login_at ?? u.last_login ?? u.created_at,
     createdAt: u.created_at,
   };
 }

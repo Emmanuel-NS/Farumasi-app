@@ -157,11 +157,11 @@ export default function CartPage() {
   const [deliveryHood, setDeliveryHood]       = useState("");
   const [notes, setNotes]                     = useState("");
   const [deferDeliveryFee, setDeferDeliveryFee] = useState(false);
-  const [accessCode, setAccessCode]           = useState("");
   const [isPlacingOrder, setIsPlacingOrder]   = useState(false);
   const [paymentStepLabel, setPaymentStepLabel] = useState("");
   const PAYMENT_FEE_PCT = 3.8;
   const [confirmedOrderCode, setConfirmedOrderCode] = useState<string>("");
+  const [confirmedAccessCode, setConfirmedAccessCode] = useState<string>("");
   const [pharmacyList, setPharmacyList]       = useState<Pharmacy[]>([]);
   const [listingsMap, setListingsMap]         = useState<ListingsMap>(new Map());
   const [listingsLoading, setListingsLoading] = useState(false);
@@ -224,7 +224,12 @@ export default function CartPage() {
         if (cancelled) return;
         const code =
           sessionStorage.getItem(`pending_order_code_${orderId}`) ?? orderId;
+        const access =
+          sessionStorage.getItem(`pending_order_access_code_${orderId}`) ??
+          (await ordersService.getOrderById(orderId).catch(() => null))?.patientAccessCode ??
+          "";
         setConfirmedOrderCode(code);
+        setConfirmedAccessCode(access);
         if (!isLocked) clear();
         setStep("confirmed");
         window.history.replaceState({}, "", "/cart");
@@ -1488,7 +1493,6 @@ export default function CartPage() {
     const canContinue  =
       name.trim().length > 0 &&
       phone.trim().length > 0 &&
-      accessCode.trim().length >= 4 &&
       (!needsAddress || (!!district && !!deliveryHood && isKigaliDeliveryDistrict(district) && deliveryLocationReady));
 
     return (
@@ -1640,40 +1644,6 @@ export default function CartPage() {
           </div>
         )}
 
-        {/* Access code — patient chooses their own verification code */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-600 shadow-sm p-5 space-y-3 mb-5">
-          <div>
-            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">{t.cart_access_title}</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {fulfillment === "pickup"
-                ? t.cart_access_pickup
-                : t.cart_access_delivery}
-              {" "}{t.cart_access_min}
-            </p>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
-              {t.cart_access_label} <span className="text-red-400 dark:text-red-300">*</span>
-            </label>
-            <input
-              value={accessCode}
-              onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-              placeholder="Type your own code (e.g. LION2025)"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              className="w-full h-12 rounded-2xl border-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 px-4 text-base text-slate-900 dark:text-slate-100 font-bold tracking-widest outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-farumasi-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-farumasi-100 dark:focus:ring-emerald-900/30 transition-all"
-            />
-          </div>
-          <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-3 py-2.5">
-            <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-800 dark:text-amber-200 leading-relaxed">
-              This is not generated for you. Pick something you will remember and can tell the{" "}
-              {fulfillment === "pickup" ? "pharmacist" : "rider"}.
-            </p>
-          </div>
-        </div>
-
         {/* Order estimate */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
           <h3 className="text-sm font-bold text-slate-700 mb-3">{t.cart_summary}</h3>
@@ -1795,26 +1765,13 @@ export default function CartPage() {
           />
         </div>
 
-        {accessCode.trim().length >= 4 && (
-          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 mb-6">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <p className="text-xs font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide">Your verification code</p>
-              <button
-                type="button"
-                onClick={() => setStep("details")}
-                className="text-xs font-bold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100"
-              >
-                Change
-              </button>
-            </div>
-            <p className="text-xl font-extrabold text-amber-950 dark:text-amber-100 tracking-[0.2em]">{accessCode.trim()}</p>
-            <p className="text-xs text-amber-700 dark:text-amber-300/90 mt-1.5">
-              {fulfillment === "pickup"
-                ? "Show this at the pharmacy when you collect your order."
-                : "Give this to the rider to verify and complete delivery."}
-            </p>
-          </div>
-        )}
+        <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-3 py-2.5 mb-6">
+          <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-amber-800 dark:text-amber-200 leading-relaxed">
+            A verification code will be generated automatically when you place the order. Show it to the{" "}
+            {fulfillment === "pickup" ? "pharmacist at pickup" : "rider on delivery"}.
+          </p>
+        </div>
 
         {fulfillment === "delivery" && hasPositiveDeliveryFee && (
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
@@ -2042,12 +1999,16 @@ export default function CartPage() {
                   : undefined,
                 notes: notes || undefined,
                 items: orderItems,
-                patient_access_code: accessCode.trim() || undefined,
                 defer_delivery_fee: deferDeliveryFee,
               });
 
               const orderId = result.id;
               const orderCode = result.order_code ?? result.id ?? ORDER_NUM;
+              const generatedAccessCode = result.patient_access_code ?? "";
+              if (generatedAccessCode) {
+                sessionStorage.setItem(`pending_order_access_code_${orderId}`, generatedAccessCode);
+              }
+              setConfirmedAccessCode(generatedAccessCode);
 
               const redirectUrl = `${window.location.origin}/cart?payment_return=1&order_id=${orderId}`;
               setPaymentStepLabel(
@@ -2133,12 +2094,12 @@ export default function CartPage() {
         </div>
 
         {/* Access code reminder */}
-        {accessCode && (
+        {confirmedAccessCode && (
           <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center gap-3">
             <Lock className="w-5 h-5 text-amber-600 shrink-0" />
             <div>
               <p className="text-xs font-bold text-amber-700">{t.cart_your_access}</p>
-              <p className="text-base font-extrabold text-amber-900 tracking-widest font-mono">{accessCode}</p>
+              <p className="text-base font-extrabold text-amber-900 tracking-widest font-mono">{confirmedAccessCode}</p>
               <p className="text-xs text-amber-600 mt-0.5">{t.cart_access_pickup}</p>
             </div>
           </div>
@@ -2230,12 +2191,12 @@ export default function CartPage() {
       </div>
 
       {/* Access code reminder */}
-      {accessCode && (
+      {confirmedAccessCode && (
         <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center gap-3">
           <Lock className="w-5 h-5 text-amber-600 shrink-0" />
           <div>
             <p className="text-xs font-bold text-amber-700">{t.cart_your_access}</p>
-            <p className="text-base font-extrabold text-amber-900 tracking-widest font-mono">{accessCode}</p>
+            <p className="text-base font-extrabold text-amber-900 tracking-widest font-mono">{confirmedAccessCode}</p>
             <p className="text-xs text-amber-600 mt-0.5">{t.cart_give_rider}</p>
           </div>
         </div>

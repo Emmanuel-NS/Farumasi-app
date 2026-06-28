@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+import string
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Sequence, Tuple
@@ -88,6 +90,12 @@ def _generate_order_code() -> str:
     return f"FAR-{uuid.uuid4().hex[:8].upper()}"
 
 
+def _generate_patient_access_code() -> str:
+    """Auto-generated pickup/delivery verification code (shown to patient after checkout)."""
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(6))
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -170,7 +178,7 @@ class OrderService:
             platform_commission=commission,
             total_amount=total,
             net_partner_amount=net_partner,
-            patient_access_code=data.patient_access_code or None,
+            patient_access_code=_generate_patient_access_code(),
             notes=data.notes or None,
             defer_delivery_fee=bool(data.defer_delivery_fee),
             pharmacy_assigned_at=_now(),

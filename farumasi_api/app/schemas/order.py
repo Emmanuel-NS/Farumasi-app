@@ -74,7 +74,7 @@ class OrderCreate(FarumasiBaseModel):
     delivery_latitude: Optional[float] = None
     delivery_longitude: Optional[float] = None
     items: Optional[List[OrderItemCreate]] = None
-    # Secret word the patient sets at checkout; required to verify pickup/delivery
+    # Ignored if sent — patient_access_code is generated automatically at order creation.
     patient_access_code: Optional[str] = None
     notes: Optional[str] = None
     defer_delivery_fee: bool = False
