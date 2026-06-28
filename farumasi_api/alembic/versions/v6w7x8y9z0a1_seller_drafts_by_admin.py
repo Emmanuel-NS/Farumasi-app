@@ -15,7 +15,7 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "pharmacies",
-        sa.Column("drafted_by_user_id", sa.UUID(), nullable=True),
+        sa.Column("drafted_by_user_id", sa.String(), nullable=True),
     )
     op.create_foreign_key(
         "fk_pharmacies_drafted_by_user",
@@ -29,7 +29,7 @@ def upgrade() -> None:
 
     op.add_column(
         "partner_companies",
-        sa.Column("drafted_by_user_id", sa.UUID(), nullable=True),
+        sa.Column("drafted_by_user_id", sa.String(), nullable=True),
     )
     op.create_foreign_key(
         "fk_partner_companies_drafted_by_user",

@@ -14,20 +14,20 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.alter_column("pharmacies", "owner_user_id", existing_type=sa.UUID(), nullable=True)
-    op.alter_column("partner_companies", "owner_user_id", existing_type=sa.UUID(), nullable=True)
+    op.alter_column("pharmacies", "owner_user_id", existing_type=sa.String(), nullable=True)
+    op.alter_column("partner_companies", "owner_user_id", existing_type=sa.String(), nullable=True)
 
     op.create_table(
         "seller_applications",
-        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("id", sa.String(), nullable=False),
         sa.Column("application_code", sa.String(length=32), nullable=False),
         sa.Column("seller_type", sa.String(length=20), nullable=False),
         sa.Column("status", sa.String(length=30), nullable=False, server_default="submitted"),
-        sa.Column("source_pharmacy_id", sa.UUID(), nullable=True),
-        sa.Column("source_partner_id", sa.UUID(), nullable=True),
-        sa.Column("applicant_user_id", sa.UUID(), nullable=True),
-        sa.Column("approved_pharmacy_id", sa.UUID(), nullable=True),
-        sa.Column("approved_partner_id", sa.UUID(), nullable=True),
+        sa.Column("source_pharmacy_id", sa.String(), nullable=True),
+        sa.Column("source_partner_id", sa.String(), nullable=True),
+        sa.Column("applicant_user_id", sa.String(), nullable=True),
+        sa.Column("approved_pharmacy_id", sa.String(), nullable=True),
+        sa.Column("approved_partner_id", sa.String(), nullable=True),
         sa.Column("business_name", sa.String(length=255), nullable=False),
         sa.Column("owner_full_name", sa.String(length=255), nullable=False),
         sa.Column("owner_email", sa.String(length=255), nullable=False),
@@ -35,7 +35,7 @@ def upgrade() -> None:
         sa.Column("district", sa.String(length=100), nullable=True),
         sa.Column("payload", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
         sa.Column("review_notes", sa.Text(), nullable=True),
-        sa.Column("reviewed_by_user_id", sa.UUID(), nullable=True),
+        sa.Column("reviewed_by_user_id", sa.String(), nullable=True),
         sa.Column("submitted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
@@ -56,5 +56,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("seller_applications")
-    op.alter_column("partner_companies", "owner_user_id", existing_type=sa.UUID(), nullable=False)
-    op.alter_column("pharmacies", "owner_user_id", existing_type=sa.UUID(), nullable=False)
+    op.alter_column("partner_companies", "owner_user_id", existing_type=sa.String(), nullable=False)
+    op.alter_column("pharmacies", "owner_user_id", existing_type=sa.String(), nullable=False)

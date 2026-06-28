@@ -44,7 +44,7 @@ def upgrade() -> None:
     )
     op.add_column(
         "pharmacies",
-        sa.Column("drafted_by_pharmacist_id", sa.UUID(), nullable=True),
+        sa.Column("drafted_by_pharmacist_id", sa.String(), nullable=True),
     )
     op.create_foreign_key(
         "fk_pharmacies_drafted_by_pharmacist",
@@ -65,7 +65,7 @@ def upgrade() -> None:
     )
     op.add_column(
         "partner_companies",
-        sa.Column("drafted_by_pharmacist_id", sa.UUID(), nullable=True),
+        sa.Column("drafted_by_pharmacist_id", sa.String(), nullable=True),
     )
     op.create_foreign_key(
         "fk_partner_companies_drafted_by_pharmacist",
