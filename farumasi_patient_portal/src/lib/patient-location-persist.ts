@@ -30,6 +30,7 @@ export function readPersistedGps(): PersistedGps | null {
       return null;
     }
     if (Date.now() - data.updatedAt > MAX_AGE_MS) return null;
+    if (data.accuracy != null && data.accuracy > 2_500) return null;
     return data;
   } catch {
     return null;
@@ -52,6 +53,15 @@ export function writePersistedGps(
     localStorage.setItem(LS_KEY, JSON.stringify(payload));
   } catch {
     /* quota / private mode */
+  }
+}
+
+export function clearPersistedGps(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(LS_KEY);
+  } catch {
+    /* ignore */
   }
 }
 

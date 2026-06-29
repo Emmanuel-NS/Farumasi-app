@@ -191,6 +191,12 @@ html.dark .patient-main-pane .text-farumasi-700 { color: #6ee7b7 !important; }
 html.dark .patient-main-pane .text-farumasi-800 { color: #d1fae5 !important; }
 html.dark .patient-main-pane .bg-amber-50,
 html.dark .patient-main-pane .bg-amber-50\/40 { background-color: rgba(245, 158, 11, 0.1) !important; }
+html.dark .patient-main-pane .bg-sky-50 { background-color: rgba(14, 165, 233, 0.12) !important; }
+html.dark .patient-main-pane .text-sky-800,
+html.dark .patient-main-pane .text-sky-900 { color: #e0f2fe !important; }
+html.dark .patient-main-pane .text-amber-800,
+html.dark .patient-main-pane .text-amber-900 { color: #fef3c7 !important; }
+html.dark .patient-main-pane .border-sky-200 { border-color: rgba(14, 165, 233, 0.35) !important; }
 
 html.dark .patient-main-pane .hover\:bg-slate-100:hover { background-color: #334155 !important; }
 html.dark .patient-main-pane .hover\:bg-slate-50:hover { background-color: #334155 !important; }

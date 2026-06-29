@@ -36,15 +36,31 @@ import {
 } from "@/lib/checkout-progress";
 import { useAuthStore } from "@/store/auth-store";
 import { usePatientLocation } from "@/hooks/use-patient-location";
+import { usePatientLocationStore } from "@/store/patient-location-store";
 import {
   assessDeliveryLocation,
   isDesktopBrowser,
+  maxDeliveryAccuracyM,
   type DeliveryLocationBlockReason,
 } from "@/lib/delivery-location";
+import { clearPersistedGps } from "@/lib/patient-location-persist";
 import {
   permissionResultMessage,
   siteSettingsHint,
 } from "@/lib/permissions";
+
+/** Shared alert surfaces — readable in light and dark mode */
+const CART_ALERT_AMBER =
+  "bg-amber-50 border border-amber-200 dark:bg-amber-950/55 dark:border-amber-600/70";
+const CART_ALERT_AMBER_TITLE = "text-amber-900 dark:text-amber-50";
+const CART_ALERT_AMBER_BODY = "text-amber-800 dark:text-amber-100/95";
+const CART_ALERT_SKY =
+  "bg-sky-50 border border-sky-200 dark:bg-sky-950/50 dark:border-sky-600/65";
+const CART_ALERT_SKY_TITLE = "text-sky-900 dark:text-sky-50";
+const CART_ALERT_SKY_BODY = "text-sky-800 dark:text-sky-100/95";
+const CART_ALERT_INFO =
+  "bg-slate-50 border border-slate-200 dark:bg-slate-800/95 dark:border-slate-600";
+const CART_ALERT_INFO_BODY = "text-slate-600 dark:text-slate-200";
 import type { Pharmacy, Medicine } from "@/types";
 import {
   ShoppingCart,
@@ -166,7 +182,6 @@ export default function CartPage() {
   const [fulfillment, setFulfillment]         = useState<"delivery" | "pickup">("delivery");
   const [patientDistrict, setPatientDistrict] = useState("");
   const { coordsTuple: patientLocation, status: locationStatus, requestLocation, requestLocationForDelivery, accuracy: locationAccuracy, source: locationSource, permissionBlockReason } = usePatientLocation();
-  const locationApproximate = locationAccuracy != null && locationAccuracy > 500;
   const deliveryLocationAssessment = useMemo(
     () => assessDeliveryLocation(
       patientLocation?.[0] ?? null,
@@ -176,9 +191,37 @@ export default function CartPage() {
     ),
     [patientLocation, locationAccuracy, locationSource],
   );
+  const locationApproximate =
+    locationSource === "gps" &&
+    locationAccuracy != null &&
+    locationAccuracy > 500 &&
+    deliveryLocationAssessment.ok;
   const deliveryLocationBlocked = deliveryLocationAssessment.ok === false
     ? deliveryLocationAssessment.reason
     : null;
+
+  // Drop stale coarse fixes (e.g. 50 km desktop IP geolocation) so fees cannot use them.
+  useEffect(() => {
+    if (fulfillment !== "delivery") return;
+    if (deliveryLocationAssessment.ok) return;
+    if (locationSource !== "gps" || locationAccuracy == null) return;
+    if (locationAccuracy <= maxDeliveryAccuracyM()) return;
+    usePatientLocationStore.setState({
+      lat: null,
+      lon: null,
+      accuracy: null,
+      source: null,
+      updatedAt: null,
+      status: locationStatus === "denied" ? "denied" : "idle",
+    });
+    clearPersistedGps();
+  }, [
+    fulfillment,
+    deliveryLocationAssessment.ok,
+    locationSource,
+    locationAccuracy,
+    locationStatus,
+  ]);
   const deliveryBlockedByCoords =
     patientLocation != null &&
     !deliveryLocationAssessment.ok &&
@@ -200,7 +243,7 @@ export default function CartPage() {
       ? `${t.perm_denied_location} ${siteSettingsHint("location")}`
       : permissionBlockReason
         ? permissionResultMessage("location", {
-            state: locationStatus === "denied" ? "denied" : "default",
+            state: "default",
             blockReason: permissionBlockReason,
           }, {
             perm_prompt_blocked: t.perm_prompt_blocked,
@@ -1175,27 +1218,18 @@ export default function CartPage() {
 
       {/* Distance restriction warning — shown when selected pharmacy is >20 km away */}
       {deliveryTooFar && (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-3">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-xs font-medium text-amber-800">
+        <div className={cn("flex items-start gap-2 rounded-2xl px-4 py-3 mb-3", CART_ALERT_AMBER)}>
+          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <p className={cn("text-xs font-medium", CART_ALERT_AMBER_BODY)}>
             {t.cart_delivery_too_far}
           </p>
         </div>
       )}
 
-      {deliveryBlockedByCoords && deliveryLocationBlocked && (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-3">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-xs font-medium text-amber-800">
-            {locationBlockMessage(deliveryLocationBlocked)}
-          </p>
-        </div>
-      )}
-
-      {isDesktopBrowser() && fulfillment === "delivery" && !deliveryBlockedByCoords && (
-        <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 mb-3">
-          <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-          <p className="text-xs text-slate-600">{t.cart_location_desktop_hint}</p>
+      {isDesktopBrowser() && fulfillment === "delivery" && deliveryLocationAssessment.ok && (
+        <div className={cn("flex items-start gap-2 rounded-2xl px-4 py-2.5 mb-3", CART_ALERT_INFO)}>
+          <Info className="w-4 h-4 text-slate-500 dark:text-slate-300 shrink-0 mt-0.5" />
+          <p className={cn("text-xs", CART_ALERT_INFO_BODY)}>{t.cart_location_desktop_hint}</p>
         </div>
       )}
 
@@ -1216,11 +1250,11 @@ export default function CartPage() {
       )}
 
       {fulfillment === "delivery" && !deliveryLocationReady && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4">
-          <Navigation className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <div className={cn("flex items-start gap-2.5 rounded-2xl px-4 py-3 mb-4", CART_ALERT_AMBER)}>
+          <Navigation className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-amber-900">{t.cart_location_delivery_title}</p>
-            <p className="text-xs text-amber-800 mt-0.5">
+            <p className={cn("text-xs font-bold", CART_ALERT_AMBER_TITLE)}>{t.cart_location_delivery_title}</p>
+            <p className={cn("text-xs mt-0.5", CART_ALERT_AMBER_BODY)}>
               {deliveryLocationBlocked && deliveryLocationBlocked !== "no_gps"
                 ? locationBlockMessage(deliveryLocationBlocked)
                 : locationPermissionHelp
@@ -1234,9 +1268,9 @@ export default function CartPage() {
             {locationStatus !== "unsupported" && locationStatus !== "denied" && (
               <button
                 type="button"
-                onClick={requestLocation}
+                onClick={requestLocationForDelivery}
                 disabled={locationStatus === "pending"}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-white border border-amber-200 rounded-xl px-3 py-1.5 hover:bg-amber-100 disabled:opacity-60"
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-50 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-600 rounded-xl px-3 py-1.5 hover:bg-amber-100 dark:hover:bg-amber-950/60 disabled:opacity-60"
               >
                 <Navigation className="w-3.5 h-3.5" />
                 {locationStatus === "pending" ? "Detecting location…" : "Enable location"}
@@ -1246,22 +1280,20 @@ export default function CartPage() {
         </div>
       )}
 
-      {patientLocation && locationApproximate && deliveryLocationAssessment.ok && (
-        <div className="flex items-start gap-2.5 bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3 mb-4">
-          <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+      {locationApproximate && (
+        <div className={cn("flex items-start gap-2.5 rounded-2xl px-4 py-3 mb-4", CART_ALERT_SKY)}>
+          <Info className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-sky-900">Approximate location</p>
-            <p className="text-xs text-sky-800 mt-0.5">
+            <p className={cn("text-xs font-bold", CART_ALERT_SKY_TITLE)}>Approximate location</p>
+            <p className={cn("text-xs mt-0.5", CART_ALERT_SKY_BODY)}>
               GPS accuracy is about {Math.round(locationAccuracy! / 100) / 10} km.
-              {isDesktopBrowser()
-                ? ` ${t.cart_location_desktop_unreliable}`
-                : " For better distance estimates, refresh location or move outdoors."}
+              {" For better distance estimates, refresh location or move outdoors."}
             </p>
             <button
               type="button"
-              onClick={requestLocation}
+              onClick={requestLocationForDelivery}
               disabled={locationStatus === "pending"}
-              className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-sky-900 bg-white border border-sky-200 rounded-xl px-3 py-1.5 hover:bg-sky-100 disabled:opacity-60"
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-sky-900 dark:text-sky-50 bg-white dark:bg-slate-900 border border-sky-200 dark:border-sky-600 rounded-xl px-3 py-1.5 hover:bg-sky-100 dark:hover:bg-sky-950/60 disabled:opacity-60"
             >
               <Navigation className="w-3.5 h-3.5" />
               {locationStatus === "pending" ? "Refreshing…" : "Refresh location"}
@@ -1280,10 +1312,11 @@ export default function CartPage() {
       )}
 
       {/* How pharmacies are ranked */}
-      <div className="flex items-start gap-2.5 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 mb-5">
-        <Brain className="w-4 h-4 text-farumasi-600 shrink-0 mt-0.5" />
-        <p className="text-xs text-slate-600">
-          <span className="font-semibold">{t.cart_names_hidden}</span> {t.cart_names_hidden_sub}
+      <div className={cn("flex items-start gap-2.5 rounded-2xl px-4 py-3 mb-5", CART_ALERT_INFO)}>
+        <Brain className="w-4 h-4 text-farumasi-600 dark:text-farumasi-400 shrink-0 mt-0.5" />
+        <p className={cn("text-xs", CART_ALERT_INFO_BODY)}>
+          <span className="font-semibold text-slate-800 dark:text-slate-100">{t.cart_names_hidden}</span>{" "}
+          {t.cart_names_hidden_sub}
         </p>
       </div>
 
@@ -1419,7 +1452,7 @@ export default function CartPage() {
           const cardDeliveryFee =
             fulfillment === "pickup" ? 0
             : cardDeliveryBlocked ? 0
-            : !patientLocation ? null
+            : !deliveryLocationAssessment.ok ? null
             : cardRoadDistKm > 0 ? calcDeliveryFee(cardRoadDistKm)
             : 1500;
           const cardMedicineDue = opt.priceAfterInsurance;
@@ -1431,8 +1464,8 @@ export default function CartPage() {
               className={cn(
                 "w-full rounded-3xl border-2 transition-all overflow-hidden",
                 isSelected
-                  ? "border-farumasi-500 bg-farumasi-50 shadow-md"
-                  : "border-slate-100 bg-white hover:border-farumasi-200 hover:shadow-sm"
+                  ? "border-farumasi-500 bg-farumasi-50 shadow-md dark:bg-farumasi-950/35 dark:border-farumasi-600"
+                  : "border-slate-100 bg-white hover:border-farumasi-200 hover:shadow-sm dark:bg-slate-800/95 dark:border-slate-700 dark:hover:border-farumasi-700"
               )}
             >
             <button
@@ -1480,7 +1513,7 @@ export default function CartPage() {
                   })()}
                   <div>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-sm font-bold text-slate-900">
+                      <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                         {opt.pharmacy.name}
                       </span>
                       {isBest && (
@@ -1628,7 +1661,7 @@ export default function CartPage() {
                     <span className={cn("flex items-center gap-1 font-medium", cardDeliveryBlocked ? "text-amber-800" : "text-violet-800")}>
                       <Truck className="w-3.5 h-3.5" />
                       Delivery fee
-                      {cardRoadDistKm > 0 && ` (~${cardRoadDistKm.toFixed(1)} km)`}
+                      {deliveryLocationAssessment.ok && cardRoadDistKm > 0 && ` (~${cardRoadDistKm.toFixed(1)} km)`}
                     </span>
                     <span className={cn("font-bold", cardDeliveryBlocked ? "text-amber-800" : "text-violet-900")}>
                       {cardDeliveryBlocked

@@ -34,7 +34,8 @@ function shouldAcceptGpsFix(
 ): boolean {
   if (accuracy == null) return true;
   if (accuracy <= MAX_ACCEPTABLE_ACCURACY_M) return true;
-  if (prevAccuracy == null) return true;
+  // Never store a first fix worse than 2.5 km — desktop IP/Wi‑Fi often reports 5–50 km.
+  if (prevAccuracy == null) return false;
   return accuracy <= prevAccuracy;
 }
 
