@@ -234,6 +234,14 @@ class OrderOut(FarumasiBaseModel):
             return normalize_order_status(v)
         return v
 
+    @field_validator("partner_response_due_at", mode="after")
+    @classmethod
+    def hide_partner_deadline_until_paid(cls, v: Optional[datetime], info) -> Optional[datetime]:
+        payment_status = info.data.get("payment_status")
+        if payment_status != PaymentStatus.PAID:
+            return None
+        return v
+
 
 class OrderStatusUpdate(FarumasiBaseModel):
     order_status: OrderStatus

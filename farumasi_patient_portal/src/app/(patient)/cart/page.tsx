@@ -23,7 +23,6 @@ import { patientsService, type PatientAddress } from "@/lib/services/patients.se
 import { configService, type PublicPaymentConfig } from "@/lib/services/config.service";
 import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment-checkout";
 import {
-  ManualMoMoPaySection,
   ManualPaymentPanel,
   type ManualMomoConfig,
 } from "@/components/cart/manual-payment-panel";
@@ -37,6 +36,15 @@ import {
 } from "@/lib/checkout-progress";
 import { useAuthStore } from "@/store/auth-store";
 import { usePatientLocation } from "@/hooks/use-patient-location";
+import {
+  assessDeliveryLocation,
+  isDesktopBrowser,
+  type DeliveryLocationBlockReason,
+} from "@/lib/delivery-location";
+import {
+  permissionResultMessage,
+  siteSettingsHint,
+} from "@/lib/permissions";
 import type { Pharmacy, Medicine } from "@/types";
 import {
   ShoppingCart,
@@ -157,15 +165,57 @@ export default function CartPage() {
   const [selectedOption, setSelectedOption]   = useState<PharmacyOption | null>(null);
   const [fulfillment, setFulfillment]         = useState<"delivery" | "pickup">("delivery");
   const [patientDistrict, setPatientDistrict] = useState("");
-  const { coordsTuple: patientLocation, status: locationStatus, requestLocation, accuracy: locationAccuracy } = usePatientLocation();
+  const { coordsTuple: patientLocation, status: locationStatus, requestLocation, requestLocationForDelivery, accuracy: locationAccuracy, source: locationSource, permissionBlockReason } = usePatientLocation();
   const locationApproximate = locationAccuracy != null && locationAccuracy > 500;
+  const deliveryLocationAssessment = useMemo(
+    () => assessDeliveryLocation(
+      patientLocation?.[0] ?? null,
+      patientLocation?.[1] ?? null,
+      locationAccuracy,
+      locationSource,
+    ),
+    [patientLocation, locationAccuracy, locationSource],
+  );
+  const deliveryLocationBlocked = deliveryLocationAssessment.ok === false
+    ? deliveryLocationAssessment.reason
+    : null;
+  const deliveryBlockedByCoords =
+    patientLocation != null &&
+    !deliveryLocationAssessment.ok &&
+    deliveryLocationBlocked !== "no_gps";
+  const locationBlockMessage = (reason: DeliveryLocationBlockReason): string => {
+    switch (reason) {
+      case "outside_kigali":
+        return t.cart_location_outside_kigali;
+      case "desktop_unreliable":
+        return t.cart_location_desktop_unreliable;
+      case "low_accuracy":
+        return t.cart_location_low_accuracy;
+      default:
+        return t.cart_location_desktop_hint;
+    }
+  };
+  const locationPermissionHelp =
+    locationStatus === "denied"
+      ? `${t.perm_denied_location} ${siteSettingsHint("location")}`
+      : permissionBlockReason
+        ? permissionResultMessage("location", {
+            state: locationStatus === "denied" ? "denied" : "default",
+            blockReason: permissionBlockReason,
+          }, {
+            perm_prompt_blocked: t.perm_prompt_blocked,
+            perm_overlay_steps: t.perm_overlay_steps,
+            perm_denied_location: t.perm_denied_location,
+            perm_denied_notification: t.perm_denied_notification,
+          })
+        : null;
   const [apiDeliveryFee, setApiDeliveryFee] = useState<number | null>(null);
   const [deliveryUnavailable, setDeliveryUnavailable] = useState<string | null>(null);
   const [roadDistances, setRoadDistances] = useState<RoadDistanceMap>(new Map());
   const [roadDistancesLoading, setRoadDistancesLoading] = useState(false);
   const [name, setName]                       = useState("");
   const [phone, setPhone]                     = useState("");
-  const [paymentMethod, setPaymentMethod]     = useState<PaymentMethodId>("mtn_momo");
+  const [paymentMethod, setPaymentMethod]     = useState<PaymentMethodId>("manual_momo");
   const [district, setDistrict]               = useState("");
   const [deliveryHood, setDeliveryHood]       = useState("");
   const [notes, setNotes]                     = useState("");
@@ -213,9 +263,19 @@ export default function CartPage() {
     : null;
 
   useEffect(() => {
-    if (step !== "payment" || paymentConfig) return;
+    if (paymentConfig) return;
     configService.getPublicConfig().then((cfg) => setPaymentConfig(cfg.payments)).catch(() => {});
-  }, [step, paymentConfig]);
+  }, [paymentConfig]);
+
+  useEffect(() => {
+    if (!paymentConfig || progressRestoredRef.current) return;
+    const methods = paymentConfig.methods ?? [];
+    if (methods.includes("manual_momo") && paymentConfig.manual_momo?.enabled) {
+      setPaymentMethod((m) => (m === "mtn_momo" ? "manual_momo" : m));
+    } else if (!methods.includes("manual_momo") && methods.includes("mtn_momo")) {
+      setPaymentMethod("mtn_momo");
+    }
+  }, [paymentConfig]);
 
   // Pre-fill checkout details from the signed-in patient's profile (editable).
   useEffect(() => {
@@ -432,16 +492,7 @@ export default function CartPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, cartKey]);
 
-  // Force a fresh GPS read when checkout steps need proximity / delivery fee.
-  useEffect(() => {
-    const needsGps =
-      step === "pharmacy" ||
-      (fulfillment === "delivery" && (step === "details" || step === "payment"));
-    if (needsGps) {
-      requestLocation();
-    }
-  }, [step, fulfillment, requestLocation]);
-
+  // Do not auto-request GPS here — browsers block prompts without a user tap.
   // Real road distances (OSRM) from patient → each pharmacy with known coordinates.
   useEffect(() => {
     if (!patientLocation) {
@@ -486,18 +537,27 @@ export default function CartPage() {
     };
   }, [patientLocation, pharmacyList]);
 
-  // Auto-switch to pickup when the selected pharmacy is more than 20 km away (road).
+  // Auto-switch to pickup when delivery location is not trustworthy or too far.
   useEffect(() => {
-    const roadDist = patientLocation && selectedOption && selectedOption.roadDistanceKm > 0
-      ? selectedOption.roadDistanceKm
-      : patientLocation && selectedOption && selectedOption.distanceKm > 0
-      ? roadDistanceKm(selectedOption.distanceKm)
-      : 0;
-    if (roadDist > 20 && fulfillment === "delivery") {
+    if (fulfillment !== "delivery" || !patientLocation) return;
+
+    if (deliveryLocationBlocked === "outside_kigali") {
       setFulfillment("pickup");
+      toast.info(t.cart_location_outside_kigali);
+      return;
+    }
+
+    const roadDist = selectedOption && selectedOption.roadDistanceKm > 0
+      ? selectedOption.roadDistanceKm
+      : selectedOption && selectedOption.distanceKm > 0
+        ? roadDistanceKm(selectedOption.distanceKm)
+        : 0;
+    if (roadDist > 20) {
+      setFulfillment("pickup");
+      toast.info(t.cart_delivery_too_far);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedOption, patientLocation]);
+  }, [selectedOption, patientLocation, deliveryLocationBlocked]);
 
   // Authoritative delivery fee from API when GPS + pharmacy coordinates are known
   useEffect(() => {
@@ -696,13 +756,13 @@ export default function CartPage() {
   // Distance-based fee when GPS is available; fall back to subtotal threshold otherwise.
   const deliveryHoodOptions = hoodsForDistrict(district);
   const deliveryLocationReady =
-    fulfillment !== "delivery" || patientLocation !== null;
+    fulfillment !== "delivery" || deliveryLocationAssessment.ok;
   const deliveryFeeKnown =
-    fulfillment === "pickup" || patientLocation !== null;
+    fulfillment === "pickup" || deliveryLocationAssessment.ok;
   const deliveryFee =
     fulfillment === "pickup"
       ? 0
-      : !patientLocation
+      : !deliveryLocationAssessment.ok
         ? null
         : apiDeliveryFee != null
           ? apiDeliveryFee
@@ -1044,7 +1104,10 @@ export default function CartPage() {
         </div>
 
         <button
-          onClick={() => setStep("pharmacy")}
+          onClick={() => {
+            if (fulfillment === "delivery") requestLocationForDelivery();
+            setStep("pharmacy");
+          }}
           className="w-full mt-4 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-base transition-colors py-3.5 flex items-center justify-center gap-2"
         >
           <Brain className="w-4 h-4" />
@@ -1056,7 +1119,7 @@ export default function CartPage() {
     </div>
   );
 
-  // ── STEP 2: Pharmacy selection (names hidden) ─────────────────
+  // ── STEP 2: Pharmacy selection ─────────────────
   if (step === "pharmacy") return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
@@ -1079,11 +1142,19 @@ export default function CartPage() {
       <div className="grid grid-cols-2 gap-2 mb-2">
         {(["delivery", "pickup"] as const).map((mode) => {
           const isDelivery = mode === "delivery";
-          const disabled   = isDelivery && deliveryTooFar;
+          const disabled   = isDelivery && (deliveryTooFar || deliveryBlockedByCoords);
           return (
             <button
               key={mode}
-              onClick={() => !disabled && setFulfillment(mode)}
+              onClick={() => {
+                if (disabled) return;
+                if (mode === "delivery") {
+                  setFulfillment("delivery");
+                  requestLocationForDelivery();
+                } else {
+                  setFulfillment("pickup");
+                }
+              }}
               disabled={disabled}
               className={cn(
                 "flex items-center justify-center gap-1.5 py-2.5 rounded-2xl border-2 text-sm font-semibold transition-all",
@@ -1112,6 +1183,22 @@ export default function CartPage() {
         </div>
       )}
 
+      {deliveryBlockedByCoords && deliveryLocationBlocked && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs font-medium text-amber-800">
+            {locationBlockMessage(deliveryLocationBlocked)}
+          </p>
+        </div>
+      )}
+
+      {isDesktopBrowser() && fulfillment === "delivery" && !deliveryBlockedByCoords && (
+        <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 mb-3">
+          <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-slate-600">{t.cart_location_desktop_hint}</p>
+        </div>
+      )}
+
       {/* For pickup: district picker shown only when GPS not yet granted */}
       {fulfillment === "pickup" && !patientLocation && (
         <div className="flex items-center gap-2 mb-3">
@@ -1132,15 +1219,19 @@ export default function CartPage() {
         <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4">
           <Navigation className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-amber-900">Location access required</p>
+            <p className="text-xs font-bold text-amber-900">{t.cart_location_delivery_title}</p>
             <p className="text-xs text-amber-800 mt-0.5">
-              {locationStatus === "denied"
-                ? "Allow location in your browser settings, then tap Enable location."
+              {deliveryLocationBlocked && deliveryLocationBlocked !== "no_gps"
+                ? locationBlockMessage(deliveryLocationBlocked)
+                : locationPermissionHelp
+                ? locationPermissionHelp
                 : locationStatus === "unsupported"
                   ? "GPS is not available in this browser — choose pickup or use the mobile app."
-                  : "Enable location to calculate delivery fee. We never show delivery as free without GPS."}
+                  : locationStatus === "pending"
+                    ? t.cart_location_detecting
+                    : t.cart_location_delivery_prompt}
             </p>
-            {locationStatus !== "unsupported" && (
+            {locationStatus !== "unsupported" && locationStatus !== "denied" && (
               <button
                 type="button"
                 onClick={requestLocation}
@@ -1155,14 +1246,16 @@ export default function CartPage() {
         </div>
       )}
 
-      {patientLocation && locationApproximate && (
+      {patientLocation && locationApproximate && deliveryLocationAssessment.ok && (
         <div className="flex items-start gap-2.5 bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3 mb-4">
           <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-sky-900">Approximate location</p>
             <p className="text-xs text-sky-800 mt-0.5">
               GPS accuracy is about {Math.round(locationAccuracy! / 100) / 10} km.
-              For better distance estimates, use a phone with location on, or tap Refresh location.
+              {isDesktopBrowser()
+                ? ` ${t.cart_location_desktop_unreliable}`
+                : " For better distance estimates, refresh location or move outdoors."}
             </p>
             <button
               type="button"
@@ -1186,9 +1279,9 @@ export default function CartPage() {
         />
       )}
 
-      {/* Privacy notice */}
+      {/* How pharmacies are ranked */}
       <div className="flex items-start gap-2.5 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 mb-5">
-        <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+        <Brain className="w-4 h-4 text-farumasi-600 shrink-0 mt-0.5" />
         <p className="text-xs text-slate-600">
           <span className="font-semibold">{t.cart_names_hidden}</span> {t.cart_names_hidden_sub}
         </p>
@@ -1310,7 +1403,7 @@ export default function CartPage() {
       ) : (
       <div className="space-y-3 mb-6">
         {pharmacyOptions.map((opt) => {
-          const isSelected  = selectedOption?.codename === opt.codename;
+          const isSelected  = selectedOption?.pharmacy.id === opt.pharmacy.id;
           const isBest      = opt.rank === 1;
           const rank1       = pharmacyOptions[0];
           // Only award secondary badges when the card is STRICTLY better than #1 on that axis
@@ -1334,7 +1427,7 @@ export default function CartPage() {
 
           return (
             <div
-              key={opt.codename}
+              key={opt.pharmacy.id}
               className={cn(
                 "w-full rounded-3xl border-2 transition-all overflow-hidden",
                 isSelected
@@ -1380,7 +1473,7 @@ export default function CartPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={img} alt={opt.pharmacy.name} className="w-full h-full object-cover" />
                         ) : (
-                          opt.codename
+                          <span className="text-sm font-bold">{getInitials(opt.pharmacy.name)}</span>
                         )}
                       </div>
                     );
@@ -1388,7 +1481,7 @@ export default function CartPage() {
                   <div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-sm font-bold text-slate-900">
-                        {t.cart_pharmacy_label} {opt.codename}
+                        {opt.pharmacy.name}
                       </span>
                       {isBest && (
                         <span className="text-[10px] font-bold bg-farumasi-600 text-white px-2 py-0.5 rounded-full flex items-center gap-0.5">
@@ -1610,7 +1703,7 @@ export default function CartPage() {
             : "bg-slate-200 cursor-not-allowed text-slate-400"
         )}
       >
-        {selectedOption ? `${t.cart_continue_pharmacy} ${selectedOption.codename}` : t.cart_continue_pharmacy_empty}
+        {selectedOption ? `${t.cart_continue_pharmacy} ${selectedOption.pharmacy.name}` : t.cart_continue_pharmacy_empty}
         <ChevronRight className="w-4 h-4" />
       </button>
     </div>
@@ -1657,15 +1750,20 @@ export default function CartPage() {
           <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-5">
             <Navigation className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-bold text-amber-900">Enable location to continue</p>
-              <p className="text-xs text-amber-800 mt-0.5">Delivery requires GPS for accurate fees.</p>
-              <button
-                type="button"
-                onClick={requestLocation}
-                className="mt-2 text-xs font-bold text-amber-900 underline"
-              >
-                Enable location
-              </button>
+              <p className="text-xs font-bold text-amber-900">{t.cart_location_delivery_title}</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                {locationPermissionHelp ?? t.cart_location_delivery_prompt}
+              </p>
+              {locationStatus !== "denied" && (
+                <button
+                  type="button"
+                  onClick={requestLocation}
+                  disabled={locationStatus === "pending"}
+                  className="mt-2 text-xs font-bold text-amber-900 underline disabled:opacity-60"
+                >
+                  {locationStatus === "pending" ? "Detecting location…" : "Enable location"}
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -1900,8 +1998,6 @@ export default function CartPage() {
                 amount={pendingManualOrder.amount}
                 config={manualMomoConfig}
                 formatPrice={formatPrice}
-                phone={phone}
-                onPhoneChange={setPhone}
                 draft={manualDraft}
                 onDraftChange={setManualDraft}
                 onSubmitted={() => {
@@ -1929,29 +2025,18 @@ export default function CartPage() {
                 formatPrice={formatPrice}
                 momoNumberLabel={t.cart_momo_number}
                 enabledMethods={enabledPaymentMethods}
+                manualConfig={manualMomoConfig}
+                manualDraft={manualDraft}
+                onManualDraftChange={setManualDraft}
               />
-              {paymentMethod === "manual_momo" && manualMomoConfig && (
-                <div className="mt-5">
-                  <ManualMoMoPaySection
-                    amount={totalWithFee}
-                    config={manualMomoConfig}
-                    formatPrice={formatPrice}
-                    phone={phone}
-                    onPhoneChange={setPhone}
-                    draft={manualDraft}
-                    onDraftChange={setManualDraft}
-                  />
-                </div>
-              )}
             </>
           )}
         </div>
 
-        <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-3 py-2.5 mb-6">
-          <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-amber-800 dark:text-amber-200 leading-relaxed">
-            A verification code will be generated automatically when you place the order. Show it to the{" "}
-            {fulfillment === "pickup" ? "pharmacist at pickup" : "rider on delivery"}.
+        <div className="flex items-start gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 px-3 py-2.5 mb-6">
+          <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            A pickup/delivery code is generated when you place the order.
           </p>
         </div>
 
@@ -2102,10 +2187,12 @@ export default function CartPage() {
               </span>
             </div>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
-            <Eye className="w-3.5 h-3.5" />
-            <span>Pharmacy name revealed after payment</span>
-          </div>
+          {selectedOption && (
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-500">
+              <Building2 className="w-3.5 h-3.5" />
+              <span>{selectedOption.pharmacy.name} · {selectedOption.pharmacy.district}</span>
+            </div>
+          )}
         </div>
 
         {!showPendingManualResume && (
@@ -2123,10 +2210,12 @@ export default function CartPage() {
             }
             if (
               fulfillment === "delivery" &&
-              (!district || !deliveryHood || !isKigaliDeliveryDistrict(district) || !patientLocation)
+              (!district || !deliveryHood || !isKigaliDeliveryDistrict(district) || !deliveryLocationAssessment.ok)
             ) {
               toast.error(
-                patientLocation
+                deliveryLocationBlocked && deliveryLocationBlocked !== "no_gps"
+                  ? locationBlockMessage(deliveryLocationBlocked)
+                  : patientLocation
                   ? "Choose a Kigali district and neighbourhood for delivery."
                   : "Enable location access to calculate delivery and place your order.",
               );
@@ -2203,7 +2292,6 @@ export default function CartPage() {
                   await paymentsService.submitManual(orderId, {
                     proof_urls: manualDraft.proofUrls,
                     patient_note: manualDraft.note.trim() || undefined,
-                    claimed_reference: manualDraft.claimedRef.trim() || undefined,
                     phone: phone.trim() || undefined,
                   });
                   setConfirmedOrderCode(orderCode);
@@ -2273,7 +2361,7 @@ export default function CartPage() {
           {isPlacingOrder
             ? paymentStepLabel || t.cart_processing
             : paymentMethod === "manual_momo"
-              ? `${t.cart_place_order} · submit proof · ${formatPrice(totalWithFee)}`
+              ? `Place order · ${formatPrice(totalWithFee)}`
               : `${t.cart_place_order} · ${formatPrice(totalWithFee)}`}
         </button>
         )}

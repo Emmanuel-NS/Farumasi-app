@@ -8,15 +8,27 @@ import { DollarSign, TrendingUp, ArrowDownToLine, Receipt, ChevronRight, Banknot
 import { revenueService, type RevenueSummary } from "@/lib/services/revenue.service";
 import { withdrawalsService } from "@/lib/services/withdrawals.service";
 import { manualPaymentsService } from "@/lib/services/manual-payments.service";
+import { analyticsService, type PaymentAnalyticsSummary } from "@/lib/services/analytics.service";
+import { SafeChartContainer } from "@/components/charts/SafeChartContainer";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
+
+const METHOD_COLORS: Record<string, string> = {
+  manual_momo: "#7c3aed",
+  mtn_momo: "#f59e0b",
+  card: "#2563eb",
+  none: "#94a3b8",
+};
 
 export default function FinanceOverviewPage() {
   const [summary, setSummary] = useState<RevenueSummary | null>(null);
+  const [payments, setPayments] = useState<PaymentAnalyticsSummary | null>(null);
   const [pendingWithdrawals, setPendingWithdrawals] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
   const [pendingManualPayments, setPendingManualPayments] = useState(0);
 
   useEffect(() => {
     revenueService.getSummary().then(setSummary).catch(() => {});
+    analyticsService.getPaymentSummary().then(setPayments).catch(() => {});
     withdrawalsService
       .getWithdrawals()
       .then((list) => {
@@ -27,6 +39,13 @@ export default function FinanceOverviewPage() {
       .catch(() => {});
     manualPaymentsService.pendingCount().then(setPendingManualPayments).catch(() => {});
   }, []);
+
+  const paymentChart = (payments?.by_method ?? []).map((m) => ({
+    name: m.label,
+    amount: Math.round(m.amount / 1000),
+    method: m.method,
+    count: m.count,
+  }));
 
   const links = [
     {
@@ -68,12 +87,48 @@ export default function FinanceOverviewPage() {
           sublabel={summary ? `${summary.available_settlement_count ?? 0} settled ledger entries` : undefined}
         />
         <StatCard
-          label="Pending manual payments"
-          value={pendingManualPayments}
+          label="Payments collected"
+          value={formatRWF(payments?.total_collected ?? 0)}
           icon={Banknote}
           color="text-violet-700"
+          sublabel={payments ? `${payments.successful_count} successful` : undefined}
         />
       </div>
+
+      {paymentChart.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Payments by method</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SafeChartContainer height={220}>
+              <BarChart data={paymentChart} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                  formatter={(value, _name, item) => [
+                    `${Number(value ?? 0)}K RWF · ${(item as { payload?: { count?: number } }).payload?.count ?? 0} txns`,
+                    "Collected",
+                  ]}
+                />
+                <Bar dataKey="amount" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                  {paymentChart.map((entry) => (
+                    <Cell key={entry.method} fill={METHOD_COLORS[entry.method] ?? "#1e9e68"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </SafeChartContainer>
+            {(payments?.awaiting_review_count ?? 0) > 0 && (
+              <p className="text-xs text-violet-700 mt-3">
+                {payments?.awaiting_review_count} manual payment(s) (
+                {formatRWF(payments?.awaiting_review_amount ?? 0)}) awaiting review — not in chart until approved.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {links.map(({ href, title, desc, icon: Icon }) => (

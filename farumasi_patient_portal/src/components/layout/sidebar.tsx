@@ -12,6 +12,7 @@ import {
   History,
   FileText,
   Settings as SettingsIcon,
+  HelpCircle,
   LogOut,
   LogIn,
   Lock,
@@ -119,12 +120,41 @@ export function Sidebar({
             )}
           </Link>
         ) : (
-          <SidebarAction
-            icon={LogOut}
-            label="Logout"
-            collapsed={collapsed}
-            onClick={handleLogout}
-          />
+          <>
+            <Link
+              href="/help"
+              onClick={() => onNavigate?.()}
+              className={cn(
+                "flex items-center rounded-xl transition-all duration-180 border border-transparent hover:bg-white/10",
+                collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
+                isActive("/help") ? "bg-[#47D196]/20 border border-[#47D196]/40" : "",
+              )}
+              title={collapsed ? t.nav_help : undefined}
+            >
+              <div
+                className={cn(
+                  "w-[34px] h-[34px] shrink-0 rounded-[9px] flex items-center justify-center",
+                  isActive("/help") ? "bg-[#47D196]" : "bg-[#47D196]/20",
+                )}
+              >
+                <HelpCircle
+                  className={cn(
+                    "w-[18px] h-[18px]",
+                    isActive("/help") ? "text-[#0A2B1E]" : "text-white",
+                  )}
+                />
+              </div>
+              {!collapsed && (
+                <span className="text-[13px] font-medium text-[#D2E8DE]">{t.nav_help}</span>
+              )}
+            </Link>
+            <SidebarAction
+              icon={LogOut}
+              label="Logout"
+              collapsed={collapsed}
+              onClick={handleLogout}
+            />
+          </>
         )}
 
         {!collapsed && (

@@ -6,7 +6,7 @@ import {
   X, CheckCircle2, XCircle, MapPin, Shield, Pill,
   Star, CreditCard, Building2, ListOrdered, Truck,
 } from "lucide-react";
-import { cn, formatPrice } from "@/lib/utils";
+import { cn, formatPrice, getInitials } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { sellerImageSrc } from "@/lib/services/pharmacies.service";
 import type { Pharmacy } from "@/types";
@@ -233,7 +233,7 @@ export function PharmacyMatchDetails({
   const priceRank =
     [...allOptions]
       .sort((a, b) => a.priceEstimate - b.priceEstimate)
-      .findIndex((o) => o.codename === option.codename) + 1;
+      .findIndex((o) => o.pharmacy.id === option.pharmacy.id) + 1;
 
   return createPortal(
     <div
@@ -261,7 +261,7 @@ export function PharmacyMatchDetails({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={img} alt="" className="w-full h-full object-cover" />
               ) : (
-                option.codename
+                <span className="text-sm font-bold">{getInitials(option.pharmacy.name)}</span>
               )}
             </div>
             <div className="min-w-0">
@@ -269,7 +269,7 @@ export function PharmacyMatchDetails({
                 id="pharmacy-match-details-title"
                 className="text-base font-bold text-slate-900 truncate"
               >
-                {t.cart_pharmacy_label} {option.codename}
+                {option.pharmacy.name}
                 {option.rank === 1 && (
                   <span className="ml-2 text-[10px] font-bold bg-farumasi-600 text-white px-2 py-0.5 rounded-full align-middle">
                     {t.cart_best_match}

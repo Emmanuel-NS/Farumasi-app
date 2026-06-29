@@ -366,7 +366,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     );
     setState(() => _pharmacyOptions = options);
     if (_selectedPharmacy != null) {
-      final match = options.where((o) => o.codename == _selectedPharmacy!.codename);
+      final match = options.where((o) => o.pharmacy.id == _selectedPharmacy!.pharmacy.id);
       if (match.isNotEmpty) _selectedPharmacy = match.first;
     }
   }
@@ -1153,7 +1153,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
     ScoredPharmacyOption opt,
     List<ScoredPharmacyOption> allOptions,
   ) {
-    final selected = _selectedPharmacy?.codename == opt.codename;
+    final selected = _selectedPharmacy?.pharmacy.id == opt.pharmacy.id;
     final isBest = opt.rank == 1;
     final cardRoadKm = opt.roadDistanceKm > 0 ? opt.roadDistanceKm : 0.0;
     final cardDeliveryBlocked = _fulfillment == 'delivery' && !opt.deliveryAvailable;
@@ -1218,13 +1218,19 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                         CircleAvatar(
                           backgroundColor:
                               isBest ? const Color(0xFF1E9E68) : const Color(0xFFF1F5F9),
-                          child: Text(
-                            opt.codename,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isBest ? Colors.white : const Color(0xFF64748B),
-                            ),
-                          ),
+                          backgroundImage: opt.pharmacy.imageUrl.isNotEmpty
+                              ? NetworkImage(opt.pharmacy.imageUrl)
+                              : null,
+                          child: opt.pharmacy.imageUrl.isEmpty
+                              ? Text(
+                                  _pharmacyInitials(opt.pharmacy.name),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: isBest ? Colors.white : const Color(0xFF64748B),
+                                  ),
+                                )
+                              : null,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1237,7 +1243,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Text(
-                                    'Pharmacy ${opt.codename}',
+                                    opt.pharmacy.name,
                                     style: const TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                   if (isBest)
@@ -1741,7 +1747,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Pharmacy names are revealed after payment.',
+            'Ranked by stock, distance, price, and insurance.',
             style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 12),
@@ -1754,8 +1760,8 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
             style: _primaryBtn,
             child: Text(
               _selectedPharmacy != null
-                  ? 'Continue with Pharmacy ${_selectedPharmacy!.codename}'
-                  : 'Continue with Pharmacy …',
+                  ? 'Continue with ${_selectedPharmacy!.pharmacy.name}'
+                  : 'Continue with pharmacy …',
             ),
           ),
         ],
@@ -2070,7 +2076,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'You chose pickup — no delivery fee. The pharmacy address is revealed after payment.',
+                    'You chose pickup — no delivery fee. Collect from the pharmacy shown above.',
                     style: TextStyle(fontSize: 12, color: Color(0xFF1D4ED8)),
                   ),
                 ),
@@ -2300,7 +2306,7 @@ class _CheckoutWizardScreenState extends ConsumerState<CheckoutWizardScreen> {
         if (_selectedPharmacy != null) ...[
           const SizedBox(height: 12),
           Text(
-            'Pharmacy ${_selectedPharmacy!.codename} · name revealed after payment',
+            '${_selectedPharmacy!.pharmacy.name} · ${_selectedPharmacy!.pharmacy.district}',
             style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
         ],
@@ -2732,5 +2738,16 @@ class _WizardStep {
   const _WizardStep(this.label, this.icon);
   final String label;
   final IconData icon;
+}
+
+String _pharmacyInitials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) {
+    return parts.first.length >= 2
+        ? parts.first.substring(0, 2).toUpperCase()
+        : parts.first.toUpperCase();
+  }
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
 }
 

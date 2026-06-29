@@ -284,6 +284,14 @@ export function Topbar({
                     <Settings className="w-4 h-4 text-farumasi-600" />
                     Settings
                   </Link>
+                  <Link
+                    href="/help"
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                    onClick={() => setShowProfile(false)}
+                  >
+                    <HelpCircle className="w-4 h-4 text-farumasi-600" />
+                    {t.nav_help}
+                  </Link>
                   <div className="border-t border-slate-100 dark:border-slate-700 mt-1 pt-1">
                     <button
                       onClick={handleLogout}

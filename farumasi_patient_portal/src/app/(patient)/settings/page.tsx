@@ -28,11 +28,14 @@ import { getApiError } from "@/lib/api-error";
 import { patientsService, type PatientAddress } from "@/lib/services/patients.service";
 import {
   notificationPermissionState,
+  permissionResultMessage,
   queryGeolocationPermission,
   requestLocationPermission,
   requestNotificationPermission,
+  siteSettingsHint,
   type PermissionState,
 } from "@/lib/permissions";
+import { usePatientLocationStore } from "@/store/patient-location-store";
 
 type Section = "notifications" | "permissions" | "addresses" | "security" | "data" | "preferences" | "about";
 
@@ -126,13 +129,15 @@ export default function SettingsPage() {
   const setChannel = async (key: keyof NotificationPreferences["channels"], v: boolean) => {
     if (key === "push" && v && typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission === "default") {
-        const result = await Notification.requestPermission();
-        if (result !== "granted") {
-          toast.message("Enable browser notifications to get pharmacist messages and order updates.");
+        const result = await requestNotificationPermission();
+        if (result.state !== "granted") {
+          toast.message(permissionResultMessage("notification", result));
           return;
         }
       } else if (Notification.permission === "denied") {
-        toast.message("Notifications are blocked in your browser settings.");
+        toast.message(
+          `${permissionResultMessage("notification", { state: "denied", blockReason: "denied" })} ${siteSettingsHint("notification")}`,
+        );
         return;
       }
     }
@@ -231,7 +236,7 @@ export default function SettingsPage() {
           onToggle={() => toggle("permissions")}
           icon={Smartphone}
           title={t.settings_app_permissions}
-          subtitle="Notifications and location for this browser or installed app"
+          subtitle="Notifications for this browser or installed app — location is asked at delivery checkout"
         >
           <div className="pt-4 space-y-3">
             <ActionRow
@@ -251,9 +256,9 @@ export default function SettingsPage() {
               }
               onClick={async () => {
                 const result = await requestNotificationPermission();
-                setNotifPerm(result);
-                if (result === "granted") toast.success("Notifications enabled");
-                else if (result === "denied") toast.message("Unblock notifications in your browser or Windows app settings.");
+                setNotifPerm(result.state);
+                if (result.state === "granted") toast.success("Notifications enabled");
+                else toast.message(permissionResultMessage("notification", result) || siteSettingsHint("notification"));
               }}
               disabled={notifPerm === "granted" || notifPerm === "unsupported"}
             />
@@ -262,10 +267,10 @@ export default function SettingsPage() {
               label="Location"
               description={
                 geoPerm === "granted"
-                  ? "Allowed — delivery fees use your real distance"
+                  ? "Allowed — used for delivery fees and saved to your default address"
                   : geoPerm === "denied"
                     ? "Blocked — allow in browser site settings or Windows Location"
-                    : "Needed at checkout for delivery fee — tap to allow"
+                    : "Requested when you choose delivery at checkout — tap Delivery to allow"
               }
               rightSlot={
                 geoPerm === "granted" ? (
@@ -274,9 +279,14 @@ export default function SettingsPage() {
               }
               onClick={async () => {
                 const result = await requestLocationPermission();
-                setGeoPerm(result);
-                if (result === "granted") toast.success("Location enabled");
-                else if (result === "denied") toast.message("Allow location in your browser or Windows privacy settings.");
+                setGeoPerm(result.state);
+                if (result.state === "granted") {
+                  usePatientLocationStore.getState().startLiveWatch();
+                  await usePatientLocationStore.getState().refresh({ userInitiated: true });
+                  toast.success("Location enabled");
+                } else {
+                  toast.message(permissionResultMessage("location", result) || siteSettingsHint("location"));
+                }
               }}
               disabled={geoPerm === "granted" || geoPerm === "unsupported"}
             />

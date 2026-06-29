@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.dependencies.roles import require_any_admin
 from app.models.user import User
-from app.schemas.analytics import AdminSummaryOut
+from app.schemas.analytics import AdminSummaryOut, PaymentAnalyticsOut
 from app.schemas.admin_management import (
     OrderAdminSummary,
     PatientCatalogInsights,
@@ -19,6 +19,16 @@ router = APIRouter()
 @router.get("/admin", response_model=AdminSummaryOut, dependencies=[Depends(require_any_admin())])
 async def admin_summary(db: AsyncSession = Depends(get_db)):
     return await AnalyticsService(db).admin_summary()
+
+
+@router.get(
+    "/payments/summary",
+    response_model=PaymentAnalyticsOut,
+    dependencies=[Depends(require_any_admin())],
+)
+async def payments_summary(db: AsyncSession = Depends(get_db)):
+    """Collected payments by method — MTN MoMo, card, manual MoMo, etc."""
+    return await AnalyticsService(db).payment_summary()
 
 
 @router.get(

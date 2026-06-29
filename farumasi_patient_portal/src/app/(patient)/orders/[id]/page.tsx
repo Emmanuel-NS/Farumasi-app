@@ -16,8 +16,9 @@ import { useTranslation } from "@/lib/translations";
 import { useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
 import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment-checkout";
-import { ManualPaymentPanel, type ManualMomoConfig } from "@/components/cart/manual-payment-panel";
+import type { ManualMomoConfig } from "@/components/cart/manual-payment-panel";
 import { configService, type PublicPaymentConfig } from "@/lib/services/config.service";
+import { EMPTY_MANUAL_DRAFT } from "@/lib/checkout-progress";
 import { PharmacySwitchTeaser } from "@/components/orders/pharmacy-reassignment-panel";
 import {
   ArrowLeft, MapPin, Phone, MessageCircle, Package, Store,
@@ -65,8 +66,10 @@ export default function OrderDetailPage() {
   const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [retryingPayment, setRetryingPayment] = useState(false);
+  const [submittingManual, setSubmittingManual] = useState(false);
   const [retryPhone, setRetryPhone] = useState("");
-  const [retryPaymentMethod, setRetryPaymentMethod] = useState<PaymentMethodId>("mtn_momo");
+  const [retryPaymentMethod, setRetryPaymentMethod] = useState<PaymentMethodId>("manual_momo");
+  const [manualDraft, setManualDraft] = useState(EMPTY_MANUAL_DRAFT);
   const [paymentConfig, setPaymentConfig] = useState<PublicPaymentConfig | null>(null);
   const PAYMENT_FEE_PCT = 3.8;
   const [reassignOptions, setReassignOptions] = useState<Awaited<ReturnType<typeof ordersService.getReassignmentOptions>> | null>(null);
@@ -94,6 +97,14 @@ export default function OrderDetailPage() {
     return methods.filter((m): m is PaymentMethodId =>
       m === "mtn_momo" || m === "card" || m === "manual_momo",
     );
+  }, [paymentConfig]);
+
+  useEffect(() => {
+    if (!paymentConfig) return;
+    const methods = paymentConfig.methods ?? [];
+    if (methods.includes("manual_momo") && paymentConfig.manual_momo?.enabled) {
+      setRetryPaymentMethod((m) => (m === "mtn_momo" ? "manual_momo" : m));
+    }
   }, [paymentConfig]);
 
   const manualMomoConfig: ManualMomoConfig | null = paymentConfig?.manual_momo?.enabled
@@ -204,6 +215,26 @@ export default function OrderDetailPage() {
     order.status !== "cancelled" &&
     (order.paymentStatus === "failed" || order.paymentStatus === "pending");
 
+  const handleSubmitManualProof = async () => {
+    if (!order) return;
+    if (!manualDraft.proofUrls.length) {
+      toast.error("Upload your payment screenshot first.");
+      return;
+    }
+    setSubmittingManual(true);
+    try {
+      await paymentsService.submitManual(order.id, {
+        proof_urls: manualDraft.proofUrls,
+      });
+      toast.success("Proof submitted — we'll confirm shortly.");
+      await loadOrder();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not submit proof.");
+    } finally {
+      setSubmittingManual(false);
+    }
+  };
+
   const handleRetryPayment = async () => {
     if (!order) return;
     const phoneReady =
@@ -302,7 +333,10 @@ export default function OrderDetailPage() {
     : null;
   const routeProgress = delivery ? deliveryProgress(delivery) : 0.2;
   const switchableCount = (reassignOptions?.options ?? []).filter((o) => o.can_switch !== false).length;
-  const reassignDueAt = reassignOptions?.partner_response_due_at ?? order.partnerResponseDueAt;
+  const reassignDueAt =
+    order.paymentStatus === "paid"
+      ? (reassignOptions?.partner_response_due_at ?? order.partnerResponseDueAt)
+      : null;
   const reassignDueMs = reassignDueAt
     ? Math.max(0, (parseApiDateTime(reassignDueAt)?.getTime() ?? 0) - Date.now())
     : null;
@@ -755,20 +789,19 @@ export default function OrderDetailPage() {
             totalWithFee={retryTotalWithFee}
             formatPrice={formatPrice}
             enabledMethods={enabledRetryMethods}
+            manualConfig={manualMomoConfig}
+            manualDraft={manualDraft}
+            onManualDraftChange={setManualDraft}
           />
-          {retryIsManual && manualMomoConfig ? (
-            <div className="mt-5">
-              <ManualPaymentPanel
-                orderId={order.id}
-                orderCode={order.orderCode ?? order.id}
-                amount={retryTotalWithFee}
-                config={manualMomoConfig}
-                formatPrice={formatPrice}
-                phone={retryPhone}
-                onPhoneChange={setRetryPhone}
-                onSubmitted={() => void loadOrder()}
-              />
-            </div>
+          {retryIsManual ? (
+            <button
+              onClick={() => void handleSubmitManualProof()}
+              disabled={submittingManual || !manualDraft.proofUrls.length}
+              className="w-full mt-5 flex items-center justify-center gap-2 h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors disabled:opacity-60"
+            >
+              <Banknote className="w-4 h-4" />
+              {submittingManual ? "Submitting…" : "Submit proof"}
+            </button>
           ) : (
             <button
               onClick={handleRetryPayment}

@@ -33,26 +33,58 @@ class ContentPageService:
         self.db = db
 
     async def ensure_defaults(self) -> None:
-        result = await self.db.execute(select(ContentPage.id).limit(1))
-        if result.scalar_one_or_none():
-            return
         now = datetime.now(timezone.utc)
+        existing = {
+            row.slug: row
+            for row in (await self.db.execute(select(ContentPage))).scalars().all()
+        }
+        changed = False
         for row in DEFAULT_CONTENT_PAGES:
-            self.db.add(
-                ContentPage(
-                    slug=row["slug"],
-                    page_type=row["page_type"],
-                    audience=row["audience"],
-                    title=row["title"],
-                    summary=row.get("summary"),
-                    body=row.get("body"),
-                    status=ContentPageStatus.PUBLISHED,
-                    version=1,
-                    contact_meta=row.get("contact_meta") or {},
-                    published_at=now,
+            slug = row["slug"]
+            page = existing.get(slug)
+            if page is None:
+                self.db.add(
+                    ContentPage(
+                        slug=slug,
+                        page_type=row["page_type"],
+                        audience=row["audience"],
+                        title=row["title"],
+                        summary=row.get("summary"),
+                        body=row.get("body"),
+                        status=ContentPageStatus.PUBLISHED,
+                        version=1,
+                        contact_meta=row.get("contact_meta") or {},
+                        published_at=now,
+                    )
                 )
-            )
-        await self.db.flush()
+                changed = True
+                continue
+
+            default_body = (row.get("body") or "").strip()
+            if default_body and not (page.body or "").strip():
+                page.body = default_body
+                changed = True
+            if not (page.title or "").strip() and row.get("title"):
+                page.title = row["title"]
+                changed = True
+            if not (page.summary or "").strip() and row.get("summary"):
+                page.summary = row.get("summary")
+                changed = True
+            default_meta = row.get("contact_meta") or {}
+            if default_meta and slug == "support":
+                meta = dict(page.contact_meta or {})
+                for key, value in default_meta.items():
+                    if key == "faq":
+                        if not meta.get("faq"):
+                            meta["faq"] = value
+                    elif not meta.get(key) and value:
+                        meta[key] = value
+                if meta != (page.contact_meta or {}):
+                    page.contact_meta = meta
+                    changed = True
+
+        if changed:
+            await self.db.flush()
 
     async def list_pages(
         self,

@@ -1869,6 +1869,13 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                               ),
                                             ),
                                           );
+                                        } else if (value == 'help') {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => const HelpScreen(),
+                                            ),
+                                          );
                                         } else if (value == 'logout') {
                                           final container = ProviderScope.containerOf(context);
                                           container.read(authProvider.notifier).logout();
@@ -1945,6 +1952,20 @@ class _MedicineStoreScreenState extends State<MedicineStoreScreen>
                                           ),
                                         ),
                                         const PopupMenuDivider(),
+                                        const PopupMenuItem(
+                                          value: 'help',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.help_outline,
+                                                color: Color(0xFF1E9E68),
+                                                size: 20,
+                                              ),
+                                              SizedBox(width: 12),
+                                              Text('Help & Support'),
+                                            ],
+                                          ),
+                                        ),
                                         const PopupMenuItem(
                                           value: 'logout',
                                           child: Row(

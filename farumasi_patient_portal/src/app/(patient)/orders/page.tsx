@@ -248,9 +248,10 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
   const t = useTranslation();
   const awaitingPharmacy =
     order.paymentStatus === "paid" && order.status === "pending_review";
-  const dueMs = order.partnerResponseDueAt
-    ? parseApiDateTime(order.partnerResponseDueAt)?.getTime() ?? null
-    : null;
+  const dueMs =
+    order.paymentStatus === "paid" && order.partnerResponseDueAt
+      ? parseApiDateTime(order.partnerResponseDueAt)?.getTime() ?? null
+      : null;
   const waitMs = dueMs != null ? Math.max(0, dueMs - Date.now()) : null;
   const waitLabel =
     waitMs != null

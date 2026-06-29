@@ -32,6 +32,17 @@ String _ordinal(int n) {
   }
 }
 
+String _sellerInitials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) {
+    return parts.first.length >= 2
+        ? parts.first.substring(0, 2).toUpperCase()
+        : parts.first.toUpperCase();
+  }
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+}
+
 List<MatchCriterion> buildMatchCriteria(
   ScoredPharmacyOption opt,
   List<ScoredPharmacyOption> allOptions, {
@@ -196,10 +207,11 @@ Future<void> showPharmacyMatchDetails(
                         : null,
                     child: option.pharmacy.imageUrl.isEmpty
                         ? Text(
-                            option.codename,
+                            _sellerInitials(option.pharmacy.name),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
+                              fontSize: 12,
                             ),
                           )
                         : null,
@@ -210,7 +222,7 @@ Future<void> showPharmacyMatchDetails(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Pharmacy ${option.codename}${option.rank == 1 ? ' · Best Match' : ''}',
+                          '${option.pharmacy.name}${option.rank == 1 ? ' · Best Match' : ''}',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,

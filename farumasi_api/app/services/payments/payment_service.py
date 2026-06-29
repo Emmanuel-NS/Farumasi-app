@@ -780,6 +780,7 @@ class PaymentService:
         order.payment_method = "manual_momo"
         order.payment_phone = msisdn
         order.payment_status = PaymentStatus.AWAITING_REVIEW
+        order.partner_response_due_at = None
         await self.db.flush()
 
         notif = NotificationService(self.db)
@@ -922,6 +923,7 @@ class PaymentService:
         txn.reviewed_at = now
         txn.reviewed_by_user_id = admin.id
         order.payment_status = PaymentStatus.UNPAID
+        order.partner_response_due_at = None
         await self.db.flush()
 
         patient_user_id = (

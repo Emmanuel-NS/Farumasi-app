@@ -255,6 +255,17 @@ export type T = {
   cart_rx_category: string;
   cart_calculating: string;
   cart_delivery_too_far: string;
+  cart_location_desktop_unreliable: string;
+  cart_location_outside_kigali: string;
+  cart_location_low_accuracy: string;
+  cart_location_desktop_hint: string;
+  cart_location_delivery_title: string;
+  cart_location_delivery_prompt: string;
+  cart_location_detecting: string;
+  perm_prompt_blocked: string;
+  perm_overlay_steps: string;
+  perm_denied_location: string;
+  perm_denied_notification: string;
   cart_items_count: string;
   // Orders list
   orders_title: string;
@@ -582,8 +593,8 @@ const translations: Record<LangCode, T> = {
     cart_ai_phase3_district: "District-based estimate",
     cart_ai_phase4: "Ranking by compatibility score",
     cart_ai_phase4_sub: "Availability · price · speed · proximity",
-    cart_names_hidden: "Pharmacy names are hidden",
-    cart_names_hidden_sub: "until you complete payment — ensuring fair pricing and stock availability across our network.",
+    cart_names_hidden: "Best pharmacy matches",
+    cart_names_hidden_sub: "shown by real name — ranked by stock, distance, price, and insurance acceptance.",
     cart_no_match: "No matching pharmacies found",
     cart_no_match_sub: "None of our partner pharmacies currently have all your cart items in stock.",
     cart_no_match_tip_title: "What you can do:",
@@ -603,12 +614,12 @@ const translations: Record<LangCode, T> = {
     cart_not_available: "Not available",
     cart_close_details: "Close",
     cart_delivery_unavailable: "Delivery unavailable (>20 km)",
-    cart_continue_pharmacy: "Continue with Pharmacy",
+    cart_continue_pharmacy: "Continue with",
     cart_continue_pharmacy_empty: "Continue with Pharmacy …",
     cart_pickup_details: "Pickup Details",
     cart_delivery_details: "Delivery Details",
     cart_details_subtitle: "How would you like to receive your order?",
-    cart_pickup_banner: "Pickup selected — no delivery fee. The pharmacy address will be revealed after payment.",
+    cart_pickup_banner: "Pickup selected — no delivery fee. You'll collect from the pharmacy shown above.",
     cart_contact_details: "Contact Details",
     cart_delivery_address: "Delivery Address",
     cart_select_district: "Select district…",
@@ -649,6 +660,26 @@ const translations: Record<LangCode, T> = {
     cart_rx_category: "Prescription",
     cart_calculating: "Calculating delivery times…",
     cart_delivery_too_far: "Delivery not available beyond 20 km outside Kigali. Switched to pickup.",
+    cart_location_desktop_unreliable:
+      "Your computer's location is often inaccurate (Wi‑Fi/IP based). For delivery, use the Farumasi mobile app or choose pickup.",
+    cart_location_outside_kigali:
+      "Your location appears outside Kigali. Delivery is only available within the city — switched to pickup.",
+    cart_location_low_accuracy:
+      "GPS accuracy is too low for delivery. Move outdoors, refresh location, or choose pickup.",
+    cart_location_desktop_hint:
+      "On desktop, delivery needs a precise phone-style GPS fix. Pickup always works, or continue on your phone.",
+    cart_location_delivery_title: "Location for delivery fee",
+    cart_location_delivery_prompt:
+      "Allow location when prompted — we use it to calculate your delivery fee and guide the rider. Your position is saved for this order.",
+    cart_location_detecting: "Getting your location for delivery fee…",
+    perm_prompt_blocked:
+      "Your browser couldn't show the permission prompt. Close any chat bubbles, floating overlays, or picture-in-picture from other apps, then tap Enable again.",
+    perm_overlay_steps:
+      "Close Messenger/WhatsApp bubbles, stop screen recording, then try again from a direct tap — not while another popup is open.",
+    perm_denied_location:
+      "Location is blocked for this site. Allow it in your browser or device settings, then return here.",
+    perm_denied_notification:
+      "Notifications are blocked for this site. Allow them in your browser or device settings.",
     cart_items_count: "{n} item(s) in cart",
     orders_title: "My Orders",
     orders_active: "Active Orders",
@@ -963,8 +994,8 @@ const translations: Record<LangCode, T> = {
     cart_ai_phase3_district: "Gushingira ku karere",
     cart_ai_phase4: "Gutondekanya ukubona neza",
     cart_ai_phase4_sub: "Ububiko · igiciro · vitesi · intera",
-    cart_names_hidden: "Amazina ya farumasi yihishe",
-    cart_names_hidden_sub: "kugeza kwishyura — kugira ngo igiciro n'ububiko bibe aderere.",
+    cart_names_hidden: "Farumasi nziza",
+    cart_names_hidden_sub: "zerekana izina nyaryo — zitoranywa ku bubiko, intera, igiciro n'ubwishingizi.",
     cart_no_match: "Nta farumasi ihura",
     cart_no_match_sub: "Nta farumasi ifite ibicuruzwa byose mu guriro byawe.",
     cart_no_match_tip_title: "Ushobora gukora:",
@@ -984,12 +1015,12 @@ const translations: Record<LangCode, T> = {
     cart_not_available: "Ntiboneka",
     cart_close_details: "Funga",
     cart_delivery_unavailable: "Gutanga ntibishoboka (>20 km)",
-    cart_continue_pharmacy: "Komeza na Farumasi",
+    cart_continue_pharmacy: "Komeza na",
     cart_continue_pharmacy_empty: "Komeza na Farumasi …",
     cart_pickup_details: "Amakuru yo Kwikura",
     cart_delivery_details: "Amakuru yo Gutanga",
     cart_details_subtitle: "Ushaka kwakira itegeko ryawe gute?",
-    cart_pickup_banner: "Wahisemo kwikura — nta fee yo gutanga. Aderesi izagaragara nyuma yo kwishyura.",
+    cart_pickup_banner: "Wahisemo kwikura — nta fee yo gutanga. Uzajya kwikurira kuri farumasi yerekanywe haruguru.",
     cart_contact_details: "Amakuru yo Kuvugana",
     cart_delivery_address: "Aderesi yo Gutanga",
     cart_select_district: "Hitamo akarere…",
@@ -1030,6 +1061,26 @@ const translations: Record<LangCode, T> = {
     cart_rx_category: "Itegeko",
     cart_calculating: "Gubara igihe cyo gutanga…",
     cart_delivery_too_far: "Gutanga ntibishoboka hejuru ya 20 km hanze ya Kigali. Twahindutse kwikura.",
+    cart_location_desktop_unreliable:
+      "Aho uherereye kuri mudasobwa akenshi ntibikora neza (Wi‑Fi/IP). Kugira ngo tugutangire, koresha porogaramu ya Farumasi cyangwa hitamo kwikura.",
+    cart_location_outside_kigali:
+      "Aho uherereye birasa n'aho hari hanze ya Kigali. Gutanga biboneka gusa mu mujyi — twahindutse kwikura.",
+    cart_location_low_accuracy:
+      "GPS idafite uburemere bwo kugera. Jya hanze, ongera ugerageze, cyangwa hitamo kwikura.",
+    cart_location_desktop_hint:
+      "Kuri mudasobwa, gutanga bisaba GPS nyayo nka terefone. Kwikura birakora, cyangwa komeza kuri terefone yawe.",
+    cart_location_delivery_title: "Aho uherereye kugira ngo tubare igiciro cyo gutanga",
+    cart_location_delivery_prompt:
+      "Emerera aho uherereye iyo bisabwa — dukoresha intera yo kubara igiciro cyo gutanga no kuyobora umujyanama. Aho uherereye bibikwa kuri iyi commande.",
+    cart_location_detecting: "Turimo kubona aho uherereye kugira ngo tubare igiciro cyo gutanga…",
+    perm_prompt_blocked:
+      "Mucukumbuzi ntibyerekana uburenganzira. Funga amabara y'ibiganiro cyangwa overlays z'indi porogaramu, hanyuma ukande Enable.",
+    perm_overlay_steps:
+      "Funga Messenger/WhatsApp bubbles, reka gufata screen, hanyuma ukande Enable — ntukoreshe ikindi popup.",
+    perm_denied_location:
+      "Aho uherereye birabujijwe kuri iyi site. Emerera mu mucukumbuzi cyangwa amategeko y'igikoresho.",
+    perm_denied_notification:
+      "Amakuru birabujijwe kuri iyi site. Emerera mu mucukumbuzi cyangwa amategeko y'igikoresho.",
     cart_items_count: "Ibintu {n} mu guriro",
     orders_title: "Ibyatumijwe Byanjye",
     orders_active: "Ibitararangira Gutumizwa",
@@ -1344,8 +1395,8 @@ const translations: Record<LangCode, T> = {
     cart_ai_phase3_district: "Estimation par district",
     cart_ai_phase4: "Classement par score",
     cart_ai_phase4_sub: "Stock · prix · rapidité · proximité",
-    cart_names_hidden: "Noms des pharmacies masqués",
-    cart_names_hidden_sub: "jusqu'au paiement — pour garantir des prix et stocks équitables.",
+    cart_names_hidden: "Meilleures pharmacies",
+    cart_names_hidden_sub: "affichées avec leur nom — classées par stock, distance, prix et assurance.",
     cart_no_match: "Aucune pharmacie correspondante",
     cart_no_match_sub: "Aucune pharmacie n'a tous vos articles en stock.",
     cart_no_match_tip_title: "Que faire :",
@@ -1365,7 +1416,7 @@ const translations: Record<LangCode, T> = {
     cart_not_available: "Indisponible",
     cart_close_details: "Fermer",
     cart_delivery_unavailable: "Livraison indisponible (>20 km)",
-    cart_continue_pharmacy: "Continuer avec la pharmacie",
+    cart_continue_pharmacy: "Continuer avec",
     cart_continue_pharmacy_empty: "Continuer avec la pharmacie …",
     cart_pickup_details: "Détails de retrait",
     cart_delivery_details: "Détails de livraison",
@@ -1411,6 +1462,26 @@ const translations: Record<LangCode, T> = {
     cart_rx_category: "Ordonnance",
     cart_calculating: "Calcul des délais de livraison…",
     cart_delivery_too_far: "Livraison indisponible au-delà de 20 km hors Kigali. Retrait activé.",
+    cart_location_desktop_unreliable:
+      "La position sur ordinateur est souvent imprécise (Wi‑Fi/IP). Pour la livraison, utilisez l'app mobile Farumasi ou choisissez le retrait.",
+    cart_location_outside_kigali:
+      "Votre position semble hors de Kigali. La livraison est limitée à la ville — retrait activé.",
+    cart_location_low_accuracy:
+      "Précision GPS insuffisante pour la livraison. Sortez, actualisez la position ou choisissez le retrait.",
+    cart_location_desktop_hint:
+      "Sur ordinateur, la livraison exige un GPS précis. Le retrait fonctionne toujours, ou continuez sur votre téléphone.",
+    cart_location_delivery_title: "Position pour les frais de livraison",
+    cart_location_delivery_prompt:
+      "Autorisez la position quand demandé — pour calculer les frais de livraison et guider le livreur. Elle est enregistrée pour cette commande.",
+    cart_location_detecting: "Localisation en cours pour le calcul des frais…",
+    perm_prompt_blocked:
+      "Le navigateur n'a pas pu afficher la demande d'autorisation. Fermez les bulles de chat ou les superpositions d'autres apps, puis réessayez.",
+    perm_overlay_steps:
+      "Fermez les bulles Messenger/WhatsApp, arrêtez l'enregistrement d'écran, puis réessayez en appuyant directement sur le bouton.",
+    perm_denied_location:
+      "La localisation est bloquée pour ce site. Autorisez-la dans les paramètres du navigateur ou de l'appareil.",
+    perm_denied_notification:
+      "Les notifications sont bloquées pour ce site. Autorisez-les dans les paramètres du navigateur ou de l'appareil.",
     cart_items_count: "{n} article(s) dans le panier",
     orders_title: "Mes Commandes",
     orders_active: "Commandes Actives",
@@ -1725,8 +1796,8 @@ const translations: Record<LangCode, T> = {
     cart_ai_phase3_district: "Makadirio kwa wilaya",
     cart_ai_phase4: "Inapanga kwa alama",
     cart_ai_phase4_sub: "Hisa · bei · kasi · umbali",
-    cart_names_hidden: "Majina ya maduka yamefichwa",
-    cart_names_hidden_sub: "hadi malipo — bei na hisa za haki.",
+    cart_names_hidden: "Maduka bora",
+    cart_names_hidden_sub: "yanaonyeshwa kwa jina halisi — yamepangwa kwa hisa, umbali, bei na bima.",
     cart_no_match: "Hakuna duka linalolingana",
     cart_no_match_sub: "Hakuna duka lenye bidhaa zote za kikapu.",
     cart_no_match_tip_title: "Unaweza:",
@@ -1746,7 +1817,7 @@ const translations: Record<LangCode, T> = {
     cart_not_available: "Haipatikani",
     cart_close_details: "Funga",
     cart_delivery_unavailable: "Uwasilishaji haupatikani (>20 km)",
-    cart_continue_pharmacy: "Endelea na Duka",
+    cart_continue_pharmacy: "Endelea na",
     cart_continue_pharmacy_empty: "Endelea na Duka …",
     cart_pickup_details: "Maelezo ya Kuchukua",
     cart_delivery_details: "Maelezo ya Uwasilishaji",
@@ -1792,6 +1863,26 @@ const translations: Record<LangCode, T> = {
     cart_rx_category: "Dawa ya kuandikwa",
     cart_calculating: "Inahesabu muda wa uwasilishaji…",
     cart_delivery_too_far: "Uwasilishaji haupatikani zaidi ya 20 km nje ya Kigali. Kuchukua kumechaguliwa.",
+    cart_location_desktop_unreliable:
+      "Mahali kwenye kompyuta mara nyingi si sahihi (Wi‑Fi/IP). Kwa uwasilishaji, tumia app ya Farumasi au chagua kuchukua.",
+    cart_location_outside_kigali:
+      "Mahali pako linaonekana nje ya Kigali. Uwasilishaji unapatikana ndani ya jiji tu — tumeweka kuchukua.",
+    cart_location_low_accuracy:
+      "Usahihi wa GPS hautoshi kwa uwasilishaji. Toka nje, onyesha upya mahali, au chagua kuchukua.",
+    cart_location_desktop_hint:
+      "Kwenye kompyuta, uwasilishaji unahitaji GPS sahihi kama simu. Kuchukua kuna faida, au endelea kwenye simu yako.",
+    cart_location_delivery_title: "Mahali kwa ada ya uwasilishaji",
+    cart_location_delivery_prompt:
+      "Ruhusu mahali inapoulizwa — tunapiga hesabu ya ada na kuongoza dereva. Mahali pako huhifadhiwa kwa agizo hili.",
+    cart_location_detecting: "Inatafuta mahali kwa ada ya uwasilishaji…",
+    perm_prompt_blocked:
+      "Kivinjari hakikuweza kuonyesha ombi la ruhusa. Funga viputo vya mazungumzo au overlays za programu nyingine, kisha jaribu tena.",
+    perm_overlay_steps:
+      "Funga viputo vya Messenger/WhatsApp, acha kurekodi skrini, kisha jaribu tena kwa kubofya moja kwa moja.",
+    perm_denied_location:
+      "Mahali pako imezuiwa kwa tovuti hii. Ruhusu katika mipangilio ya kivinjari au kifaa chako.",
+    perm_denied_notification:
+      "Arifa zimezuiwa kwa tovuti hii. Ruhusu katika mipangilio ya kivinjari au kifaa chako.",
     cart_items_count: "Bidhaa {n} kwenye kikapu",
     orders_title: "Maagizo Yangu",
     orders_active: "Maagizo Yanayoendelea",

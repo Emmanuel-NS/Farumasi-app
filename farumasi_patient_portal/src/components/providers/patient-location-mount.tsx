@@ -1,26 +1,41 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePatientLocationStore } from "@/store/patient-location-store";
+import {
+  hydratePatientLocationFromStorage,
+  usePatientLocationStore,
+} from "@/store/patient-location-store";
 import { patientsService } from "@/lib/services/patients.service";
 import { useAuthStore } from "@/store/auth-store";
+import { queryGeolocationPermission } from "@/lib/permissions";
 
 /**
- * Keeps patient GPS fresh for the whole portal session:
- * - watchPosition with maximumAge: 0 (live updates while the tab is open)
- * - fresh read when the tab becomes visible again
- * - saved default address coordinates when GPS is unavailable
+ * Restores saved GPS when available; live updates only after permission was granted
+ * at delivery checkout (never prompts on app load).
  */
 export function PatientLocationMount() {
   const isGuest = useAuthStore((s) => s.isGuest);
 
   useEffect(() => {
-    const stopWatch = usePatientLocationStore.getState().startLiveWatch();
+    hydratePatientLocationFromStorage();
+
+    let stopWatch = () => {};
+
+    void (async () => {
+      const perm = await queryGeolocationPermission();
+      if (perm === "granted") {
+        stopWatch = usePatientLocationStore.getState().startLiveWatch();
+      }
+    })();
 
     const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void usePatientLocationStore.getState().refresh();
-      }
+      if (document.visibilityState !== "visible") return;
+      void (async () => {
+        const perm = await queryGeolocationPermission();
+        if (perm === "granted") {
+          await usePatientLocationStore.getState().refresh();
+        }
+      })();
     };
     document.addEventListener("visibilitychange", onVisibility);
 

@@ -5,8 +5,19 @@ import api from "@/lib/api";
 import { formatRWF } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent, PageHeader, StatCard } from "@/components/ui";
 import { TrendingUp, DollarSign, Loader2 } from "lucide-react";
-import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import {
+  ComposedChart,
+  BarChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Cell,
+} from "recharts";
 import { SafeChartContainer } from "@/components/charts/SafeChartContainer";
+import { analyticsService, type PaymentAnalyticsSummary } from "@/lib/services/analytics.service";
 
 interface RevenueSummary {
   total_gross: number;
@@ -26,17 +37,25 @@ interface RevenueRecord {
   created_at: string;
 }
 
+const METHOD_COLORS: Record<string, string> = {
+  manual_momo: "#7c3aed",
+  mtn_momo: "#f59e0b",
+  card: "#2563eb",
+};
+
 export default function FinancialAnalyticsPage() {
   const [summary, setSummary] = useState<RevenueSummary | null>(null);
   const [records, setRecords] = useState<RevenueRecord[]>([]);
+  const [payments, setPayments] = useState<PaymentAnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       api.get<RevenueSummary>("/revenue/summary"),
       api.get<RevenueRecord[]>("/revenue/"),
+      analyticsService.getPaymentSummary(),
     ])
-      .then(([s, r]) => { setSummary(s.data); setRecords(r.data); })
+      .then(([s, r, p]) => { setSummary(s.data); setRecords(r.data); setPayments(p); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -54,6 +73,12 @@ export default function FinancialAnalyticsPage() {
     });
     return Object.values(grouped).slice(-12);
   })();
+
+  const paymentChart = (payments?.by_method ?? []).map((m) => ({
+    name: m.label,
+    amount: Math.round(m.amount / 1000),
+    method: m.method,
+  }));
 
   const breakdownItems = summary ? [
     { label: "Total Gross Revenue", value: summary.total_gross, color: "bg-emerald-500" },
@@ -75,9 +100,30 @@ export default function FinancialAnalyticsPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard label="Total Revenue" value={formatRWF(summary?.total_gross ?? 0)} icon={DollarSign} color="text-farumasi-700" />
             <StatCard label="Commission Earned" value={formatRWF(summary?.total_commission ?? 0)} icon={DollarSign} color="text-blue-700" />
+            <StatCard label="Payments Collected" value={formatRWF(payments?.total_collected ?? 0)} icon={TrendingUp} color="text-violet-700" />
             <StatCard label="Available Balance" value={formatRWF(summary?.available_balance ?? 0)} icon={DollarSign} color="text-emerald-700" />
-            <StatCard label="Total Withdrawn" value={formatRWF(summary?.withdrawn_total ?? 0)} icon={TrendingUp} color="text-amber-700" />
           </div>
+
+          {paymentChart.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle>Patient payments by method</CardTitle></CardHeader>
+              <CardContent>
+                <SafeChartContainer height={200}>
+                  <BarChart data={paymentChart} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                    <Bar dataKey="amount" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                      {paymentChart.map((entry) => (
+                        <Cell key={entry.method} fill={METHOD_COLORS[entry.method] ?? "#1e9e68"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </SafeChartContainer>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <Card>

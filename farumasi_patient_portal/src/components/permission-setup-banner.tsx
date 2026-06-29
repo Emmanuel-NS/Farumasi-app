@@ -2,29 +2,29 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Bell, MapPin, X } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import {
   dismissPermissionBanner,
   notificationPermissionState,
-  queryGeolocationPermission,
-  requestLocationPermission,
+  permissionHelpFallback,
+  permissionResultMessage,
   requestNotificationPermission,
+  siteSettingsHint,
   wasPermissionBannerDismissed,
   type PermissionState,
 } from "@/lib/permissions";
 
 /**
- * One-time banner after sign-in so notifications/location are not left on "denied by default".
- * Browsers block auto-prompts without a user gesture — this gives a clear Enable action.
+ * Notifications only — location is requested at delivery checkout when fees are calculated.
  */
 export function PermissionSetupBanner() {
   const isGuest = useAuthStore((s) => s.isGuest);
   const isHydrating = useAuthStore((s) => s.isHydrating);
   const [visible, setVisible] = useState(false);
   const [notif, setNotif] = useState<PermissionState>("default");
-  const [geo, setGeo] = useState<PermissionState>("default");
-  const [busy, setBusy] = useState<"notif" | "geo" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [helpText, setHelpText] = useState<string | null>(null);
 
   useEffect(() => {
     if (isHydrating || isGuest) {
@@ -34,32 +34,21 @@ export function PermissionSetupBanner() {
     if (wasPermissionBannerDismissed()) return;
 
     const n = notificationPermissionState();
-    const check = async () => {
-      const g = await queryGeolocationPermission();
-      setNotif(n);
-      setGeo(g);
-      if (n !== "granted" || g === "denied" || g === "default") {
-        setVisible(true);
-      }
-    };
-    void check();
+    setNotif(n);
+    if (n !== "granted" && n !== "unsupported") {
+      setVisible(true);
+    }
   }, [isGuest, isHydrating]);
 
   useEffect(() => {
     if (!visible) return;
-    const needsNotif = notif !== "granted" && notif !== "unsupported";
-    const needsGeo = geo !== "granted" && geo !== "unsupported";
-    if (!needsNotif && !needsGeo) {
+    if (notif === "granted" || notif === "unsupported") {
       setVisible(false);
     }
-  }, [visible, notif, geo]);
+  }, [visible, notif]);
 
   if (!visible) return null;
-
-  const needsNotif = notif !== "granted" && notif !== "unsupported";
-  const needsGeo = geo !== "granted" && geo !== "unsupported";
-
-  if (!needsNotif && !needsGeo) return null;
+  if (notif === "granted" || notif === "unsupported") return null;
 
   const close = () => {
     dismissPermissionBanner();
@@ -67,19 +56,16 @@ export function PermissionSetupBanner() {
   };
 
   const enableNotifications = async () => {
-    setBusy("notif");
+    setBusy(true);
+    setHelpText(null);
     const result = await requestNotificationPermission();
-    setNotif(result);
-    setBusy(null);
-    if (result === "granted" && !needsGeo) close();
-  };
-
-  const enableLocation = async () => {
-    setBusy("geo");
-    const result = await requestLocationPermission();
-    setGeo(result);
-    setBusy(null);
-    if (result === "granted" && !needsNotif) close();
+    setNotif(result.state);
+    setBusy(false);
+    if (result.state === "granted") {
+      close();
+      return;
+    }
+    setHelpText(permissionResultMessage("notification", result));
   };
 
   return (
@@ -94,9 +80,9 @@ export function PermissionSetupBanner() {
             className="rounded-xl shrink-0"
           />
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-slate-900 text-sm">Allow FARUMASI on this device</p>
+            <p className="font-semibold text-slate-900 text-sm">Stay updated on your orders</p>
             <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-              Enable notifications and location so you get pharmacist messages, order updates, and accurate delivery fees.
+              Allow notifications for pharmacist messages and delivery updates. Location is only asked when you choose delivery at checkout.
             </p>
           </div>
           <button
@@ -110,40 +96,34 @@ export function PermissionSetupBanner() {
         </div>
 
         <div className="px-4 pb-4 space-y-2">
-          {needsNotif && (
-            <button
-              type="button"
-              disabled={busy !== null || notif === "denied"}
-              onClick={() => void enableNotifications()}
-              className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-left hover:bg-slate-50 disabled:opacity-60 transition-colors"
-            >
-              <Bell className="w-4 h-4 text-farumasi-600 shrink-0" />
-              <span className="flex-1 text-sm text-slate-800">
-                {notif === "denied"
-                  ? "Notifications blocked — open browser / Windows app settings to allow"
-                  : busy === "notif"
-                    ? "Requesting…"
-                    : "Enable notifications"}
-              </span>
-            </button>
+          <button
+            type="button"
+            disabled={busy || notif === "denied"}
+            onClick={() => void enableNotifications()}
+            className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-left hover:bg-slate-50 disabled:opacity-60 transition-colors"
+          >
+            <Bell className="w-4 h-4 text-farumasi-600 shrink-0" />
+            <span className="flex-1 text-sm text-slate-800">
+              {notif === "denied"
+                ? `Notifications blocked — ${siteSettingsHint("notification")}`
+                : busy
+                  ? "Requesting…"
+                  : "Enable notifications"}
+            </span>
+          </button>
+
+          {helpText && (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed">
+              {helpText}
+            </p>
           )}
-          {needsGeo && (
-            <button
-              type="button"
-              disabled={busy !== null}
-              onClick={() => void enableLocation()}
-              className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-left hover:bg-slate-50 disabled:opacity-60 transition-colors"
-            >
-              <MapPin className="w-4 h-4 text-farumasi-600 shrink-0" />
-              <span className="flex-1 text-sm text-slate-800">
-                {geo === "denied"
-                  ? "Location blocked — allow in browser or Windows privacy settings"
-                  : busy === "geo"
-                    ? "Requesting…"
-                    : "Enable location for delivery"}
-              </span>
-            </button>
+
+          {!helpText && (
+            <p className="text-[11px] text-slate-500 leading-relaxed px-0.5">
+              {permissionHelpFallback("perm_overlay_steps")}
+            </p>
           )}
+
           <button
             type="button"
             onClick={close}

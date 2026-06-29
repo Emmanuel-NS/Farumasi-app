@@ -2,59 +2,152 @@
 
 export type PermissionState = "granted" | "denied" | "default" | "unsupported";
 
+export type PermissionBlockReason =
+  | "denied"
+  | "prompt_blocked"
+  | "unsupported"
+  | "timeout"
+  | "unavailable";
+
+export interface PermissionRequestResult {
+  state: PermissionState;
+  blockReason?: PermissionBlockReason;
+}
+
 export function notificationPermissionState(): PermissionState {
   if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
   return Notification.permission as PermissionState;
 }
 
-export async function requestNotificationPermission(): Promise<PermissionState> {
-  if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
-  if (Notification.permission === "granted") return "granted";
-  if (Notification.permission === "denied") return "denied";
+export async function requestNotificationPermission(): Promise<PermissionRequestResult> {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return { state: "unsupported", blockReason: "unsupported" };
+  }
+  if (Notification.permission === "granted") return { state: "granted" };
+  if (Notification.permission === "denied") {
+    return { state: "denied", blockReason: "denied" };
+  }
   try {
     const result = await Notification.requestPermission();
-    return result as PermissionState;
+    if (result === "granted") return { state: "granted" };
+    if (result === "denied") return { state: "denied", blockReason: "denied" };
+    // Still "default" — prompt may not have appeared (overlay / blocked).
+    return { state: "default", blockReason: "prompt_blocked" };
   } catch {
-    return "denied";
+    return { state: "denied", blockReason: "prompt_blocked" };
   }
-}
-
-export function geolocationPermissionState(): PermissionState {
-  if (typeof navigator === "undefined" || !navigator.permissions?.query) {
-    return typeof navigator !== "undefined" && navigator.geolocation ? "default" : "unsupported";
-  }
-  return "default";
 }
 
 export async function queryGeolocationPermission(): Promise<PermissionState> {
-  if (typeof navigator === "undefined" || !navigator.permissions?.query) {
-    return navigator?.geolocation ? "default" : "unsupported";
-  }
+  if (typeof navigator === "undefined" || !navigator.geolocation) return "unsupported";
+  if (!navigator.permissions?.query) return "default";
   try {
     const status = await navigator.permissions.query({ name: "geolocation" });
     return status.state as PermissionState;
   } catch {
-    return navigator.geolocation ? "default" : "unsupported";
+    return "default";
   }
 }
 
-/** Triggers the browser location prompt (must be called from a user click). */
-export async function requestLocationPermission(): Promise<PermissionState> {
-  if (typeof navigator === "undefined" || !navigator.geolocation) return "unsupported";
+function geolocationErrorToResult(err: unknown): PermissionRequestResult {
+  const code = (err as GeolocationPositionError)?.code;
+  if (code === 1) return { state: "denied", blockReason: "denied" };
+  if (code === 3) return { state: "default", blockReason: "timeout" };
+  if (code === 2) return { state: "default", blockReason: "unavailable" };
+  return { state: "default", blockReason: "prompt_blocked" };
+}
+
+/**
+ * Request location — must be called from a user tap/click.
+ * Browsers block prompts without a gesture or when overlays are open.
+ */
+export async function requestLocationPermission(): Promise<PermissionRequestResult> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    return { state: "unsupported", blockReason: "unsupported" };
+  }
+
+  const queried = await queryGeolocationPermission();
+  if (queried === "denied") {
+    return { state: "denied", blockReason: "denied" };
+  }
+
   try {
     await new Promise<GeolocationPosition>((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
-        timeout: 10_000,
+        timeout: 15_000,
         maximumAge: 0,
         enableHighAccuracy: true,
       });
     });
-    return "granted";
+    return { state: "granted" };
   } catch (err: unknown) {
-    const code = (err as GeolocationPositionError)?.code;
-    if (code === 1) return "denied";
-    return "default";
+    return geolocationErrorToResult(err);
   }
+}
+
+/** Short platform hint for opening site settings when permission is blocked. */
+export function siteSettingsHint(kind: "location" | "notification"): string {
+  if (typeof navigator === "undefined") return "";
+  const ua = navigator.userAgent;
+  const isIos = /iPhone|iPad|iPod/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+
+  if (kind === "location") {
+    if (isIos) return "Settings → Safari → Location → Allow for this site.";
+    if (isAndroid) return "Chrome ⋮ → Settings → Site settings → Location → Allow.";
+    return "Browser address bar → site icon → Permissions → Location → Allow.";
+  }
+
+  if (isIos) return "Settings → Notifications → Safari (or FARUMASI app) → Allow.";
+  if (isAndroid) return "Chrome ⋮ → Settings → Site settings → Notifications → Allow.";
+  return "Browser address bar → site icon → Permissions → Notifications → Allow.";
+}
+
+export type PermissionHelpKey =
+  | "perm_prompt_blocked"
+  | "perm_denied_location"
+  | "perm_denied_notification"
+  | "perm_overlay_steps";
+
+/** English fallbacks — UI should prefer translation keys when available. */
+export function permissionHelpFallback(key: PermissionHelpKey): string {
+  switch (key) {
+    case "perm_prompt_blocked":
+      return (
+        "Your browser couldn't show the permission prompt. Close any chat bubbles, " +
+        "floating overlays, or picture-in-picture from other apps, then tap Enable again."
+      );
+    case "perm_overlay_steps":
+      return "Close Messenger/WhatsApp bubbles, stop screen recording, then try again from a direct tap — not while a popup is open.";
+    case "perm_denied_location":
+      return "Location is blocked for this site. Allow it in your browser or device settings, then return here.";
+    case "perm_denied_notification":
+      return "Notifications are blocked for this site. Allow them in your browser or device settings.";
+  }
+}
+
+export function permissionResultMessage(
+  kind: "location" | "notification",
+  result: PermissionRequestResult,
+  t?: Partial<Record<PermissionHelpKey, string>>,
+): string {
+  const msg = (key: PermissionHelpKey) => t?.[key] ?? permissionHelpFallback(key);
+
+  if (result.state === "granted") return "";
+
+  if (result.blockReason === "denied" || result.state === "denied") {
+    return kind === "location" ? msg("perm_denied_location") : msg("perm_denied_notification");
+  }
+  if (result.blockReason === "prompt_blocked") {
+    return `${msg("perm_prompt_blocked")} ${msg("perm_overlay_steps")}`;
+  }
+  if (result.blockReason === "timeout") {
+    return "Location timed out. Move to an open area with signal, close overlays, and try again.";
+  }
+  if (result.blockReason === "unavailable") {
+    return "Location unavailable on this device. Try the mobile app or choose pickup.";
+  }
+  return msg("perm_prompt_blocked");
 }
 
 const DISMISS_KEY = "farumasi_perm_banner_dismissed";

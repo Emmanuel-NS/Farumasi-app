@@ -6,6 +6,16 @@ import {
   watchPatientLocation,
   type Coords,
 } from "@/lib/location";
+import {
+  queryGeolocationPermission,
+  requestLocationPermission,
+  type PermissionBlockReason,
+} from "@/lib/permissions";
+import {
+  readPersistedGps,
+  syncGpsToDefaultAddress,
+  writePersistedGps,
+} from "@/lib/patient-location-persist";
 
 export type PatientLocationSource = "gps" | "address" | "fallback" | null;
 export type PatientLocationStatus =
@@ -35,6 +45,7 @@ interface PatientLocationStore {
   updatedAt: number | null;
   source: PatientLocationSource;
   status: PatientLocationStatus;
+  permissionBlockReason: PermissionBlockReason | null;
   watchId: number | null;
   setPosition: (
     coords: Coords,
@@ -42,9 +53,9 @@ interface PatientLocationStore {
     accuracy?: number | null,
   ) => void;
   setStatus: (status: PatientLocationStatus) => void;
-  /** Force a fresh GPS read (no browser cache). */
-  refresh: () => Promise<boolean>;
-  /** Start continuous GPS updates; returns cleanup. */
+  /** Fresh GPS read. Pass userInitiated:true from a button tap so the browser may show the prompt. */
+  refresh: (options?: { userInitiated?: boolean }) => Promise<boolean>;
+  /** Live GPS updates — only starts when permission is already granted (no auto-prompt). */
   startLiveWatch: () => () => void;
   stopLiveWatch: () => void;
 }
@@ -56,6 +67,7 @@ export const usePatientLocationStore = create<PatientLocationStore>((set, get) =
   updatedAt: null,
   source: null,
   status: "idle",
+  permissionBlockReason: null,
   watchId: null,
 
   setPosition: (coords, source, accuracy = null) => {
@@ -69,17 +81,48 @@ export const usePatientLocationStore = create<PatientLocationStore>((set, get) =
       source,
       updatedAt: Date.now(),
       status: source === "gps" ? "granted" : get().status,
+      permissionBlockReason: source === "gps" ? null : get().permissionBlockReason,
     });
+    if (source === "gps") {
+      writePersistedGps(coords.lat, coords.lon, accuracy);
+      void syncGpsToDefaultAddress(coords.lat, coords.lon);
+    }
   },
 
   setStatus: (status) => set({ status }),
 
-  refresh: async () => {
+  refresh: async (options) => {
+    const userInitiated = options?.userInitiated === true;
+
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      set({ status: "unsupported" });
+      set({ status: "unsupported", permissionBlockReason: "unsupported" });
       return false;
     }
-    set({ status: "pending" });
+
+    const perm = await queryGeolocationPermission();
+    if (perm === "denied") {
+      set({ status: "denied", permissionBlockReason: "denied" });
+      return false;
+    }
+
+    // Never trigger the browser prompt without an explicit user tap.
+    if (!userInitiated && perm !== "granted") {
+      return get().lat != null;
+    }
+
+    set({ status: "pending", permissionBlockReason: null });
+
+    if (userInitiated && perm !== "granted") {
+      const result = await requestLocationPermission();
+      if (result.state !== "granted") {
+        set({
+          status: result.state === "denied" ? "denied" : "idle",
+          permissionBlockReason: result.blockReason ?? null,
+        });
+        return false;
+      }
+    }
+
     try {
       const { coords, accuracy } = await requestFreshPatientLocation();
       if (!shouldAcceptGpsFix(accuracy, get().accuracy)) {
@@ -93,11 +136,18 @@ export const usePatientLocationStore = create<PatientLocationStore>((set, get) =
         source: "gps",
         updatedAt: Date.now(),
         status: "granted",
+        permissionBlockReason: null,
       });
+      writePersistedGps(coords.lat, coords.lon, accuracy);
+      void syncGpsToDefaultAddress(coords.lat, coords.lon);
       return true;
     } catch (err: unknown) {
       const code = (err as GeolocationPositionError)?.code;
-      set({ status: code === 1 ? "denied" : get().status === "granted" ? "granted" : "idle" });
+      set({
+        status: code === 1 ? "denied" : get().status === "granted" ? "granted" : "idle",
+        permissionBlockReason:
+          code === 1 ? "denied" : code === 3 ? "timeout" : code === 2 ? "unavailable" : "prompt_blocked",
+      });
       return false;
     }
   },
@@ -120,18 +170,32 @@ export const usePatientLocationStore = create<PatientLocationStore>((set, get) =
       return () => {};
     }
 
-    void state.refresh();
+    void (async () => {
+      const perm = await queryGeolocationPermission();
+      if (perm === "denied") {
+        set({ status: "denied", permissionBlockReason: "denied" });
+        return;
+      }
+      if (perm !== "granted") {
+        // Wait for user to tap Enable — do not auto-prompt on mount.
+        return;
+      }
 
-    const watchId = watchPatientLocation(
-      (coords, accuracy) => {
-        get().setPosition(coords, "gps", accuracy);
-      },
-      (err) => {
-        if (err.code === 1) set({ status: "denied" });
-      },
-    );
+      await get().refresh();
 
-    if (watchId != null) set({ watchId });
+      const watchId = watchPatientLocation(
+        (coords, accuracy) => {
+          get().setPosition(coords, "gps", accuracy);
+        },
+        (err) => {
+          if (err.code === 1) {
+            set({ status: "denied", permissionBlockReason: "denied" });
+          }
+        },
+      );
+
+      if (watchId != null) set({ watchId });
+    })();
 
     return () => get().stopLiveWatch();
   },
@@ -156,4 +220,17 @@ export function getPatientCoords(): { coords: Coords; isFallback: boolean } {
 export function isLocationApproximate(): boolean {
   const { accuracy, source } = usePatientLocationStore.getState();
   return source === "gps" && accuracy != null && accuracy > 500;
+}
+
+/** Restore last known GPS from localStorage (no permission prompt). */
+export function hydratePatientLocationFromStorage(): void {
+  const persisted = readPersistedGps();
+  if (!persisted) return;
+  const state = usePatientLocationStore.getState();
+  if (state.source === "gps" && state.lat != null) return;
+  state.setPosition(
+    { lat: persisted.lat, lon: persisted.lon },
+    "gps",
+    persisted.accuracy,
+  );
 }

@@ -43,11 +43,16 @@ async def delivery_quote(
     road_km = await road_distance_km(from_lat, from_lon, to_lat, to_lon)
     fee = calculate_delivery_fee_from_config(road_km, cfg)
 
-    pickup_only = road_km > max_km and is_outside_kigali(to_lat, to_lon)
+    pickup_only = is_outside_kigali(to_lat, to_lon) or road_km > max_km
     reason = None
-    if pickup_only:
+    if is_outside_kigali(to_lat, to_lon):
         reason = (
-            f"Delivery is not available beyond {max_km:.0f} km outside Kigali "
+            "Delivery is only available within Kigali city limits. "
+            "Your location appears outside our delivery area — please choose pickup."
+        )
+    elif road_km > max_km:
+        reason = (
+            f"Delivery is not available beyond {max_km:.0f} km from the pharmacy "
             f"({road_km:.1f} km). Please choose pickup."
         )
 

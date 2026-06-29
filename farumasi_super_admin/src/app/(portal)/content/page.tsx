@@ -88,7 +88,7 @@ export default function ContentPagesAdmin() {
     contactWhatsapp: "",
     faqItems: [] as FaqItem[],
   });
-  const [showPreview, setShowPreview] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
@@ -111,9 +111,14 @@ export default function ContentPagesAdmin() {
         setPages(list);
         if (!initialSelectDone.current && list.length) {
           initialSelectDone.current = true;
-          const first = list[0]!;
-          applyPageToDraft(first, setDraft, setNotifySubject);
-          setSelected(first);
+          const terms = list.find((p) => p.slug === "terms") ?? list[0]!;
+          void contentPagesService.get(terms.id).then((full) => {
+            applyPageToDraft(full, setDraft, setNotifySubject);
+            setSelected(full);
+          }).catch(() => {
+            applyPageToDraft(terms, setDraft, setNotifySubject);
+            setSelected(terms);
+          });
         }
         return list;
       })
@@ -134,6 +139,11 @@ export default function ContentPagesAdmin() {
     setNotifyMessage("");
     setSelectedUserIds([]);
     setNotifyResult(null);
+    void contentPagesService.get(page.id).then((full) => {
+      applyPageToDraft(full, setDraft, setNotifySubject);
+      setSelected(full);
+      setPages((prev) => prev.map((p) => (p.id === full.id ? full : p)));
+    }).catch(() => {});
   }
 
   async function handleSave(publish = false) {
@@ -358,7 +368,7 @@ export default function ContentPagesAdmin() {
               </div>
               <div>
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <label className="text-xs font-semibold text-slate-500">Page content</label>
+                  <label className="text-xs font-semibold text-slate-500">Rich text editor</label>
                   <button
                     type="button"
                     onClick={() => setShowPreview((v) => !v)}
@@ -368,15 +378,15 @@ export default function ContentPagesAdmin() {
                   </button>
                 </div>
                 <RichEditor
-                  editorKey={selected.id}
+                  editorKey={`${selected.id}-${selected.version}`}
                   value={draft.body}
                   onChange={(html) => setDraft((d) => ({ ...d, body: html }))}
-                  placeholder="Write or edit the page content. Existing HTML is loaded automatically."
-                  minHeight={selected.page_type === "support" ? 160 : 320}
+                  placeholder="Edit the live page content…"
+                  minHeight={selected.page_type === "support" ? 200 : 360}
                   showCount
                 />
                 <p className="text-[11px] text-slate-400 mt-1.5">
-                  Rich formatting, images, tables, custom HTML/CSS, and YouTube embeds are supported.
+                  This is the same content patients see on the portal. Format with the toolbar above.
                 </p>
               </div>
 

@@ -846,7 +846,7 @@ class OrderService:
             amount_paid=amount_paid,
             can_reassign=can_reassign,
             switch_enabled=can_reassign,
-            partner_response_due_at=order.partner_response_due_at,
+            partner_response_due_at=order.partner_response_due_at if awaiting_confirm else None,
             below_paid_count=below_paid_count,
             options=options,
         )
@@ -1428,13 +1428,19 @@ class OrderService:
 
         cfg = await PlatformSettingsService(self.db).get_delivery_config()
         max_km = float(cfg.get("max_delivery_km", 20))
+
+        if is_outside_kigali(dest_lat, dest_lon):
+            raise ValidationError(
+                "Delivery is only available within Kigali city limits. "
+                "Your location appears outside our delivery area — please choose pickup."
+            )
+
         dist = await road_distance_km(float(seller_lat), float(seller_lon), dest_lat, dest_lon)
 
-        if dist > max_km and is_outside_kigali(dest_lat, dest_lon):
+        if dist > max_km:
             raise ValidationError(
-                f"Delivery is not available for your location "
-                f"({dist:.1f} km from the pharmacy, outside Kigali). "
-                "Please choose pickup."
+                f"Delivery is not available beyond {max_km:.0f} km from the pharmacy "
+                f"({dist:.1f} km). Please choose pickup."
             )
 
         fee = calculate_delivery_fee_from_config(dist, cfg)
@@ -1833,11 +1839,13 @@ class OrderService:
         return due is not None and _now() >= due
 
     async def _partner_response_anchor(self, order: Order) -> Optional[datetime]:
+        """Deadline starts at confirmed payment time — never at order creation."""
         paid_at = await self._order_paid_at(order.id)
-        anchor = paid_at or order.created_at or _now()
-        if anchor.tzinfo is None:
-            anchor = anchor.replace(tzinfo=timezone.utc)
-        return anchor
+        if not paid_at:
+            return None
+        if paid_at.tzinfo is None:
+            paid_at = paid_at.replace(tzinfo=timezone.utc)
+        return paid_at
 
     async def _partner_response_deadline(self, order: Order) -> Optional[datetime]:
         """Paid + pending + unconfirmed orders get a deadline anchored at payment time."""
@@ -1858,13 +1866,28 @@ class OrderService:
     async def _ensure_partner_response_due_at(self, order: Order) -> None:
         """Backfill or correct the pharmacy response deadline for paid, unconfirmed orders."""
         if order.payment_status != PaymentStatus.PAID:
+            if order.partner_response_due_at is not None:
+                order.partner_response_due_at = None
+                await self.db.flush()
             return
         if normalize_order_status(order.order_status) != OrderStatus.PENDING.value:
+            if order.partner_response_due_at is not None:
+                order.partner_response_due_at = None
+                await self.db.flush()
             return
         if order.pharmacy_confirmed_at is not None:
+            if order.partner_response_due_at is not None:
+                order.partner_response_due_at = None
+                await self.db.flush()
             return
 
         anchor = await self._partner_response_anchor(order)
+        if anchor is None:
+            if order.partner_response_due_at is not None:
+                order.partner_response_due_at = None
+                await self.db.flush()
+            return
+
         canonical_due = anchor + timedelta(minutes=_PARTNER_RESPONSE_MINUTES)
 
         if order.partner_response_due_at:

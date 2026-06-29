@@ -12,7 +12,16 @@ from app.models.pharmacy import Pharmacy
 from app.models.doctor import DoctorProfile
 from app.models.rider import RiderProfile
 from app.models.patient import PatientProfile
+from app.models.payment_transaction import PaymentTransaction
 from app.core.constants import OrderStatus, RevenueStatus, WithdrawalStatus
+from app.schemas.analytics import PaymentAnalyticsOut, PaymentMethodBreakdown
+
+_METHOD_LABELS = {
+    "mtn_momo": "MTN MoMo",
+    "card": "Card (Pesapal)",
+    "manual_momo": "MoMo Pay Code",
+    "none": "Zero / waived",
+}
 
 
 class AnalyticsService:
@@ -55,6 +64,64 @@ class AnalyticsService:
             "available_revenue_net": float(total_revenue_net),
             "pending_withdrawals": pending_withdrawals,
         }
+
+    async def payment_summary(self) -> PaymentAnalyticsOut:
+        """Aggregate patient payment transactions by method (includes manual MoMo once approved)."""
+        success_status = "successful"
+        review_status = "awaiting_review"
+        failed_status = "failed"
+
+        by_method_rows = (
+            await self.db.execute(
+                select(
+                    PaymentTransaction.method,
+                    func.count(PaymentTransaction.id),
+                    func.coalesce(func.sum(PaymentTransaction.amount), 0.0),
+                )
+                .where(PaymentTransaction.status == success_status)
+                .group_by(PaymentTransaction.method)
+                .order_by(func.sum(PaymentTransaction.amount).desc())
+            )
+        ).all()
+
+        by_method = [
+            PaymentMethodBreakdown(
+                method=str(method or "unknown"),
+                label=_METHOD_LABELS.get(str(method or ""), str(method or "Other")),
+                count=int(count or 0),
+                amount=float(amount or 0),
+            )
+            for method, count, amount in by_method_rows
+        ]
+
+        successful_count = sum(m.count for m in by_method)
+        total_collected = sum(m.amount for m in by_method)
+
+        review_row = (
+            await self.db.execute(
+                select(
+                    func.count(PaymentTransaction.id),
+                    func.coalesce(func.sum(PaymentTransaction.amount), 0.0),
+                ).where(PaymentTransaction.status == review_status)
+            )
+        ).one()
+
+        failed_count = (
+            await self.db.execute(
+                select(func.count(PaymentTransaction.id)).where(
+                    PaymentTransaction.status == failed_status
+                )
+            )
+        ).scalar_one() or 0
+
+        return PaymentAnalyticsOut(
+            total_collected=float(total_collected),
+            successful_count=int(successful_count),
+            awaiting_review_count=int(review_row[0] or 0),
+            awaiting_review_amount=float(review_row[1] or 0),
+            failed_count=int(failed_count),
+            by_method=by_method,
+        )
 
     async def pharmacy_stats(self, pharmacy_id: str) -> dict:
         total_orders = (await self.db.execute(
