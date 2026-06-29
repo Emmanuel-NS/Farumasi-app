@@ -7,10 +7,11 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.platform_defaults import DEFAULT_DELIVERY_CONFIG
+from app.core.platform_defaults import DEFAULT_DELIVERY_CONFIG, DEFAULT_PAYMENT_CONFIG
 from app.models.platform_setting import PlatformSetting
 
 DELIVERY_CONFIG_KEY = "delivery_config"
+PAYMENT_CONFIG_KEY = "payment_config"
 
 
 class PlatformSettingsService:
@@ -39,6 +40,29 @@ class PlatformSettingsService:
             self.db.add(PlatformSetting(key=DELIVERY_CONFIG_KEY, value=value))
         await self.db.flush()
         return await self.get_delivery_config()
+
+    async def get_payment_config(self) -> dict[str, Any]:
+        result = await self.db.execute(
+            select(PlatformSetting).where(PlatformSetting.key == PAYMENT_CONFIG_KEY)
+        )
+        row = result.scalar_one_or_none()
+        if not row or not row.value:
+            return copy.deepcopy(DEFAULT_PAYMENT_CONFIG)
+        merged = copy.deepcopy(DEFAULT_PAYMENT_CONFIG)
+        merged.update(row.value)
+        return merged
+
+    async def set_payment_config(self, value: dict[str, Any]) -> dict[str, Any]:
+        result = await self.db.execute(
+            select(PlatformSetting).where(PlatformSetting.key == PAYMENT_CONFIG_KEY)
+        )
+        row = result.scalar_one_or_none()
+        if row:
+            row.value = value
+        else:
+            self.db.add(PlatformSetting(key=PAYMENT_CONFIG_KEY, value=value))
+        await self.db.flush()
+        return await self.get_payment_config()
 
 
 def calculate_delivery_fee_from_config(distance_km: float, config: dict[str, Any]) -> float:

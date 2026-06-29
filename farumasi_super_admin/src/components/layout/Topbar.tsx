@@ -9,6 +9,7 @@ import { useAuthStore } from "@/store/auth-store";
 import api from "@/lib/api";
 import { openNotification } from "@/lib/notification-links";
 import { startVisibleInterval } from "@/lib/polling";
+import { manualPaymentsService } from "@/lib/services/manual-payments.service";
 import {
   Bell, Search, Menu, ChevronDown, Settings, LogOut,
   AlertTriangle, Info, User,
@@ -26,8 +27,10 @@ const routeLabels: Record<string, string> = {
   finance: "Finance Hub",
   revenue: "Revenue",
   withdrawals: "Withdrawals",
+  "manual-payments": "Manual Payments",
   audit: "Audit & Compliance",
   settings: "Settings",
+  content: "Content & Legal",
   notifications: "Notifications",
   security: "Security",
 };
@@ -68,6 +71,7 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
     created_at: string;
   }>>([]);
   const [unread, setUnread] = useState(0);
+  const [pendingManualPayments, setPendingManualPayments] = useState(0);
 
   const initials =
     user?.full_name
@@ -111,6 +115,12 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
       api.get<{ unread: number }>("/notifications/unread-count")
         .then(r => setUnread(r.data.unread))
         .catch(() => {});
+    }, 60_000);
+  }, []);
+
+  useEffect(() => {
+    return startVisibleInterval(() => {
+      manualPaymentsService.pendingCount().then(setPendingManualPayments).catch(() => {});
     }, 60_000);
   }, []);
 
@@ -179,8 +189,16 @@ export function Topbar({ collapsed, onToggle }: { collapsed: boolean; onToggle: 
       </Link>
 
       {/* Breadcrumb */}
-      <div className="hidden md:block px-2">
+      <div className="hidden md:block px-2 flex-1 min-w-0">
         <Breadcrumb />
+        {pendingManualPayments > 0 && (
+          <Link
+            href="/finance/manual-payments"
+            className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-amber-400/90 px-2.5 py-0.5 text-[10px] font-bold text-amber-950 hover:bg-amber-300"
+          >
+            {pendingManualPayments} manual payment{pendingManualPayments === 1 ? "" : "s"} to review
+          </Link>
+        )}
       </div>
 
       {/* Search */}

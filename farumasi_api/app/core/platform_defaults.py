@@ -25,3 +25,14 @@ DEFAULT_DELIVERY_CONFIG: dict[str, Any] = {
 }
 
 SUPPORTED_LANGUAGES = ("en", "rw", "fr", "sw")
+
+DEFAULT_PAYMENT_CONFIG: dict[str, Any] = {
+    "manual_momo_enabled": True,
+    "manual_momo_merchant_name": "Plessing",
+    "manual_momo_pay_code": "",
+    "manual_momo_dial_template": "*182*8*1*{code}#",
+    "manual_momo_instructions": (
+        "Open MTN MoMo, dial the code below, enter the exact amount shown, "
+        "then upload your payment confirmation screenshot or receipt."
+    ),
+}

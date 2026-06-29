@@ -29,6 +29,9 @@ from app.api.v1.endpoints import (
     analytics,
     uploads,
     admin,
+    content,
+    admin_content,
+    manual_payments,
     consultations,
     audit,
     translations,
@@ -41,6 +44,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 api_router.include_router(config.router, prefix="/config", tags=["Configuration"])
+api_router.include_router(content.router, prefix="/content", tags=["Content"])
 
 # ─── Phase 2+ (EXPERIMENTAL) ────────────────────────────────────────────────
 # Work-in-progress. Endpoints, schemas, and behavior may change without notice
@@ -73,6 +77,16 @@ api_router.include_router(notifications.router, prefix="/notifications", tags=[f
 api_router.include_router(analytics.router, prefix="/analytics", tags=[f"Analytics ({_EXP})"])
 api_router.include_router(uploads.router, prefix="/uploads", tags=[f"Uploads ({_EXP})"])
 api_router.include_router(admin.router, prefix="/admin", tags=[f"Admin ({_EXP})"])
+api_router.include_router(
+    manual_payments.router,
+    prefix="/admin/manual-payments",
+    tags=[f"Manual Payments ({_EXP})"],
+)
+api_router.include_router(
+    admin_content.router,
+    prefix="/admin/content-pages",
+    tags=[f"Content Pages ({_EXP})"],
+)
 api_router.include_router(consultations.router, prefix="/consultations", tags=[f"Consultations ({_EXP})"])
 api_router.include_router(audit.router, prefix="/audit", tags=[f"Audit ({_EXP})"])
 api_router.include_router(translations.router, prefix="/translations", tags=[f"Translations ({_EXP})"])

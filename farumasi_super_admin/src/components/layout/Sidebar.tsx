@@ -88,6 +88,7 @@ function buildNav(isSuperAdmin: boolean): NavSection[] {
   {
     title: "COMPLIANCE",
     items: [
+      { label: "Content & Legal", href: "/content", icon: FileText },
       { label: "Seller Applications", href: "/partner-applications", icon: ClipboardList },
       { label: "Audit Logs", href: "/audit", icon: Shield },
     ],

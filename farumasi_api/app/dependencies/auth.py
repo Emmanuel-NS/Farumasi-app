@@ -17,6 +17,14 @@ from app.models.user import User
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def _as_utc_aware(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
@@ -57,12 +65,13 @@ async def get_current_user(
             iat_dt = datetime.fromtimestamp(int(iat_raw), tz=timezone.utc)
         except (TypeError, ValueError):
             raise AuthenticationError("Invalid token timestamp")
-        if iat_dt < user.session_invalidated_at:
+        if iat_dt < _as_utc_aware(user.session_invalidated_at):
             raise AuthenticationError("Session expired. Please sign in again.")
 
     # Update last active timestamp (throttled to reduce write churn).
     now = datetime.now(timezone.utc)
-    if user.last_login_at is None or (now - user.last_login_at).total_seconds() >= 300:
+    last_login = _as_utc_aware(user.last_login_at)
+    if last_login is None or (now - last_login).total_seconds() >= 300:
         user.last_login_at = now
 
     return user

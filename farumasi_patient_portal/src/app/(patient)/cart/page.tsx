@@ -20,8 +20,9 @@ import {
 } from "@/lib/services/prescriptions.service";
 import { productsService } from "@/lib/services/products.service";
 import { patientsService, type PatientAddress } from "@/lib/services/patients.service";
-import { configService } from "@/lib/services/config.service";
+import { configService, type PublicPaymentConfig } from "@/lib/services/config.service";
 import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment-checkout";
+import { ManualPaymentPanel, type ManualMomoConfig } from "@/components/cart/manual-payment-panel";
 import { useAuthStore } from "@/store/auth-store";
 import { usePatientLocation } from "@/hooks/use-patient-location";
 import type { Pharmacy, Medicine } from "@/types";
@@ -159,7 +160,15 @@ export default function CartPage() {
   const [deferDeliveryFee, setDeferDeliveryFee] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder]   = useState(false);
   const [paymentStepLabel, setPaymentStepLabel] = useState("");
-  const PAYMENT_FEE_PCT = 3.8;
+  const [paymentConfig, setPaymentConfig] = useState<PublicPaymentConfig | null>(null);
+  const [manualProofCtx, setManualProofCtx] = useState<{
+    orderId: string;
+    orderCode: string;
+    amount: number;
+    accessCode: string;
+  } | null>(null);
+  const [paymentAwaitingReview, setPaymentAwaitingReview] = useState(false);
+  const PAYMENT_FEE_PCT = paymentConfig?.processing_fee_percent ?? 3.8;
   const [confirmedOrderCode, setConfirmedOrderCode] = useState<string>("");
   const [confirmedAccessCode, setConfirmedAccessCode] = useState<string>("");
   const [pharmacyList, setPharmacyList]       = useState<Pharmacy[]>([]);
@@ -174,6 +183,28 @@ export default function CartPage() {
   /** Catalogue product data for each prescription item that has a linked product_id */
   const [rxProductsMap, setRxProductsMap] = useState<Map<string, Medicine>>(new Map());
   const detailsPrefilledRef = useRef(false);
+
+  const enabledPaymentMethods = useMemo((): PaymentMethodId[] => {
+    const methods = paymentConfig?.methods ?? ["mtn_momo", "card"];
+    return methods.filter((m): m is PaymentMethodId =>
+      m === "mtn_momo" || m === "card" || m === "manual_momo",
+    );
+  }, [paymentConfig]);
+
+  const manualMomoConfig: ManualMomoConfig | null = paymentConfig?.manual_momo?.enabled
+    ? {
+        enabled: true,
+        merchant_name: paymentConfig.manual_momo.merchant_name,
+        pay_code: paymentConfig.manual_momo.pay_code,
+        dial_string: paymentConfig.manual_momo.dial_string,
+        instructions: paymentConfig.manual_momo.instructions,
+      }
+    : null;
+
+  useEffect(() => {
+    if (step !== "payment" || paymentConfig) return;
+    configService.getPublicConfig().then((cfg) => setPaymentConfig(cfg.payments)).catch(() => {});
+  }, [step, paymentConfig]);
 
   // Pre-fill checkout details from the signed-in patient's profile (editable).
   useEffect(() => {
@@ -1715,7 +1746,8 @@ export default function CartPage() {
 
   // ── STEP 4: Payment ───────────────────────────────────────────
   if (step === "payment") {
-    const phoneReady = paymentMethod === "card" || phone.trim().length >= 9;
+    const phoneReady =
+      paymentMethod === "card" || paymentMethod === "manual_momo" || phone.trim().length >= 9;
     const canPlace   = !!selectedOption && deliveryLocationReady && phoneReady;
     const orderSubtotal = Math.round(
       amountDueNow > 0 ? amountDueNow : medicineSubtotal + (deferDeliveryFee ? 0 : deliveryFeeAmount),
@@ -1751,18 +1783,40 @@ export default function CartPage() {
         )}
 
         <div className="mb-6">
-          <PaymentCheckout
-            method={paymentMethod}
-            onMethodChange={setPaymentMethod}
-            phone={phone}
-            onPhoneChange={setPhone}
-            feePercent={PAYMENT_FEE_PCT}
-            orderSubtotal={orderSubtotal}
-            processingFee={processingFee}
-            totalWithFee={totalWithFee}
-            formatPrice={formatPrice}
-            momoNumberLabel={t.cart_momo_number}
-          />
+          {manualProofCtx && manualMomoConfig ? (
+            <ManualPaymentPanel
+              orderId={manualProofCtx.orderId}
+              orderCode={manualProofCtx.orderCode}
+              amount={manualProofCtx.amount}
+              config={manualMomoConfig}
+              formatPrice={formatPrice}
+              phone={phone}
+              onPhoneChange={setPhone}
+              onBack={() => setManualProofCtx(null)}
+              onSubmitted={() => {
+                setConfirmedOrderCode(manualProofCtx.orderCode);
+                setConfirmedAccessCode(manualProofCtx.accessCode);
+                setPaymentAwaitingReview(true);
+                setManualProofCtx(null);
+                if (!isLocked) clear();
+                setStep("confirmed");
+              }}
+            />
+          ) : (
+            <PaymentCheckout
+              method={paymentMethod}
+              onMethodChange={setPaymentMethod}
+              phone={phone}
+              onPhoneChange={setPhone}
+              feePercent={PAYMENT_FEE_PCT}
+              orderSubtotal={orderSubtotal}
+              processingFee={processingFee}
+              totalWithFee={totalWithFee}
+              formatPrice={formatPrice}
+              momoNumberLabel={t.cart_momo_number}
+              enabledMethods={enabledPaymentMethods}
+            />
+          )}
         </div>
 
         <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-3 py-2.5 mb-6">
@@ -1926,6 +1980,7 @@ export default function CartPage() {
           </div>
         </div>
 
+        {!manualProofCtx && (
         <button
           disabled={!canPlace || isPlacingOrder}
             onClick={async () => {
@@ -2010,6 +2065,18 @@ export default function CartPage() {
               }
               setConfirmedAccessCode(generatedAccessCode);
 
+              if (paymentMethod === "manual_momo") {
+                setManualProofCtx({
+                  orderId,
+                  orderCode,
+                  amount: totalWithFee,
+                  accessCode: generatedAccessCode,
+                });
+                setPaymentStepLabel("");
+                setIsPlacingOrder(false);
+                return;
+              }
+
               const redirectUrl = `${window.location.origin}/cart?payment_return=1&order_id=${orderId}`;
               setPaymentStepLabel(
                 paymentMethod === "card" ? "Opening Pesapal checkout…" : "Sending MTN MoMo request…",
@@ -2055,9 +2122,12 @@ export default function CartPage() {
         >
           {isPlacingOrder
             ? paymentStepLabel || t.cart_processing
-            : `${t.cart_place_order} · ${formatPrice(totalWithFee)}`}
+            : paymentMethod === "manual_momo"
+              ? `${t.cart_place_order} · continue to MoMo`
+              : `${t.cart_place_order} · ${formatPrice(totalWithFee)}`}
         </button>
-        {isPlacingOrder && amountDueNow > 0 && (
+        )}
+        {isPlacingOrder && amountDueNow > 0 && !manualProofCtx && (
           <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-2">
             {paymentStepLabel || "Complete payment to continue."}
           </p>
@@ -2084,9 +2154,13 @@ export default function CartPage() {
           <div className="w-20 h-20 rounded-full bg-green-50 border-4 border-green-200 flex items-center justify-center mb-5">
             <Check className="w-10 h-10 text-green-600" />
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-900 mb-1">Ready for Pickup!</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 mb-1">
+            {paymentAwaitingReview ? "Order placed — payment under review" : "Ready for Pickup!"}
+          </h1>
           <p className="text-slate-500 text-sm">
-            Payment confirmed · Head to the pharmacy
+            {paymentAwaitingReview
+              ? "We received your MoMo proof and will confirm your payment shortly."
+              : "Payment confirmed · Head to the pharmacy"}
           </p>
           <span className="mt-3 px-4 py-1.5 bg-farumasi-50 text-farumasi-700 font-bold text-sm rounded-full border border-farumasi-200">
             {orderCode}
@@ -2182,9 +2256,13 @@ export default function CartPage() {
           <Check className="w-10 h-10 text-farumasi-600" />
         </div>
         <h1 className="text-2xl font-extrabold text-slate-900 mb-1">
-          {t.cart_confirmed_title}
+          {paymentAwaitingReview ? "Order placed — payment under review" : t.cart_confirmed_title}
         </h1>
-        <p className="text-slate-500 text-sm">{t.cart_confirmed_subtitle}</p>
+        <p className="text-slate-500 text-sm">
+          {paymentAwaitingReview
+            ? "We received your MoMo proof and will confirm your payment shortly."
+            : t.cart_confirmed_subtitle}
+        </p>
         <span className="mt-3 px-4 py-1.5 bg-farumasi-50 text-farumasi-700 font-bold text-sm rounded-full border border-farumasi-200">
           {confirmedOrderCode || ORDER_NUM}
         </span>

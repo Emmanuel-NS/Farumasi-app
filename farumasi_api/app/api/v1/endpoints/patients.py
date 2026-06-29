@@ -212,7 +212,7 @@ async def create_my_order(
     return await OrderService(db).create_order(data, current_user)
 
 
-from app.schemas.payment import PaymentInitiate, PaymentInitiateOut, PaymentStatusOut  # noqa: E402
+from app.schemas.payment import PaymentInitiate, PaymentInitiateOut, PaymentStatusOut, ManualPaymentSubmit  # noqa: E402
 from app.services.payments.payment_service import PaymentService  # noqa: E402
 
 
@@ -270,6 +270,26 @@ async def get_my_order_payment_status(
     db: AsyncSession = Depends(get_db),
 ):
     return await PaymentService(db).get_status(order_id, current_user)
+
+
+@router.post(
+    "/me/orders/{order_id}/payments/manual",
+    response_model=PaymentStatusOut,
+)
+async def submit_my_order_manual_payment(
+    order_id: str,
+    data: ManualPaymentSubmit,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await PaymentService(db).submit_manual_payment(
+        order_id,
+        current_user,
+        proof_urls=data.proof_urls,
+        patient_note=data.patient_note,
+        claimed_reference=data.claimed_reference,
+        phone=data.phone,
+    )
 
 
 from app.schemas.order import ReassignPharmacyRequest, ReassignmentOptionsOut  # noqa: E402

@@ -23,9 +23,18 @@ export interface PaymentStatusResult {
   payment_reference?: string | null;
   message?: string | null;
   processing_fee?: number | null;
+  pending_transaction_id?: string | null;
+  submitted_at?: string | null;
 }
 
-export type PaymentMethodId = "mtn_momo" | "card";
+export type PaymentMethodId = "mtn_momo" | "card" | "manual_momo";
+
+export interface ManualPaymentSubmitPayload {
+  proof_urls: string[];
+  patient_note?: string;
+  claimed_reference?: string;
+  phone?: string;
+}
 
 export interface PaymentInitiatePayload {
   phone: string;
@@ -66,10 +75,22 @@ export const paymentsService = {
     return data;
   },
 
+  async submitManual(
+    orderId: string,
+    payload: ManualPaymentSubmitPayload,
+  ): Promise<PaymentStatusResult> {
+    const { data } = await api.post<PaymentStatusResult>(
+      `/patients/me/orders/${orderId}/payments/manual`,
+      payload,
+    );
+    return data;
+  },
+
   async waitUntilPaid(orderId: string): Promise<PaymentStatusResult> {
     for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
       const status = await this.getStatus(orderId);
       if (status.payment_status === "paid") return status;
+      if (status.payment_status === "awaiting_review") return status;
       if (status.payment_status === "failed") {
         throw new Error(status.message ?? "Payment failed");
       }

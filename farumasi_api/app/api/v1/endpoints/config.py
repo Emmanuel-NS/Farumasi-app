@@ -111,7 +111,23 @@ async def road_distances_batch(data: RoadDistanceBatchIn):
 async def public_config(db: AsyncSession = Depends(get_db)):
     from app.core.config import settings
 
-    cfg = await PlatformSettingsService(db).get_delivery_config()
+    svc = PlatformSettingsService(db)
+    cfg = await svc.get_delivery_config()
+    pay_cfg = await svc.get_payment_config()
+    methods = ["mtn_momo", "card"]
+    manual_momo = None
+    if pay_cfg.get("manual_momo_enabled", True):
+        methods.append("manual_momo")
+        code = (pay_cfg.get("manual_momo_pay_code") or "").strip()
+        template = pay_cfg.get("manual_momo_dial_template") or "*182*8*1*{code}#"
+        dial = template.replace("{code}", code) if code else None
+        manual_momo = {
+            "enabled": True,
+            "merchant_name": pay_cfg.get("manual_momo_merchant_name") or "FARUMASI",
+            "pay_code": code or None,
+            "dial_string": dial,
+            "instructions": pay_cfg.get("manual_momo_instructions"),
+        }
     return {
         "delivery": cfg,
         "supported_languages": ["en", "rw", "fr", "sw"],
@@ -125,10 +141,48 @@ async def public_config(db: AsyncSession = Depends(get_db)):
             "card_provider": "pesapal",
             "processing_fee_percent": float(settings.PAYMENT_PROCESSING_FEE_PERCENT or 0),
             "currency": settings.PAYMENT_CURRENCY,
-            "methods": ["mtn_momo", "card"],
+            "methods": methods,
             "default_payment_method": "mtn_momo",
+            "manual_momo": manual_momo,
         },
     }
+
+
+class PaymentConfigUpdate(BaseModel):
+    manual_momo_enabled: Optional[bool] = None
+    manual_momo_merchant_name: Optional[str] = None
+    manual_momo_pay_code: Optional[str] = None
+    manual_momo_dial_template: Optional[str] = None
+    manual_momo_instructions: Optional[str] = None
+
+
+@router.get("/payments", dependencies=[Depends(require_super_admin())])
+async def get_payment_config(db: AsyncSession = Depends(get_db)):
+    return await PlatformSettingsService(db).get_payment_config()
+
+
+@router.put("/payments", dependencies=[Depends(require_super_admin())])
+async def update_payment_config(
+    data: PaymentConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    svc = PlatformSettingsService(db)
+    current = await svc.get_payment_config()
+    patch = data.model_dump(exclude_unset=True)
+    current.update(patch)
+    updated = await svc.set_payment_config(current)
+    from app.services.audit_service import AuditService
+
+    await AuditService(db).log(
+        actor_user_id=actor.id,
+        action="platform_settings.payment.update",
+        entity_type="PlatformSetting",
+        entity_id="payment_config",
+        new_value=patch,
+    )
+    await db.commit()
+    return updated
 
 
 class DeliveryConfigUpdate(BaseModel):

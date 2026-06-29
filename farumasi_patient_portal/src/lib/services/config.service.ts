@@ -9,7 +9,28 @@ export interface DeliveryQuote {
   max_delivery_km: number;
 }
 
+export interface PublicPaymentConfig {
+  methods: string[];
+  processing_fee_percent: number;
+  manual_momo?: {
+    enabled: boolean;
+    merchant_name?: string;
+    pay_code?: string | null;
+    dial_string?: string | null;
+    instructions?: string | null;
+  } | null;
+}
+
+export interface PublicConfig {
+  payments: PublicPaymentConfig;
+}
+
 export const configService = {
+  async getPublicConfig(): Promise<PublicConfig> {
+    const { data } = await api.get<PublicConfig>("/config/public");
+    return data;
+  },
+
   async getDeliveryQuote(
     fromLat: number,
     fromLon: number,

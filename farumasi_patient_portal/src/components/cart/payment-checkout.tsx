@@ -3,7 +3,7 @@
 import { CheckCircle2, CreditCard, Lock, ShieldCheck, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type PaymentMethodId = "mtn_momo" | "card";
+export type PaymentMethodId = "mtn_momo" | "card" | "manual_momo";
 
 export const PAYMENT_METHODS: {
   id: PaymentMethodId;
@@ -24,6 +24,15 @@ export const PAYMENT_METHODS: {
     accentSoft: "bg-amber-400",
     border: "border-amber-400 dark:border-amber-500",
     badge: "Default",
+  },
+  {
+    id: "manual_momo",
+    label: "MoMo Pay Code",
+    network: "Manual transfer",
+    hint: "Dial merchant code & upload proof",
+    accent: "text-emerald-700 dark:text-emerald-300",
+    accentSoft: "bg-emerald-500",
+    border: "border-emerald-400 dark:border-emerald-500",
   },
   {
     id: "card",
@@ -54,6 +63,7 @@ interface PaymentCheckoutProps {
   totalWithFee: number;
   formatPrice: (n: number) => string;
   momoNumberLabel?: string;
+  enabledMethods?: PaymentMethodId[];
 }
 
 export function PaymentCheckout({
@@ -67,9 +77,13 @@ export function PaymentCheckout({
   totalWithFee,
   formatPrice,
   momoNumberLabel = "MTN MoMo number",
+  enabledMethods,
 }: PaymentCheckoutProps) {
-  const selected = PAYMENT_METHODS.find((m) => m.id === method)!;
-  const needsPhone = method !== "card";
+  const methods = enabledMethods
+    ? PAYMENT_METHODS.filter((m) => enabledMethods.includes(m.id))
+    : PAYMENT_METHODS;
+  const selected = methods.find((m) => m.id === method) ?? methods[0]!;
+  const needsPhone = method === "mtn_momo";
 
   return (
     <div className="space-y-5">
@@ -93,8 +107,8 @@ export function PaymentCheckout({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {PAYMENT_METHODS.map((m) => {
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {methods.map((m) => {
           const active = method === m.id;
           return (
             <button
@@ -148,6 +162,7 @@ export function PaymentCheckout({
           className={cn(
             "flex items-center gap-3 border-b px-5 py-3.5",
             selected.id === "mtn_momo" && "bg-amber-50/80 border-amber-100 dark:bg-amber-950/40 dark:border-amber-900/50",
+            selected.id === "manual_momo" && "bg-emerald-50/80 border-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-900/50",
             selected.id === "card" && "bg-blue-50/80 border-blue-100 dark:bg-blue-950/40 dark:border-blue-900/50",
           )}
         >
@@ -188,6 +203,16 @@ export function PaymentCheckout({
                 />
               </div>
             </>
+          ) : method === "manual_momo" ? (
+            <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+              <p>
+                After placing your order, you will dial the FARUMASI merchant code, pay the exact amount,
+                and upload your MoMo confirmation screenshot.
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Our team verifies payments within business hours — you will be notified once confirmed.
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -223,7 +248,7 @@ export function PaymentCheckout({
             )}
           </div>
           <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
-            Processing fee is paid by you, not FARUMASI.
+            A small processing fee helps us keep payments secure and your order on track.
           </p>
           <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-700">
             <span className="text-sm font-bold text-slate-800 dark:text-slate-200">Total to pay now</span>

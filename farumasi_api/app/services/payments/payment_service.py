@@ -17,7 +17,14 @@ from app.models.patient import PatientProfile
 from app.models.payment_transaction import PaymentTransaction
 from app.models.user import User
 from app.repositories.order_repository import OrderRepository
-from app.schemas.payment import PaymentInitiateOut, PaymentStatusOut
+from app.schemas.payment import (
+    ManualPaymentReject,
+    ManualPaymentReview,
+    PaymentInitiateOut,
+    PaymentStatusOut,
+    PaymentTransactionOut,
+)
+from app.services.platform_settings_service import PlatformSettingsService
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.services.payments.momo_collection_service import normalize_rwanda_phone
@@ -29,6 +36,8 @@ logger = logging.getLogger(__name__)
 _TX_SUCCESS = "successful"
 _TX_PENDING = "pending"
 _TX_FAILED = "failed"
+_TX_AWAITING_REVIEW = "awaiting_review"
+_TX_REJECTED = "rejected"
 
 
 def amount_due_for_order(order: Order) -> float:
@@ -484,6 +493,14 @@ class PaymentService:
                 elif txn.provider == "pesapal":
                     await self._sync_pesapal_transaction(txn, order)
 
+        pending_txn = await self._latest_transaction(order.id)
+        pending_id = None
+        submitted_at = None
+        if pending_txn and pending_txn.status in (_TX_PENDING, _TX_AWAITING_REVIEW):
+            pending_id = pending_txn.id
+            if pending_txn.submitted_at:
+                submitted_at = pending_txn.submitted_at.isoformat()
+
         return PaymentStatusOut(
             order_id=order.id,
             payment_status=order.payment_status,
@@ -493,6 +510,8 @@ class PaymentService:
             payment_reference=order.payment_reference,
             processing_fee=fee if order.payment_status != PaymentStatus.PAID else None,
             message=self._status_message(order),
+            pending_transaction_id=pending_id,
+            submitted_at=submitted_at,
         )
 
     async def handle_pesapal_webhook(
@@ -661,10 +680,321 @@ class PaymentService:
     def _status_message(order: Order) -> str:
         if order.payment_status == PaymentStatus.PAID:
             return "Payment confirmed."
+        if order.payment_status == PaymentStatus.AWAITING_REVIEW:
+            return (
+                "We received your payment proof. Our team will verify it shortly — "
+                "you will be notified once confirmed."
+            )
         if order.payment_status == PaymentStatus.PENDING:
             if order.payment_method == "card":
                 return "Waiting for card payment on Pesapal."
+            if order.payment_method == "manual_momo":
+                return "Submit your MoMo payment proof to complete checkout."
             return "Waiting for MTN MoMo approval on your phone."
         if order.payment_status == PaymentStatus.FAILED:
             return "Payment failed. You can try again."
         return "Payment not started yet."
+
+    async def _active_manual_review_txn(self, order_id: str) -> Optional[PaymentTransaction]:
+        result = await self.db.execute(
+            select(PaymentTransaction)
+            .where(
+                PaymentTransaction.order_id == order_id,
+                PaymentTransaction.provider == "manual_momo",
+                PaymentTransaction.status == _TX_AWAITING_REVIEW,
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def _momo_txn_id_in_use(self, momo_id: str, *, exclude_txn_id: Optional[str] = None) -> bool:
+        q = select(PaymentTransaction.id).where(
+            PaymentTransaction.confirmed_momo_transaction_id == momo_id.strip()
+        )
+        if exclude_txn_id:
+            q = q.where(PaymentTransaction.id != exclude_txn_id)
+        row = (await self.db.execute(q.limit(1))).scalar_one_or_none()
+        return row is not None
+
+    async def submit_manual_payment(
+        self,
+        order_id: str,
+        actor: User,
+        *,
+        proof_urls: list[str],
+        patient_note: Optional[str] = None,
+        claimed_reference: Optional[str] = None,
+        phone: Optional[str] = None,
+    ) -> PaymentStatusOut:
+        pay_cfg = await PlatformSettingsService(self.db).get_payment_config()
+        if not pay_cfg.get("manual_momo_enabled", True):
+            raise BusinessRuleError("Manual MoMo payments are not available right now.")
+
+        order = await self._get_patient_order(order_id, actor)
+        if order.payment_status == PaymentStatus.PAID:
+            raise BusinessRuleError("This order is already paid.")
+        if await self._active_manual_review_txn(order.id):
+            raise BusinessRuleError(
+                "Payment proof is already under review. Please wait for confirmation."
+            )
+
+        due = amount_due_for_order(order)
+        processing_fee = payment_processing_fee(due)
+        charge_amount = round(due + processing_fee, 0)
+
+        if charge_amount <= 0:
+            await self._mark_paid(order, reference=f"ZERO-{order.order_code}", method="none")
+            await self.db.commit()
+            return await self.get_status(order.id, actor)
+
+        cleaned_urls = [u.strip() for u in proof_urls if u and u.strip()]
+        if not cleaned_urls:
+            raise ValidationError("Upload at least one payment proof image or document.")
+
+        phone_raw = (phone or order.payment_phone or actor.phone or "").strip()
+        msisdn = None
+        if phone_raw:
+            try:
+                msisdn = normalize_rwanda_phone(phone_raw)
+            except ValueError:
+                msisdn = phone_raw
+
+        merchant_ref = _merchant_reference(order)
+        now = datetime.now(timezone.utc)
+        txn = PaymentTransaction(
+            order_id=order.id,
+            amount=charge_amount,
+            currency=settings.PAYMENT_CURRENCY,
+            provider="manual_momo",
+            method="manual_momo",
+            phone=msisdn,
+            status=_TX_AWAITING_REVIEW,
+            external_id=merchant_ref,
+            idempotency_key=f"{order.id}:manual:{merchant_ref}",
+            proof_urls=cleaned_urls,
+            patient_note=(patient_note or "").strip() or None,
+            provider_reference=(claimed_reference or "").strip() or None,
+            submitted_at=now,
+        )
+        self.db.add(txn)
+        order.payment_method = "manual_momo"
+        order.payment_phone = msisdn
+        order.payment_status = PaymentStatus.AWAITING_REVIEW
+        await self.db.flush()
+
+        notif = NotificationService(self.db)
+        msg = (
+            f"Order {order.order_code}: RWF {int(charge_amount):,} manual MoMo payment "
+            f"awaiting review ({len(cleaned_urls)} proof file(s))."
+        )
+        await notif.broadcast_to_role(
+            UserRole.FINANCE_ADMIN,
+            title="Manual payment to review",
+            message=msg,
+            category="payment",
+            action_url="/finance/manual-payments",
+        )
+        await notif.broadcast_to_role(
+            UserRole.SUPER_ADMIN,
+            title="Manual payment to review",
+            message=msg,
+            category="payment",
+            action_url="/finance/manual-payments",
+        )
+
+        await AuditService(self.db).log(
+            actor_user_id=actor.id,
+            action="payment.manual.submitted",
+            entity_type="PaymentTransaction",
+            entity_id=txn.id,
+            new_value={"order_id": order.id, "amount": charge_amount, "proof_count": len(cleaned_urls)},
+        )
+        await self.db.commit()
+        return await self.get_status(order.id, actor)
+
+    async def list_manual_payments(
+        self,
+        *,
+        status: Optional[str] = None,
+    ) -> list[PaymentTransactionOut]:
+        q = (
+            select(PaymentTransaction, Order, User)
+            .join(Order, PaymentTransaction.order_id == Order.id)
+            .join(PatientProfile, Order.patient_id == PatientProfile.id)
+            .join(User, PatientProfile.user_id == User.id)
+            .where(PaymentTransaction.provider == "manual_momo")
+            .order_by(PaymentTransaction.submitted_at.desc().nullslast(), PaymentTransaction.created_at.desc())
+        )
+        if status:
+            q = q.where(PaymentTransaction.status == status)
+        rows = (await self.db.execute(q)).all()
+        return [self._txn_out(txn, order, patient_user) for txn, order, patient_user in rows]
+
+    async def pending_manual_payment_count(self) -> int:
+        from sqlalchemy import func
+
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(PaymentTransaction)
+            .where(
+                PaymentTransaction.provider == "manual_momo",
+                PaymentTransaction.status == _TX_AWAITING_REVIEW,
+            )
+        )
+        return int(result.scalar_one() or 0)
+
+    async def approve_manual_payment(
+        self,
+        txn_id: str,
+        admin: User,
+        data: ManualPaymentReview,
+    ) -> PaymentTransactionOut:
+        txn = await self._get_manual_txn(txn_id)
+        if txn.status != _TX_AWAITING_REVIEW:
+            raise BusinessRuleError("This payment is not awaiting review.")
+
+        momo_id = data.momo_transaction_id.strip()
+        if await self._momo_txn_id_in_use(momo_id, exclude_txn_id=txn.id):
+            raise BusinessRuleError(
+                "This MoMo transaction ID was already used for another payment."
+            )
+
+        order = await self.orders.get_by_id(txn.order_id)
+        if not order:
+            raise NotFoundError("Order", txn.order_id)
+
+        now = datetime.now(timezone.utc)
+        txn.confirmed_momo_transaction_id = momo_id
+        txn.admin_review_note = (data.review_note or "").strip() or None
+        txn.reviewed_at = now
+        txn.reviewed_by_user_id = admin.id
+        await self._confirm_transaction(txn, order, provider_reference=momo_id)
+
+        patient_user_id = (
+            await self.db.execute(
+                select(PatientProfile.user_id).where(PatientProfile.id == order.patient_id)
+            )
+        ).scalar_one_or_none()
+        if patient_user_id:
+            await NotificationService(self.db).send(
+                patient_user_id,
+                title="Payment confirmed",
+                message=f"Your manual MoMo payment for order {order.order_code} was approved.",
+                category="order",
+                action_url=f"/orders/{order.id}",
+            )
+
+        await AuditService(self.db).log(
+            actor_user_id=admin.id,
+            action="payment.manual.approved",
+            entity_type="PaymentTransaction",
+            entity_id=txn.id,
+            new_value={"momo_transaction_id": momo_id, "order_id": order.id},
+        )
+        await self.db.commit()
+
+        patient_user = (
+            await self.db.execute(
+                select(User)
+                .join(PatientProfile, PatientProfile.user_id == User.id)
+                .where(PatientProfile.id == order.patient_id)
+            )
+        ).scalar_one_or_none()
+        return self._txn_out(txn, order, patient_user)
+
+    async def reject_manual_payment(
+        self,
+        txn_id: str,
+        admin: User,
+        data: ManualPaymentReject,
+    ) -> PaymentTransactionOut:
+        txn = await self._get_manual_txn(txn_id)
+        if txn.status != _TX_AWAITING_REVIEW:
+            raise BusinessRuleError("This payment is not awaiting review.")
+
+        order = await self.orders.get_by_id(txn.order_id)
+        if not order:
+            raise NotFoundError("Order", txn.order_id)
+
+        now = datetime.now(timezone.utc)
+        txn.status = _TX_REJECTED
+        txn.admin_review_note = data.review_note.strip()
+        txn.reviewed_at = now
+        txn.reviewed_by_user_id = admin.id
+        order.payment_status = PaymentStatus.UNPAID
+        await self.db.flush()
+
+        patient_user_id = (
+            await self.db.execute(
+                select(PatientProfile.user_id).where(PatientProfile.id == order.patient_id)
+            )
+        ).scalar_one_or_none()
+        if patient_user_id:
+            await NotificationService(self.db).send(
+                patient_user_id,
+                title="Payment not confirmed",
+                message=(
+                    f"We could not verify your MoMo payment for order {order.order_code}. "
+                    f"{data.review_note.strip()}"
+                ),
+                category="order",
+                action_url=f"/orders/{order.id}",
+            )
+
+        await AuditService(self.db).log(
+            actor_user_id=admin.id,
+            action="payment.manual.rejected",
+            entity_type="PaymentTransaction",
+            entity_id=txn.id,
+            new_value={"order_id": order.id, "reason": data.review_note.strip()},
+        )
+        await self.db.commit()
+
+        patient_user = (
+            await self.db.execute(
+                select(User)
+                .join(PatientProfile, PatientProfile.user_id == User.id)
+                .where(PatientProfile.id == order.patient_id)
+            )
+        ).scalar_one_or_none()
+        return self._txn_out(txn, order, patient_user)
+
+    async def _get_manual_txn(self, txn_id: str) -> PaymentTransaction:
+        result = await self.db.execute(
+            select(PaymentTransaction).where(
+                PaymentTransaction.id == txn_id,
+                PaymentTransaction.provider == "manual_momo",
+            )
+        )
+        txn = result.scalar_one_or_none()
+        if not txn:
+            raise NotFoundError("PaymentTransaction", txn_id)
+        return txn
+
+    @staticmethod
+    def _txn_out(
+        txn: PaymentTransaction,
+        order: Order,
+        patient_user: Optional[User],
+    ) -> PaymentTransactionOut:
+        return PaymentTransactionOut(
+            id=txn.id,
+            order_id=txn.order_id,
+            order_code=order.order_code,
+            amount=float(txn.amount),
+            currency=txn.currency,
+            provider=txn.provider,
+            method=txn.method,
+            status=txn.status,
+            phone=txn.phone,
+            proof_urls=list(txn.proof_urls or []),
+            patient_note=txn.patient_note,
+            admin_review_note=txn.admin_review_note,
+            patient_name=patient_user.full_name if patient_user else None,
+            patient_email=patient_user.email if patient_user else None,
+            submitted_at=txn.submitted_at.isoformat() if txn.submitted_at else None,
+            reviewed_at=txn.reviewed_at.isoformat() if txn.reviewed_at else None,
+            paid_at=txn.paid_at.isoformat() if txn.paid_at else None,
+            confirmed_momo_transaction_id=txn.confirmed_momo_transaction_id,
+            created_at=txn.created_at.isoformat() if txn.created_at else None,
+        )

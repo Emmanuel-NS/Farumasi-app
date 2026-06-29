@@ -223,6 +223,7 @@ def classify_order_bucket(status: str) -> str:
 class PaymentStatus(str, Enum):
     UNPAID = "unpaid"
     PENDING = "pending"
+    AWAITING_REVIEW = "awaiting_review"
     PAID = "paid"
     FAILED = "failed"
     REFUNDED = "refunded"
@@ -350,3 +351,24 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "riders:manage_own",
     },
 }
+
+
+class ContentPageStatus(str, Enum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+
+class ContentPageType(str, Enum):
+    TERMS = "terms"
+    PRIVACY = "privacy"
+    ABOUT = "about"
+    SUPPORT = "support"
+    CONTACT = "contact"
+
+
+class ContentAudience(str, Enum):
+    PUBLIC = "public"
+    PATIENT = "patient"
+    PARTNER = "partner"
+    ALL = "all"

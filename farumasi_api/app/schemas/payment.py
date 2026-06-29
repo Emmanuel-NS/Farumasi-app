@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from pydantic import Field
+
 from app.schemas.common import FarumasiBaseModel
 
 
@@ -39,3 +41,43 @@ class PaymentStatusOut(FarumasiBaseModel):
     payment_reference: Optional[str] = None
     message: Optional[str] = None
     processing_fee: Optional[float] = None
+    pending_transaction_id: Optional[str] = None
+    submitted_at: Optional[str] = None
+
+
+class ManualPaymentSubmit(FarumasiBaseModel):
+    proof_urls: list[str] = Field(min_length=1, max_length=10)
+    patient_note: Optional[str] = Field(default=None, max_length=2000)
+    claimed_reference: Optional[str] = Field(default=None, max_length=120)
+    phone: Optional[str] = None
+
+
+class ManualPaymentReview(FarumasiBaseModel):
+    momo_transaction_id: str = Field(min_length=4, max_length=120)
+    review_note: Optional[str] = Field(default=None, max_length=2000)
+
+
+class ManualPaymentReject(FarumasiBaseModel):
+    review_note: str = Field(min_length=1, max_length=2000)
+
+
+class PaymentTransactionOut(FarumasiBaseModel):
+    id: str
+    order_id: str
+    order_code: Optional[str] = None
+    amount: float
+    currency: str
+    provider: str
+    method: str
+    status: str
+    phone: Optional[str] = None
+    proof_urls: list[str] = Field(default_factory=list)
+    patient_note: Optional[str] = None
+    admin_review_note: Optional[str] = None
+    patient_name: Optional[str] = None
+    patient_email: Optional[str] = None
+    submitted_at: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    paid_at: Optional[str] = None
+    confirmed_momo_transaction_id: Optional[str] = None
+    created_at: Optional[str] = None

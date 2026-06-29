@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatRWF } from "@/lib/utils";
 import { PageHeader, StatCard, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
-import { DollarSign, TrendingUp, ArrowDownToLine, Receipt, ChevronRight } from "lucide-react";
+import { DollarSign, TrendingUp, ArrowDownToLine, Receipt, ChevronRight, Banknote } from "lucide-react";
 import { revenueService, type RevenueSummary } from "@/lib/services/revenue.service";
 import { withdrawalsService } from "@/lib/services/withdrawals.service";
+import { manualPaymentsService } from "@/lib/services/manual-payments.service";
 
 export default function FinanceOverviewPage() {
   const [summary, setSummary] = useState<RevenueSummary | null>(null);
   const [pendingWithdrawals, setPendingWithdrawals] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
+  const [pendingManualPayments, setPendingManualPayments] = useState(0);
 
   useEffect(() => {
     revenueService.getSummary().then(setSummary).catch(() => {});
@@ -23,6 +25,7 @@ export default function FinanceOverviewPage() {
         setPendingAmount(pending.reduce((a, w) => a + w.amount, 0));
       })
       .catch(() => {});
+    manualPaymentsService.pendingCount().then(setPendingManualPayments).catch(() => {});
   }, []);
 
   const links = [
@@ -31,6 +34,12 @@ export default function FinanceOverviewPage() {
       title: "Revenue",
       desc: "Platform gross, commission and transaction ledger",
       icon: Receipt,
+    },
+    {
+      href: "/finance/manual-payments",
+      title: "Manual MoMo Payments",
+      desc: "Review patient payment proofs and confirm transactions",
+      icon: Banknote,
     },
     {
       href: "/finance/withdrawals",
@@ -59,15 +68,14 @@ export default function FinanceOverviewPage() {
           sublabel={summary ? `${summary.available_settlement_count ?? 0} settled ledger entries` : undefined}
         />
         <StatCard
-          label="Pending withdrawals"
-          value={pendingWithdrawals}
-          icon={ArrowDownToLine}
-          color="text-amber-700"
-          sublabel={summary?.pending_withdrawals ? formatRWF(summary.pending_withdrawals) + " locked" : undefined}
+          label="Pending manual payments"
+          value={pendingManualPayments}
+          icon={Banknote}
+          color="text-violet-700"
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {links.map(({ href, title, desc, icon: Icon }) => (
           <Link key={href} href={href} prefetch={false}>
             <Card className="hover:border-farumasi-300 hover:shadow-md transition-all h-full">
@@ -87,6 +95,19 @@ export default function FinanceOverviewPage() {
           </Link>
         ))}
       </div>
+
+      {pendingManualPayments > 0 && (
+        <Card className="border-violet-200 bg-violet-50/50">
+          <CardContent className="py-4">
+            <p className="text-sm text-violet-900">
+              <strong>{pendingManualPayments}</strong> manual MoMo payment(s) awaiting review.{" "}
+              <Link href="/finance/manual-payments" className="text-farumasi-700 font-semibold underline">
+                Review now →
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {pendingWithdrawals > 0 && (
         <Card className="border-amber-200 bg-amber-50/50">

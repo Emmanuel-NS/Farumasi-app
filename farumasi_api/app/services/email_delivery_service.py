@@ -216,3 +216,62 @@ def send_data_export_email(*, to_email: str, full_name: str, download_path: str)
 
     logger.warning("Email not sent — data export for %s at %s", to_email, download_path)
     return False
+
+
+def _content_update_email_bodies(
+    *,
+    full_name: str,
+    page_title: str,
+    page_url: str,
+    version: int,
+    custom_note: str,
+) -> tuple[str, str]:
+    note_block = f"\n\n{custom_note}\n" if custom_note else ""
+    text = (
+        f"Hello {full_name},\n\n"
+        f"We have updated our {page_title} (version {version}).{note_block}\n"
+        f"Please review the latest version here:\n{page_url}\n\n"
+        f"Continued use of FARUMASI means you accept the updated terms.\n\n"
+        f"— FARUMASI"
+    )
+    note_html = f"<p style='margin:16px 0;color:#334155;'>{custom_note}</p>" if custom_note else ""
+    html = f"""<!DOCTYPE html>
+<html lang="en"><body style="font-family:Segoe UI,sans-serif;background:#f1f5f9;padding:24px;">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;">
+    <div style="font-size:20px;font-weight:800;color:#0F5132;">FARUMASI</div>
+    <p style="color:#64748b;margin:12px 0;">Hello {full_name},</p>
+    <p style="color:#334155;line-height:1.6;">We updated <strong>{page_title}</strong> (version {version}).</p>
+    {note_html}
+    <p style="margin:24px 0;"><a href="{page_url}" style="background:#1E9E68;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:700;">Read updated page</a></p>
+    <p style="color:#94a3b8;font-size:12px;">Continued use of FARUMASI means you accept the updated terms.</p>
+  </div>
+</body></html>"""
+    return text, html
+
+
+def send_content_update_email(
+    *,
+    to_email: str,
+    full_name: str,
+    page_title: str,
+    page_url: str,
+    version: int,
+    custom_note: str = "",
+) -> bool:
+    subject = f"FARUMASI — updated {page_title}"
+    body, html = _content_update_email_bodies(
+        full_name=full_name,
+        page_title=page_title,
+        page_url=page_url,
+        version=version,
+        custom_note=custom_note,
+    )
+    if _send_email(
+        to_email=to_email,
+        to_name=full_name,
+        subject=subject,
+        body=body,
+        html_body=html,
+    ):
+        return True
+    return False
