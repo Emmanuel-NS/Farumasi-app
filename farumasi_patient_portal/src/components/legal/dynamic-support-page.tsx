@@ -61,7 +61,9 @@ export function DynamicSupportPage() {
                       {item.q}
                       <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p className="text-sm text-slate-600 mt-2 leading-relaxed">{item.a}</p>
+                    <div className="text-sm text-slate-600 mt-2 leading-relaxed">
+                      <RichContent html={item.a} />
+                    </div>
                   </details>
                 ))}
               </div>

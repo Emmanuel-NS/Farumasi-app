@@ -22,6 +22,9 @@ import {
 } from "@/lib/services/content-pages.service";
 import { usersService } from "@/lib/services/users.service";
 import { formatDate, cn } from "@/lib/utils";
+import { RichEditor } from "@/components/content/rich-editor";
+import { FaqEditor, faqFromApi, faqToApi, type FaqItem } from "@/components/content/faq-editor";
+import { ContentPreview } from "@/components/content/content-preview";
 
 const PATIENT_PORTAL =
   process.env.NEXT_PUBLIC_PATIENT_PORTAL_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
@@ -44,7 +47,7 @@ function applyPageToDraft(
       contactEmail: string;
       contactPhone: string;
       contactWhatsapp: string;
-      faqJson: string;
+      faqItems: FaqItem[];
     }>
   >,
   setNotifySubject: (s: string) => void,
@@ -58,7 +61,7 @@ function applyPageToDraft(
     contactEmail: String(meta.email ?? ""),
     contactPhone: String(meta.phone ?? ""),
     contactWhatsapp: String(meta.whatsapp ?? ""),
-    faqJson: faq?.length ? JSON.stringify(faq, null, 2) : "",
+    faqItems: faqFromApi(faq),
   });
   setNotifySubject(`FARUMASI — updated ${page.title}`);
 }
@@ -83,8 +86,9 @@ export default function ContentPagesAdmin() {
     contactEmail: "",
     contactPhone: "",
     contactWhatsapp: "",
-    faqJson: "",
+    faqItems: [] as FaqItem[],
   });
+  const [showPreview, setShowPreview] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
@@ -139,15 +143,11 @@ export default function ContentPagesAdmin() {
     try {
       let contact_meta: Record<string, unknown> | undefined;
       if (selected.page_type === "support" || selected.slug === "support") {
-        let faq: Array<{ q: string; a: string }> = [];
-        if (draft.faqJson.trim()) {
-          faq = JSON.parse(draft.faqJson) as Array<{ q: string; a: string }>;
-        }
         contact_meta = {
           email: draft.contactEmail.trim() || undefined,
           phone: draft.contactPhone.trim() || undefined,
           whatsapp: draft.contactWhatsapp.trim() || undefined,
-          faq,
+          faq: faqToApi(draft.faqItems),
         };
       }
       const updated = await contentPagesService.update(selected.id, {
@@ -357,43 +357,72 @@ export default function ContentPagesAdmin() {
                 <Input value={draft.summary} onChange={(e) => setDraft((d) => ({ ...d, summary: e.target.value }))} />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-500">Body (HTML supported)</label>
-                <textarea
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="text-xs font-semibold text-slate-500">Page content</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPreview((v) => !v)}
+                    className="text-xs font-medium text-farumasi-600 hover:text-farumasi-700"
+                  >
+                    {showPreview ? "Hide preview" : "Show preview"}
+                  </button>
+                </div>
+                <RichEditor
+                  editorKey={selected.id}
                   value={draft.body}
-                  onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))}
-                  rows={14}
-                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-farumasi-500"
+                  onChange={(html) => setDraft((d) => ({ ...d, body: html }))}
+                  placeholder="Write or edit the page content. Existing HTML is loaded automatically."
+                  minHeight={selected.page_type === "support" ? 160 : 320}
+                  showCount
                 />
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Rich formatting, images, tables, custom HTML/CSS, and YouTube embeds are supported.
+                </p>
               </div>
 
-              {selected.page_type === "support" && (
-                <div className="rounded-xl border border-slate-200 p-4 space-y-3">
-                  <p className="text-xs font-bold uppercase text-slate-500">Support contacts</p>
-                  <Input
-                    placeholder="Email"
-                    value={draft.contactEmail}
-                    onChange={(e) => setDraft((d) => ({ ...d, contactEmail: e.target.value }))}
-                  />
-                  <Input
-                    placeholder="Phone"
-                    value={draft.contactPhone}
-                    onChange={(e) => setDraft((d) => ({ ...d, contactPhone: e.target.value }))}
-                  />
-                  <Input
-                    placeholder="WhatsApp URL"
-                    value={draft.contactWhatsapp}
-                    onChange={(e) => setDraft((d) => ({ ...d, contactWhatsapp: e.target.value }))}
-                  />
+              {showPreview && (
+                <ContentPreview html={draft.body} title="Patient portal preview" />
+              )}
+
+              {(selected.page_type === "support" || selected.slug === "support") && (
+                <div className="rounded-xl border border-slate-200 p-4 space-y-4">
                   <div>
-                    <label className="text-xs text-slate-500">FAQ (JSON array of q/a)</label>
-                    <textarea
-                      value={draft.faqJson}
-                      onChange={(e) => setDraft((d) => ({ ...d, faqJson: e.target.value }))}
-                      rows={6}
-                      className="w-full border rounded-lg px-3 py-2 text-xs font-mono mt-1"
-                      placeholder='[{"q":"Question?","a":"Answer."}]'
-                    />
+                    <p className="text-xs font-bold uppercase text-slate-500 mb-3">Contact channels</p>
+                    <p className="text-xs text-slate-500 mb-3">
+                      These appear on the patient Help page and sync to partner/pharmacist support areas.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-slate-500">Support email</label>
+                        <Input
+                          placeholder="support@farumasi.com"
+                          value={draft.contactEmail}
+                          onChange={(e) => setDraft((d) => ({ ...d, contactEmail: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-500">Phone number</label>
+                        <Input
+                          placeholder="+250 788 000 000"
+                          value={draft.contactPhone}
+                          onChange={(e) => setDraft((d) => ({ ...d, contactPhone: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-500">WhatsApp link</label>
+                        <Input
+                          placeholder="https://wa.me/250788000000"
+                          value={draft.contactWhatsapp}
+                          onChange={(e) => setDraft((d) => ({ ...d, contactWhatsapp: e.target.value }))}
+                        />
+                      </div>
+                    </div>
                   </div>
+
+                  <FaqEditor
+                    items={draft.faqItems}
+                    onChange={(faqItems) => setDraft((d) => ({ ...d, faqItems }))}
+                  />
                 </div>
               )}
             </div>

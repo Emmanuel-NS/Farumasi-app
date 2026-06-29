@@ -22,7 +22,19 @@ import { productsService } from "@/lib/services/products.service";
 import { patientsService, type PatientAddress } from "@/lib/services/patients.service";
 import { configService, type PublicPaymentConfig } from "@/lib/services/config.service";
 import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment-checkout";
-import { ManualPaymentPanel, type ManualMomoConfig } from "@/components/cart/manual-payment-panel";
+import {
+  ManualMoMoPaySection,
+  ManualPaymentPanel,
+  type ManualMomoConfig,
+} from "@/components/cart/manual-payment-panel";
+import {
+  loadCheckoutProgress,
+  saveCheckoutProgress,
+  clearCheckoutProgress,
+  EMPTY_MANUAL_DRAFT,
+  type ManualPaymentDraft,
+  type PendingManualOrder,
+} from "@/lib/checkout-progress";
 import { useAuthStore } from "@/store/auth-store";
 import { usePatientLocation } from "@/hooks/use-patient-location";
 import type { Pharmacy, Medicine } from "@/types";
@@ -161,13 +173,11 @@ export default function CartPage() {
   const [isPlacingOrder, setIsPlacingOrder]   = useState(false);
   const [paymentStepLabel, setPaymentStepLabel] = useState("");
   const [paymentConfig, setPaymentConfig] = useState<PublicPaymentConfig | null>(null);
-  const [manualProofCtx, setManualProofCtx] = useState<{
-    orderId: string;
-    orderCode: string;
-    amount: number;
-    accessCode: string;
-  } | null>(null);
+  const [manualDraft, setManualDraft] = useState<ManualPaymentDraft>(EMPTY_MANUAL_DRAFT);
+  const [pendingManualOrder, setPendingManualOrder] = useState<PendingManualOrder | null>(null);
   const [paymentAwaitingReview, setPaymentAwaitingReview] = useState(false);
+  const progressRestoredRef = useRef(false);
+  const progressSaveSkipRef = useRef(true);
   const PAYMENT_FEE_PCT = paymentConfig?.processing_fee_percent ?? 3.8;
   const [confirmedOrderCode, setConfirmedOrderCode] = useState<string>("");
   const [confirmedAccessCode, setConfirmedAccessCode] = useState<string>("");
@@ -183,6 +193,7 @@ export default function CartPage() {
   /** Catalogue product data for each prescription item that has a linked product_id */
   const [rxProductsMap, setRxProductsMap] = useState<Map<string, Medicine>>(new Map());
   const detailsPrefilledRef = useRef(false);
+  const savedPharmacyIdRef = useRef<string | null>(null);
 
   const enabledPaymentMethods = useMemo((): PaymentMethodId[] => {
     const methods = paymentConfig?.methods ?? ["mtn_momo", "card"];
@@ -261,6 +272,7 @@ export default function CartPage() {
           "";
         setConfirmedOrderCode(code);
         setConfirmedAccessCode(access);
+        clearCheckoutProgress();
         if (!isLocked) clear();
         setStep("confirmed");
         window.history.replaceState({}, "", "/cart");
@@ -355,6 +367,39 @@ export default function CartPage() {
   // Fetch real stock listings when the patient enters the pharmacy-selection step
   const effectiveItems = isLocked ? lockedCartItems : (Object.values(cartItems) as CartEntry[]);
   const cartKey = effectiveItems.map((e) => e.medicine.id).sort().join(",");
+
+  // Restore checkout progress (Google Forms–style resume).
+  useEffect(() => {
+    if (progressRestoredRef.current) return;
+    if (effectiveItems.length === 0 && !rxId) {
+      progressRestoredRef.current = true;
+      progressSaveSkipRef.current = false;
+      return;
+    }
+    const saved = loadCheckoutProgress(cartKey, rxId, recId);
+    progressRestoredRef.current = true;
+    if (!saved) {
+      progressSaveSkipRef.current = false;
+      return;
+    }
+    if (saved.step !== "confirmed") setStep(saved.step);
+    if (saved.step !== "cart") {
+      toast.info("Continuing where you left off…", { duration: 4000 });
+    }
+    setFulfillment(saved.fulfillment);
+    setName(saved.name);
+    setPhone(saved.phone);
+    setDistrict(saved.district);
+    setDeliveryHood(saved.deliveryHood);
+    setNotes(saved.notes);
+    setDeferDeliveryFee(saved.deferDeliveryFee);
+    setPaymentMethod(saved.paymentMethod);
+    setManualDraft(saved.manualDraft);
+    setPendingManualOrder(saved.pendingManualOrder);
+    savedPharmacyIdRef.current = saved.selectedPharmacyId;
+    progressSaveSkipRef.current = false;
+  }, [cartKey, rxId, recId, effectiveItems.length]);
+
   useEffect(() => {
     if (step === "confirmed") return;
     const productIds = effectiveItems.map((e) => e.medicine.id).filter(Boolean);
@@ -579,12 +624,65 @@ export default function CartPage() {
 
   // Keep selected pharmacy in sync when road distances refresh rankings.
   useEffect(() => {
+    if (!selectedOption && savedPharmacyIdRef.current && pharmacyOptions.length) {
+      const restored = pharmacyOptions.find((o) => o.pharmacy.id === savedPharmacyIdRef.current);
+      if (restored) {
+        setSelectedOption(restored);
+        savedPharmacyIdRef.current = null;
+      }
+    }
+  }, [pharmacyOptions, selectedOption]);
+
+  useEffect(() => {
     if (!selectedOption) return;
     const updated = pharmacyOptions.find((o) => o.pharmacy.id === selectedOption.pharmacy.id);
     if (updated && updated.roadDistanceKm !== selectedOption.roadDistanceKm) {
       setSelectedOption(updated);
     }
   }, [pharmacyOptions, selectedOption]);
+
+  // Persist checkout progress whenever the patient moves through steps.
+  useEffect(() => {
+    if (progressSaveSkipRef.current || !progressRestoredRef.current) return;
+    if (step === "confirmed") return;
+    if (effectiveItems.length === 0 && !rxId) return;
+    saveCheckoutProgress({
+      v: 1,
+      savedAt: Date.now(),
+      rxId,
+      recId,
+      cartKey,
+      step,
+      selectedPharmacyId: selectedOption?.pharmacy.id ?? null,
+      fulfillment,
+      name,
+      phone,
+      district,
+      deliveryHood,
+      notes,
+      deferDeliveryFee,
+      paymentMethod,
+      manualDraft,
+      pendingManualOrder,
+    });
+  }, [
+    step,
+    selectedOption,
+    fulfillment,
+    name,
+    phone,
+    district,
+    deliveryHood,
+    notes,
+    deferDeliveryFee,
+    paymentMethod,
+    manualDraft,
+    pendingManualOrder,
+    cartKey,
+    rxId,
+    recId,
+    effectiveItems.length,
+  ]);
 
   // Road-distance estimate (prefer OSRM routing from API)
   const selectedRoadDistKm =
@@ -1748,7 +1846,12 @@ export default function CartPage() {
   if (step === "payment") {
     const phoneReady =
       paymentMethod === "card" || paymentMethod === "manual_momo" || phone.trim().length >= 9;
-    const canPlace   = !!selectedOption && deliveryLocationReady && phoneReady;
+    const manualProofReady =
+      paymentMethod !== "manual_momo" || manualDraft.proofUrls.length > 0;
+    const canPlaceManual =
+      !!selectedOption && deliveryLocationReady && phoneReady && manualProofReady;
+    const canPlace   = canPlaceManual;
+    const showPendingManualResume = Boolean(pendingManualOrder && paymentMethod === "manual_momo");
     const orderSubtotal = Math.round(
       amountDueNow > 0 ? amountDueNow : medicineSubtotal + (deferDeliveryFee ? 0 : deliveryFeeAmount),
     );
@@ -1783,39 +1886,64 @@ export default function CartPage() {
         )}
 
         <div className="mb-6">
-          {manualProofCtx && manualMomoConfig ? (
-            <ManualPaymentPanel
-              orderId={manualProofCtx.orderId}
-              orderCode={manualProofCtx.orderCode}
-              amount={manualProofCtx.amount}
-              config={manualMomoConfig}
-              formatPrice={formatPrice}
-              phone={phone}
-              onPhoneChange={setPhone}
-              onBack={() => setManualProofCtx(null)}
-              onSubmitted={() => {
-                setConfirmedOrderCode(manualProofCtx.orderCode);
-                setConfirmedAccessCode(manualProofCtx.accessCode);
-                setPaymentAwaitingReview(true);
-                setManualProofCtx(null);
-                if (!isLocked) clear();
-                setStep("confirmed");
-              }}
-            />
+          {showPendingManualResume && pendingManualOrder && manualMomoConfig ? (
+            <>
+              <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
+                <p className="font-semibold">Resume payment for order {pendingManualOrder.orderCode}</p>
+                <p className="mt-0.5 text-xs text-sky-800 dark:text-sky-200">
+                  Your order was saved. Upload your MoMo proof below to finish checkout.
+                </p>
+              </div>
+              <ManualPaymentPanel
+                orderId={pendingManualOrder.orderId}
+                orderCode={pendingManualOrder.orderCode}
+                amount={pendingManualOrder.amount}
+                config={manualMomoConfig}
+                formatPrice={formatPrice}
+                phone={phone}
+                onPhoneChange={setPhone}
+                draft={manualDraft}
+                onDraftChange={setManualDraft}
+                onSubmitted={() => {
+                  setConfirmedOrderCode(pendingManualOrder.orderCode);
+                  setConfirmedAccessCode(pendingManualOrder.accessCode);
+                  setPaymentAwaitingReview(true);
+                  setPendingManualOrder(null);
+                  clearCheckoutProgress();
+                  if (!isLocked) clear();
+                  setStep("confirmed");
+                }}
+              />
+            </>
           ) : (
-            <PaymentCheckout
-              method={paymentMethod}
-              onMethodChange={setPaymentMethod}
-              phone={phone}
-              onPhoneChange={setPhone}
-              feePercent={PAYMENT_FEE_PCT}
-              orderSubtotal={orderSubtotal}
-              processingFee={processingFee}
-              totalWithFee={totalWithFee}
-              formatPrice={formatPrice}
-              momoNumberLabel={t.cart_momo_number}
-              enabledMethods={enabledPaymentMethods}
-            />
+            <>
+              <PaymentCheckout
+                method={paymentMethod}
+                onMethodChange={setPaymentMethod}
+                phone={phone}
+                onPhoneChange={setPhone}
+                feePercent={PAYMENT_FEE_PCT}
+                orderSubtotal={orderSubtotal}
+                processingFee={processingFee}
+                totalWithFee={totalWithFee}
+                formatPrice={formatPrice}
+                momoNumberLabel={t.cart_momo_number}
+                enabledMethods={enabledPaymentMethods}
+              />
+              {paymentMethod === "manual_momo" && manualMomoConfig && (
+                <div className="mt-5">
+                  <ManualMoMoPaySection
+                    amount={totalWithFee}
+                    config={manualMomoConfig}
+                    formatPrice={formatPrice}
+                    phone={phone}
+                    onPhoneChange={setPhone}
+                    draft={manualDraft}
+                    onDraftChange={setManualDraft}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -1980,13 +2108,17 @@ export default function CartPage() {
           </div>
         </div>
 
-        {!manualProofCtx && (
+        {!showPendingManualResume && (
         <button
           disabled={!canPlace || isPlacingOrder}
             onClick={async () => {
             if (!canPlace || isPlacingOrder) return;
             if (isGuest) {
               toast.error("Please sign in to place an order.");
+              return;
+            }
+            if (paymentMethod === "manual_momo" && !manualDraft.proofUrls.length) {
+              toast.error("Upload your MoMo payment proof before placing the order.");
               return;
             }
             if (
@@ -2066,14 +2198,31 @@ export default function CartPage() {
               setConfirmedAccessCode(generatedAccessCode);
 
               if (paymentMethod === "manual_momo") {
-                setManualProofCtx({
-                  orderId,
-                  orderCode,
-                  amount: totalWithFee,
-                  accessCode: generatedAccessCode,
-                });
-                setPaymentStepLabel("");
-                setIsPlacingOrder(false);
+                setPaymentStepLabel("Submitting payment proof…");
+                try {
+                  await paymentsService.submitManual(orderId, {
+                    proof_urls: manualDraft.proofUrls,
+                    patient_note: manualDraft.note.trim() || undefined,
+                    claimed_reference: manualDraft.claimedRef.trim() || undefined,
+                    phone: phone.trim() || undefined,
+                  });
+                  setConfirmedOrderCode(orderCode);
+                  setPaymentAwaitingReview(true);
+                  setPendingManualOrder(null);
+                  clearCheckoutProgress();
+                  if (!isLocked) clear();
+                  setStep("confirmed");
+                } catch (proofErr) {
+                  setPendingManualOrder({
+                    orderId,
+                    orderCode,
+                    amount: totalWithFee,
+                    accessCode: generatedAccessCode,
+                  });
+                  toast.error(
+                    checkoutErrorMessage(proofErr, "Order created but proof upload failed. Submit proof below to continue."),
+                  );
+                }
                 return;
               }
 
@@ -2104,6 +2253,7 @@ export default function CartPage() {
               }
 
               setConfirmedOrderCode(orderCode);
+              clearCheckoutProgress();
               if (!isLocked) clear();
               setStep("confirmed");
             } catch (err) {
@@ -2123,11 +2273,11 @@ export default function CartPage() {
           {isPlacingOrder
             ? paymentStepLabel || t.cart_processing
             : paymentMethod === "manual_momo"
-              ? `${t.cart_place_order} · continue to MoMo`
+              ? `${t.cart_place_order} · submit proof · ${formatPrice(totalWithFee)}`
               : `${t.cart_place_order} · ${formatPrice(totalWithFee)}`}
         </button>
         )}
-        {isPlacingOrder && amountDueNow > 0 && !manualProofCtx && (
+        {isPlacingOrder && amountDueNow > 0 && !showPendingManualResume && (
           <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-2">
             {paymentStepLabel || "Complete payment to continue."}
           </p>

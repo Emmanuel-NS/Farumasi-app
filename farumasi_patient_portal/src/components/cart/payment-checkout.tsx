@@ -206,11 +206,11 @@ export function PaymentCheckout({
           ) : method === "manual_momo" ? (
             <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
               <p>
-                After placing your order, you will dial the FARUMASI merchant code, pay the exact amount,
-                and upload your MoMo confirmation screenshot.
+                Dial the FARUMASI merchant code and pay the exact amount shown below, then upload your
+                MoMo confirmation in this same Pay step before placing the order.
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Our team verifies payments within business hours — you will be notified once confirmed.
+                Our team verifies manual payments within business hours — you will be notified once confirmed.
               </p>
             </div>
           ) : (

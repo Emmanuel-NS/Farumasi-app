@@ -16,6 +16,8 @@ import { useTranslation } from "@/lib/translations";
 import { useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
 import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment-checkout";
+import { ManualPaymentPanel, type ManualMomoConfig } from "@/components/cart/manual-payment-panel";
+import { configService, type PublicPaymentConfig } from "@/lib/services/config.service";
 import { PharmacySwitchTeaser } from "@/components/orders/pharmacy-reassignment-panel";
 import {
   ArrowLeft, MapPin, Phone, MessageCircle, Package, Store,
@@ -65,6 +67,7 @@ export default function OrderDetailPage() {
   const [retryingPayment, setRetryingPayment] = useState(false);
   const [retryPhone, setRetryPhone] = useState("");
   const [retryPaymentMethod, setRetryPaymentMethod] = useState<PaymentMethodId>("mtn_momo");
+  const [paymentConfig, setPaymentConfig] = useState<PublicPaymentConfig | null>(null);
   const PAYMENT_FEE_PCT = 3.8;
   const [reassignOptions, setReassignOptions] = useState<Awaited<ReturnType<typeof ordersService.getReassignmentOptions>> | null>(null);
   const [reassignTick, setReassignTick] = useState(0);
@@ -78,6 +81,30 @@ export default function OrderDetailPage() {
       setRetryPhone(authUser.phone);
     }
   }, [authUser?.phone, retryPhone]);
+
+  useEffect(() => {
+    if (!order) return;
+    if (order.status === "cancelled") return;
+    if (order.paymentStatus !== "failed" && order.paymentStatus !== "pending") return;
+    configService.getPublicConfig().then((cfg) => setPaymentConfig(cfg.payments)).catch(() => {});
+  }, [order?.id, order?.status, order?.paymentStatus]);
+
+  const enabledRetryMethods = useMemo((): PaymentMethodId[] => {
+    const methods = paymentConfig?.methods ?? ["mtn_momo", "card"];
+    return methods.filter((m): m is PaymentMethodId =>
+      m === "mtn_momo" || m === "card" || m === "manual_momo",
+    );
+  }, [paymentConfig]);
+
+  const manualMomoConfig: ManualMomoConfig | null = paymentConfig?.manual_momo?.enabled
+    ? {
+        enabled: true,
+        merchant_name: paymentConfig.manual_momo.merchant_name,
+        pay_code: paymentConfig.manual_momo.pay_code,
+        dial_string: paymentConfig.manual_momo.dial_string,
+        instructions: paymentConfig.manual_momo.instructions,
+      }
+    : null;
 
   const loadOrder = async () => {
     if (!id) return;
@@ -179,7 +206,10 @@ export default function OrderDetailPage() {
 
   const handleRetryPayment = async () => {
     if (!order) return;
-    const phoneReady = retryPaymentMethod === "card" || retryPhone.trim().length >= 9;
+    const phoneReady =
+      retryPaymentMethod === "card" ||
+      retryPaymentMethod === "manual_momo" ||
+      retryPhone.trim().length >= 9;
     if (!phoneReady) {
       toast.error("Enter a valid mobile number for this payment method.");
       return;
@@ -255,7 +285,11 @@ export default function OrderDetailPage() {
   const orderAmountDue = Math.round(total);
   const retryProcessingFee = orderAmountDue > 0 ? Math.round(orderAmountDue * PAYMENT_FEE_PCT / 100) : 0;
   const retryTotalWithFee = orderAmountDue + retryProcessingFee;
-  const retryPhoneReady = retryPaymentMethod === "card" || retryPhone.trim().length >= 9;
+  const retryPhoneReady =
+    retryPaymentMethod === "card" ||
+    retryPaymentMethod === "manual_momo" ||
+    retryPhone.trim().length >= 9;
+  const retryIsManual = retryPaymentMethod === "manual_momo";
 
   const itemList = order.itemList ?? [];
 
@@ -720,23 +754,39 @@ export default function OrderDetailPage() {
             processingFee={retryProcessingFee}
             totalWithFee={retryTotalWithFee}
             formatPrice={formatPrice}
+            enabledMethods={enabledRetryMethods}
           />
-          <button
-            onClick={handleRetryPayment}
-            disabled={retryingPayment || !retryPhoneReady}
-            className="w-full mt-5 flex items-center justify-center gap-2 h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors disabled:opacity-60"
-          >
-            <Banknote className="w-4 h-4" />
-            {retryingPayment
-              ? "Starting payment…"
-              : `Pay now · ${formatPrice(retryTotalWithFee)}`}
-          </button>
+          {retryIsManual && manualMomoConfig ? (
+            <div className="mt-5">
+              <ManualPaymentPanel
+                orderId={order.id}
+                orderCode={order.orderCode ?? order.id}
+                amount={retryTotalWithFee}
+                config={manualMomoConfig}
+                formatPrice={formatPrice}
+                phone={retryPhone}
+                onPhoneChange={setRetryPhone}
+                onSubmitted={() => void loadOrder()}
+              />
+            </div>
+          ) : (
+            <button
+              onClick={handleRetryPayment}
+              disabled={retryingPayment || !retryPhoneReady}
+              className="w-full mt-5 flex items-center justify-center gap-2 h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors disabled:opacity-60"
+            >
+              <Banknote className="w-4 h-4" />
+              {retryingPayment
+                ? "Starting payment…"
+                : `Pay now · ${formatPrice(retryTotalWithFee)}`}
+            </button>
+          )}
         </div>
       )}
 
       {/* ── Actions ──────────────────────────────────────────────────── */}
       <div className="space-y-3">
-        {canRetryPayment && (
+        {canRetryPayment && retryPaymentMethod === "card" && (
           <p className="text-center text-xs text-slate-400 dark:text-slate-500">
             You will be redirected to Pesapal to complete card payment securely.
           </p>
