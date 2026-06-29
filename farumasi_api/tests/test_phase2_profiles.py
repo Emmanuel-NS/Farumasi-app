@@ -29,6 +29,9 @@ def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
 
+from tests.bootstrap import register_for_test
+
+
 async def _register(
     client: AsyncClient,
     email: str,
@@ -36,14 +39,14 @@ async def _register(
     password: str = "Test@12345",
     full_name: str = "Test User",
 ):
-    resp = await client.post("/api/v1/auth/register", json={
-        "email": email,
-        "password": password,
-        "full_name": full_name,
-        "role": role,
-    })
-    assert resp.status_code == 201, resp.text
-    return resp.json()
+    return await register_for_test(
+        client,
+        client._test_db,
+        role=role,
+        email=email,
+        password=password,
+        full_name=full_name,
+    )
 
 
 def _headers(tokens: dict) -> dict:

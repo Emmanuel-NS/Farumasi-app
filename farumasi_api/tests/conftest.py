@@ -24,6 +24,9 @@ def unique_email(prefix: str = "user") -> str:
     """Return a unique email per call to avoid cross-test collisions."""
     return f"{prefix}_{uuid.uuid4().hex[:12]}@farumasi.com"
 
+
+TEST_MEDICINE_INFO_URL = "https://www.fda.gov.rw/test-pil"
+
 from app.main import create_application
 from app.core.database import get_db
 from app.models.base import Base
@@ -62,6 +65,7 @@ async def client(db: AsyncSession):
     app.dependency_overrides[get_db] = override_get_db
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        ac._test_db = db  # noqa: SLF001 — used by tests.bootstrap.register_test_user
         yield ac
 
 

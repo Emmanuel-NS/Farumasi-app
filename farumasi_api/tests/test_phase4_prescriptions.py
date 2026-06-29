@@ -23,21 +23,12 @@ def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
 
+from tests.bootstrap import register_for_test
+from tests.conftest import TEST_MEDICINE_INFO_URL
+
+
 async def _register(client: AsyncClient, role: str, email: str | None = None) -> dict:
-    email = email or f"{role}_{_uid()}@farumasi.com"
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": email,
-            "password": "Pass@12345",
-            "full_name": f"{role.title()} {_uid()}",
-            "role": role,
-        },
-    )
-    assert r.status_code in (200, 201), r.text
-    data = r.json()
-    data["email"] = email
-    return data
+    return await register_for_test(client, client._test_db, role=role, email=email)
 
 
 def _h(tokens: dict) -> dict:
@@ -502,24 +493,29 @@ async def test_pharmacist_lists_reviews_filtered_to_self(client: AsyncClient):
 # ──────────────────────────────────────────────────────────────────────────
 async def test_cannot_link_unapproved_product(client: AsyncClient):
     """Items linking an unapproved product must be rejected (400)."""
-    # Pharmacist-created products default to PENDING_REVIEW (super_admin auto-approves)
-    pharm = await _register(client, "pharmacist")
+    super_admin = await _register(client, "super_admin")
     doctor = await _register(client, "doctor")
     patient = await _register(client, "patient")
     patient_id = await _get_patient_profile_id(client, patient)
 
     create_prod = await client.post(
         "/api/v1/products/",
-        headers=_h(pharm),
+        headers=_h(super_admin),
         json={
             "name": "DraftMed",
             "generic_name": "DraftMed",
             "product_type": "medicine",
             "manufacturer": "X",
+            "information_source_url": TEST_MEDICINE_INFO_URL,
         },
     )
     assert create_prod.status_code in (200, 201), create_prod.text
     prod_id = create_prod.json()["id"]
+    await client.patch(
+        f"/api/v1/products/{prod_id}/status",
+        headers=_h(super_admin),
+        json={"approval_status": "pending_review"},
+    )
 
     resp = await client.post(
         "/api/v1/prescriptions/",
@@ -547,6 +543,7 @@ async def test_link_approved_product_succeeds(client: AsyncClient):
             "generic_name": "GoodMed",
             "product_type": "medicine",
             "manufacturer": "X",
+            "information_source_url": TEST_MEDICINE_INFO_URL,
         },
     )
     prod_id = create_prod.json()["id"]

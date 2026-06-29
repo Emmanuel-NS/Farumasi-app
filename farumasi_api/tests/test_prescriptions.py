@@ -1,27 +1,31 @@
 import pytest
 from httpx import AsyncClient
 
+from tests.bootstrap import register_for_test
+
 pytestmark = pytest.mark.anyio
 
 
 async def _register_doctor(client: AsyncClient) -> dict:
-    r = await client.post("/api/v1/auth/register", json={
-        "email": "doctor_test@farumasi.com",
-        "password": "Doctor@12345",
-        "full_name": "Dr Test",
-        "role": "doctor",
-    })
-    return r.json()
+    return await register_for_test(
+        client,
+        client._test_db,
+        role="doctor",
+        email="doctor_test@farumasi.com",
+        password="Doctor@12345",
+        full_name="Dr Test",
+    )
 
 
 async def _register_patient(client: AsyncClient, email: str = "patient_rx@farumasi.com") -> dict:
-    r = await client.post("/api/v1/auth/register", json={
-        "email": email,
-        "password": "Patient@12345",
-        "full_name": "Pat Rx",
-        "role": "patient",
-    })
-    return r.json()
+    return await register_for_test(
+        client,
+        client._test_db,
+        role="patient",
+        email=email,
+        password="Patient@12345",
+        full_name="Pat Rx",
+    )
 
 
 async def test_create_prescription(client: AsyncClient):

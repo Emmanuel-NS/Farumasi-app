@@ -23,19 +23,11 @@ def _h(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
+from tests.bootstrap import register_for_test, mark_pharmacy_verified
+
+
 async def _register(client: AsyncClient, role: str) -> dict:
-    email = f"{role}_{_uid()}@farumasi.com"
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": email,
-            "password": "Pass@12345",
-            "full_name": f"{role.title()} {_uid()}",
-            "role": role,
-        },
-    )
-    assert r.status_code in (200, 201), r.text
-    return r.json()
+    return await register_for_test(client, client._test_db, role=role)
 
 
 async def _create_pharmacy(client: AsyncClient, admin_tokens: dict) -> str:
@@ -53,7 +45,9 @@ async def _create_pharmacy(client: AsyncClient, admin_tokens: dict) -> str:
         },
     )
     assert r.status_code == 201, r.text
-    return r.json()["id"]
+    pharmacy_id = r.json()["id"]
+    await mark_pharmacy_verified(client._test_db, pharmacy_id)
+    return pharmacy_id
 
 
 async def _create_delivery_order(

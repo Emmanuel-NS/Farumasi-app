@@ -26,21 +26,11 @@ def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
 
+from tests.bootstrap import register_for_test, mark_pharmacy_verified
+
+
 async def _register(client: AsyncClient, role: str, email: str | None = None) -> dict:
-    email = email or f"{role}_{_uid()}@farumasi.com"
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": email,
-            "password": "Pass@12345",
-            "full_name": f"{role.title()} {_uid()}",
-            "role": role,
-        },
-    )
-    assert r.status_code in (200, 201), r.text
-    data = r.json()
-    data["email"] = email
-    return data
+    return await register_for_test(client, client._test_db, role=role, email=email)
 
 
 def _h(tokens: dict) -> dict:
@@ -51,6 +41,9 @@ async def _patient_profile_id(client: AsyncClient, patient_tokens: dict) -> str:
     me = await client.get("/api/v1/patients/me", headers=_h(patient_tokens))
     assert me.status_code == 200, me.text
     return me.json()["id"]
+
+
+from tests.conftest import TEST_MEDICINE_INFO_URL
 
 
 async def _create_product(client: AsyncClient, sa_tokens: dict, name: str | None = None) -> str:
@@ -65,6 +58,7 @@ async def _create_product(client: AsyncClient, sa_tokens: dict, name: str | None
             "description": "test",
             "manufacturer": "ACME",
             "prescription_required": False,
+            "information_source_url": TEST_MEDICINE_INFO_URL,
         },
     )
     assert r.status_code == 201, r.text
@@ -94,7 +88,9 @@ async def _create_pharmacy(
         },
     )
     assert r.status_code == 201, r.text
-    return r.json()["id"]
+    pharmacy_id = r.json()["id"]
+    await mark_pharmacy_verified(client._test_db, pharmacy_id)
+    return pharmacy_id
 
 
 async def _add_listing(
@@ -659,7 +655,7 @@ async def test_partial_fulfillment_warning(client: AsyncClient):
     assert any("partial" in w.lower() for w in top[0]["warnings"])
 
 
-# 15. Missing location → 422
+# 15. Recommendations work without explicit lat/lon (patient profile fallback)
 async def test_missing_location_422(client: AsyncClient):
     sa = await _register(client, "super_admin")
     product_id = await _create_product(client, sa)
@@ -681,4 +677,5 @@ async def test_missing_location_422(client: AsyncClient):
         f"/api/v1/patients/me/prescriptions/{rx_id}/recommendations",
         headers=_h(patient),
     )
-    assert resp.status_code == 422, resp.text
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["top_recommendations"]

@@ -26,7 +26,9 @@ def _h(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
-def _withdrawal_json(amount: float) -> dict:
+def _withdrawal_json(amount: float, *, allow_below_min: bool = False) -> dict:
+    if not allow_below_min and amount > 0:
+        amount = max(amount, 1000.0)
     return {"amount": amount}
 
 
@@ -59,21 +61,31 @@ async def _pay_order_sandbox(client: AsyncClient, patient: dict, order_id: str, 
     assert r.json()["payment_status"] == "paid", r.text
 
 
+from tests.bootstrap import register_for_test, mark_pharmacy_verified, mark_partner_verified
+
+
 async def _register(client: AsyncClient, role: str) -> dict:
-    email = f"{role}_{_uid()}@farumasi.com"
+    return await register_for_test(client, client._test_db, role=role)
+
+
+from tests.conftest import TEST_MEDICINE_INFO_URL
+
+
+async def _create_partner_product(client: AsyncClient, sa_tokens: dict) -> str:
     r = await client.post(
-        "/api/v1/auth/register",
+        "/api/v1/products/",
+        headers=_h(sa_tokens),
         json={
-            "email": email,
-            "password": "Pass@12345",
-            "full_name": f"{role.title()} {_uid()}",
-            "role": role,
+            "name": f"Supplement_{_uid()}",
+            "category": "wellness",
+            "product_type": "food_supplements",
+            "description": "test",
+            "manufacturer": "ACME",
+            "prescription_required": False,
         },
     )
-    assert r.status_code in (200, 201), r.text
-    body = r.json()
-    body["email"] = email
-    return body
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
 
 
 async def _create_product(client: AsyncClient, sa_tokens: dict) -> str:
@@ -87,6 +99,7 @@ async def _create_product(client: AsyncClient, sa_tokens: dict) -> str:
             "description": "test",
             "manufacturer": "ACME",
             "prescription_required": False,
+            "information_source_url": TEST_MEDICINE_INFO_URL,
         },
     )
     assert r.status_code == 201, r.text
@@ -108,7 +121,9 @@ async def _create_pharmacy(client: AsyncClient, admin_tokens: dict) -> str:
         },
     )
     assert r.status_code == 201, r.text
-    return r.json()["id"]
+    pharmacy_id = r.json()["id"]
+    await mark_pharmacy_verified(client._test_db, pharmacy_id)
+    return pharmacy_id
 
 
 async def _create_partner(client: AsyncClient, admin_tokens: dict) -> str:
@@ -123,7 +138,9 @@ async def _create_partner(client: AsyncClient, admin_tokens: dict) -> str:
         },
     )
     assert r.status_code == 201, r.text
-    return r.json()["id"]
+    partner_id = r.json()["id"]
+    await mark_partner_verified(client._test_db, partner_id)
+    return partner_id
 
 
 async def _add_pharmacy_listing(
@@ -190,7 +207,7 @@ async def _setup_pharmacy_with_revenue(
     client: AsyncClient,
     sa: dict,
     *,
-    listing_price: float = 1000.0,
+    listing_price: float = 2000.0,
     quantity: int = 1,
 ) -> tuple[dict, str, str]:
     """Register a pharmacy_admin, create pharmacy + listing, complete an order.
@@ -217,12 +234,12 @@ async def _setup_partner_with_revenue(
     client: AsyncClient,
     sa: dict,
     *,
-    listing_price: float = 1000.0,
+    listing_price: float = 2000.0,
     quantity: int = 1,
 ) -> tuple[dict, str, str]:
     admin = await _register(client, "partner_company_admin")
     partner_id = await _create_partner(client, admin)
-    product_id = await _create_product(client, sa)
+    product_id = await _create_partner_product(client, sa)
     listing_id = await _add_partner_listing(
         client, admin, product_id, price=listing_price
     )
@@ -249,7 +266,7 @@ async def test_completed_order_creates_one_revenue_record(client: AsyncClient):
     records = r.json()
     assert len(records) == 1
     assert records[0]["pharmacy_id"] == pharmacy_id
-    assert float(records[0]["gross_amount"]) == 1000.0
+    assert float(records[0]["gross_amount"]) == 2000.0
 
 
 # 2. Re-marking COMPLETED does not duplicate revenue (idempotent).
@@ -274,7 +291,7 @@ async def test_pharmacy_admin_views_own_revenue(client: AsyncClient):
     r = await client.get("/api/v1/pharmacies/me/revenue/summary", headers=_h(admin))
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["gross_revenue"] == 1000.0
+    assert body["gross_revenue"] == 2000.0
     assert body["completed_orders"] == 1
     assert body["available_balance"] > 0
 
@@ -299,7 +316,7 @@ async def test_partner_admin_views_own_revenue(client: AsyncClient):
     r = await client.get("/api/v1/partners/me/revenue/summary", headers=_h(admin))
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["gross_revenue"] == 1000.0
+    assert body["gross_revenue"] == 2000.0
     records = (await client.get("/api/v1/partners/me/revenue", headers=_h(admin))).json()
     assert all(rec["partner_company_id"] == partner_id for rec in records)
 
@@ -333,17 +350,19 @@ async def test_pending_withdrawal_reduces_available_balance(client: AsyncClient)
         await client.get("/api/v1/pharmacies/me/revenue/summary", headers=_h(admin))
     ).json()
     amount = before["available_balance"] / 2
+    withdrawal = _withdrawal_json(amount)
     r = await client.post(
         "/api/v1/pharmacies/me/withdrawals",
         headers=_h(admin),
-        json=_withdrawal_json(amount),
+        json=withdrawal,
     )
     assert r.status_code == 201, r.text
+    withdrawn = withdrawal["amount"]
     after = (
         await client.get("/api/v1/pharmacies/me/revenue/summary", headers=_h(admin))
     ).json()
-    assert after["available_balance"] == before["available_balance"] - amount
-    assert after["pending_withdrawals"] == amount
+    assert after["available_balance"] == before["available_balance"] - withdrawn
+    assert after["pending_withdrawals"] == withdrawn
 
 
 # 9. Multiple pending withdrawals cannot exceed available balance.
@@ -417,7 +436,7 @@ async def test_withdrawal_amount_must_be_positive(client: AsyncClient):
     r = await client.post(
         "/api/v1/pharmacies/me/withdrawals",
         headers=_h(admin),
-        json=_withdrawal_json(0),
+        json=_withdrawal_json(0, allow_below_min=True),
     )
     assert r.status_code == 422, r.text
 
@@ -428,7 +447,7 @@ async def test_withdrawal_requires_payout_credentials(client: AsyncClient):
     admin = await _register(client, "pharmacy_admin")
     pharmacy_id = await _create_pharmacy(client, admin)
     product_id = await _create_product(client, sa)
-    listing_id = await _add_pharmacy_listing(client, admin, product_id)
+    listing_id = await _add_pharmacy_listing(client, admin, product_id, price=2000.0)
     patient = await _register(client, "patient")
     order_id = await _create_listing_order(client, patient, listing_id)
     await _pay_order_sandbox(client, patient, order_id)

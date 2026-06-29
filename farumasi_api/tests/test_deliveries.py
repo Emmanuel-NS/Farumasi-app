@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 
+from tests.bootstrap import register_for_test, mark_pharmacy_verified
 from tests.conftest import unique_email
 
 pytestmark = pytest.mark.anyio
@@ -8,21 +9,30 @@ pytestmark = pytest.mark.anyio
 
 async def _setup_delivery_scenario(client: AsyncClient):
     """Create patient, pharmacy, order, and return tokens + ids."""
-    # Patient
-    pat = (await client.post("/api/v1/auth/register", json={
-        "email": unique_email("delivery_patient"), "password": "Patient@12345",
-        "full_name": "Del Patient", "role": "patient"
-    })).json()
-    # Pharmacy admin
-    pharma = (await client.post("/api/v1/auth/register", json={
-        "email": unique_email("delivery_pharma"), "password": "Pharmacy@12345",
-        "full_name": "Del Pharma", "role": "pharmacy_admin"
-    })).json()
-    # Rider
-    rider = (await client.post("/api/v1/auth/register", json={
-        "email": unique_email("delivery_rider"), "password": "Rider@12345",
-        "full_name": "Del Rider", "role": "rider"
-    })).json()
+    pat = await register_for_test(
+        client,
+        client._test_db,
+        role="patient",
+        email=unique_email("delivery_patient"),
+        password="Patient@12345",
+        full_name="Del Patient",
+    )
+    pharma = await register_for_test(
+        client,
+        client._test_db,
+        role="pharmacy_admin",
+        email=unique_email("delivery_pharma"),
+        password="Pharmacy@12345",
+        full_name="Del Pharma",
+    )
+    rider = await register_for_test(
+        client,
+        client._test_db,
+        role="rider",
+        email=unique_email("delivery_rider"),
+        password="Rider@12345",
+        full_name="Del Rider",
+    )
 
     pharma_h = {"Authorization": f"Bearer {pharma['access_token']}"}
     pat_h = {"Authorization": f"Bearer {pat['access_token']}"}
@@ -32,6 +42,7 @@ async def _setup_delivery_scenario(client: AsyncClient):
         "name": "Delivery Pharmacy",
         "address": "KG 3", "district": "Gasabo",
     })).json()["id"]
+    await mark_pharmacy_verified(client._test_db, pharmacy_id)
 
     order = (await client.post("/api/v1/orders/", headers=pat_h, json={
         "pharmacy_id": pharmacy_id,

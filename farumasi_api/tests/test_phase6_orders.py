@@ -25,10 +25,11 @@ def _h(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
-async def _register(client: AsyncClient, role: str, db) -> dict:
-    from tests.bootstrap import bootstrap_test_user
+from tests.bootstrap import register_for_test, mark_pharmacy_verified, mark_partner_verified
 
-    return await bootstrap_test_user(client, db, role)
+
+async def _register(client: AsyncClient, role: str, db=None) -> dict:
+    return await register_for_test(client, db or client._test_db, role=role)
 
 
 async def _mark_order_paid(db, order_id: str) -> None:
@@ -51,6 +52,27 @@ async def _patient_profile_id(client: AsyncClient, tokens: dict) -> str:
     return r.json()["id"]
 
 
+from tests.conftest import TEST_MEDICINE_INFO_URL
+
+
+async def _create_partner_product(client: AsyncClient, sa_tokens: dict, name: str | None = None) -> str:
+    name = name or f"Supplement_{_uid()}"
+    r = await client.post(
+        "/api/v1/products/",
+        headers=_h(sa_tokens),
+        json={
+            "name": name,
+            "category": "wellness",
+            "product_type": "food_supplements",
+            "description": "test",
+            "manufacturer": "ACME",
+            "prescription_required": False,
+        },
+    )
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
+
+
 async def _create_product(client: AsyncClient, sa_tokens: dict, name: str | None = None) -> str:
     name = name or f"Drug_{_uid()}"
     r = await client.post(
@@ -63,6 +85,7 @@ async def _create_product(client: AsyncClient, sa_tokens: dict, name: str | None
             "description": "test",
             "manufacturer": "ACME",
             "prescription_required": False,
+            "information_source_url": TEST_MEDICINE_INFO_URL,
         },
     )
     assert r.status_code == 201, r.text
@@ -85,7 +108,19 @@ async def _create_pharmacy(client: AsyncClient, admin_tokens: dict, name: str | 
         },
     )
     assert r.status_code == 201, r.text
-    return r.json()["id"]
+    pharmacy_id = r.json()["id"]
+    await mark_pharmacy_verified(client._test_db, pharmacy_id)
+    return pharmacy_id
+
+
+async def _ensure_pharmacy(
+    client: AsyncClient,
+    admin_tokens: dict,
+    name: str | None = None,
+) -> None:
+    r = await client.get("/api/v1/pharmacies/me", headers=_h(admin_tokens))
+    if r.status_code == 404:
+        await _create_pharmacy(client, admin_tokens, name)
 
 
 async def _add_listing(
@@ -98,6 +133,7 @@ async def _add_listing(
     expiry: datetime | None = None,
     available: bool = True,
 ) -> str:
+    await _ensure_pharmacy(client, admin_tokens)
     body: dict = {
         "product_id": product_id,
         "price": price,
@@ -503,7 +539,7 @@ async def test_pharmacy_admin_rejects_own_order(client: AsyncClient, db):
 # 15. Partner admin manages own partner orders
 async def test_partner_admin_manages_own_orders(client: AsyncClient, db):
     sa = await _register(client, "super_admin", db)
-    product_id = await _create_product(client, sa)
+    product_id = await _create_partner_product(client, sa)
 
     partner_admin = await _register(client, "partner_company_admin", db)
     partner_resp = await client.post(
@@ -512,6 +548,7 @@ async def test_partner_admin_manages_own_orders(client: AsyncClient, db):
         json={"name": f"Partner_{_uid()}", "company_type": "distributor"},
     )
     assert partner_resp.status_code == 201, partner_resp.text
+    await mark_partner_verified(db, partner_resp.json()["id"])
 
     listing = await client.post(
         "/api/v1/partners/me/listings",

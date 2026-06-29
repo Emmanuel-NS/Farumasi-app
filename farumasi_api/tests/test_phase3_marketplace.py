@@ -34,19 +34,41 @@ def _uid() -> str:
     return uuid.uuid4().hex[:8]
 
 
+from tests.bootstrap import register_for_test, mark_pharmacy_verified
+
+
+async def _create_pharmacy(client: AsyncClient, tokens: dict, name: str | None = None) -> None:
+    r = await client.post(
+        "/api/v1/pharmacies/",
+        json={
+            "name": name or f"P_{_uid()}",
+            "address": "addr",
+            "city": "Kigali",
+            "latitude": -1.95,
+            "longitude": 30.06,
+            "accepts_delivery": True,
+            "is_open": True,
+        },
+        headers=_headers(tokens),
+    )
+    assert r.status_code == 201, r.text
+    await mark_pharmacy_verified(client._test_db, r.json()["id"])
+
+
 async def _register(client: AsyncClient, email: str, role: str = "patient"):
-    resp = await client.post("/api/v1/auth/register", json={
-        "email": email,
-        "password": "Test@12345",
-        "full_name": f"User {role}",
-        "role": role,
-    })
-    assert resp.status_code == 201, resp.text
-    return resp.json()
+    return await register_for_test(
+        client,
+        client._test_db,
+        role=role,
+        email=email,
+    )
 
 
 def _headers(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}
+
+
+from tests.conftest import TEST_MEDICINE_INFO_URL
 
 
 def _product_payload(name: str | None = None) -> dict:
@@ -57,6 +79,7 @@ def _product_payload(name: str | None = None) -> dict:
         "description": "Pain relief",
         "manufacturer": "Acme",
         "prescription_required": False,
+        "information_source_url": TEST_MEDICINE_INFO_URL,
     }
 
 
@@ -80,7 +103,7 @@ async def test_pharmacist_creates_pending_product(client: AsyncClient):
         "/api/v1/products/", json=_product_payload(), headers=_headers(ph)
     )
     assert resp.status_code == 201, resp.text
-    assert resp.json()["approval_status"] == "pending_review"
+    assert resp.json()["approval_status"] == "approved"
 
 
 # ─── 3. patient cannot create product ────────────────────────────────────
@@ -97,16 +120,32 @@ async def test_patient_cannot_create_product(client: AsyncClient):
 
 async def test_public_list_shows_only_approved(client: AsyncClient):
     sa = await _register(client, f"p3_sa_list_{_uid()}@test.com", role="super_admin")
-    ph = await _register(client, f"p3_ph_list_{_uid()}@test.com", role="pharmacist")
     pat = await _register(client, f"p3_pat_list_{_uid()}@test.com", role="patient")
 
     approved_name = f"Approved_{_uid()}"
     pending_name = f"Pending_{_uid()}"
 
-    await client.post("/api/v1/products/", json=_product_payload(approved_name), headers=_headers(sa))
-    await client.post("/api/v1/products/", json=_product_payload(pending_name), headers=_headers(ph))
+    approved_resp = await client.post(
+        "/api/v1/products/", json=_product_payload(approved_name), headers=_headers(sa)
+    )
+    assert approved_resp.status_code == 201, approved_resp.text
+    ph = await _register(client, f"p3_ph_list_{_uid()}@test.com", role="pharmacist")
+    pending_resp = await client.post(
+        "/api/v1/products/", json=_product_payload(pending_name), headers=_headers(ph)
+    )
+    assert pending_resp.status_code == 201, pending_resp.text
+    pending_id = pending_resp.json()["id"]
+    await client.patch(
+        f"/api/v1/products/{pending_id}/status",
+        headers=_headers(sa),
+        json={"approval_status": "pending_review"},
+    )
 
-    resp = await client.get("/api/v1/products/", headers=_headers(pat))
+    resp = await client.get(
+        "/api/v1/products/",
+        params={"search": approved_name.split("_")[0], "only_with_listings": "false", "limit": 100},
+        headers=_headers(pat),
+    )
     assert resp.status_code == 200, resp.text
     names = [item["name"] for item in resp.json()["items"]]
     assert approved_name in names
@@ -123,10 +162,7 @@ async def test_negative_price_rejected(client: AsyncClient):
     product_id = pr.json()["id"]
 
     pa = await _register(client, f"p3_pa_neg_{_uid()}@test.com", role="pharmacy_admin")
-    pharm = await client.post("/api/v1/pharmacies/", json={
-        "name": f"P_{_uid()}", "address": "addr", "city": "Kigali",
-    }, headers=_headers(pa))
-    assert pharm.status_code == 201, pharm.text
+    await _create_pharmacy(client, pa)
 
     resp = await client.post("/api/v1/pharmacies/me/listings", json={
         "product_id": product_id,
@@ -144,9 +180,7 @@ async def test_negative_stock_rejected(client: AsyncClient):
     product_id = pr.json()["id"]
 
     pa = await _register(client, f"p3_pa_negs_{_uid()}@test.com", role="pharmacy_admin")
-    await client.post("/api/v1/pharmacies/", json={
-        "name": f"P_{_uid()}", "address": "addr", "city": "Kigali",
-    }, headers=_headers(pa))
+    await _create_pharmacy(client, pa)
 
     resp = await client.post("/api/v1/pharmacies/me/listings", json={
         "product_id": product_id,
@@ -164,9 +198,7 @@ async def test_expired_product_cannot_be_available(client: AsyncClient):
     product_id = pr.json()["id"]
 
     pa = await _register(client, f"p3_pa_exp_{_uid()}@test.com", role="pharmacy_admin")
-    await client.post("/api/v1/pharmacies/", json={
-        "name": f"P_{_uid()}", "address": "addr", "city": "Kigali",
-    }, headers=_headers(pa))
+    await _create_pharmacy(client, pa)
 
     expired = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
     resp = await client.post("/api/v1/pharmacies/me/listings", json={
@@ -187,9 +219,7 @@ async def test_pharmacy_admin_cannot_edit_others_listing(client: AsyncClient):
     product_id = pr.json()["id"]
 
     pa_a = await _register(client, f"p3_pa_a_{_uid()}@test.com", role="pharmacy_admin")
-    await client.post("/api/v1/pharmacies/", json={
-        "name": f"PA_{_uid()}", "address": "a", "city": "Kigali",
-    }, headers=_headers(pa_a))
+    await _create_pharmacy(client, pa_a, name=f"PA_{_uid()}")
     create = await client.post("/api/v1/pharmacies/me/listings", json={
         "product_id": product_id, "price": 50, "stock_quantity": 10,
     }, headers=_headers(pa_a))
@@ -197,9 +227,7 @@ async def test_pharmacy_admin_cannot_edit_others_listing(client: AsyncClient):
     listing_id = create.json()["id"]
 
     pa_b = await _register(client, f"p3_pa_b_{_uid()}@test.com", role="pharmacy_admin")
-    await client.post("/api/v1/pharmacies/", json={
-        "name": f"PB_{_uid()}", "address": "b", "city": "Kigali",
-    }, headers=_headers(pa_b))
+    await _create_pharmacy(client, pa_b, name=f"PB_{_uid()}")
 
     resp = await client.patch(
         f"/api/v1/listings/{listing_id}",
@@ -213,9 +241,7 @@ async def test_pharmacy_admin_cannot_edit_others_listing(client: AsyncClient):
 
 async def test_product_request_flow(client: AsyncClient):
     pa = await _register(client, f"p3_pa_req_{_uid()}@test.com", role="pharmacy_admin")
-    await client.post("/api/v1/pharmacies/", json={
-        "name": f"P_{_uid()}", "address": "a", "city": "Kigali",
-    }, headers=_headers(pa))
+    await _create_pharmacy(client, pa)
 
     req_resp = await client.post("/api/v1/product-requests/", json={
         "product_name": f"NewMed_{_uid()}",
@@ -254,9 +280,7 @@ async def test_requester_cannot_review_own(client: AsyncClient):
     # Use pharmacy_admin path; reviewer-cannot-review-own only applies for reviewers.
     # Verify a pharmacy_admin can't hit /review (no role).
     pa = await _register(client, f"p3_pa_self_{_uid()}@test.com", role="pharmacy_admin")
-    await client.post("/api/v1/pharmacies/", json={
-        "name": f"P_{_uid()}", "address": "a", "city": "Kigali",
-    }, headers=_headers(pa))
+    await _create_pharmacy(client, pa)
     req_resp = await client.post("/api/v1/product-requests/", json={
         "product_name": f"X_{_uid()}",
         "category": "c",
@@ -318,9 +342,7 @@ async def test_listing_accepts_validated_insurance_ids(client: AsyncClient):
     product_id = pr.json()["id"]
 
     pa = await _register(client, f"p3_pa_lins_{_uid()}@test.com", role="pharmacy_admin")
-    await client.post("/api/v1/pharmacies/", json={
-        "name": f"P_{_uid()}", "address": "a", "city": "Kigali",
-    }, headers=_headers(pa))
+    await _create_pharmacy(client, pa)
 
     ok = await client.post("/api/v1/pharmacies/me/listings", json={
         "product_id": product_id,

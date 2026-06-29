@@ -25,6 +25,14 @@ PURPOSE_REGISTRATION = "registration"
 logger = logging.getLogger(__name__)
 
 
+def _as_utc_aware(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 class EmailVerificationService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -117,7 +125,7 @@ class EmailVerificationService:
         challenge = result.scalar_one_or_none()
         if not challenge:
             raise ValidationError("No active verification code. Request a new one.")
-        if challenge.expires_at < now:
+        if challenge.expires_at and _as_utc_aware(challenge.expires_at) < now:
             raise ValidationError("Verification code expired. Request a new one.")
         if not verify_password(code.strip(), challenge.code_hash):
             raise AuthorizationError("Invalid verification code")

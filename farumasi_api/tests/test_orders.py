@@ -1,25 +1,32 @@
 import pytest
 from httpx import AsyncClient
 
+from tests.bootstrap import register_for_test, mark_pharmacy_verified, mark_order_paid
 from tests.conftest import unique_email
 
 pytestmark = pytest.mark.anyio
 
 
 async def _make_patient(client, email=None):
-    r = await client.post("/api/v1/auth/register", json={
-        "email": email or unique_email("order_patient"), "password": "Patient@12345",
-        "full_name": "Order Patient", "role": "patient"
-    })
-    return r.json()
+    return await register_for_test(
+        client,
+        client._test_db,
+        role="patient",
+        email=email or unique_email("order_patient"),
+        password="Patient@12345",
+        full_name="Order Patient",
+    )
 
 
 async def _make_pharmacy_admin(client, email=None):
-    r = await client.post("/api/v1/auth/register", json={
-        "email": email or unique_email("order_pharma"), "password": "Pharmacy@12345",
-        "full_name": "Pharma Admin", "role": "pharmacy_admin"
-    })
-    return r.json()
+    return await register_for_test(
+        client,
+        client._test_db,
+        role="pharmacy_admin",
+        email=email or unique_email("order_pharma"),
+        password="Pharmacy@12345",
+        full_name="Pharma Admin",
+    )
 
 
 async def test_create_order(client: AsyncClient):
@@ -36,6 +43,7 @@ async def test_create_order(client: AsyncClient):
         "district": "Gasabo",
     })
     pharmacy_id = pharma_resp.json()["id"]
+    await mark_pharmacy_verified(client._test_db, pharmacy_id)
 
     resp = await client.post("/api/v1/orders/", headers=patient_headers, json={
         "pharmacy_id": pharmacy_id,
@@ -65,15 +73,17 @@ async def test_update_order_status(client: AsyncClient):
         "address": "KG 2", "district": "Gasabo",
     })
     pharmacy_id = pharma_resp.json()["id"]
+    await mark_pharmacy_verified(client._test_db, pharmacy_id)
 
     order_resp = await client.post("/api/v1/orders/", headers=patient_headers, json={
         "pharmacy_id": pharmacy_id, "delivery_method": "pickup",
         "items": [{"product_name": "Paracetamol", "quantity": 1, "unit_price": 500.0}],
     })
     order_id = order_resp.json()["id"]
+    await mark_order_paid(client._test_db, order_id)
 
     status_resp = await client.patch(
-        f"/api/v1/orders/{order_id}/status",
+        f"/api/v1/pharmacies/me/orders/{order_id}/status",
         headers=pharma_headers,
         json={"order_status": "accepted"},
     )

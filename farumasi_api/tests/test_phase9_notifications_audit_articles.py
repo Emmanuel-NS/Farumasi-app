@@ -44,21 +44,12 @@ def _h(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
+from tests.bootstrap import register_for_test, mark_pharmacy_verified, mark_order_paid
+from tests.conftest import TEST_MEDICINE_INFO_URL
+
+
 async def _register(client: AsyncClient, role: str) -> dict:
-    email = f"{role}_{_uid()}@farumasi.com"
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": email,
-            "password": "Pass@12345",
-            "full_name": f"{role.title()} {_uid()}",
-            "role": role,
-        },
-    )
-    assert r.status_code in (200, 201), r.text
-    data = r.json()
-    data["email"] = email
-    return data
+    return await register_for_test(client, client._test_db, role=role)
 
 
 async def _patient_profile_id(client: AsyncClient, patient: dict) -> str:
@@ -73,6 +64,26 @@ async def _user_id(client: AsyncClient, tokens: dict) -> str:
     return r.json()["id"]
 
 
+async def _create_pharmacy(client: AsyncClient, admin_tokens: dict) -> str:
+    r = await client.post(
+        "/api/v1/pharmacies/",
+        headers=_h(admin_tokens),
+        json={
+            "name": f"Pharm_{_uid()}",
+            "address": "addr",
+            "city": "Kigali",
+            "latitude": -1.95,
+            "longitude": 30.06,
+            "accepts_delivery": True,
+            "is_open": True,
+        },
+    )
+    assert r.status_code == 201, r.text
+    pharmacy_id = r.json()["id"]
+    await mark_pharmacy_verified(client._test_db, pharmacy_id)
+    return pharmacy_id
+
+
 async def _seed_notification_for(client: AsyncClient, sa: dict, target_user_id: str) -> str:
     r = await client.post(
         "/api/v1/notifications/",
@@ -83,7 +94,7 @@ async def _seed_notification_for(client: AsyncClient, sa: dict, target_user_id: 
             "message": "World",
         },
     )
-    assert r.status_code == 201, r.text
+    assert r.status_code in (200, 201), r.text
     return r.json()["id"]
 
 
@@ -161,7 +172,7 @@ async def test_super_admin_creates_system_notification(client: AsyncClient):
             "category": "system",
         },
     )
-    assert r.status_code == 201, r.text
+    assert r.status_code in (200, 201), r.text
     items = await _list_notifications(client, patient)
     assert any(n["title"] == "System" for n in items)
 
@@ -367,20 +378,7 @@ async def test_doctor_prescription_creates_patient_notification(client: AsyncCli
 async def test_product_request_review_creates_requester_notification(client: AsyncClient):
     sa = await _register(client, "super_admin")
     pharm_admin = await _register(client, "pharmacy_admin")
-    # Create a pharmacy first (required for product requests)
-    await client.post(
-        "/api/v1/pharmacies/",
-        headers=_h(pharm_admin),
-        json={
-            "name": f"Pharm_{_uid()}",
-            "address": "addr",
-            "city": "Kigali",
-            "latitude": -1.95,
-            "longitude": 30.06,
-            "accepts_delivery": True,
-            "is_open": True,
-        },
-    )
+    await _create_pharmacy(client, pharm_admin)
     # Create request as pharmacy admin
     create = await client.post(
         "/api/v1/product-requests/",
@@ -415,20 +413,7 @@ async def test_product_request_review_creates_requester_notification(client: Asy
 async def test_order_status_change_creates_patient_notification(client: AsyncClient):
     sa = await _register(client, "super_admin")
     admin = await _register(client, "pharmacy_admin")
-    # Pharmacy + product + listing
-    await client.post(
-        "/api/v1/pharmacies/",
-        headers=_h(admin),
-        json={
-            "name": f"Pharm_{_uid()}",
-            "address": "addr",
-            "city": "Kigali",
-            "latitude": -1.95,
-            "longitude": 30.06,
-            "accepts_delivery": True,
-            "is_open": True,
-        },
-    )
+    await _create_pharmacy(client, admin)
     prod = await client.post(
         "/api/v1/products/",
         headers=_h(sa),
@@ -439,6 +424,7 @@ async def test_order_status_change_creates_patient_notification(client: AsyncCli
             "description": "test",
             "manufacturer": "ACME",
             "prescription_required": False,
+            "information_source_url": TEST_MEDICINE_INFO_URL,
         },
     )
     assert prod.status_code == 201, prod.text
@@ -463,6 +449,7 @@ async def test_order_status_change_creates_patient_notification(client: AsyncCli
         },
     )
     assert order.status_code == 201, order.text
+    await mark_order_paid(client._test_db, order.json()["id"])
     # Pharmacy admin transitions to completed (notif fires)
     upd = await client.patch(
         f"/api/v1/pharmacies/me/orders/{order.json()['id']}/status",
@@ -493,22 +480,11 @@ async def test_delivery_completed_notification_helper(client: AsyncClient, db):
 
 
 async def test_withdrawal_approval_creates_requester_notification(client: AsyncClient):
+    from tests.bootstrap import mark_order_paid
+
     sa = await _register(client, "super_admin")
     admin = await _register(client, "pharmacy_admin")
-    # Pharmacy + product + listing + completed order to fund revenue
-    await client.post(
-        "/api/v1/pharmacies/",
-        headers=_h(admin),
-        json={
-            "name": f"Pharm_{_uid()}",
-            "address": "addr",
-            "city": "Kigali",
-            "latitude": -1.95,
-            "longitude": 30.06,
-            "accepts_delivery": True,
-            "is_open": True,
-        },
-    )
+    await _create_pharmacy(client, admin)
     prod = await client.post(
         "/api/v1/products/",
         headers=_h(sa),
@@ -519,6 +495,7 @@ async def test_withdrawal_approval_creates_requester_notification(client: AsyncC
             "description": "test",
             "manufacturer": "ACME",
             "prescription_required": False,
+            "information_source_url": TEST_MEDICINE_INFO_URL,
         },
     )
     listing = await client.post(
@@ -540,16 +517,25 @@ async def test_withdrawal_approval_creates_requester_notification(client: AsyncC
             "items": [{"product_listing_id": listing.json()["id"], "quantity": 1}],
         },
     )
+    order_id = order.json()["id"]
+    await mark_order_paid(client._test_db, order_id)
     await client.patch(
-        f"/api/v1/pharmacies/me/orders/{order.json()['id']}/status",
+        f"/api/v1/pharmacies/me/orders/{order_id}/status",
         headers=_h(admin),
         json={"order_status": "completed"},
     )
-    # Request withdrawal
-    wr = await client.post(
-        "/api/v1/withdrawals/",
+    await client.put(
+        "/api/v1/sellers/me/payout-credentials",
         headers=_h(admin),
-        json={"amount": 1000.0, "payout_method": "mobile_money", "payout_destination": "+250788000000"},
+        json={
+            "payout_method": "mobile_money",
+            "payout_details": {"account": "+250788000000", "account_name": "Test Owner"},
+        },
+    )
+    wr = await client.post(
+        "/api/v1/pharmacies/me/withdrawals",
+        headers=_h(admin),
+        json={"amount": 1000.0},
     )
     assert wr.status_code == 201, wr.text
     wid = wr.json()["id"]

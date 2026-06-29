@@ -26,10 +26,14 @@ def _h(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
-async def _register(client: AsyncClient, role: str, db: AsyncSession) -> dict:
-    from tests.bootstrap import bootstrap_test_user
+from tests.bootstrap import register_for_test, mark_pharmacy_verified
 
-    return await bootstrap_test_user(client, db, role)
+
+async def _register(client: AsyncClient, role: str, db: AsyncSession) -> dict:
+    return await register_for_test(client, db, role=role)
+
+
+from tests.conftest import TEST_MEDICINE_INFO_URL
 
 
 async def _create_product(client: AsyncClient, sa_tokens: dict) -> str:
@@ -43,6 +47,7 @@ async def _create_product(client: AsyncClient, sa_tokens: dict) -> str:
             "description": "test",
             "manufacturer": "ACME Labs",
             "prescription_required": False,
+            "information_source_url": TEST_MEDICINE_INFO_URL,
         },
     )
     assert r.status_code == 201, r.text
@@ -64,7 +69,15 @@ async def _create_pharmacy(client: AsyncClient, admin_tokens: dict, name: str) -
         },
     )
     assert r.status_code == 201, r.text
-    return r.json()["id"]
+    pharmacy_id = r.json()["id"]
+    await mark_pharmacy_verified(client._test_db, pharmacy_id)
+    return pharmacy_id
+
+
+async def _ensure_pharmacy(client: AsyncClient, admin_tokens: dict, name: str | None = None) -> None:
+    r = await client.get("/api/v1/pharmacies/me", headers=_h(admin_tokens))
+    if r.status_code == 404:
+        await _create_pharmacy(client, admin_tokens, name or f"Pharm_{_uid()}")
 
 
 async def _add_listing(
@@ -75,6 +88,7 @@ async def _add_listing(
     price: float,
     stock: int = 50,
 ) -> str:
+    await _ensure_pharmacy(client, admin_tokens)
     r = await client.post(
         "/api/v1/pharmacies/me/listings",
         headers=_h(admin_tokens),
@@ -137,13 +151,13 @@ async def _setup_two_pharmacies_same_product(
     product_id = await _create_product(client, sa)
 
     admin_a = await _register(client, "pharmacy_admin", db)
-    pharm_a = await _pharmacy_id_for_admin(client, admin_a)
+    pharm_a = await _create_pharmacy(client, admin_a, f"PharmA_{_uid()}")
     listing_a = await _add_listing(
         client, admin_tokens=admin_a, product_id=product_id, price=price
     )
 
     admin_b = await _register(client, "pharmacy_admin", db)
-    pharm_b = await _pharmacy_id_for_admin(client, admin_b)
+    pharm_b = await _create_pharmacy(client, admin_b, f"PharmB_{_uid()}")
     listing_b = await _add_listing(
         client, admin_tokens=admin_b, product_id=product_id, price=price
     )
@@ -210,6 +224,7 @@ async def test_confirm_dispatch_records_batch_and_advances_status(client: AsyncC
                     "batch_number": "BN-2026-001",
                     "expiry_date": expiry,
                     "manufacturer": "ACME Labs",
+                    "country_of_origin": "Rwanda",
                 }
             ],
         },
@@ -250,6 +265,7 @@ async def test_confirm_dispatch_succeeds_without_access_code(client: AsyncClient
                     "batch_number": "BN-X",
                     "expiry_date": expiry,
                     "manufacturer": "Maker",
+                    "country_of_origin": "Rwanda",
                 }
             ],
         },

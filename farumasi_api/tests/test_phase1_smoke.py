@@ -19,16 +19,19 @@ from httpx import AsyncClient
 pytestmark = pytest.mark.anyio
 
 
+from tests.bootstrap import register_for_test
+
+
 async def _register(client: AsyncClient, email: str, role: str = "patient",
                     password: str = "Test@12345", full_name: str = "Phase One"):
-    resp = await client.post("/api/v1/auth/register", json={
-        "email": email,
-        "password": password,
-        "full_name": full_name,
-        "role": role,
-    })
-    assert resp.status_code == 201, resp.text
-    return resp.json()
+    return await register_for_test(
+        client,
+        client._test_db,
+        role=role,
+        email=email,
+        password=password,
+        full_name=full_name,
+    )
 
 
 async def test_phase1_register_returns_tokens(client: AsyncClient):
@@ -43,6 +46,7 @@ async def test_phase1_login_returns_tokens(client: AsyncClient):
     resp = await client.post("/api/v1/auth/login", json={
         "email": "phase1_login@farumasi.com",
         "password": "Test@12345",
+        "role": "patient",
     })
     assert resp.status_code == 200, resp.text
     body = resp.json()
