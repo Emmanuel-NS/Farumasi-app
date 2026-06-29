@@ -7,6 +7,7 @@ import { X } from "lucide-react";
 import { cn, timeAgo } from "@/lib/utils";
 import { notificationsService, type BackendNotification } from "@/lib/services/notifications.service";
 import { consultationsService, type ConsultationPreview } from "@/lib/services/consultations.service";
+import { contentService } from "@/lib/services/content.service";
 import { openNotification } from "@/lib/notification-links";
 import { useAuthStore } from "@/store/auth-store";
 import { startVisibleInterval } from "@/lib/polling";
@@ -180,6 +181,19 @@ function ChatPanel() {
 }
 
 function HelpPanel() {
+  const [supportEmail, setSupportEmail] = useState<string | null>(null);
+  const [supportPhone, setSupportPhone] = useState<string | null>(null);
+
+  useEffect(() => {
+    contentService
+      .getPage("support")
+      .then((page) => {
+        setSupportEmail(page.contact_meta?.email ?? null);
+        setSupportPhone(page.contact_meta?.phone ?? null);
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="p-5">
       <p className="text-sm text-slate-600 mb-4">Pharmacist Help Center</p>
@@ -197,8 +211,24 @@ function HelpPanel() {
       </div>
       <div className="mt-5 p-4 bg-farumasi-50 rounded-2xl">
         <p className="text-sm font-semibold text-farumasi-800">Technical Support</p>
-        <p className="text-xs text-farumasi-600 mt-1">📞 +250 788 000 999</p>
-        <p className="text-xs text-farumasi-600 mt-0.5">📧 support@farumasi.rw</p>
+        {supportPhone ? (
+          <p className="text-xs text-farumasi-600 mt-1">
+            <a href={`tel:${supportPhone.replace(/\s/g, "")}`} className="hover:underline">
+              📞 {supportPhone}
+            </a>
+          </p>
+        ) : (
+          <p className="text-xs text-farumasi-600/70 mt-1">Phone not configured</p>
+        )}
+        {supportEmail ? (
+          <p className="text-xs text-farumasi-600 mt-0.5">
+            <a href={`mailto:${supportEmail}`} className="hover:underline">
+              📧 {supportEmail}
+            </a>
+          </p>
+        ) : (
+          <p className="text-xs text-farumasi-600/70 mt-0.5">Email not configured</p>
+        )}
       </div>
     </div>
   );

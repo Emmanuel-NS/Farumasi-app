@@ -12,6 +12,7 @@ const ALLOWED_PREFIXES = [
   "/audit",
   "/partner-applications",
   "/compliance",
+  "/content",
   "/product-requests",
   "/catalogue",
   "/listings",

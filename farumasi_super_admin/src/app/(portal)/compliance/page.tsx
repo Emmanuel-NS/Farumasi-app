@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import api from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, StatCard, SearchInput } from "@/components/ui";
-import { ShieldCheck, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { Card, CardHeader, CardTitle, PageHeader, Badge, Table, Thead, Th, Td, Tr, StatCard, SearchInput, Button } from "@/components/ui";
+import { ShieldCheck, CheckCircle2, AlertTriangle, Loader2, FileText, ArrowRight } from "lucide-react";
 
 interface PharmacyRow {
   id: string;
@@ -48,6 +49,26 @@ export default function CompliancePage() {
         <StatCard label="Pending Review" value={pending} icon={ShieldCheck} color="text-amber-700" />
         <StatCard label="Total Entities" value={pharmacies.length} icon={ShieldCheck} color="text-slate-700" />
       </div>
+
+      <Card className="border-farumasi-100 bg-gradient-to-r from-farumasi-50/80 to-white">
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-farumasi-600" />
+              <CardTitle>Content &amp; Legal</CardTitle>
+            </div>
+            <Link href="/content">
+              <Button size="sm" className="gap-1.5">
+                Manage pages <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <p className="px-5 pb-5 text-sm text-slate-600 -mt-2">
+          Edit terms, privacy policy, about page, and support contacts. Published content appears on the
+          patient portal, partner portal, and pharmacist help panel.
+        </p>
+      </Card>
 
       {loading ? (
         <div className="flex items-center justify-center py-16 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading compliance data…</div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Card,
   CardHeader,
@@ -12,7 +13,7 @@ import {
   Modal,
   Input,
 } from "@/components/ui";
-import { FileText, Loader2, Mail, Save, Send, Eye } from "lucide-react";
+import { ExternalLink, FileText, Globe, Loader2, Mail, Save, Send, Eye } from "lucide-react";
 import { getApiError } from "@/lib/services/auth.service";
 import {
   contentPagesService,
@@ -20,7 +21,47 @@ import {
   type ContentNotifyResult,
 } from "@/lib/services/content-pages.service";
 import { usersService } from "@/lib/services/users.service";
-import { formatDate } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
+
+const PATIENT_PORTAL =
+  process.env.NEXT_PUBLIC_PATIENT_PORTAL_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+
+function livePreviewUrl(slug: string, pageType: string): string | null {
+  if (pageType === "support" || slug === "support") return `${PATIENT_PORTAL}/help`;
+  if (slug === "terms" || slug === "privacy" || slug === "about") {
+    return `${PATIENT_PORTAL}/legal/${slug}`;
+  }
+  return null;
+}
+
+function applyPageToDraft(
+  page: ContentPageAdmin,
+  setDraft: React.Dispatch<
+    React.SetStateAction<{
+      title: string;
+      summary: string;
+      body: string;
+      contactEmail: string;
+      contactPhone: string;
+      contactWhatsapp: string;
+      faqJson: string;
+    }>
+  >,
+  setNotifySubject: (s: string) => void,
+) {
+  const meta = (page.contact_meta ?? {}) as Record<string, unknown>;
+  const faq = meta.faq as Array<{ q: string; a: string }> | undefined;
+  setDraft({
+    title: page.title,
+    summary: page.summary ?? "",
+    body: page.body ?? "",
+    contactEmail: String(meta.email ?? ""),
+    contactPhone: String(meta.phone ?? ""),
+    contactWhatsapp: String(meta.whatsapp ?? ""),
+    faqJson: faq?.length ? JSON.stringify(faq, null, 2) : "",
+  });
+  setNotifySubject(`FARUMASI — updated ${page.title}`);
+}
 
 const NOTIFY_ROLES = [
   { id: "", label: "All roles" },
@@ -33,6 +74,8 @@ const NOTIFY_ROLES = [
 export default function ContentPagesAdmin() {
   const [pages, setPages] = useState<ContentPageAdmin[]>([]);
   const [selected, setSelected] = useState<ContentPageAdmin | null>(null);
+  const [loading, setLoading] = useState(true);
+  const initialSelectDone = useRef(false);
   const [draft, setDraft] = useState({
     title: "",
     summary: "",
@@ -57,33 +100,33 @@ export default function ContentPagesAdmin() {
 
   const load = useCallback(() => {
     setError(null);
-    contentPagesService
+    setLoading(true);
+    return contentPagesService
       .list()
       .then((list) => {
         setPages(list);
-        if (!selected && list.length) selectPage(list[0]!);
+        if (!initialSelectDone.current && list.length) {
+          initialSelectDone.current = true;
+          const first = list[0]!;
+          applyPageToDraft(first, setDraft, setNotifySubject);
+          setSelected(first);
+        }
+        return list;
       })
-      .catch((err) => setError(getApiError(err, "Failed to load content pages")));
-  }, [selected]);
+      .catch((err) => {
+        setError(getApiError(err, "Failed to load content pages"));
+        return [] as ContentPageAdmin[];
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   function selectPage(page: ContentPageAdmin) {
     setSelected(page);
-    const meta = (page.contact_meta ?? {}) as Record<string, unknown>;
-    const faq = meta.faq as Array<{ q: string; a: string }> | undefined;
-    setDraft({
-      title: page.title,
-      summary: page.summary ?? "",
-      body: page.body ?? "",
-      contactEmail: String(meta.email ?? ""),
-      contactPhone: String(meta.phone ?? ""),
-      contactWhatsapp: String(meta.whatsapp ?? ""),
-      faqJson: faq?.length ? JSON.stringify(faq, null, 2) : "",
-    });
-    setNotifySubject(`FARUMASI — updated ${page.title}`);
+    applyPageToDraft(page, setDraft, setNotifySubject);
     setNotifyMessage("");
     setSelectedUserIds([]);
     setNotifyResult(null);
@@ -181,7 +224,24 @@ export default function ContentPagesAdmin() {
         breadcrumb="Compliance"
       />
 
-      {error && <ErrorBanner message={error} onRetry={load} />}
+      {error && <ErrorBanner message={error} onRetry={() => void load()} />}
+
+      <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 flex flex-wrap items-start gap-3">
+        <Globe className="w-4 h-4 shrink-0 mt-0.5 text-sky-600" />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Published pages appear across all portals</p>
+          <p className="text-sky-800/90 mt-0.5">
+            Terms, privacy, about, and support contacts sync to the patient portal, partner portal,
+            and pharmacist help panel. Save &amp; publish for changes to go live.
+          </p>
+        </div>
+        <Link
+          href="/compliance"
+          className="text-xs font-semibold text-sky-700 hover:text-sky-900 underline shrink-0"
+        >
+          Back to compliance
+        </Link>
+      </div>
 
       {notifyResult && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
@@ -196,27 +256,44 @@ export default function ContentPagesAdmin() {
             <CardTitle>Pages</CardTitle>
           </CardHeader>
           <ul className="divide-y divide-slate-100 px-2 pb-2">
-            {pages.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => selectPage(p)}
-                  className={`w-full text-left px-3 py-3 rounded-xl transition-colors ${
-                    selected?.id === p.id ? "bg-farumasi-50" : "hover:bg-slate-50"
-                  }`}
-                >
-                  <p className="text-sm font-semibold text-slate-900">{p.title}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    {p.audience} · {p.slug} · v{p.version}
-                  </p>
-                  <Badge variant={p.status === "published" ? "success" : "warning"} className="mt-1">
-                    {p.status}
-                  </Badge>
-                </button>
+            {loading && (
+              <li className="flex items-center justify-center gap-2 py-10 text-sm text-slate-400">
+                <Loader2 className="w-4 h-4 animate-spin" /> Loading pages…
               </li>
-            ))}
+            )}
+            {!loading && pages.length === 0 && (
+              <li className="px-3 py-10 text-center text-sm text-slate-400">
+                No content pages yet. Run API migrations to seed defaults.
+              </li>
+            )}
+            {!loading &&
+              pages.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => selectPage(p)}
+                    className={`w-full text-left px-3 py-3 rounded-xl transition-colors ${
+                      selected?.id === p.id ? "bg-farumasi-50" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-slate-900">{p.title}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {p.audience} · {p.slug} · v{p.version}
+                    </p>
+                    <Badge variant={p.status === "published" ? "success" : "warning"} className="mt-1">
+                      {p.status}
+                    </Badge>
+                  </button>
+                </li>
+              ))}
           </ul>
         </Card>
+
+        {!loading && !selected && pages.length > 0 && (
+          <Card className="lg:col-span-8 flex items-center justify-center min-h-[320px]">
+            <p className="text-sm text-slate-400">Select a page from the list to edit.</p>
+          </Card>
+        )}
 
         {selected && (
           <Card className="lg:col-span-8">
@@ -227,6 +304,23 @@ export default function ContentPagesAdmin() {
                   <CardTitle>{selected.title}</CardTitle>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {(() => {
+                    const preview = livePreviewUrl(selected.slug, selected.page_type);
+                    return preview ? (
+                      <a
+                        href={preview}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "inline-flex items-center font-medium transition-colors",
+                          "border border-slate-200 text-slate-700 hover:bg-slate-50 bg-white",
+                          "text-xs px-3 py-1.5 rounded-lg gap-1.5",
+                        )}
+                      >
+                        <ExternalLink className="w-4 h-4" /> Preview live
+                      </a>
+                    ) : null;
+                  })()}
                   <Button variant="outline" size="sm" onClick={() => void handleSave(false)} disabled={saving}>
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Save draft
@@ -247,6 +341,9 @@ export default function ContentPagesAdmin() {
               <p className="text-xs text-slate-500 mt-1">
                 Last updated {selected.updated_at ? formatDate(selected.updated_at) : "—"}
                 {selected.updated_by_name ? ` by ${selected.updated_by_name}` : ""}
+                {selected.status !== "published" && (
+                  <span className="ml-2 text-amber-600 font-medium">· Draft — not visible on portals yet</span>
+                )}
               </p>
             </CardHeader>
 
@@ -312,19 +409,11 @@ export default function ContentPagesAdmin() {
           </p>
 
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={notifyAll}
-              onChange={() => setNotifyAll(true)}
-            />
+            <input type="radio" checked={notifyAll} onChange={() => setNotifyAll(true)} />
             All active users
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={!notifyAll}
-              onChange={() => setNotifyAll(false)}
-            />
+            <input type="radio" checked={!notifyAll} onChange={() => setNotifyAll(false)} />
             Selected users only
           </label>
 
