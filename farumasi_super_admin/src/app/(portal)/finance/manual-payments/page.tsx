@@ -35,6 +35,7 @@ import { getApiError } from "@/lib/services/auth.service";
 import {
   manualPaymentsService,
   type ManualPaymentTxn,
+  type ManualPaymentOutcome,
   type PaymentPlatformConfig,
 } from "@/lib/services/manual-payments.service";
 import { useAuthStore } from "@/store/auth-store";
@@ -51,6 +52,8 @@ export default function ManualPaymentsPage() {
   const [rejectModal, setRejectModal] = useState<ManualPaymentTxn | null>(null);
   const [momoTxnId, setMomoTxnId] = useState("");
   const [approveNote, setApproveNote] = useState("");
+  const [approveOutcome, setApproveOutcome] = useState<ManualPaymentOutcome>("full");
+  const [amountReceived, setAmountReceived] = useState("");
   const [rejectNote, setRejectNote] = useState("");
   const [payConfig, setPayConfig] = useState<PaymentPlatformConfig | null>(null);
   const [configSaving, setConfigSaving] = useState(false);
@@ -93,22 +96,44 @@ export default function ManualPaymentsPage() {
   async function handleApprove(e: React.FormEvent) {
     e.preventDefault();
     if (!approveModal || !momoTxnId.trim()) return;
+    if (approveOutcome === "partial" && !amountReceived.trim()) {
+      setError("Enter the amount the patient paid for a partial payment.");
+      return;
+    }
     setActionId(approveModal.id);
     try {
-      await manualPaymentsService.approve(
-        approveModal.id,
-        momoTxnId.trim(),
-        approveNote.trim() || undefined,
-      );
+      await manualPaymentsService.approve(approveModal.id, {
+        momo_transaction_id: momoTxnId.trim(),
+        review_note: approveNote.trim() || undefined,
+        outcome: approveOutcome,
+        amount_received:
+          approveOutcome === "partial"
+            ? Number(amountReceived.replace(/\D/g, "")) || undefined
+            : approveOutcome === "delivery_deferred" && amountReceived.trim()
+              ? Number(amountReceived.replace(/\D/g, ""))
+              : undefined,
+      });
       setApproveModal(null);
       setMomoTxnId("");
       setApproveNote("");
+      setApproveOutcome("full");
+      setAmountReceived("");
       load();
     } catch (err) {
       setError(getApiError(err, "Approve failed"));
     } finally {
       setActionId(null);
     }
+  }
+
+  function openApproveModal(txn: ManualPaymentTxn) {
+    const ctx = txn.order_context;
+    const balance = ctx?.balance_due ?? txn.expected_order_amount ?? txn.amount;
+    setApproveModal(txn);
+    setMomoTxnId("");
+    setApproveNote("");
+    setApproveOutcome("full");
+    setAmountReceived(String(Math.round(balance)));
   }
 
   async function handleReject(e: React.FormEvent) {
@@ -275,7 +300,15 @@ export default function ManualPaymentsPage() {
                     <p className="text-[10px] text-slate-400">{txn.patient_email}</p>
                     {txn.phone && <p className="text-[10px] text-slate-500">{txn.phone}</p>}
                   </Td>
-                  <Td className="font-semibold">{formatRWF(txn.amount)}</Td>
+                  <Td className="font-semibold">
+                    {formatRWF(txn.order_context?.balance_due ?? txn.expected_order_amount ?? txn.amount)}
+                    {txn.order_context && (
+                      <p className="text-[10px] font-normal text-slate-400 mt-0.5">
+                        paid {formatRWF(txn.order_context.amount_paid_order)} /{" "}
+                        {formatRWF(txn.order_context.total_amount)}
+                      </p>
+                    )}
+                  </Td>
                   <Td className="text-xs text-slate-500">
                     {txn.submitted_at ? formatDate(txn.submitted_at) : "—"}
                   </Td>
@@ -317,11 +350,7 @@ export default function ManualPaymentsPage() {
                       <div className="flex gap-1">
                         <Button
                           size="sm"
-                          onClick={() => {
-                            setApproveModal(txn);
-                            setMomoTxnId("");
-                            setApproveNote("");
-                          }}
+                          onClick={() => openApproveModal(txn)}
                           disabled={actionId === txn.id}
                         >
                           Approve
@@ -357,11 +386,109 @@ export default function ManualPaymentsPage() {
         onClose={() => setApproveModal(null)}
         title="Approve manual payment"
       >
-        {approveModal && (
+        {approveModal && (() => {
+          const ctx = approveModal.order_context;
+          const balanceDue = ctx?.balance_due ?? approveModal.expected_order_amount ?? approveModal.amount;
+          const procFee = ctx?.processing_fee_on_balance ?? 0;
+          return (
           <form onSubmit={handleApprove} className="space-y-4">
             <p className="text-sm text-slate-600">
-              Order <strong>{approveModal.order_code}</strong> · {formatRWF(approveModal.amount)}
+              Order <strong>{approveModal.order_code}</strong> · Patient claimed{" "}
+              {formatRWF(approveModal.amount)} (incl. fee)
             </p>
+
+            {ctx && (
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Medicines (subtotal)</span>
+                  <span className="font-semibold">{formatRWF(ctx.subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Delivery fee</span>
+                  <span className="font-semibold">
+                    {formatRWF(ctx.delivery_fee)}
+                    {ctx.defer_delivery_fee && (
+                      <span className="text-violet-600 font-normal ml-1">· patient chose pay on arrival</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-1.5">
+                  <span className="text-slate-600 font-medium">Expected due now</span>
+                  <span className="font-bold text-slate-900">{formatRWF(balanceDue)}</span>
+                </div>
+                {ctx.amount_paid_order > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Already paid on order</span>
+                    <span className="font-semibold">{formatRWF(ctx.amount_paid_order)}</span>
+                  </div>
+                )}
+                <p className="text-[10px] text-slate-400 pt-1">
+                  Processing fee on balance: ~{formatRWF(procFee)} (not part of order value)
+                </p>
+              </div>
+            )}
+
+            <div>
+              <p className="text-xs font-semibold text-slate-500 mb-2">Payment outcome</p>
+              <div className="space-y-2">
+                {([
+                  ["full", "Full payment", "Patient paid the full amount due now"],
+                  ["partial", "Partial payment", "Patient paid less — remaining balance stays on the order"],
+                  ["delivery_deferred", "Delivery fee on arrival", "Confirm medicines paid; collect delivery fee at delivery"],
+                ] as const).map(([value, label, hint]) => (
+                  <label
+                    key={value}
+                    className={`flex items-start gap-2 p-2.5 rounded-lg border cursor-pointer ${
+                      approveOutcome === value
+                        ? "border-farumasi-500 bg-farumasi-50"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="outcome"
+                      value={value}
+                      checked={approveOutcome === value}
+                      onChange={() => {
+                        setApproveOutcome(value);
+                        if (value === "full") setAmountReceived(String(Math.round(balanceDue)));
+                        else if (value === "delivery_deferred" && ctx) {
+                          const medsDue = Math.max(0, ctx.subtotal - ctx.amount_paid_order);
+                          setAmountReceived(String(Math.round(medsDue)));
+                        }
+                      }}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="text-sm font-semibold text-slate-800">{label}</span>
+                      <span className="block text-[11px] text-slate-500">{hint}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {(approveOutcome === "partial" || approveOutcome === "delivery_deferred") && (
+              <div>
+                <label className="text-xs font-semibold text-slate-500">
+                  Amount received (order value, RWF) <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={balanceDue}
+                  value={amountReceived}
+                  onChange={(e) => setAmountReceived(e.target.value)}
+                  placeholder={String(Math.round(balanceDue))}
+                  required
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Remaining after approval:{" "}
+                  {formatRWF(Math.max(0, balanceDue - (Number(amountReceived) || 0)))}
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="text-xs font-semibold text-slate-500">
                 MoMo transaction ID <span className="text-red-500">*</span>
@@ -388,7 +515,8 @@ export default function ManualPaymentsPage() {
               </Button>
             </div>
           </form>
-        )}
+          );
+        })()}
       </Modal>
 
       <Modal open={!!rejectModal} onClose={() => setRejectModal(null)} title="Reject payment proof">

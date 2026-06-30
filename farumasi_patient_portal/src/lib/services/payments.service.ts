@@ -25,6 +25,15 @@ export interface PaymentStatusResult {
   processing_fee?: number | null;
   pending_transaction_id?: string | null;
   submitted_at?: string | null;
+  subtotal?: number | null;
+  delivery_fee?: number | null;
+  total_amount?: number | null;
+  defer_delivery_fee?: boolean;
+  amount_paid_order?: number | null;
+  balance_due?: number | null;
+  delivery_fee_outstanding?: number | null;
+  medicines_paid?: boolean;
+  fully_paid?: boolean;
 }
 
 export type PaymentMethodId = "mtn_momo" | "card" | "manual_momo";
@@ -91,6 +100,7 @@ export const paymentsService = {
       const status = await this.getStatus(orderId);
       if (status.payment_status === "paid") return status;
       if (status.payment_status === "awaiting_review") return status;
+      if (status.payment_status === "partially_paid") return status;
       if (status.payment_status === "failed") {
         throw new Error(status.message ?? "Payment failed");
       }

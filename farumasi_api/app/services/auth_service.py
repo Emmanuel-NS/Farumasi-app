@@ -14,6 +14,7 @@ from app.schemas.auth import (
     RegisterRequest,
     LoginRequest,
     TokenResponse,
+    LoginResult,
     RegistrationPendingResponse,
     GoogleOAuthRequest,
 )
@@ -217,7 +218,7 @@ class AuthService:
             expires_minutes=minutes,
         )
 
-    async def login(self, data: LoginRequest, ip_address: str | None = None) -> TokenResponse:
+    async def login(self, data: LoginRequest, ip_address: str | None = None) -> LoginResult:
         ident = data.resolved_identifier()
         user = await self._resolve_login_user(data)
 
@@ -238,6 +239,11 @@ class AuthService:
         user.last_login_at = datetime.now(timezone.utc)
         await self.db.flush()
 
+        if user.two_factor_enabled:
+            from app.services.two_factor_service import TwoFactorService
+
+            return await TwoFactorService(self.db).begin_login_challenge(user)
+
         await AuditService(self.db).log(
             actor_user_id=user.id,
             action="user.login",
@@ -246,7 +252,14 @@ class AuthService:
             ip_address=ip_address,
         )
 
-        return await self._issue_tokens(user)
+        tokens = await self._issue_tokens(user)
+        return LoginResult(
+            requires_2fa=False,
+            access_token=tokens.access_token,
+            refresh_token=tokens.refresh_token,
+            token_type=tokens.token_type,
+            must_change_password=tokens.must_change_password,
+        )
 
     async def google_oauth(self, data: GoogleOAuthRequest) -> TokenResponse:
         user = await self.user_repo.get_by_email(data.email)

@@ -28,3 +28,8 @@ class AdminSummaryOut(BaseModel):
     total_prescriptions: int
     available_revenue_net: float
     pending_withdrawals: int
+    total_collected: float = 0.0
+    successful_payments: int = 0
+    awaiting_review_payments: int = 0
+    awaiting_review_amount: float = 0.0
+    payments_by_method: list[PaymentMethodBreakdown] = Field(default_factory=list)

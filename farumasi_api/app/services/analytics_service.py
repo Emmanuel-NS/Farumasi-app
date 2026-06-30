@@ -13,8 +13,10 @@ from app.models.doctor import DoctorProfile
 from app.models.rider import RiderProfile
 from app.models.patient import PatientProfile
 from app.models.payment_transaction import PaymentTransaction
+from app.models.patient import PatientProfile
 from app.core.constants import OrderStatus, RevenueStatus, WithdrawalStatus
 from app.schemas.analytics import PaymentAnalyticsOut, PaymentMethodBreakdown
+from app.schemas.payment import PaymentTransactionOut
 
 _METHOD_LABELS = {
     "mtn_momo": "MTN MoMo",
@@ -52,6 +54,8 @@ class AnalyticsService:
         total_doctors = (await self.db.execute(select(func.count(DoctorProfile.id)))).scalar_one()
         total_patients = (await self.db.execute(select(func.count(PatientProfile.id)))).scalar_one()
 
+        payment = await self.payment_summary()
+
         return {
             "total_users": total_users,
             "total_patients": total_patients,
@@ -63,6 +67,11 @@ class AnalyticsService:
             "total_prescriptions": total_prescriptions,
             "available_revenue_net": float(total_revenue_net),
             "pending_withdrawals": pending_withdrawals,
+            "total_collected": payment.total_collected,
+            "successful_payments": payment.successful_count,
+            "awaiting_review_payments": payment.awaiting_review_count,
+            "awaiting_review_amount": payment.awaiting_review_amount,
+            "payments_by_method": payment.by_method,
         }
 
     async def payment_summary(self) -> PaymentAnalyticsOut:
@@ -109,7 +118,7 @@ class AnalyticsService:
         failed_count = (
             await self.db.execute(
                 select(func.count(PaymentTransaction.id)).where(
-                    PaymentTransaction.status == failed_status
+                    PaymentTransaction.status.in_([failed_status, "rejected"])
                 )
             )
         ).scalar_one() or 0
@@ -122,6 +131,49 @@ class AnalyticsService:
             failed_count=int(failed_count),
             by_method=by_method,
         )
+
+    async def list_payment_transactions(
+        self,
+        *,
+        status: str | None = None,
+        method: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[PaymentTransactionOut], int]:
+        """All patient payment transactions — MTN, card, manual MoMo, etc."""
+        base = (
+            select(PaymentTransaction, Order, User)
+            .join(Order, PaymentTransaction.order_id == Order.id)
+            .join(PatientProfile, Order.patient_id == PatientProfile.id)
+            .join(User, PatientProfile.user_id == User.id)
+        )
+        count_q = select(func.count()).select_from(PaymentTransaction)
+        if status:
+            base = base.where(PaymentTransaction.status == status)
+            count_q = count_q.where(PaymentTransaction.status == status)
+        if method:
+            base = base.where(PaymentTransaction.method == method)
+            count_q = count_q.where(PaymentTransaction.method == method)
+
+        total = int((await self.db.execute(count_q)).scalar_one() or 0)
+        rows = (
+            await self.db.execute(
+                base.order_by(
+                    PaymentTransaction.paid_at.desc().nullslast(),
+                    PaymentTransaction.created_at.desc(),
+                )
+                .offset(max(offset, 0))
+                .limit(min(max(limit, 1), 200))
+            )
+        ).all()
+
+        from app.services.payments.payment_service import PaymentService
+
+        items = [
+            PaymentService._txn_out(txn, order, patient_user)
+            for txn, order, patient_user in rows
+        ]
+        return items, total
 
     async def pharmacy_stats(self, pharmacy_id: str) -> dict:
         total_orders = (await self.db.execute(

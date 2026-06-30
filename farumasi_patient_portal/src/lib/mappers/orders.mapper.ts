@@ -1,4 +1,4 @@
-import type { Order, OrderStatus, OrderPaymentStatus } from "@/types";
+import type { Order, OrderStatus, OrderPaymentStatus, OrderSellerContact } from "@/types";
 import { formatDateLocal } from "@/lib/datetime";
 
 export interface BackendOrderItem {
@@ -42,6 +42,8 @@ export interface BackendOrder {
   platform_commission: number;
   total_amount: number;
   net_partner_amount: number;
+  defer_delivery_fee?: boolean;
+  amount_paid_order?: number;
   payment_reference?: string | null;
   patient_access_code?: string | null;
   notes?: string | null;
@@ -53,8 +55,27 @@ export interface BackendOrder {
   dispatch_confirmed_at?: string | null;
   items: BackendOrderItem[];
   // Nested objects populated by backend since Phase 11
-  pharmacy?: { id: string; name: string } | null;
-  partner_company?: { id: string; name: string } | null;
+  pharmacy?: {
+    id: string;
+    name: string;
+    address?: string | null;
+    district?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  } | null;
+  partner_company?: {
+    id: string;
+    name: string;
+    address?: string | null;
+    district?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    description?: string | null;
+  } | null;
   delivery?: {
     id: string;
     status: string;
@@ -88,6 +109,35 @@ const STATUS_MAP: Record<string, OrderStatus> = {
   failed:              "cancelled",
 };
 
+function sellerContactFromBackend(o: BackendOrder): OrderSellerContact | undefined {
+  if (o.pharmacy) {
+    return {
+      type: "pharmacy",
+      name: o.pharmacy.name,
+      address: o.pharmacy.address ?? undefined,
+      district: o.pharmacy.district ?? undefined,
+      phone: o.pharmacy.phone ?? undefined,
+      email: o.pharmacy.email ?? undefined,
+      latitude: o.pharmacy.latitude ?? undefined,
+      longitude: o.pharmacy.longitude ?? undefined,
+    };
+  }
+  if (o.partner_company) {
+    return {
+      type: "partner",
+      name: o.partner_company.name,
+      address: o.partner_company.address ?? undefined,
+      district: o.partner_company.district ?? undefined,
+      phone: o.partner_company.phone ?? undefined,
+      email: o.partner_company.email ?? undefined,
+      description: o.partner_company.description ?? undefined,
+      latitude: o.partner_company.latitude ?? undefined,
+      longitude: o.partner_company.longitude ?? undefined,
+    };
+  }
+  return undefined;
+}
+
 export function adaptOrder(o: BackendOrder): Order {
   const itemNames = o.items && o.items.length > 0
     ? o.items.map((i) => `${i.product_name} ×${i.quantity}`).join(", ")
@@ -120,6 +170,9 @@ export function adaptOrder(o: BackendOrder): Order {
     patientAccessCode: o.patient_access_code ?? undefined,
     deliveryAddress: o.delivery_address ?? undefined,
     subtotal: o.subtotal,
+    deferDeliveryFee: o.defer_delivery_fee ?? false,
+    amountPaidOrder: o.amount_paid_order ?? o.amount_paid_snapshot ?? 0,
+    sellerContact: sellerContactFromBackend(o),
     canReassignPharmacy: o.can_reassign_pharmacy ?? false,
     partnerResponseDueAt: o.partner_response_due_at ?? undefined,
     amountPaidSnapshot: o.amount_paid_snapshot ?? undefined,

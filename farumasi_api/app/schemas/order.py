@@ -124,11 +124,24 @@ class OrderItemOut(FarumasiBaseModel):
 class OrderPharmacyBrief(FarumasiBaseModel):
     id: str
     name: str
+    address: Optional[str] = None
+    district: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class OrderPartnerBrief(FarumasiBaseModel):
     id: str
     name: str
+    address: Optional[str] = None
+    district: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    description: Optional[str] = None
 
 
 class OrderUserBrief(FarumasiBaseModel):
@@ -176,6 +189,7 @@ class OrderOut(FarumasiBaseModel):
     payment_method: Optional[str] = None
     payment_phone: Optional[str] = None
     defer_delivery_fee: bool = False
+    amount_paid_order: float = 0
     items: List[OrderItemOut] = []
     # Nested relationship data — populated when relationships are loaded
     patient: Optional[OrderPatientBrief] = None
@@ -213,7 +227,7 @@ class OrderOut(FarumasiBaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def can_reassign_pharmacy(self) -> bool:
-        if self.payment_status != PaymentStatus.PAID:
+        if self.payment_status not in (PaymentStatus.PAID, PaymentStatus.PARTIALLY_PAID):
             return False
         if normalize_order_status(self.order_status) != OrderStatus.PENDING.value:
             return False
@@ -238,7 +252,7 @@ class OrderOut(FarumasiBaseModel):
     @classmethod
     def hide_partner_deadline_until_paid(cls, v: Optional[datetime], info) -> Optional[datetime]:
         payment_status = info.data.get("payment_status")
-        if payment_status != PaymentStatus.PAID:
+        if payment_status not in (PaymentStatus.PAID, PaymentStatus.PARTIALLY_PAID):
             return None
         return v
 

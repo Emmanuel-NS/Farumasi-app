@@ -11,6 +11,29 @@ export interface AdminSummary {
   total_prescriptions: number;
   available_revenue_net: number;
   pending_withdrawals: number;
+  total_collected?: number;
+  successful_payments?: number;
+  awaiting_review_payments?: number;
+  awaiting_review_amount?: number;
+  payments_by_method?: PaymentMethodBreakdown[];
+}
+
+export interface PaymentTransactionRow {
+  id: string;
+  order_id: string;
+  order_code?: string | null;
+  amount: number;
+  currency: string;
+  provider: string;
+  method: string;
+  status: string;
+  phone?: string | null;
+  patient_name?: string | null;
+  patient_email?: string | null;
+  paid_at?: string | null;
+  reviewed_at?: string | null;
+  confirmed_momo_transaction_id?: string | null;
+  created_at?: string | null;
 }
 
 export interface PaymentMethodBreakdown {
@@ -37,6 +60,18 @@ export const analyticsService = {
 
   async getPaymentSummary(): Promise<PaymentAnalyticsSummary> {
     const { data } = await api.get<PaymentAnalyticsSummary>("/analytics/payments/summary");
+    return data;
+  },
+
+  async getPaymentTransactions(params?: {
+    status?: string;
+    method?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<PaymentTransactionRow[]> {
+    const { data } = await api.get<PaymentTransactionRow[]>("/analytics/payments/transactions", {
+      params,
+    });
     return data;
   },
 };

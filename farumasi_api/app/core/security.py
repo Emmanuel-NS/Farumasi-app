@@ -59,3 +59,25 @@ def verify_refresh_token(token: str) -> dict[str, Any] | None:
         return payload
     except JWTError:
         return None
+
+
+def create_2fa_pending_token(user_id: str, *, expires_minutes: int = 10) -> str:
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=expires_minutes)
+    payload = {
+        "sub": user_id,
+        "iat": now,
+        "exp": expire,
+        "type": "2fa_pending",
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def verify_2fa_pending_token(token: str) -> dict[str, Any] | None:
+    try:
+        payload = decode_token(token)
+        if payload.get("type") != "2fa_pending":
+            return None
+        return payload
+    except JWTError:
+        return None

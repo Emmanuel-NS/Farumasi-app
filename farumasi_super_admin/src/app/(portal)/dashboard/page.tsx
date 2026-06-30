@@ -9,7 +9,7 @@ import {
   Activity,
   Navigation, BadgeCheck, TrendingUp, ClipboardList,
   Shield, DollarSign, ChevronRight, Pill, Leaf, Sparkles, Package,
-  ArrowDownToLine, AlertCircle,
+  ArrowDownToLine, AlertCircle, Banknote,
 } from "lucide-react";
 import {
   XAxis, YAxis, Tooltip, CartesianGrid,
@@ -197,6 +197,19 @@ export default function DashboardPage() {
           <p className="text-2xl font-bold text-amber-600 mt-1">{orderSummary?.pending ?? summary?.total_orders ?? 0}</p>
           <p className="text-[11px] text-slate-400 mt-1">{rxSubs.pending ?? "Awaiting seller action"}</p>
         </Card>
+        <Link href="/finance/payments" prefetch={false}>
+          <Card className="p-4 hover:border-violet-300 transition-colors h-full">
+            <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
+              <Banknote className="w-3.5 h-3.5" /> Payments Collected
+            </p>
+            <p className="text-2xl font-bold text-violet-700 mt-1">{formatRWF(summary?.total_collected ?? 0)}</p>
+            <p className="text-[11px] text-slate-400 mt-1">
+              {summary?.successful_payments ?? 0} successful
+              {(summary?.awaiting_review_payments ?? 0) > 0 &&
+                ` · ${summary?.awaiting_review_payments} manual pending`}
+            </p>
+          </Card>
+        </Link>
         <Card className="p-4">
           <p className="text-xs text-slate-500 font-medium">In Progress</p>
           <p className="text-2xl font-bold text-blue-600 mt-1">{orderSummary?.in_progress ?? 0}</p>

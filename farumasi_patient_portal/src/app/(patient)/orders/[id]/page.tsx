@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ordersService } from "@/lib/services/orders.service";
-import { paymentsService } from "@/lib/services/payments.service";
+import { paymentsService, type PaymentStatusResult } from "@/lib/services/payments.service";
 import { deliveryService, type BackendDelivery, coordsPair, deliveryProgress, estimateDeliveryEtaMinutes } from "@/lib/services/delivery.service";
 import { mediaUrl } from "@/lib/api";
 import type { Order, DeliveryQR } from "@/types";
@@ -20,6 +20,8 @@ import type { ManualMomoConfig } from "@/components/cart/manual-payment-panel";
 import { configService, type PublicPaymentConfig } from "@/lib/services/config.service";
 import { EMPTY_MANUAL_DRAFT } from "@/lib/checkout-progress";
 import { PharmacySwitchTeaser } from "@/components/orders/pharmacy-reassignment-panel";
+import { OrderSellerLocation } from "@/components/orders/order-seller-location";
+import { FarumasiSupportBar } from "@/components/orders/farumasi-support-bar";
 import {
   ArrowLeft, MapPin, Phone, MessageCircle, Package, Store,
   CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink,
@@ -63,21 +65,22 @@ export default function OrderDetailPage() {
   const [delivery, setDelivery]     = useState<BackendDelivery | null>(null);
   const [deliveryQR, setDeliveryQR] = useState<DeliveryQR | null>(null);
   const [qrLoading, setQrLoading]   = useState(false);
-  const [showCancel, setShowCancel] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
   const [retryingPayment, setRetryingPayment] = useState(false);
   const [submittingManual, setSubmittingManual] = useState(false);
   const [retryPhone, setRetryPhone] = useState("");
   const [retryPaymentMethod, setRetryPaymentMethod] = useState<PaymentMethodId>("manual_momo");
   const [manualDraft, setManualDraft] = useState(EMPTY_MANUAL_DRAFT);
   const [paymentConfig, setPaymentConfig] = useState<PublicPaymentConfig | null>(null);
+  const [paymentDetail, setPaymentDetail] = useState<PaymentStatusResult | null>(null);
   const PAYMENT_FEE_PCT = 3.8;
   const [reassignOptions, setReassignOptions] = useState<Awaited<ReturnType<typeof ordersService.getReassignmentOptions>> | null>(null);
   const [reassignTick, setReassignTick] = useState(0);
   const authUser = useAuthStore((s) => s.user);
 
   const awaitingPharmacyConfirm =
-    order?.paymentStatus === "paid" && order?.status === "pending_review";
+    (order?.paymentStatus === "paid" || order?.paymentStatus === "partially_paid") &&
+    order?.status === "pending_review" &&
+    !!order?.partnerResponseDueAt;
 
   useEffect(() => {
     if (authUser?.phone && !retryPhone) {
@@ -121,6 +124,16 @@ export default function OrderDetailPage() {
     if (!id) return;
     const fresh = await ordersService.getOrderById(id);
     setOrder(fresh);
+    if (fresh.paymentStatus !== "paid" && fresh.paymentStatus !== "cancelled") {
+      try {
+        const ps = await paymentsService.getStatus(id);
+        setPaymentDetail(ps);
+      } catch {
+        setPaymentDetail(null);
+      }
+    } else {
+      setPaymentDetail(null);
+    }
   };
 
   useEffect(() => {
@@ -196,24 +209,13 @@ export default function OrderDetailPage() {
     };
   }, [id, order?.status, order?.deliveryMethod, trackableStatuses]);
 
-  const handleCancel = async () => {
-    if (!order) return;
-    setCancelling(true);
-    try {
-      await ordersService.cancelOrder(order.id);
-      await loadOrder();
-    } catch {
-      alert("Could not cancel. The order may already be in progress.");
-    } finally {
-      setCancelling(false);
-      setShowCancel(false);
-    }
-  };
-
   const canRetryPayment =
     order != null &&
     order.status !== "cancelled" &&
-    (order.paymentStatus === "failed" || order.paymentStatus === "pending");
+    (order.paymentStatus === "failed" ||
+      order.paymentStatus === "pending" ||
+      order.paymentStatus === "unpaid" ||
+      order.paymentStatus === "partially_paid");
 
   const handleSubmitManualProof = async () => {
     if (!order) return;
@@ -301,11 +303,6 @@ export default function OrderDetailPage() {
   const isCancelled  = order.status === "cancelled";
   const isDelivered  = order.status === "delivered";
   const isActive     = !isCancelled && !isDelivered;
-  // Backend now allows patient cancellation for pending/accepted/preparing (even if paid).
-  // ready_for_pickup is cancellable only when not yet paid.
-  const canCancel =
-    ["pending_review", "pharmacy_accepted"].includes(order.status) ||
-    (order.status === "ready_for_pickup" && order.paymentStatus !== "paid");
   const timelineSteps = isPickup ? PICKUP_STEPS : DELIVERY_STEPS;
   const activeWeight  = STATUS_WEIGHTS[order.status] ?? -1;
 
@@ -313,7 +310,7 @@ export default function OrderDetailPage() {
   const subtotal    = order.subtotal ?? (order.pharmacyPrice ?? 0);
   const deliveryFee = order.deliveryFee ?? 0;
   const total       = subtotal + deliveryFee;
-  const orderAmountDue = Math.round(total);
+  const orderAmountDue = Math.round(paymentDetail?.amount_due ?? paymentDetail?.balance_due ?? total);
   const retryProcessingFee = orderAmountDue > 0 ? Math.round(orderAmountDue * PAYMENT_FEE_PCT / 100) : 0;
   const retryTotalWithFee = orderAmountDue + retryProcessingFee;
   const retryPhoneReady =
@@ -545,31 +542,25 @@ export default function OrderDetailPage() {
 
       {/* ── Pickup directions ─────────────────────────────────────────── */}
       {isPickup && !isCancelled && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
-          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-farumasi-600" />
-            Pharmacy Location
-          </h2>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-farumasi-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
-              <Building2 className="w-5 h-5 text-farumasi-600" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{order.pharmacy}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500">Present your access code at the counter</p>
-            </div>
+        order.sellerContact ? (
+          <div className="mb-4">
+            <OrderSellerLocation contact={order.sellerContact} />
+            <p className="text-xs text-amber-700 dark:text-amber-300 font-medium -mt-2 px-1">
+              Present your access code at the pharmacy counter when you arrive.
+            </p>
           </div>
-          <a
-            href={`https://www.google.com/maps/search/${encodeURIComponent(order.pharmacy + " pharmacy Rwanda")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors"
-          >
-            <Navigation className="w-4 h-4" />
-            Get Directions
-            <ExternalLink className="w-3.5 h-3.5 opacity-70" />
-          </a>
-        </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-farumasi-600" />
+              Pharmacy Location
+            </h2>
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{order.pharmacy}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+              Full address and contact will appear once the pharmacy confirms your order.
+            </p>
+          </div>
+        )
       )}
 
       {/* ── Delivery address ──────────────────────────────────────────── */}
@@ -746,25 +737,39 @@ export default function OrderDetailPage() {
         </div>
       )}
 
-      {/* ── Pharmacy / seller info ────────────────────────────────────── */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 mb-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-farumasi-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
-          <Store className="w-5 h-5 text-farumasi-600" />
+      {/* ── Pharmacy / seller location (delivery orders) ─────────────── */}
+      {!isPickup && (order.sellerContact ? (
+        <OrderSellerLocation contact={order.sellerContact} />
+      ) : (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 mb-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-farumasi-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
+            <Store className="w-5 h-5 text-farumasi-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{order.pharmacy}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Seller contact details will appear here when available.</p>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{order.pharmacy}</p>
-          <p className="text-xs text-slate-400 dark:text-slate-500">{t.order_location}</p>
+      ))}
+
+      {/* ── Payment balance / complete payment ─────────────────────── */}
+      {order.paymentStatus === "partially_paid" && paymentDetail && (paymentDetail.balance_due ?? 0) > 0 && (
+        <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800/50 rounded-3xl px-4 py-3 mb-4">
+          <p className="text-sm font-bold text-violet-900 dark:text-violet-100">Balance remaining</p>
+          <p className="text-xs text-violet-800 dark:text-violet-200 mt-1">
+            Paid {formatPrice(paymentDetail.amount_paid_order ?? order.amountPaidOrder ?? 0)} of{" "}
+            {formatPrice(paymentDetail.total_amount ?? total)}.
+            {" "}Please pay {formatPrice(paymentDetail.balance_due ?? orderAmountDue)} to settle this order
+            {paymentDetail.delivery_fee_outstanding ? " (includes delivery fee)" : ""}.
+          </p>
         </div>
-        <a
-          href={`https://www.google.com/maps/search/${encodeURIComponent(order.pharmacy + " pharmacy Rwanda")}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-9 h-9 rounded-xl bg-farumasi-50 dark:bg-emerald-950/40 hover:bg-farumasi-100 dark:hover:bg-emerald-950/60 border border-farumasi-100 dark:border-emerald-800/50 flex items-center justify-center transition-colors"
-          title="View on map"
-        >
-          <MapPin className="w-4 h-4 text-farumasi-600" />
-        </a>
-      </div>
+      )}
+
+      {order.paymentStatus === "awaiting_review" && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-3xl px-4 py-3 mb-4 text-xs text-amber-900 dark:text-amber-100">
+          Payment proof is under review. We will notify you once finance confirms your payment.
+        </div>
+      )}
 
       {/* ── Retry payment ───────────────────────────────────────────── */}
       {canRetryPayment && (
@@ -774,7 +779,9 @@ export default function OrderDetailPage() {
             <div>
               <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Payment required</p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Complete payment to confirm your order.
+                {order.paymentStatus === "partially_paid"
+                  ? `Pay the remaining ${formatPrice(orderAmountDue)} to complete this order.`
+                  : "Complete payment to confirm your order."}
               </p>
             </div>
           </div>
@@ -836,54 +843,9 @@ export default function OrderDetailPage() {
           </Link>
         )}
 
-        {/* Cancel (active orders only) */}
-        {canCancel && (
-          <button
-            onClick={() => setShowCancel(true)}
-            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60 text-red-700 dark:text-red-300 font-bold text-sm transition-colors"
-          >
-            <XCircle className="w-4 h-4" />
-            Cancel Order
-          </button>
-        )}
       </div>
 
-      {/* ── Inline cancel confirmation ───────────────────────────────── */}
-      {showCancel && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !cancelling && setShowCancel(false)} />
-          <div className="relative w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl shadow-2xl z-10 p-6 space-y-4 border border-slate-100 dark:border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Cancel this order?</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {order.orderCode ?? order.id.slice(0, 8).toUpperCase()} · {order.pharmacy}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowCancel(false)}
-                disabled={cancelling}
-                className="flex-1 h-11 rounded-2xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
-              >
-                Keep Order
-              </button>
-              <button
-                onClick={handleCancel}
-                disabled={cancelling}
-                className="flex-1 h-11 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                <XCircle className="w-4 h-4" />
-                {cancelling ? "Cancelling…" : "Yes, Cancel"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <FarumasiSupportBar />
 
     </div>
   );

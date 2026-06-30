@@ -89,8 +89,8 @@ export const ordersService = {
   },
 
   /**
-   * Patient self-cancellation (only allowed while order is still pending).
-   * Backend: PATCH /api/v1/orders/{id}/status with { order_status: "cancelled" }.
+   * @deprecated Patients can no longer cancel orders from the app — contact support instead.
+   * Kept for internal/admin tooling if needed.
    */
   async cancelOrder(id: string): Promise<BackendOrder> {
     const { data } = await api.patch<BackendOrder>(`/orders/${id}/status`, {

@@ -1,5 +1,19 @@
 import api from "@/lib/api";
 
+export type ManualPaymentOutcome = "full" | "partial" | "delivery_deferred";
+
+export interface OrderPaymentContext {
+  subtotal: number;
+  delivery_fee: number;
+  total_amount: number;
+  defer_delivery_fee: boolean;
+  amount_paid_order: number;
+  balance_due: number;
+  delivery_fee_outstanding: number;
+  medicines_paid: boolean;
+  processing_fee_on_balance: number;
+}
+
 export interface ManualPaymentTxn {
   id: string;
   order_id: string;
@@ -20,6 +34,10 @@ export interface ManualPaymentTxn {
   paid_at?: string | null;
   confirmed_momo_transaction_id?: string | null;
   created_at?: string | null;
+  expected_order_amount?: number | null;
+  order_amount_applied?: number | null;
+  approval_outcome?: string | null;
+  order_context?: OrderPaymentContext | null;
 }
 
 export interface PaymentPlatformConfig {
@@ -43,11 +61,16 @@ export const manualPaymentsService = {
     return data.pending;
   },
 
-  async approve(txnId: string, momoTransactionId: string, reviewNote?: string): Promise<ManualPaymentTxn> {
-    const { data } = await api.post<ManualPaymentTxn>(`/admin/manual-payments/${txnId}/approve`, {
-      momo_transaction_id: momoTransactionId,
-      review_note: reviewNote,
-    });
+  async approve(
+    txnId: string,
+    payload: {
+      momo_transaction_id: string;
+      review_note?: string;
+      outcome: ManualPaymentOutcome;
+      amount_received?: number;
+    },
+  ): Promise<ManualPaymentTxn> {
+    const { data } = await api.post<ManualPaymentTxn>(`/admin/manual-payments/${txnId}/approve`, payload);
     return data;
   },
 

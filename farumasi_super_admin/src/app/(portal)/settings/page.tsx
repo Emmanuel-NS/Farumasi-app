@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent, PageHeader, Badge } from "@/components/ui";
-import { Settings, Globe, Lock, Bell, Server, Info, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
+import { Settings, Globe, Lock, Bell, Server, Info, Eye, EyeOff, KeyRound, Loader2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { authService, getApiError } from "@/lib/services/auth.service";
 
@@ -82,6 +82,208 @@ function ChangePasswordSection() {
   );
 }
 
+function TwoFactorSection() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<"idle" | "enable" | "disable">("idle");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; error: boolean } | null>(null);
+
+  useEffect(() => {
+    authService.getTwoFactorStatus().then((s) => setEnabled(s.enabled)).catch(() => setEnabled(false));
+  }, []);
+
+  const sendEnableCode = async () => {
+    setLoading(true);
+    setMsg(null);
+    try {
+      await authService.sendTwoFactorSetupCode();
+      setStep("enable");
+      setCode("");
+      setMsg({ text: "Verification code sent to your email.", error: false });
+    } catch (err) {
+      setMsg({ text: getApiError(err, "Could not send code"), error: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmEnable = async () => {
+    if (code.trim().length < 4) {
+      setMsg({ text: "Enter the verification code.", error: true });
+      return;
+    }
+    setLoading(true);
+    setMsg(null);
+    try {
+      const s = await authService.enableTwoFactor(code);
+      setEnabled(s.enabled);
+      setStep("idle");
+      setCode("");
+      setMsg({ text: "Two-factor authentication enabled.", error: false });
+    } catch (err) {
+      setMsg({ text: getApiError(err, "Could not enable 2FA"), error: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendDisableCode = async () => {
+    setLoading(true);
+    setMsg(null);
+    try {
+      await authService.sendTwoFactorDisableCode();
+      setStep("disable");
+      setCode("");
+      setPassword("");
+      setMsg({ text: "Verification code sent to your email.", error: false });
+    } catch (err) {
+      setMsg({ text: getApiError(err, "Could not send code"), error: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmDisable = async () => {
+    if (!password || code.trim().length < 4) {
+      setMsg({ text: "Enter your password and verification code.", error: true });
+      return;
+    }
+    setLoading(true);
+    setMsg(null);
+    try {
+      const s = await authService.disableTwoFactor(password, code);
+      setEnabled(s.enabled);
+      setStep("idle");
+      setCode("");
+      setPassword("");
+      setMsg({ text: "Two-factor authentication disabled.", error: false });
+    } catch (err) {
+      setMsg({ text: getApiError(err, "Could not disable 2FA"), error: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (enabled === null) {
+    return <p className="text-xs text-slate-500">Loading security settings…</p>;
+  }
+
+  return (
+    <div className="space-y-3 border-t pt-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-farumasi-600" /> Two-Factor Authentication
+          </p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Require an email verification code when signing in to this admin portal.
+          </p>
+        </div>
+        <Badge variant={enabled ? "success" : "neutral"}>{enabled ? "Enabled" : "Disabled"}</Badge>
+      </div>
+
+      {msg && (
+        <p className={`text-xs rounded-lg px-3 py-2 ${msg.error ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+          {msg.text}
+        </p>
+      )}
+
+      {step === "idle" && (
+        <div className="flex flex-wrap gap-2">
+          {!enabled ? (
+            <button
+              type="button"
+              onClick={sendEnableCode}
+              disabled={loading}
+              className="px-4 py-2 rounded-lg bg-farumasi-600 text-white text-sm font-medium hover:bg-farumasi-700 disabled:opacity-60"
+            >
+              {loading ? "Sending…" : "Enable 2FA"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={sendDisableCode}
+              disabled={loading}
+              className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              {loading ? "Sending…" : "Disable 2FA"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {step === "enable" && (
+        <div className="space-y-2 max-w-sm">
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="6-digit code from email"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            className="w-full border rounded-lg px-3 py-2 text-sm font-mono tracking-widest outline-none focus:ring-1 focus:ring-farumasi-500"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={confirmEnable}
+              disabled={loading}
+              className="px-4 py-2 rounded-lg bg-farumasi-600 text-white text-sm font-medium hover:bg-farumasi-700 disabled:opacity-60"
+            >
+              Confirm enable
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStep("idle"); setCode(""); setMsg(null); }}
+              className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === "disable" && (
+        <div className="space-y-2 max-w-sm">
+          <input
+            type="password"
+            placeholder="Current password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-farumasi-500"
+          />
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="6-digit code from email"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            className="w-full border rounded-lg px-3 py-2 text-sm font-mono tracking-widest outline-none focus:ring-1 focus:ring-farumasi-500"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={confirmDisable}
+              disabled={loading}
+              className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-60"
+            >
+              Confirm disable
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStep("idle"); setCode(""); setPassword(""); setMsg(null); }}
+              className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <div className="space-y-5">
@@ -133,7 +335,6 @@ export default function SettingsPage() {
             {[
               { label: "Session Timeout", value: "30 minutes" },
               { label: "Max Login Attempts", value: "5" },
-              { label: "Two-Factor Auth", value: "Planned", badge: "planned" },
               { label: "Password Policy", value: "Min 8 chars" },
               { label: "IP Whitelist", value: "Disabled" },
               { label: "Audit Logging", value: "All actions", badge: "active" },
@@ -150,6 +351,9 @@ export default function SettingsPage() {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="border-t pt-4">
+            <TwoFactorSection />
           </div>
           <div className="border-t pt-4">
             <p className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-1.5">

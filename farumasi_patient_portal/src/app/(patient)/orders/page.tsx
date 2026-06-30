@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ordersService } from "@/lib/services/orders.service";
 import { adaptOrder } from "@/lib/services/orders.service";
 import { cn, formatPrice, timeAgo, parseApiDateTime } from "@/lib/utils";
@@ -11,7 +12,7 @@ import { PinGate } from "@/components/shared/pin-gate";
 import { useTranslation } from "@/lib/translations";
 import {
   Package, ChevronRight, Clock, Store, XCircle,
-  RefreshCw, Truck, Building2, Pill, AlertTriangle,
+  RefreshCw, Truck, Building2, Pill,
   CheckCircle2, Trash2, Zap,
 } from "lucide-react";
 import { PharmacyReassignmentBadge } from "@/components/orders/pharmacy-reassignment-panel";
@@ -46,8 +47,6 @@ export default function OrdersPage() {
   const [loading, setLoading]     = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
-  const [cancelling, setCancelling]     = useState(false);
   const t = useTranslation();
 
   useEffect(() => { setArchived(loadArchived()); }, []);
@@ -76,22 +75,8 @@ export default function OrdersPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const confirmCancel = async () => {
-    if (!cancelTarget) return;
-    setCancelling(true);
-    try {
-      await ordersService.cancelOrder(cancelTarget);
-      await load(true);
-    } catch {
-      alert("Could not cancel. The order may already be processing.");
-    } finally {
-      setCancelling(false);
-      setCancelTarget(null);
-    }
-  };
-
   const activeOrders    = orders.filter((o) => ACTIVE_STATUSES.has(o.status));
-  const cancelledOrders = orders.filter((o) => CANCELLED_STATUSES.has(o.status));
+  const cancelledOrders = orders.filter((o) => CANCELLED_STATUSES.has(o.status) && !archived.has(o.id));
   const pastOrders      = orders.filter((o) =>
     !ACTIVE_STATUSES.has(o.status) && !CANCELLED_STATUSES.has(o.status) && !archived.has(o.id)
   );
@@ -173,11 +158,7 @@ export default function OrdersPage() {
               ) : (
                 <div className="space-y-4 max-w-3xl mx-auto">
                   {activeOrders.map((order) => (
-                    <ActiveOrderCard
-                      key={order.id}
-                      order={order}
-                      onRequestCancel={() => setCancelTarget(order.id)}
-                    />
+                    <ActiveOrderCard key={order.id} order={order} />
                   ))}
                   
                 </div>
@@ -197,55 +178,21 @@ export default function OrdersPage() {
               ) : (
                 <div className="space-y-3 max-w-3xl mx-auto">
                   {cancelledOrders.map((order) => (
-                    <PastOrderCard key={order.id} order={order} onArchive={() => {}} />
+                    <PastOrderCard key={order.id} order={order} onArchive={() => archiveOrder(order.id)} />
                   ))}
                 </div>
               )
             )}
           </div>
         </div>
-
-        {/* Inline cancel confirmation modal */}
-        {cancelTarget && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !cancelling && setCancelTarget(null)} />
-            <div className="relative w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl shadow-2xl z-10 p-6 space-y-4 border border-slate-100 dark:border-slate-700">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Cancel this order?</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">This cannot be undone once confirmed.</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setCancelTarget(null)}
-                  disabled={cancelling}
-                  className="flex-1 h-11 rounded-2xl border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
-                >
-                  Keep Order
-                </button>
-                <button
-                  onClick={confirmCancel}
-                  disabled={cancelling}
-                  className="flex-1 h-11 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-                >
-                  <XCircle className="w-4 h-4" />
-                  {cancelling ? "Cancelling…" : "Yes, Cancel"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </PinGate>
     </GuestGate>
   );
 }
 
-function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCancel: () => void }) {
+function ActiveOrderCard({ order }: { order: Order }) {
   const t = useTranslation();
+  const router = useRouter();
   const awaitingPharmacy =
     order.paymentStatus === "paid" && order.status === "pending_review";
   const dueMs =
@@ -258,20 +205,27 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
       ? `${Math.floor(Math.ceil(waitMs / 1000) / 60)}:${(Math.ceil(waitMs / 1000) % 60).toString().padStart(2, "0")}`
       : null;
   const canSwitch = awaitingPharmacy && order.canReassignPharmacy;
-  // Match backend: pending/accepted/preparing are always cancellable (even after payment).
-  // ready_for_pickup only cancellable when unpaid.
-  const canCancel =
-    ["pending_review", "pharmacy_accepted"].includes(order.status) ||
-    (order.status === "ready_for_pickup" && order.paymentStatus !== "paid");
   const itemList  = order.itemList ?? [];
   const itemCount = itemList.length || order.items.split(",").length;
   const firstName = itemList.length > 0 ? itemList[0].name : order.items.split(",")[0]?.trim();
 
+  const openOrder = () => router.push(`/orders/${order.id}`);
+
   return (
     <div className={cn(
-      "bg-white dark:bg-slate-800 rounded-3xl border shadow-sm hover:shadow-md dark:hover:shadow-black/20 transition-shadow overflow-hidden",
-      awaitingPharmacy ? "border-slate-200 dark:border-slate-700" : "border-slate-100 dark:border-slate-700",
-    )}>
+      "bg-white dark:bg-slate-800 rounded-3xl border shadow-sm hover:shadow-md dark:hover:shadow-black/20 transition-shadow overflow-hidden cursor-pointer group",
+      awaitingPharmacy ? "border-slate-200 dark:border-slate-700 hover:border-farumasi-200 dark:hover:border-emerald-700/50" : "border-slate-100 dark:border-slate-700 hover:border-farumasi-200 dark:hover:border-emerald-700/50",
+    )}
+      role="link"
+      tabIndex={0}
+      onClick={openOrder}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openOrder();
+        }
+      }}
+    >
       {awaitingPharmacy && (
         <div className={cn(
           "px-5 py-2.5 flex items-center justify-between gap-2 text-xs font-bold border-b",
@@ -365,22 +319,10 @@ function ActiveOrderCard({ order, onRequestCancel }: { order: Order; onRequestCa
             <p className="text-base font-extrabold text-farumasi-700 dark:text-emerald-300">{order.total}</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            {canCancel && (
-              <button
-                onClick={onRequestCancel}
-                className="flex items-center gap-1.5 border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60 px-3 py-2 rounded-2xl text-xs font-bold transition-colors"
-              >
-                <XCircle className="w-3.5 h-3.5" />
-                Cancel
-              </button>
-            )}
-            <Link
-              href={`/orders/${order.id}`}
-              className="flex items-center gap-1.5 bg-farumasi-600 hover:bg-farumasi-700 text-white px-4 py-2 rounded-2xl text-sm font-semibold transition-colors"
-            >
+            <span className="flex items-center gap-1.5 bg-farumasi-600 group-hover:bg-farumasi-700 text-white px-4 py-2 rounded-2xl text-sm font-semibold transition-colors">
               {t.orders_track}
               <ChevronRight className="w-4 h-4" />
-            </Link>
+            </span>
           </div>
         </div>
       </div>

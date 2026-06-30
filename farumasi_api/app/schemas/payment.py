@@ -43,6 +43,15 @@ class PaymentStatusOut(FarumasiBaseModel):
     processing_fee: Optional[float] = None
     pending_transaction_id: Optional[str] = None
     submitted_at: Optional[str] = None
+    subtotal: Optional[float] = None
+    delivery_fee: Optional[float] = None
+    total_amount: Optional[float] = None
+    defer_delivery_fee: bool = False
+    amount_paid_order: Optional[float] = None
+    balance_due: Optional[float] = None
+    delivery_fee_outstanding: Optional[float] = None
+    medicines_paid: bool = False
+    fully_paid: bool = False
 
 
 class ManualPaymentSubmit(FarumasiBaseModel):
@@ -52,9 +61,26 @@ class ManualPaymentSubmit(FarumasiBaseModel):
     phone: Optional[str] = None
 
 
+class OrderPaymentContextOut(FarumasiBaseModel):
+    subtotal: float
+    delivery_fee: float
+    total_amount: float
+    defer_delivery_fee: bool
+    amount_paid_order: float
+    balance_due: float
+    delivery_fee_outstanding: float = 0
+    medicines_paid: bool = False
+    processing_fee_on_balance: float = 0
+
+
 class ManualPaymentReview(FarumasiBaseModel):
     momo_transaction_id: str = Field(min_length=4, max_length=120)
     review_note: Optional[str] = Field(default=None, max_length=2000)
+    outcome: str = Field(default="full", description="full | partial | delivery_deferred")
+    amount_received: Optional[float] = Field(
+        default=None,
+        description="Order value received (excluding processing fee). Required for partial.",
+    )
 
 
 class ManualPaymentReject(FarumasiBaseModel):
@@ -81,3 +107,8 @@ class PaymentTransactionOut(FarumasiBaseModel):
     paid_at: Optional[str] = None
     confirmed_momo_transaction_id: Optional[str] = None
     created_at: Optional[str] = None
+    expected_order_amount: Optional[float] = None
+    order_amount_applied: Optional[float] = None
+    processing_fee_amount: Optional[float] = None
+    approval_outcome: Optional[str] = None
+    order_context: Optional[OrderPaymentContextOut] = None

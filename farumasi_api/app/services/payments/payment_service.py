@@ -20,6 +20,7 @@ from app.repositories.order_repository import OrderRepository
 from app.schemas.payment import (
     ManualPaymentReject,
     ManualPaymentReview,
+    OrderPaymentContextOut,
     PaymentInitiateOut,
     PaymentStatusOut,
     PaymentTransactionOut,
@@ -27,6 +28,12 @@ from app.schemas.payment import (
 from app.services.platform_settings_service import PlatformSettingsService
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
+from app.services.payments.payment_helpers import (
+    amount_paid_on_order,
+    balance_due_for_order,
+    order_payment_breakdown,
+    order_ready_for_fulfilment,
+)
 from app.services.payments.momo_collection_service import normalize_rwanda_phone
 from app.services.payments.mtn_madapi_service import MtnMadapiService
 from app.services.payments.pesapal_service import PesapalService
@@ -41,10 +48,8 @@ _TX_REJECTED = "rejected"
 
 
 def amount_due_for_order(order: Order) -> float:
-    total = float(order.total_amount)
-    if order.defer_delivery_fee and float(order.delivery_fee) > 0:
-        return round(total - float(order.delivery_fee), 2)
-    return round(total, 2)
+    """Remaining order value due (excludes processing fees)."""
+    return balance_due_for_order(order)
 
 
 def _display_phone(raw: str) -> str:
@@ -170,8 +175,12 @@ class PaymentService:
         payment_method: str = "mtn_momo",
     ) -> PaymentInitiateOut:
         order = await self._get_patient_order(order_id, actor)
-        if order.payment_status == PaymentStatus.PAID:
-            raise BusinessRuleError("This order is already paid")
+        if balance_due_for_order(order) <= 0.01:
+            raise BusinessRuleError("This order is already paid.")
+        if await self._active_manual_review_txn(order.id):
+            raise BusinessRuleError(
+                "Payment proof is already under review. Please wait for confirmation."
+            )
 
         default_name, default_email, actor_phone = await self._patient_contact(actor, order)
         customer_name = (name or default_name).strip() or default_name
@@ -235,6 +244,8 @@ class PaymentService:
                 status=_TX_PENDING,
                 external_id=merchant_ref,
                 idempotency_key=f"{order.id}:{merchant_ref}",
+                expected_order_amount=due,
+                processing_fee_amount=processing_fee,
             )
             self.db.add(txn)
             await self.db.flush()
@@ -311,6 +322,8 @@ class PaymentService:
             status=_TX_PENDING,
             external_id=merchant_ref,
             idempotency_key=f"{order.id}:{merchant_ref}",
+            expected_order_amount=due,
+            processing_fee_amount=processing_fee,
         )
         self.db.add(txn)
         await self.db.flush()
@@ -400,6 +413,8 @@ class PaymentService:
             status=_TX_PENDING,
             external_id=merchant_ref,
             idempotency_key=f"{order.id}:{merchant_ref}",
+            expected_order_amount=due,
+            processing_fee_amount=processing_fee,
         )
         self.db.add(txn)
         await self.db.flush()
@@ -504,14 +519,15 @@ class PaymentService:
         return PaymentStatusOut(
             order_id=order.id,
             payment_status=order.payment_status,
-            amount_due=due,
-            amount_paid=float(order.total_amount) if order.payment_status == PaymentStatus.PAID else None,
+            amount_due=balance_due_for_order(order),
+            amount_paid=amount_paid_on_order(order) if amount_paid_on_order(order) > 0 else None,
             payment_method=order.payment_method,
             payment_reference=order.payment_reference,
-            processing_fee=fee if order.payment_status != PaymentStatus.PAID else None,
+            processing_fee=fee if order.payment_status not in (PaymentStatus.PAID,) else None,
             message=self._status_message(order),
             pending_transaction_id=pending_id,
             submitted_at=submitted_at,
+            **order_payment_breakdown(order),
         )
 
     async def handle_pesapal_webhook(
@@ -634,36 +650,113 @@ class PaymentService:
         txn.status = _TX_SUCCESS
         txn.provider_reference = txn.provider_reference or provider_reference
         txn.paid_at = datetime.now(timezone.utc)
-        await self._mark_paid(order, reference=provider_reference, method=txn.method)
+        order_amt = float(txn.expected_order_amount or 0)
+        if order_amt <= 0:
+            order_amt = balance_due_for_order(order)
+        fee = float(txn.processing_fee_amount or payment_processing_fee(order_amt))
+        paid_before_fulfil = order_ready_for_fulfilment(order, amount_paid_on_order(order))
+        await self._apply_order_payment(
+            order,
+            txn,
+            order_amount=order_amt,
+            processing_fee=fee,
+            reference=provider_reference,
+            method=txn.method,
+            paid_before_fulfil=paid_before_fulfil,
+        )
 
-    async def _mark_paid(self, order: Order, *, reference: str, method: str) -> None:
+    async def _apply_order_payment(
+        self,
+        order: Order,
+        txn: Optional[PaymentTransaction],
+        *,
+        order_amount: float,
+        processing_fee: float,
+        reference: str,
+        method: str,
+        outcome: Optional[str] = None,
+        paid_before_fulfil: bool = False,
+        notify: bool = True,
+    ) -> None:
         from datetime import timedelta
 
         from app.core.constants import PARTNER_RESPONSE_TIMEOUT_MINUTES
 
-        order.payment_status = PaymentStatus.PAID
+        order_amount = round(float(order_amount), 2)
+        processing_fee = round(float(processing_fee), 2)
+        if txn is not None:
+            txn.order_amount_applied = order_amount
+            txn.processing_fee_amount = processing_fee
+            txn.amount = round(order_amount + processing_fee, 0)
+            if outcome:
+                txn.approval_outcome = outcome
+
+        paid_before = amount_paid_on_order(order)
+        new_paid = round(paid_before + order_amount, 2)
+        order.amount_paid_order = new_paid
+        order.amount_paid_snapshot = new_paid
         order.payment_reference = reference
         if method != "none":
             order.payment_method = method
-        order.amount_paid_snapshot = float(order.total_amount or 0)
-        order.partner_response_due_at = datetime.now(timezone.utc) + timedelta(
-            minutes=PARTNER_RESPONSE_TIMEOUT_MINUTES
-        )
+
+        balance = balance_due_for_order(order, new_paid)
+        if balance <= 0.01:
+            order.payment_status = PaymentStatus.PAID
+        elif new_paid > 0.01:
+            order.payment_status = PaymentStatus.PARTIALLY_PAID
+        else:
+            order.payment_status = PaymentStatus.UNPAID
+
+        if order_ready_for_fulfilment(order, new_paid) and not paid_before_fulfil:
+            order.partner_response_due_at = datetime.now(timezone.utc) + timedelta(
+                minutes=PARTNER_RESPONSE_TIMEOUT_MINUTES
+            )
+
         await self.db.flush()
+
+        if not notify:
+            return
 
         patient_user_id = (
             await self.db.execute(
                 select(PatientProfile.user_id).where(PatientProfile.id == order.patient_id)
             )
         ).scalar_one_or_none()
-        if patient_user_id:
-            await NotificationService(self.db).send(
-                patient_user_id,
-                title="Payment confirmed",
-                message=f"Your payment for order {order.order_code} was successful.",
-                category="order",
-                action_url=f"/orders/{order.id}",
+        if not patient_user_id:
+            return
+
+        if order.payment_status == PaymentStatus.PAID:
+            title = "Payment confirmed"
+            message = f"Your payment for order {order.order_code} was successful."
+        elif order.payment_status == PaymentStatus.PARTIALLY_PAID:
+            title = "Partial payment received"
+            message = (
+                f"We recorded RWF {int(order_amount):,} for order {order.order_code}. "
+                f"Remaining balance: RWF {int(balance):,}."
             )
+        else:
+            return
+
+        await NotificationService(self.db).send(
+            patient_user_id,
+            title=title,
+            message=message,
+            category="order",
+            action_url=f"/orders/{order.id}",
+        )
+
+    async def _mark_paid(self, order: Order, *, reference: str, method: str) -> None:
+        due = balance_due_for_order(order)
+        paid_before_fulfil = order_ready_for_fulfilment(order, amount_paid_on_order(order))
+        await self._apply_order_payment(
+            order,
+            None,
+            order_amount=due,
+            processing_fee=0.0,
+            reference=reference,
+            method=method,
+            paid_before_fulfil=paid_before_fulfil,
+        )
 
     async def _notify_payment_failed(self, order: Order) -> None:
         patient_user_id = (
@@ -680,6 +773,14 @@ class PaymentService:
     def _status_message(order: Order) -> str:
         if order.payment_status == PaymentStatus.PAID:
             return "Payment confirmed."
+        if order.payment_status == PaymentStatus.PARTIALLY_PAID:
+            balance = balance_due_for_order(order)
+            if order.defer_delivery_fee and float(order.delivery_fee or 0) > 0:
+                return (
+                    f"Partial payment received. RWF {int(balance):,} remaining "
+                    f"(includes delivery fee due on arrival)."
+                )
+            return f"Partial payment received. RWF {int(balance):,} remaining on this order."
         if order.payment_status == PaymentStatus.AWAITING_REVIEW:
             return (
                 "We received your payment proof. Our team will verify it shortly — "
@@ -731,7 +832,7 @@ class PaymentService:
             raise BusinessRuleError("Manual MoMo payments are not available right now.")
 
         order = await self._get_patient_order(order_id, actor)
-        if order.payment_status == PaymentStatus.PAID:
+        if balance_due_for_order(order) <= 0.01:
             raise BusinessRuleError("This order is already paid.")
         if await self._active_manual_review_txn(order.id):
             raise BusinessRuleError(
@@ -775,6 +876,8 @@ class PaymentService:
             patient_note=(patient_note or "").strip() or None,
             provider_reference=(claimed_reference or "").strip() or None,
             submitted_at=now,
+            expected_order_amount=due,
+            processing_fee_amount=processing_fee,
         )
         self.db.add(txn)
         order.payment_method = "manual_momo"
@@ -864,12 +967,59 @@ class PaymentService:
         if not order:
             raise NotFoundError("Order", txn.order_id)
 
+        outcome = (data.outcome or "full").strip().lower()
+        if outcome not in ("full", "partial", "delivery_deferred"):
+            raise ValidationError("Outcome must be full, partial, or delivery_deferred.")
+
+        paid_so_far = amount_paid_on_order(order)
+        balance_before = balance_due_for_order(order, paid_so_far)
+
+        if outcome == "delivery_deferred":
+            if float(order.delivery_fee or 0) <= 0:
+                raise ValidationError("This order has no delivery fee to defer.")
+            order.defer_delivery_fee = True
+            balance_before = balance_due_for_order(order, paid_so_far)
+            amount_received = (
+                round(float(data.amount_received), 2)
+                if data.amount_received is not None
+                else balance_before
+            )
+        elif outcome == "full":
+            amount_received = balance_before
+        else:
+            if data.amount_received is None or float(data.amount_received) <= 0:
+                raise ValidationError("Enter the amount the patient paid for a partial payment.")
+            amount_received = round(float(data.amount_received), 2)
+            if amount_received >= balance_before - 0.01:
+                amount_received = balance_before
+                outcome = "full"
+
+        if amount_received > balance_before + 0.01:
+            raise ValidationError(
+                f"Amount received ({int(amount_received):,} RWF) exceeds balance due "
+                f"({int(balance_before):,} RWF)."
+            )
+
         now = datetime.now(timezone.utc)
         txn.confirmed_momo_transaction_id = momo_id
         txn.admin_review_note = (data.review_note or "").strip() or None
         txn.reviewed_at = now
         txn.reviewed_by_user_id = admin.id
-        await self._confirm_transaction(txn, order, provider_reference=momo_id)
+        txn.status = _TX_SUCCESS
+        txn.paid_at = now
+        proc_fee = payment_processing_fee(amount_received)
+        paid_before_fulfil = order_ready_for_fulfilment(order, paid_so_far)
+        await self._apply_order_payment(
+            order,
+            txn,
+            order_amount=amount_received,
+            processing_fee=proc_fee,
+            reference=momo_id,
+            method=txn.method,
+            outcome=outcome,
+            paid_before_fulfil=paid_before_fulfil,
+            notify=False,
+        )
 
         patient_user_id = (
             await self.db.execute(
@@ -877,10 +1027,26 @@ class PaymentService:
             )
         ).scalar_one_or_none()
         if patient_user_id:
+            balance_after = balance_due_for_order(order)
+            if order.payment_status == PaymentStatus.PAID:
+                msg = f"Your manual MoMo payment for order {order.order_code} was approved."
+            elif outcome == "delivery_deferred":
+                msg = (
+                    f"Payment approved for order {order.order_code}. "
+                    f"Delivery fee (RWF {int(float(order.delivery_fee or 0)):,}) "
+                    f"will be collected on arrival."
+                )
+                if balance_after > 0.01:
+                    msg += f" Remaining balance: RWF {int(balance_after):,}."
+            else:
+                msg = (
+                    f"Partial payment of RWF {int(amount_received):,} approved for order "
+                    f"{order.order_code}. Remaining balance: RWF {int(balance_after):,}."
+                )
             await NotificationService(self.db).send(
                 patient_user_id,
-                title="Payment confirmed",
-                message=f"Your manual MoMo payment for order {order.order_code} was approved.",
+                title="Payment update",
+                message=msg,
                 category="order",
                 action_url=f"/orders/{order.id}",
             )
@@ -890,7 +1056,7 @@ class PaymentService:
             action="payment.manual.approved",
             entity_type="PaymentTransaction",
             entity_id=txn.id,
-            new_value={"momo_transaction_id": momo_id, "order_id": order.id},
+            new_value={"momo_transaction_id": momo_id, "order_id": order.id, "outcome": outcome, "amount_received": amount_received},
         )
         await self.db.commit()
 
@@ -922,7 +1088,11 @@ class PaymentService:
         txn.admin_review_note = data.review_note.strip()
         txn.reviewed_at = now
         txn.reviewed_by_user_id = admin.id
-        order.payment_status = PaymentStatus.UNPAID
+        paid_so_far = amount_paid_on_order(order)
+        if paid_so_far > 0.01:
+            order.payment_status = PaymentStatus.PARTIALLY_PAID
+        else:
+            order.payment_status = PaymentStatus.UNPAID
         order.partner_response_due_at = None
         await self.db.flush()
 
@@ -979,6 +1149,8 @@ class PaymentService:
         order: Order,
         patient_user: Optional[User],
     ) -> PaymentTransactionOut:
+        breakdown = order_payment_breakdown(order)
+        balance = breakdown["balance_due"]
         return PaymentTransactionOut(
             id=txn.id,
             order_id=txn.order_id,
@@ -999,4 +1171,18 @@ class PaymentService:
             paid_at=txn.paid_at.isoformat() if txn.paid_at else None,
             confirmed_momo_transaction_id=txn.confirmed_momo_transaction_id,
             created_at=txn.created_at.isoformat() if txn.created_at else None,
+            expected_order_amount=float(txn.expected_order_amount)
+            if txn.expected_order_amount is not None
+            else float(balance),
+            order_amount_applied=float(txn.order_amount_applied)
+            if txn.order_amount_applied is not None
+            else None,
+            processing_fee_amount=float(txn.processing_fee_amount)
+            if txn.processing_fee_amount is not None
+            else None,
+            approval_outcome=txn.approval_outcome,
+            order_context=OrderPaymentContextOut(
+                **breakdown,
+                processing_fee_on_balance=payment_processing_fee(balance),
+            ),
         )

@@ -1,9 +1,19 @@
 import api, { TOKEN_KEY } from "@/lib/api";
 
 export interface LoginResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
+  requires_2fa?: boolean;
+  access_token?: string;
+  refresh_token?: string;
+  token_type?: string;
+  must_change_password?: boolean;
+  pending_token?: string;
+  expires_minutes?: number;
+  message?: string;
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  email: string;
 }
 
 export interface MeUser {
@@ -12,6 +22,7 @@ export interface MeUser {
   full_name: string;
   role: string;
   phone?: string | null;
+  two_factor_enabled?: boolean;
 }
 
 export function getApiError(err: unknown, fallback: string): string {
@@ -69,5 +80,52 @@ export const authService = {
       current_password: currentPassword,
       new_password: newPassword,
     });
+  },
+
+  async getTwoFactorStatus(): Promise<TwoFactorStatus> {
+    const { data } = await api.get<TwoFactorStatus>("/auth/2fa/status");
+    return data;
+  },
+
+  async sendTwoFactorSetupCode(): Promise<{ message: string; expires_minutes: number }> {
+    const { data } = await api.post<{ message: string; expires_minutes: number }>(
+      "/auth/2fa/send-setup-code",
+    );
+    return data;
+  },
+
+  async enableTwoFactor(code: string): Promise<TwoFactorStatus> {
+    const { data } = await api.post<TwoFactorStatus>("/auth/2fa/enable", { code: code.trim() });
+    return data;
+  },
+
+  async sendTwoFactorDisableCode(): Promise<{ message: string; expires_minutes: number }> {
+    const { data } = await api.post<{ message: string; expires_minutes: number }>(
+      "/auth/2fa/send-disable-code",
+    );
+    return data;
+  },
+
+  async disableTwoFactor(password: string, code: string): Promise<TwoFactorStatus> {
+    const { data } = await api.post<TwoFactorStatus>("/auth/2fa/disable", {
+      password,
+      code: code.trim(),
+    });
+    return data;
+  },
+
+  async verifyTwoFactorLogin(pendingToken: string, code: string): Promise<LoginResponse> {
+    const { data } = await api.post<LoginResponse>("/auth/2fa/verify-login", {
+      pending_token: pendingToken,
+      code: code.trim(),
+    });
+    return data;
+  },
+
+  async resendTwoFactorLogin(pendingToken: string): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>("/auth/2fa/resend-login", {
+      pending_token: pendingToken,
+    });
+    return data;
   },
 };

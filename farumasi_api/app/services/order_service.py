@@ -1311,36 +1311,12 @@ class OrderService:
         if role == UserRole.PATIENT:
             patient = await self._get_patient_for_user(actor)
             owns = patient and patient.id == order.patient_id
-            # Patients can self-cancel as long as the order has not yet been
-            # handed to a rider or collected.
-            #   PENDING / ACCEPTED / PREPARING  → always cancellable (pharmacy
-            #     hasn't done significant work yet; refund will be issued for
-            #     paid orders via finance workflow).
-            #   READY_FOR_PICKUP → only if not yet paid (i.e. pharmacy queued
-            #     it but payment wasn't taken — uncommon but valid).
-            #   OUT_FOR_DELIVERY / DELIVERED / COMPLETED → cannot cancel.
-            always_cancellable = {
-                OrderStatus.PENDING,
-                OrderStatus.ACCEPTED,
-                OrderStatus.PREPARING,
-            }
-            if (
-                owns
-                and new_status == OrderStatus.CANCELLED
-                and order.order_status in always_cancellable
-            ):
-                return
-            # READY_FOR_PICKUP is still cancellable when not yet paid
-            if (
-                owns
-                and new_status == OrderStatus.CANCELLED
-                and order.order_status == OrderStatus.READY_FOR_PICKUP
-                and order.payment_status != PaymentStatus.PAID
-            ):
-                return
-            raise AuthorizationError(
-                "Orders that are already out for delivery or delivered cannot be cancelled by patients"
-            )
+            if owns and new_status == OrderStatus.CANCELLED:
+                raise AuthorizationError(
+                    "Orders cannot be cancelled from the patient app after placement. "
+                    "Please contact FARUMASI support for assistance."
+                )
+            raise AuthorizationError("Not allowed to change order status")
         if role in (UserRole.PHARMACY_ADMIN, UserRole.PHARMACIST):
             pharmacy = await self._get_owned_pharmacy(actor)
             if not pharmacy and role == UserRole.PHARMACIST:
@@ -1375,7 +1351,9 @@ class OrderService:
         }
         if new_status in no_payment_needed:
             return
-        if order.payment_status != PaymentStatus.PAID:
+        from app.services.payments.payment_helpers import order_ready_for_fulfilment
+
+        if not order_ready_for_fulfilment(order):
             raise BusinessRuleError(
                 "Payment must be confirmed before fulfilment. "
                 "The patient must complete mobile money payment first."

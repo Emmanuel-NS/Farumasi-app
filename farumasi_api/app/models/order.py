@@ -61,6 +61,7 @@ class Order(Base, UUIDMixin, TimestampMixin):
     payment_method: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     payment_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     defer_delivery_fee: Mapped[bool] = mapped_column(default=False, nullable=False)
+    amount_paid_order: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
 
     # Access codes
     patient_access_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

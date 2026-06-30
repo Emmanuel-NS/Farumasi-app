@@ -224,6 +224,7 @@ class PaymentStatus(str, Enum):
     UNPAID = "unpaid"
     PENDING = "pending"
     AWAITING_REVIEW = "awaiting_review"
+    PARTIALLY_PAID = "partially_paid"
     PAID = "paid"
     FAILED = "failed"
     REFUNDED = "refunded"

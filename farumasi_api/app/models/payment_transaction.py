@@ -43,5 +43,9 @@ class PaymentTransaction(Base, UUIDMixin, TimestampMixin):
     confirmed_momo_transaction_id: Mapped[Optional[str]] = mapped_column(
         String(120), nullable=True, unique=True, index=True
     )
+    expected_order_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    order_amount_applied: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    processing_fee_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    approval_outcome: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     order: Mapped["Order"] = relationship("Order", back_populates="payment_transactions")

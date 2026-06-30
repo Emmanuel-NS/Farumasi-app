@@ -21,6 +21,9 @@ from app.services.sms_delivery_service import send_verification_sms
 PURPOSE_PAYOUT_CREDENTIALS = "payout_credentials_update"
 PURPOSE_PASSWORD_RESET = "password_reset"
 PURPOSE_REGISTRATION = "registration"
+PURPOSE_TWO_FACTOR_SETUP = "two_factor_setup"
+PURPOSE_TWO_FACTOR_DISABLE = "two_factor_disable"
+PURPOSE_TWO_FACTOR_LOGIN = "two_factor_login"
 
 logger = logging.getLogger(__name__)
 

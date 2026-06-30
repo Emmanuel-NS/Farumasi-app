@@ -139,6 +139,7 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)",
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_phone VARCHAR(20)",
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS defer_delivery_fee BOOLEAN NOT NULL DEFAULT false",
+                    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS amount_paid_order NUMERIC(12,2) NOT NULL DEFAULT 0",
                     "ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS estimated_distance_km NUMERIC(8,2)",
                     """
                     CREATE TABLE IF NOT EXISTS payment_transactions (

@@ -105,9 +105,22 @@ export type OrderPaymentStatus =
   | "pending"
   | "processing"
   | "paid"
+  | "partially_paid"
   | "failed"
   | "refunded"
   | string;
+
+export interface OrderSellerContact {
+  name: string;
+  type: "pharmacy" | "partner";
+  address?: string;
+  district?: string;
+  phone?: string;
+  email?: string;
+  description?: string;
+  latitude?: number;
+  longitude?: number;
+}
 
 export interface Order {
   id: string;
@@ -163,6 +176,9 @@ export interface Order {
   canReassignPharmacy?: boolean;
   partnerResponseDueAt?: string;
   amountPaidSnapshot?: number;
+  deferDeliveryFee?: boolean;
+  amountPaidOrder?: number;
+  sellerContact?: OrderSellerContact;
   dispatchConfirmedAt?: string;
 }
 

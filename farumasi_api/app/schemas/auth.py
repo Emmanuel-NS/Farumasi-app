@@ -81,6 +81,42 @@ class TokenResponse(FarumasiBaseModel):
     must_change_password: bool = False
 
 
+class LoginResult(FarumasiBaseModel):
+    """Login response — tokens when complete, or a 2FA challenge when enabled."""
+
+    requires_2fa: bool = False
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_type: str = "bearer"
+    must_change_password: bool = False
+    pending_token: str | None = None
+    expires_minutes: int | None = None
+    message: str | None = None
+
+
+class TwoFactorCodeRequest(FarumasiBaseModel):
+    code: str = Field(min_length=4, max_length=12)
+
+
+class TwoFactorDisableRequest(FarumasiBaseModel):
+    password: str
+    code: str = Field(min_length=4, max_length=12)
+
+
+class TwoFactorLoginVerifyRequest(FarumasiBaseModel):
+    pending_token: str
+    code: str = Field(min_length=4, max_length=12)
+
+
+class TwoFactorResendLoginRequest(FarumasiBaseModel):
+    pending_token: str
+
+
+class TwoFactorStatusOut(FarumasiBaseModel):
+    enabled: bool
+    email: str
+
+
 class ForgotPasswordRequest(FarumasiBaseModel):
     email: EmailStr
 

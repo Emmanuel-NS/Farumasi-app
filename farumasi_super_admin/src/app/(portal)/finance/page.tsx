@@ -55,6 +55,12 @@ export default function FinanceOverviewPage() {
       icon: Receipt,
     },
     {
+      href: "/finance/payments",
+      title: "Payment Transactions",
+      desc: "Unified ledger — MTN, card, and approved MoMo Pay Code",
+      icon: Banknote,
+    },
+    {
       href: "/finance/manual-payments",
       title: "Manual MoMo Payments",
       desc: "Review patient payment proofs and confirm transactions",

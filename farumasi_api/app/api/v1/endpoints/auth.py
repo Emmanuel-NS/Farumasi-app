@@ -12,6 +12,7 @@ from app.schemas.auth import (
     RegisterRequest,
     LoginRequest,
     TokenResponse,
+    LoginResult,
     RefreshRequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
@@ -19,11 +20,17 @@ from app.schemas.auth import (
     ResendRegistrationOtpRequest,
     RegistrationPendingResponse,
     GoogleOAuthRequest,
+    TwoFactorCodeRequest,
+    TwoFactorDisableRequest,
+    TwoFactorLoginVerifyRequest,
+    TwoFactorResendLoginRequest,
+    TwoFactorStatusOut,
 )
 from app.schemas.user import ChangePasswordRequest
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
 from app.services.password_reset_service import PasswordResetService
+from app.services.two_factor_service import TwoFactorService
 
 router = APIRouter()
 
@@ -48,7 +55,7 @@ async def resend_registration_otp(
     return await service.resend_registration_otp(data.email, data.role)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=LoginResult)
 async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     return await service.login(data, ip_address=request.client.host if request.client else None)
@@ -118,3 +125,70 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
     return await PasswordResetService(db).reset_password(
         data.email, data.code, data.new_password
     )
+
+
+@router.get("/2fa/status", response_model=TwoFactorStatusOut)
+async def two_factor_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TwoFactorService(db).status(current_user)
+
+
+@router.post("/2fa/send-setup-code", status_code=200)
+async def two_factor_send_setup_code(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TwoFactorService(db).send_setup_code(current_user)
+
+
+@router.post("/2fa/enable", response_model=TwoFactorStatusOut)
+async def two_factor_enable(
+    data: TwoFactorCodeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TwoFactorService(db).enable(current_user, code=data.code)
+
+
+@router.post("/2fa/send-disable-code", status_code=200)
+async def two_factor_send_disable_code(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TwoFactorService(db).send_disable_code(current_user)
+
+
+@router.post("/2fa/disable", response_model=TwoFactorStatusOut)
+async def two_factor_disable(
+    data: TwoFactorDisableRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await TwoFactorService(db).disable(
+        current_user,
+        password=data.password,
+        code=data.code,
+    )
+
+
+@router.post("/2fa/verify-login", response_model=TokenResponse)
+async def two_factor_verify_login(
+    data: TwoFactorLoginVerifyRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    return await TwoFactorService(db).verify_login(
+        data.pending_token,
+        data.code,
+        ip_address=request.client.host if request.client else None,
+    )
+
+
+@router.post("/2fa/resend-login", status_code=200)
+async def two_factor_resend_login(
+    data: TwoFactorResendLoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    return await TwoFactorService(db).resend_login_code(data.pending_token)

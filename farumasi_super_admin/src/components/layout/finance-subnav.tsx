@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutGrid, DollarSign, ArrowDownToLine } from "lucide-react";
+import { LayoutGrid, DollarSign, ArrowDownToLine, Banknote } from "lucide-react";
 
 const TABS = [
   { href: "/finance", label: "Overview", icon: LayoutGrid, exact: true },
+  { href: "/finance/payments", label: "Payments", icon: Banknote },
   { href: "/finance/revenue", label: "Revenue", icon: DollarSign },
   { href: "/finance/withdrawals", label: "Withdrawals", icon: ArrowDownToLine },
 ];
