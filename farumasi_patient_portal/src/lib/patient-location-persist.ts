@@ -4,6 +4,10 @@
  * - default address: synced to backend for delivery routing
  */
 
+import {
+  isDesktopBrowser,
+  DESKTOP_MAX_DELIVERY_ACCURACY_M,
+} from "@/lib/delivery-location";
 import { patientsService } from "@/lib/services/patients.service";
 
 const LS_KEY = "farumasi_patient_gps_v1";
@@ -31,6 +35,13 @@ export function readPersistedGps(): PersistedGps | null {
     }
     if (Date.now() - data.updatedAt > MAX_AGE_MS) return null;
     if (data.accuracy != null && data.accuracy > 2_500) return null;
+    if (
+      typeof navigator !== "undefined" &&
+      isDesktopBrowser() &&
+      (data.accuracy == null || data.accuracy > DESKTOP_MAX_DELIVERY_ACCURACY_M)
+    ) {
+      return null;
+    }
     return data;
   } catch {
     return null;

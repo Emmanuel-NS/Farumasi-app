@@ -16,6 +16,10 @@ import {
   syncGpsToDefaultAddress,
   writePersistedGps,
 } from "@/lib/patient-location-persist";
+import {
+  DESKTOP_MAX_DELIVERY_ACCURACY_M,
+  isDesktopBrowser,
+} from "@/lib/delivery-location";
 
 export type PatientLocationSource = "gps" | "address" | "fallback" | null;
 export type PatientLocationStatus =
@@ -28,13 +32,20 @@ export type PatientLocationStatus =
 /** Ignore GPS fixes worse than this (metres) unless we have nothing better. */
 const MAX_ACCEPTABLE_ACCURACY_M = 2_500;
 
+function maxStoreAccuracyM(): number {
+  return isDesktopBrowser()
+    ? DESKTOP_MAX_DELIVERY_ACCURACY_M
+    : MAX_ACCEPTABLE_ACCURACY_M;
+}
+
 function shouldAcceptGpsFix(
   accuracy: number | null,
   prevAccuracy: number | null,
 ): boolean {
-  if (accuracy == null) return true;
-  if (accuracy <= MAX_ACCEPTABLE_ACCURACY_M) return true;
-  // Never store a first fix worse than 2.5 km — desktop IP/Wi‑Fi often reports 5–50 km.
+  const maxAcc = maxStoreAccuracyM();
+  if (accuracy == null) return !isDesktopBrowser();
+  if (accuracy <= maxAcc) return true;
+  // Never store a first fix worse than the platform cap — desktop IP/Wi‑Fi often reports 5–50 km.
   if (prevAccuracy == null) return false;
   return accuracy <= prevAccuracy;
 }

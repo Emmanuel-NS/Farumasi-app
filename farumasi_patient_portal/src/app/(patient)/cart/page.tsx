@@ -179,7 +179,9 @@ export default function CartPage() {
 
   const [step, setStep]                       = useState<Step>("cart");
   const [selectedOption, setSelectedOption]   = useState<PharmacyOption | null>(null);
-  const [fulfillment, setFulfillment]         = useState<"delivery" | "pickup">("delivery");
+  const [fulfillment, setFulfillment]         = useState<"delivery" | "pickup">(() =>
+    typeof window !== "undefined" && isDesktopBrowser() ? "pickup" : "delivery",
+  );
   const [patientDistrict, setPatientDistrict] = useState("");
   const { coordsTuple: patientLocation, status: locationStatus, requestLocation, requestLocationForDelivery, accuracy: locationAccuracy, source: locationSource, permissionBlockReason } = usePatientLocation();
   const deliveryLocationAssessment = useMemo(
@@ -199,6 +201,8 @@ export default function CartPage() {
   const deliveryLocationBlocked = deliveryLocationAssessment.ok === false
     ? deliveryLocationAssessment.reason
     : null;
+  const locationForDelivery =
+    fulfillment === "delivery" && deliveryLocationAssessment.ok ? patientLocation : null;
 
   // Drop stale coarse fixes (e.g. 50 km desktop IP geolocation) so fees cannot use them.
   useEffect(() => {
@@ -222,10 +226,6 @@ export default function CartPage() {
     locationAccuracy,
     locationStatus,
   ]);
-  const deliveryBlockedByCoords =
-    patientLocation != null &&
-    !deliveryLocationAssessment.ok &&
-    deliveryLocationBlocked !== "no_gps";
   const locationBlockMessage = (reason: DeliveryLocationBlockReason): string => {
     switch (reason) {
       case "outside_kigali":
@@ -489,7 +489,19 @@ export default function CartPage() {
     if (saved.step !== "cart") {
       toast.info("Continuing where you left off…", { duration: 4000 });
     }
-    setFulfillment(saved.fulfillment);
+    setFulfillment(
+      saved.fulfillment === "delivery" &&
+        typeof window !== "undefined" &&
+        isDesktopBrowser() &&
+        !assessDeliveryLocation(
+          usePatientLocationStore.getState().lat,
+          usePatientLocationStore.getState().lon,
+          usePatientLocationStore.getState().accuracy,
+          usePatientLocationStore.getState().source,
+        ).ok
+        ? "pickup"
+        : saved.fulfillment,
+    );
     setName(saved.name);
     setPhone(saved.phone);
     setDistrict(saved.district);
@@ -542,6 +554,10 @@ export default function CartPage() {
       setRoadDistances(new Map());
       return;
     }
+    if (fulfillment === "delivery" && !deliveryLocationAssessment.ok) {
+      setRoadDistances(new Map());
+      return;
+    }
     const destinations = pharmacyList
       .filter((p) => p.coordinates != null)
       .map((p) => ({
@@ -578,17 +594,21 @@ export default function CartPage() {
     return () => {
       cancelled = true;
     };
-  }, [patientLocation, pharmacyList]);
+  }, [patientLocation, pharmacyList, fulfillment, deliveryLocationAssessment.ok]);
 
   // Auto-switch to pickup when delivery location is not trustworthy or too far.
   useEffect(() => {
-    if (fulfillment !== "delivery" || !patientLocation) return;
+    if (fulfillment !== "delivery") return;
 
-    if (deliveryLocationBlocked === "outside_kigali") {
-      setFulfillment("pickup");
-      toast.info(t.cart_location_outside_kigali);
+    if (!deliveryLocationAssessment.ok) {
+      if (deliveryLocationBlocked === "outside_kigali" || deliveryLocationBlocked === "desktop_unreliable") {
+        setFulfillment("pickup");
+        toast.info(locationBlockMessage(deliveryLocationBlocked));
+      }
       return;
     }
+
+    if (!patientLocation) return;
 
     const roadDist = selectedOption && selectedOption.roadDistanceKm > 0
       ? selectedOption.roadDistanceKm
@@ -604,7 +624,7 @@ export default function CartPage() {
 
   // Authoritative delivery fee from API when GPS + pharmacy coordinates are known
   useEffect(() => {
-    if (fulfillment !== "delivery" || !patientLocation || !selectedOption) {
+    if (fulfillment !== "delivery" || !locationForDelivery || !selectedOption) {
       setApiDeliveryFee(null);
       setDeliveryUnavailable(null);
       return;
@@ -617,7 +637,7 @@ export default function CartPage() {
     }
     const fromLat = seller.coordinates[0];
     const fromLon = seller.coordinates[1];
-    const [toLat, toLon] = patientLocation;
+    const [toLat, toLon] = locationForDelivery;
     let cancelled = false;
     configService
       .getDeliveryQuote(fromLat, fromLon, toLat, toLon)
@@ -637,7 +657,7 @@ export default function CartPage() {
     return () => {
       cancelled = true;
     };
-  }, [fulfillment, patientLocation, selectedOption]);
+  }, [fulfillment, locationForDelivery, selectedOption]);
 
   // AI analysis phase animation — plays for ~2.6s when entering pharmacy step.
   // In locked mode we skip the phase visuals (jump to phase 5) but still wait
@@ -716,13 +736,13 @@ export default function CartPage() {
       pharmacyList,
       listingsMap,
       patientDistrict,
-      patientLocation,
+      fulfillment === "delivery" ? locationForDelivery : patientLocation,
       rxInsuranceProvider,
       rxInsuranceDiscountPct,
       roadDistances.size > 0 ? roadDistances : undefined,
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enriched.map((e: CartEntry) => `${e.medicine.id}:${e.sellMode}:${e.qty}`).join(","), pharmacyList, listingsMap, fulfillment, patientDistrict, patientLocation, rxInsuranceProvider, rxInsuranceDiscountPct, roadDistances]
+    [enriched.map((e: CartEntry) => `${e.medicine.id}:${e.sellMode}:${e.qty}`).join(","), pharmacyList, listingsMap, fulfillment, patientDistrict, patientLocation, locationForDelivery, rxInsuranceProvider, rxInsuranceDiscountPct, roadDistances]
   );
 
   // Keep selected pharmacy in sync when road distances refresh rankings.
@@ -1185,7 +1205,7 @@ export default function CartPage() {
       <div className="grid grid-cols-2 gap-2 mb-2">
         {(["delivery", "pickup"] as const).map((mode) => {
           const isDelivery = mode === "delivery";
-          const disabled   = isDelivery && (deliveryTooFar || deliveryBlockedByCoords);
+          const disabled   = isDelivery && (deliveryTooFar || deliveryLocationBlocked === "outside_kigali");
           return (
             <button
               key={mode}
@@ -1226,10 +1246,14 @@ export default function CartPage() {
         </div>
       )}
 
-      {isDesktopBrowser() && fulfillment === "delivery" && deliveryLocationAssessment.ok && (
+      {isDesktopBrowser() && fulfillment === "delivery" && !deliveryLocationAssessment.ok && (
         <div className={cn("flex items-start gap-2 rounded-2xl px-4 py-2.5 mb-3", CART_ALERT_INFO)}>
           <Info className="w-4 h-4 text-slate-500 dark:text-slate-300 shrink-0 mt-0.5" />
-          <p className={cn("text-xs", CART_ALERT_INFO_BODY)}>{t.cart_location_desktop_hint}</p>
+          <p className={cn("text-xs", CART_ALERT_INFO_BODY)}>
+            {deliveryLocationBlocked === "desktop_unreliable" || deliveryLocationBlocked === "low_accuracy"
+              ? t.cart_location_desktop_unreliable
+              : t.cart_location_desktop_hint}
+          </p>
         </div>
       )}
 

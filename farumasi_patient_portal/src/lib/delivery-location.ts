@@ -13,8 +13,8 @@ export const KIGALI_BOUNDS = {
   lonMax: 30.15,
 } as const;
 
-/** Desktop: require a tight fix — IP geolocation is often 5–50 km off. */
-export const DESKTOP_MAX_DELIVERY_ACCURACY_M = 800;
+/** Desktop: require a phone-quality fix — Wi‑Fi / IP geolocation is often km off. */
+export const DESKTOP_MAX_DELIVERY_ACCURACY_M = 150;
 
 /** Mobile: allow typical phone GPS (still capped in the location store). */
 export const MOBILE_MAX_DELIVERY_ACCURACY_M = 2_500;
@@ -72,8 +72,8 @@ export function assessDeliveryLocation(
     return { ok: false, reason: desktop ? "desktop_unreliable" : "low_accuracy" };
   }
 
-  // Many desktop browsers omit accuracy or report a coarse fix without flagging it.
-  if (desktop && (accuracy == null || accuracy > 500)) {
+  // Desktop must report accuracy and meet the tight threshold (phones typically ≤50 m).
+  if (desktop && (accuracy == null || accuracy > DESKTOP_MAX_DELIVERY_ACCURACY_M)) {
     return { ok: false, reason: "desktop_unreliable" };
   }
 
