@@ -31,9 +31,15 @@ export interface PaymentStatusResult {
   defer_delivery_fee?: boolean;
   amount_paid_order?: number | null;
   balance_due?: number | null;
+  payable_balance?: number | null;
   delivery_fee_outstanding?: number | null;
   medicines_paid?: boolean;
   fully_paid?: boolean;
+  processing_fee_on_balance?: number | null;
+  charge_amount?: number | null;
+  admin_review_note?: string | null;
+  can_submit_payment?: boolean;
+  awaiting_manual_review?: boolean;
 }
 
 export type PaymentMethodId = "mtn_momo" | "card" | "manual_momo";

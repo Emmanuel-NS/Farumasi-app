@@ -73,12 +73,12 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "flex flex-col h-full overflow-hidden shrink-0 patient-nav-shell",
+        "flex flex-col h-full min-h-0 shrink-0 patient-nav-shell",
         resizing ? "transition-none" : "transition-[width] duration-[220ms] ease-out",
       )}
       style={{ width }}
     >
-      <nav className="flex-1 overflow-y-auto scrollbar-hide pt-2.5 pb-1 px-2 space-y-0.5">
+      <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-visible scrollbar-hide pt-2.5 pb-1 px-2 space-y-0.5">
         {primaryNav.map((item) => (
           <SidebarItem
             key={item.href}

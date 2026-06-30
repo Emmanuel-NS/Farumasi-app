@@ -52,6 +52,12 @@ class PaymentStatusOut(FarumasiBaseModel):
     delivery_fee_outstanding: Optional[float] = None
     medicines_paid: bool = False
     fully_paid: bool = False
+    payable_balance: Optional[float] = None
+    processing_fee_on_balance: Optional[float] = None
+    charge_amount: Optional[float] = None
+    admin_review_note: Optional[str] = None
+    can_submit_payment: bool = True
+    awaiting_manual_review: bool = False
 
 
 class ManualPaymentSubmit(FarumasiBaseModel):

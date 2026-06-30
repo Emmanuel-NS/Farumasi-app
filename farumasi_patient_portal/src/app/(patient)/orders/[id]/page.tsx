@@ -15,18 +15,19 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { useTranslation } from "@/lib/translations";
 import { useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
-import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment-checkout";
+import type { PaymentMethodId } from "@/components/cart/payment-checkout";
 import type { ManualMomoConfig } from "@/components/cart/manual-payment-panel";
 import { configService, type PublicPaymentConfig } from "@/lib/services/config.service";
 import { EMPTY_MANUAL_DRAFT } from "@/lib/checkout-progress";
 import { PharmacySwitchTeaser } from "@/components/orders/pharmacy-reassignment-panel";
 import { OrderSellerLocation } from "@/components/orders/order-seller-location";
 import { FarumasiSupportBar } from "@/components/orders/farumasi-support-bar";
+import { OrderPaymentSection } from "@/components/orders/order-payment-section";
 import {
   ArrowLeft, MapPin, Phone, MessageCircle, Package, Store,
   CheckCircle, Truck, Clock, QrCode, Navigation, ExternalLink,
   Building2, XCircle, ImageOff, Pill, Lock, FileText,
-  RotateCcw, ChevronRight, AlertTriangle, Banknote, Receipt,
+  RotateCcw, ChevronRight, Banknote, Receipt,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -140,7 +141,19 @@ export default function OrderDetailPage() {
     if (!id) return;
     setLoading(true);
     ordersService.getOrderById(id)
-      .then(setOrder)
+      .then(async (fresh) => {
+        setOrder(fresh);
+        if (fresh.paymentStatus !== "paid" && fresh.paymentStatus !== "cancelled") {
+          try {
+            const ps = await paymentsService.getStatus(id);
+            setPaymentDetail(ps);
+          } catch {
+            setPaymentDetail(null);
+          }
+        } else {
+          setPaymentDetail(null);
+        }
+      })
       .catch(() => setOrder(null))
       .finally(() => setLoading(false));
   }, [id]);
@@ -212,10 +225,17 @@ export default function OrderDetailPage() {
   const canRetryPayment =
     order != null &&
     order.status !== "cancelled" &&
-    (order.paymentStatus === "failed" ||
+    paymentDetail != null &&
+    !paymentDetail.fully_paid &&
+    (
+      (paymentDetail.payable_balance ?? paymentDetail.amount_due ?? 0) > 0 ||
+      paymentDetail.awaiting_manual_review ||
+      order.paymentStatus === "awaiting_review" ||
+      order.paymentStatus === "partially_paid" ||
+      order.paymentStatus === "failed" ||
       order.paymentStatus === "pending" ||
-      order.paymentStatus === "unpaid" ||
-      order.paymentStatus === "partially_paid");
+      order.paymentStatus === "unpaid"
+    );
 
   const handleSubmitManualProof = async () => {
     if (!order) return;
@@ -227,7 +247,10 @@ export default function OrderDetailPage() {
     try {
       await paymentsService.submitManual(order.id, {
         proof_urls: manualDraft.proofUrls,
+        patient_note: manualDraft.note.trim() || undefined,
+        claimed_reference: manualDraft.claimedRef.trim() || undefined,
       });
+      setManualDraft(EMPTY_MANUAL_DRAFT);
       toast.success("Proof submitted — we'll confirm shortly.");
       await loadOrder();
     } catch (err) {
@@ -310,14 +333,10 @@ export default function OrderDetailPage() {
   const subtotal    = order.subtotal ?? (order.pharmacyPrice ?? 0);
   const deliveryFee = order.deliveryFee ?? 0;
   const total       = subtotal + deliveryFee;
-  const orderAmountDue = Math.round(paymentDetail?.amount_due ?? paymentDetail?.balance_due ?? total);
-  const retryProcessingFee = orderAmountDue > 0 ? Math.round(orderAmountDue * PAYMENT_FEE_PCT / 100) : 0;
-  const retryTotalWithFee = orderAmountDue + retryProcessingFee;
   const retryPhoneReady =
     retryPaymentMethod === "card" ||
     retryPaymentMethod === "manual_momo" ||
     retryPhone.trim().length >= 9;
-  const retryIsManual = retryPaymentMethod === "manual_momo";
 
   const itemList = order.itemList ?? [];
 
@@ -752,76 +771,27 @@ export default function OrderDetailPage() {
         </div>
       ))}
 
-      {/* ── Payment balance / complete payment ─────────────────────── */}
-      {order.paymentStatus === "partially_paid" && paymentDetail && (paymentDetail.balance_due ?? 0) > 0 && (
-        <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800/50 rounded-3xl px-4 py-3 mb-4">
-          <p className="text-sm font-bold text-violet-900 dark:text-violet-100">Balance remaining</p>
-          <p className="text-xs text-violet-800 dark:text-violet-200 mt-1">
-            Paid {formatPrice(paymentDetail.amount_paid_order ?? order.amountPaidOrder ?? 0)} of{" "}
-            {formatPrice(paymentDetail.total_amount ?? total)}.
-            {" "}Please pay {formatPrice(paymentDetail.balance_due ?? orderAmountDue)} to settle this order
-            {paymentDetail.delivery_fee_outstanding ? " (includes delivery fee)" : ""}.
-          </p>
-        </div>
-      )}
-
-      {order.paymentStatus === "awaiting_review" && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-3xl px-4 py-3 mb-4 text-xs text-amber-900 dark:text-amber-100">
-          Payment proof is under review. We will notify you once finance confirms your payment.
-        </div>
-      )}
-
-      {/* ── Retry payment ───────────────────────────────────────────── */}
-      {canRetryPayment && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-amber-200 dark:border-amber-800/50 shadow-sm p-5 mb-4">
-          <div className="flex items-start gap-2 mb-4">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Payment required</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {order.paymentStatus === "partially_paid"
-                  ? `Pay the remaining ${formatPrice(orderAmountDue)} to complete this order.`
-                  : "Complete payment to confirm your order."}
-              </p>
-            </div>
-          </div>
-          <PaymentCheckout
-            method={retryPaymentMethod}
-            onMethodChange={setRetryPaymentMethod}
-            phone={retryPhone}
-            onPhoneChange={setRetryPhone}
-            feePercent={PAYMENT_FEE_PCT}
-            orderSubtotal={orderAmountDue}
-            processingFee={retryProcessingFee}
-            totalWithFee={retryTotalWithFee}
-            formatPrice={formatPrice}
-            enabledMethods={enabledRetryMethods}
-            manualConfig={manualMomoConfig}
-            manualDraft={manualDraft}
-            onManualDraftChange={setManualDraft}
-          />
-          {retryIsManual ? (
-            <button
-              onClick={() => void handleSubmitManualProof()}
-              disabled={submittingManual || !manualDraft.proofUrls.length}
-              className="w-full mt-5 flex items-center justify-center gap-2 h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors disabled:opacity-60"
-            >
-              <Banknote className="w-4 h-4" />
-              {submittingManual ? "Submitting…" : "Submit proof"}
-            </button>
-          ) : (
-            <button
-              onClick={handleRetryPayment}
-              disabled={retryingPayment || !retryPhoneReady}
-              className="w-full mt-5 flex items-center justify-center gap-2 h-12 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white font-bold text-sm transition-colors disabled:opacity-60"
-            >
-              <Banknote className="w-4 h-4" />
-              {retryingPayment
-                ? "Starting payment…"
-                : `Pay now · ${formatPrice(retryTotalWithFee)}`}
-            </button>
-          )}
-        </div>
+      {canRetryPayment && paymentDetail && (
+        <OrderPaymentSection
+          paymentDetail={paymentDetail}
+          orderTotal={total}
+          paymentStatus={order.paymentStatus ?? "pending"}
+          retryPaymentMethod={retryPaymentMethod}
+          onMethodChange={setRetryPaymentMethod}
+          retryPhone={retryPhone}
+          onPhoneChange={setRetryPhone}
+          feePercent={PAYMENT_FEE_PCT}
+          enabledMethods={enabledRetryMethods}
+          manualMomoConfig={manualMomoConfig}
+          manualDraft={manualDraft}
+          onManualDraftChange={setManualDraft}
+          submittingManual={submittingManual}
+          retryingPayment={retryingPayment}
+          retryPhoneReady={retryPhoneReady}
+          onSubmitManual={() => void handleSubmitManualProof()}
+          onRetryPayment={() => void handleRetryPayment()}
+          onRefresh={() => void loadOrder()}
+        />
       )}
 
       {/* ── Actions ──────────────────────────────────────────────────── */}

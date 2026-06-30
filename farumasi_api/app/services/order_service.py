@@ -1807,7 +1807,9 @@ class OrderService:
         return float(order.amount_paid_snapshot or order.total_amount or 0)
 
     async def _can_reassign_pharmacy(self, order: Order) -> bool:
-        if order.payment_status != PaymentStatus.PAID:
+        from app.services.payments.payment_helpers import order_ready_for_fulfilment
+
+        if not order_ready_for_fulfilment(order):
             return False
         if normalize_order_status(order.order_status) != OrderStatus.PENDING.value:
             return False
@@ -1827,7 +1829,9 @@ class OrderService:
 
     async def _partner_response_deadline(self, order: Order) -> Optional[datetime]:
         """Paid + pending + unconfirmed orders get a deadline anchored at payment time."""
-        if order.payment_status != PaymentStatus.PAID:
+        from app.services.payments.payment_helpers import order_ready_for_fulfilment
+
+        if not order_ready_for_fulfilment(order):
             return None
         if normalize_order_status(order.order_status) != OrderStatus.PENDING.value:
             return None
@@ -1843,7 +1847,9 @@ class OrderService:
 
     async def _ensure_partner_response_due_at(self, order: Order) -> None:
         """Backfill or correct the pharmacy response deadline for paid, unconfirmed orders."""
-        if order.payment_status != PaymentStatus.PAID:
+        from app.services.payments.payment_helpers import order_ready_for_fulfilment
+
+        if not order_ready_for_fulfilment(order):
             if order.partner_response_due_at is not None:
                 order.partner_response_due_at = None
                 await self.db.flush()

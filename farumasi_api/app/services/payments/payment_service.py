@@ -33,6 +33,7 @@ from app.services.payments.payment_helpers import (
     balance_due_for_order,
     order_payment_breakdown,
     order_ready_for_fulfilment,
+    payable_balance_for_order,
 )
 from app.services.payments.momo_collection_service import normalize_rwanda_phone
 from app.services.payments.mtn_madapi_service import MtnMadapiService
@@ -48,8 +49,8 @@ _TX_REJECTED = "rejected"
 
 
 def amount_due_for_order(order: Order) -> float:
-    """Remaining order value due (excludes processing fees)."""
-    return balance_due_for_order(order)
+    """Remaining order value due through the app (excludes processing fees)."""
+    return payable_balance_for_order(order)
 
 
 def _display_phone(raw: str) -> str:
@@ -497,8 +498,6 @@ class PaymentService:
 
     async def get_status(self, order_id: str, actor: User) -> PaymentStatusOut:
         order = await self._get_patient_order(order_id, actor)
-        due = amount_due_for_order(order)
-        fee = payment_processing_fee(due) if due > 0 else 0
 
         if order.payment_status == PaymentStatus.PENDING:
             txn = await self._latest_transaction(order.id)
@@ -516,18 +515,31 @@ class PaymentService:
             if pending_txn.submitted_at:
                 submitted_at = pending_txn.submitted_at.isoformat()
 
+        breakdown = order_payment_breakdown(order)
+        payable = breakdown["payable_balance"]
+        proc_on_balance = payment_processing_fee(payable) if payable > 0 else 0
+        charge = round(payable + proc_on_balance, 0) if payable > 0 else 0
+        awaiting_manual = order.payment_status == PaymentStatus.AWAITING_REVIEW
+        admin_note = await self._latest_admin_payment_note(order.id)
+
         return PaymentStatusOut(
             order_id=order.id,
             payment_status=order.payment_status,
-            amount_due=balance_due_for_order(order),
+            amount_due=payable,
             amount_paid=amount_paid_on_order(order) if amount_paid_on_order(order) > 0 else None,
             payment_method=order.payment_method,
             payment_reference=order.payment_reference,
-            processing_fee=fee if order.payment_status not in (PaymentStatus.PAID,) else None,
+            processing_fee=proc_on_balance if payable > 0 else None,
             message=self._status_message(order),
             pending_transaction_id=pending_id,
             submitted_at=submitted_at,
-            **order_payment_breakdown(order),
+            payable_balance=payable,
+            processing_fee_on_balance=proc_on_balance if payable > 0 else None,
+            charge_amount=charge if payable > 0 else None,
+            admin_review_note=admin_note,
+            can_submit_payment=payable > 0.01 and not awaiting_manual,
+            awaiting_manual_review=awaiting_manual,
+            **breakdown,
         )
 
     async def handle_pesapal_webhook(
@@ -775,12 +787,18 @@ class PaymentService:
             return "Payment confirmed."
         if order.payment_status == PaymentStatus.PARTIALLY_PAID:
             balance = balance_due_for_order(order)
+            payable = payable_balance_for_order(order)
+            if payable <= 0.01 and order.defer_delivery_fee and float(order.delivery_fee or 0) > 0:
+                return (
+                    f"Medicines paid. Delivery fee (RWF {int(float(order.delivery_fee or 0)):,}) "
+                    f"will be collected when your order arrives."
+                )
             if order.defer_delivery_fee and float(order.delivery_fee or 0) > 0:
                 return (
-                    f"Partial payment received. RWF {int(balance):,} remaining "
-                    f"(includes delivery fee due on arrival)."
+                    f"Partial payment received. RWF {int(payable):,} still due now "
+                    f"(delivery fee may be collected on arrival)."
                 )
-            return f"Partial payment received. RWF {int(balance):,} remaining on this order."
+            return f"Partial payment received. RWF {int(payable):,} remaining on this order."
         if order.payment_status == PaymentStatus.AWAITING_REVIEW:
             return (
                 "We received your payment proof. Our team will verify it shortly — "
@@ -795,6 +813,24 @@ class PaymentService:
         if order.payment_status == PaymentStatus.FAILED:
             return "Payment failed. You can try again."
         return "Payment not started yet."
+
+    async def _latest_admin_payment_note(self, order_id: str) -> Optional[str]:
+        """Most recent finance note on a reviewed manual MoMo transaction."""
+        result = await self.db.execute(
+            select(PaymentTransaction)
+            .where(
+                PaymentTransaction.order_id == order_id,
+                PaymentTransaction.provider == "manual_momo",
+                PaymentTransaction.status.in_([_TX_REJECTED, _TX_SUCCESS]),
+                PaymentTransaction.admin_review_note.isnot(None),
+            )
+            .order_by(PaymentTransaction.reviewed_at.desc().nullslast(), PaymentTransaction.created_at.desc())
+            .limit(1)
+        )
+        txn = result.scalar_one_or_none()
+        if not txn or not txn.admin_review_note:
+            return None
+        return txn.admin_review_note.strip() or None
 
     async def _active_manual_review_txn(self, order_id: str) -> Optional[PaymentTransaction]:
         result = await self.db.execute(
@@ -832,7 +868,7 @@ class PaymentService:
             raise BusinessRuleError("Manual MoMo payments are not available right now.")
 
         order = await self._get_patient_order(order_id, actor)
-        if balance_due_for_order(order) <= 0.01:
+        if payable_balance_for_order(order) <= 0.01:
             raise BusinessRuleError("This order is already paid.")
         if await self._active_manual_review_txn(order.id):
             raise BusinessRuleError(
@@ -1043,6 +1079,8 @@ class PaymentService:
                     f"Partial payment of RWF {int(amount_received):,} approved for order "
                     f"{order.order_code}. Remaining balance: RWF {int(balance_after):,}."
                 )
+            if txn.admin_review_note:
+                msg += f" Note: {txn.admin_review_note.strip()}"
             await NotificationService(self.db).send(
                 patient_user_id,
                 title="Payment update",

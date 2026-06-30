@@ -43,6 +43,15 @@ def order_payment_breakdown(order: Order, amount_paid: float | None = None) -> d
     if bool(order.defer_delivery_fee) and delivery > 0 and paid >= subtotal - 0.01:
         delivery_outstanding = round(max(0.0, delivery - max(0.0, paid - subtotal)), 2)
 
+    payable = balance
+    if (
+        bool(order.defer_delivery_fee)
+        and delivery_outstanding > 0.01
+        and paid >= subtotal - 0.01
+        and balance <= delivery_outstanding + 0.01
+    ):
+        payable = 0.0
+
     return {
         "subtotal": subtotal,
         "delivery_fee": delivery,
@@ -50,7 +59,13 @@ def order_payment_breakdown(order: Order, amount_paid: float | None = None) -> d
         "defer_delivery_fee": bool(order.defer_delivery_fee),
         "amount_paid_order": paid,
         "balance_due": balance,
+        "payable_balance": payable,
         "delivery_fee_outstanding": delivery_outstanding,
         "medicines_paid": paid >= subtotal - 0.01 if subtotal > 0 else paid > 0,
         "fully_paid": balance <= 0.01,
     }
+
+
+def payable_balance_for_order(order: Order, amount_paid: float | None = None) -> float:
+    """Amount the patient should still pay through the app (excludes delivery-on-arrival)."""
+    return order_payment_breakdown(order, amount_paid)["payable_balance"]
