@@ -31,6 +31,8 @@ interface SidebarProps {
   width: number;
   collapsed: boolean;
   resizing?: boolean;
+  /** Mobile drawer — keeps Settings & Help links (hidden on wide sidebar; profile menu has them). */
+  isMobileDrawer?: boolean;
   /** Called after choosing a nav destination (e.g. close mobile drawer) */
   onNavigate?: () => void;
 }
@@ -39,6 +41,7 @@ export function Sidebar({
   width,
   collapsed,
   resizing = false,
+  isMobileDrawer = false,
   onNavigate,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -56,7 +59,9 @@ export function Sidebar({
 
   const secondaryNav: NavItem[] = [
     { label: t.nav_prescriptions, href: "/prescriptions", icon: FileText, restricted: isGuest },
-    { label: t.nav_settings,      href: "/settings",      icon: SettingsIcon },
+    ...(isMobileDrawer
+      ? [{ label: t.nav_settings, href: "/settings", icon: SettingsIcon }]
+      : []),
   ];
 
   const isActive = (href: string) => {
@@ -124,33 +129,35 @@ export function Sidebar({
           </Link>
         ) : (
           <>
-            <Link
-              href="/help"
-              onClick={() => onNavigate?.()}
-              className={cn(
-                "flex items-center rounded-xl transition-all duration-180 border border-transparent hover:bg-white/10",
-                collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
-                isActive("/help") ? "bg-[#47D196]/20 border border-[#47D196]/40" : "",
-              )}
-              title={collapsed ? t.nav_help : undefined}
-            >
-              <div
+            {isMobileDrawer && (
+              <Link
+                href="/help"
+                onClick={() => onNavigate?.()}
                 className={cn(
-                  "w-[34px] h-[34px] shrink-0 rounded-[9px] flex items-center justify-center",
-                  isActive("/help") ? "bg-[#47D196]" : "bg-[#47D196]/20",
+                  "flex items-center rounded-xl transition-all duration-180 border border-transparent hover:bg-white/10",
+                  collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",
+                  isActive("/help") ? "bg-[#47D196]/20 border border-[#47D196]/40" : "",
                 )}
+                title={collapsed ? t.nav_help : undefined}
               >
-                <HelpCircle
+                <div
                   className={cn(
-                    "w-[18px] h-[18px]",
-                    isActive("/help") ? "text-[#0A2B1E]" : "text-white",
+                    "w-[34px] h-[34px] shrink-0 rounded-[9px] flex items-center justify-center",
+                    isActive("/help") ? "bg-[#47D196]" : "bg-[#47D196]/20",
                   )}
-                />
-              </div>
-              {!collapsed && (
-                <span className="text-[13px] font-medium text-[#D2E8DE]">{t.nav_help}</span>
-              )}
-            </Link>
+                >
+                  <HelpCircle
+                    className={cn(
+                      "w-[18px] h-[18px]",
+                      isActive("/help") ? "text-[#0A2B1E]" : "text-white",
+                    )}
+                  />
+                </div>
+                {!collapsed && (
+                  <span className="text-[13px] font-medium text-[#D2E8DE]">{t.nav_help}</span>
+                )}
+              </Link>
+            )}
             <SidebarAction
               icon={LogOut}
               label="Logout"

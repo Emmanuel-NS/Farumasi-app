@@ -89,7 +89,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
               onClick={closeMobileNav}
             />
             <aside className="absolute inset-y-0 left-0 z-10 w-[min(280px,88vw)] shadow-2xl">
-              <Sidebar collapsed={false} width={280} onNavigate={closeMobileNav} />
+              <Sidebar collapsed={false} width={280} isMobileDrawer onNavigate={closeMobileNav} />
             </aside>
           </div>,
           document.body,
