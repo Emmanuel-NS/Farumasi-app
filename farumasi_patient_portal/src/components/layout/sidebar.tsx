@@ -18,6 +18,7 @@ import {
   Lock,
   ChevronRight,
 } from "lucide-react";
+import { SidebarPreferences } from "@/components/layout/sidebar-preferences";
 
 interface NavItem {
   label: string;
@@ -102,6 +103,8 @@ export function Sidebar({
       </nav>
 
       <div className="shrink-0 px-2 pb-3 space-y-0.5">
+        <SidebarPreferences collapsed={collapsed} />
+
         {isGuest ? (
           <Link
             href="/auth/login"
