@@ -12,6 +12,7 @@ import type { Medicine, Recommendation } from "@/types";
 import { toast } from "sonner";
 import { useTranslation, tf } from "@/lib/translations";
 import { productsService } from "@/lib/services/products.service";
+import { filterMedicinesByQuery } from "@/lib/store-search";
 import { prescriptionsService } from "@/lib/services/prescriptions.service";
 import { recommendationsService } from "@/lib/services/recommendations.service";
 import { ordersService } from "@/lib/services/orders.service";
@@ -423,13 +424,7 @@ function StorePageInner() {
   const filtered = useMemo(() => {
     let list = [...medicines];
     if (query.trim()) {
-      const q = query.toLowerCase().trim();
-      list = list.filter(
-        (m) =>
-          m.name.toLowerCase().includes(q) ||
-          m.category.toLowerCase().includes(q) ||
-          (m.description?.toLowerCase().includes(q) ?? false)
-      );
+      list = filterMedicinesByQuery(list, query);
     }
     if (selectedCategories.size > 0) {
       // A product may belong to multiple categories (comma-separated string)
