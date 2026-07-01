@@ -12,10 +12,11 @@ import { PinGate } from "@/components/shared/pin-gate";
 import { useTranslation } from "@/lib/translations";
 import {
   Package, ChevronRight, Clock, Store, XCircle,
-  RefreshCw, Truck, Building2, Pill,
+  RefreshCw, Truck, Building2, Pill, Banknote,
   CheckCircle2, Trash2, Zap,
 } from "lucide-react";
 import { PharmacyReassignmentBadge } from "@/components/orders/pharmacy-reassignment-panel";
+import { orderNeedsPayment } from "@/lib/order-payment";
 import type { Order } from "@/types";
 
 const ACTIVE_STATUSES = new Set([
@@ -84,7 +85,7 @@ export default function OrdersPage() {
   return (
     <GuestGate feature="your orders">
       <PinGate feature="orders">
-        <div className="flex flex-col min-h-full h-full">
+        <div className="flex flex-col flex-1 min-h-0 h-full bg-white dark:bg-slate-900">
 
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700 shrink-0">
@@ -330,6 +331,19 @@ function ActiveOrderCard({ order, stretch = false }: { order: Order; stretch?: b
             <p className="text-base font-extrabold text-farumasi-700 dark:text-emerald-300">{order.total}</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
+            {orderNeedsPayment(order) && order.paymentStatus !== "paid" && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/orders/${order.id}#order-payment`);
+                }}
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-2xl text-xs font-bold transition-colors"
+              >
+                <Banknote className="w-3.5 h-3.5" aria-hidden />
+                Pay balance
+              </button>
+            )}
             <span className="flex items-center gap-1.5 bg-farumasi-600 group-hover:bg-farumasi-700 text-white px-4 py-2 rounded-2xl text-sm font-semibold transition-colors">
               {t.orders_track}
               <ChevronRight className="w-4 h-4" />

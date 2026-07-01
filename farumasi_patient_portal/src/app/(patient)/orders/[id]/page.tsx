@@ -19,6 +19,13 @@ import type { PaymentMethodId } from "@/components/cart/payment-checkout";
 import type { ManualMomoConfig } from "@/components/cart/manual-payment-panel";
 import { configService, type PublicPaymentConfig } from "@/lib/services/config.service";
 import { EMPTY_MANUAL_DRAFT } from "@/lib/checkout-progress";
+import {
+  amountDueNow,
+  isOrderPaymentComplete,
+  orderNeedsPayment,
+  orderTotalAmount,
+  resolvePaymentDetail,
+} from "@/lib/order-payment";
 import { PharmacySwitchTeaser } from "@/components/orders/pharmacy-reassignment-panel";
 import { OrderSellerLocation } from "@/components/orders/order-seller-location";
 import { FarumasiSupportBar } from "@/components/orders/farumasi-support-bar";
@@ -56,30 +63,16 @@ const STATUS_WEIGHTS: Record<string, number> = {
   pending_review: 0, pharmacy_accepted: 1, ready_for_pickup: 2, out_for_delivery: 3, delivered: 4,
 };
 
-function isOrderPaymentComplete(
-  order: Order,
-  paymentDetail: PaymentStatusResult | null,
-): boolean {
-  if (paymentDetail?.fully_paid) return true;
-  if (
-    paymentDetail?.medicines_paid &&
-    (paymentDetail.payable_balance ?? paymentDetail.amount_due ?? 0) <= 0
-  ) {
-    return true;
-  }
-  return order.paymentStatus === "paid";
-}
-
 function paymentStepHint(
   order: Order,
   paymentDetail: PaymentStatusResult | null,
 ): string {
-  const payable = Math.round(paymentDetail?.payable_balance ?? paymentDetail?.amount_due ?? 0);
+  const due = amountDueNow(paymentDetail, order);
   if (paymentDetail?.awaiting_manual_review || order.paymentStatus === "awaiting_review") {
     return "Your MoMo proof is being reviewed";
   }
-  if (payable > 0) {
-    return `Pay ${formatPrice(payable)} to confirm your order`;
+  if (due > 0) {
+    return `Pay ${formatPrice(due)} to confirm your order`;
   }
   if (order.paymentStatus === "partially_paid") {
     return "Finish payment to continue";
@@ -126,12 +119,12 @@ export default function OrderDetailPage() {
   useEffect(() => {
     if (!order) return;
     if (order.status === "cancelled") return;
-    if (order.paymentStatus !== "failed" && order.paymentStatus !== "pending") return;
+    if (!orderNeedsPayment(order)) return;
     configService.getPublicConfig().then((cfg) => setPaymentConfig(cfg.payments)).catch(() => {});
   }, [order?.id, order?.status, order?.paymentStatus]);
 
   const enabledRetryMethods = useMemo((): PaymentMethodId[] => {
-    const methods = paymentConfig?.methods ?? ["mtn_momo", "card"];
+    const methods = paymentConfig?.methods ?? ["manual_momo", "mtn_momo", "card"];
     return methods.filter((m): m is PaymentMethodId =>
       m === "mtn_momo" || m === "card" || m === "manual_momo",
     );
@@ -259,17 +252,8 @@ export default function OrderDetailPage() {
   const canRetryPayment =
     order != null &&
     order.status !== "cancelled" &&
-    paymentDetail != null &&
-    !paymentDetail.fully_paid &&
-    (
-      (paymentDetail.payable_balance ?? paymentDetail.amount_due ?? 0) > 0 ||
-      paymentDetail.awaiting_manual_review ||
-      order.paymentStatus === "awaiting_review" ||
-      order.paymentStatus === "partially_paid" ||
-      order.paymentStatus === "failed" ||
-      order.paymentStatus === "pending" ||
-      order.paymentStatus === "unpaid"
-    );
+    orderNeedsPayment(order) &&
+    !isOrderPaymentComplete(order, paymentDetail);
 
   const handleSubmitManualProof = async () => {
     if (!order) return;
@@ -362,18 +346,19 @@ export default function OrderDetailPage() {
   const isActive     = !isCancelled && !isDelivered;
   const timelineSteps = isPickup ? PICKUP_STEPS : DELIVERY_STEPS;
   const paymentComplete = isOrderPaymentComplete(order, paymentDetail);
+  const effectivePayment = resolvePaymentDetail(order, paymentDetail);
   const fulfilmentActiveWeight = paymentComplete ? (STATUS_WEIGHTS[order.status] ?? -1) : -1;
   const paymentActive = !isCancelled && !paymentComplete;
-  const paymentHint = paymentStepHint(order, paymentDetail);
-  const payableNow = Math.round(paymentDetail?.payable_balance ?? paymentDetail?.amount_due ?? 0);
+  const paymentHint = paymentStepHint(order, effectivePayment);
+  const amountToPay = amountDueNow(effectivePayment, order);
   const awaitingPaymentReview =
-    paymentDetail?.awaiting_manual_review || order.paymentStatus === "awaiting_review";
-  const showPayAfterProgress = canRetryPayment && paymentDetail && !paymentComplete;
+    effectivePayment?.awaiting_manual_review || order.paymentStatus === "awaiting_review";
+  const showPayAfterProgress = canRetryPayment && effectivePayment != null;
 
   // Payment breakdown
   const subtotal    = order.subtotal ?? (order.pharmacyPrice ?? 0);
   const deliveryFee = order.deliveryFee ?? 0;
-  const total       = subtotal + deliveryFee;
+  const total       = orderTotalAmount(order);
   const retryPhoneReady =
     retryPaymentMethod === "card" ||
     retryPaymentMethod === "manual_momo" ||
@@ -403,7 +388,7 @@ export default function OrderDetailPage() {
       : null;
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
+    <div className="flex flex-col flex-1 min-h-0 overflow-y-auto w-full p-4 md:p-6 max-w-2xl mx-auto pb-10">
       {/* Back */}
       <button
         onClick={() => router.back()}
@@ -610,23 +595,29 @@ export default function OrderDetailPage() {
             })}
           </ol>
 
-          {showPayAfterProgress && payableNow > 0 && !awaitingPaymentReview && (
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
-                  {payableNow < (paymentDetail?.balance_due ?? payableNow) ? "Partial payment received" : "Payment required"}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Pay {formatPrice(payableNow)} to confirm this order.
-                </p>
-              </div>
-              <a
-                href="#order-payment"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white px-5 py-2.5 text-sm font-bold transition-colors shrink-0"
-              >
-                <Banknote className="w-4 h-4" aria-hidden />
-                Pay {formatPrice(payableNow)}
-              </a>
+          {showPayAfterProgress && effectivePayment && (amountToPay > 0 || awaitingPaymentReview) && (
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700" id="order-payment">
+              <OrderPaymentSection
+                paymentDetail={effectivePayment}
+                orderTotal={total}
+                paymentStatus={order.paymentStatus ?? "pending"}
+                retryPaymentMethod={retryPaymentMethod}
+                onMethodChange={setRetryPaymentMethod}
+                retryPhone={retryPhone}
+                onPhoneChange={setRetryPhone}
+                feePercent={retryPaymentMethod === "manual_momo" ? 0 : PAYMENT_FEE_PCT}
+                enabledMethods={enabledRetryMethods}
+                manualMomoConfig={manualMomoConfig}
+                manualDraft={manualDraft}
+                onManualDraftChange={setManualDraft}
+                submittingManual={submittingManual}
+                retryingPayment={retryingPayment}
+                retryPhoneReady={retryPhoneReady}
+                onSubmitManual={() => void handleSubmitManualProof()}
+                onRetryPayment={() => void handleRetryPayment()}
+                onRefresh={() => void loadOrder()}
+                embedded
+              />
             </div>
           )}
         </div>
@@ -638,30 +629,6 @@ export default function OrderDetailPage() {
             <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">This order was not completed.</p>
           </div>
         </div>
-      )}
-
-      {showPayAfterProgress && paymentDetail && (
-        <OrderPaymentSection
-          id="order-payment"
-          paymentDetail={paymentDetail}
-          orderTotal={total}
-          paymentStatus={order.paymentStatus ?? "pending"}
-          retryPaymentMethod={retryPaymentMethod}
-          onMethodChange={setRetryPaymentMethod}
-          retryPhone={retryPhone}
-          onPhoneChange={setRetryPhone}
-          feePercent={retryPaymentMethod === "manual_momo" ? 0 : PAYMENT_FEE_PCT}
-          enabledMethods={enabledRetryMethods}
-          manualMomoConfig={manualMomoConfig}
-          manualDraft={manualDraft}
-          onManualDraftChange={setManualDraft}
-          submittingManual={submittingManual}
-          retryingPayment={retryingPayment}
-          retryPhoneReady={retryPhoneReady}
-          onSubmitManual={() => void handleSubmitManualProof()}
-          onRetryPayment={() => void handleRetryPayment()}
-          onRefresh={() => void loadOrder()}
-        />
       )}
 
       {/* ── Access code reminder (pickup / delivery) ─────────────────── */}

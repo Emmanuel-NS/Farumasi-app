@@ -12,7 +12,7 @@ import { PaymentCheckout, type PaymentMethodId } from "@/components/cart/payment
 import type { ManualMomoConfig } from "@/components/cart/manual-payment-panel";
 import type { ManualPaymentDraft } from "@/lib/checkout-progress";
 import type { PaymentStatusResult } from "@/lib/services/payments.service";
-import { formatPrice } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 
 interface OrderPaymentSectionProps {
   id?: string;
@@ -34,6 +34,8 @@ interface OrderPaymentSectionProps {
   onSubmitManual: () => void;
   onRetryPayment: () => void;
   onRefresh?: () => void;
+  /** Render inside progress card without extra outer cards */
+  embedded?: boolean;
 }
 
 export function OrderPaymentSection({
@@ -56,9 +58,11 @@ export function OrderPaymentSection({
   onSubmitManual,
   onRetryPayment,
   onRefresh,
+  embedded = false,
 }: OrderPaymentSectionProps) {
   const payable = Math.round(paymentDetail.payable_balance ?? paymentDetail.amount_due ?? 0);
   const balanceDue = Math.round(paymentDetail.balance_due ?? payable);
+  const dueNow = payable > 0 ? payable : balanceDue;
   const paid = paymentDetail.amount_paid_order ?? paymentDetail.amount_paid ?? 0;
   const total = paymentDetail.total_amount ?? orderTotal;
   const manualNoFee = retryPaymentMethod === "manual_momo";
@@ -66,42 +70,52 @@ export function OrderPaymentSection({
   const procFee = manualNoFee
     ? 0
     : Math.round(
-        paymentDetail.processing_fee_on_balance ?? paymentDetail.processing_fee ?? payable * feePercent / 100,
+        paymentDetail.processing_fee_on_balance ?? paymentDetail.processing_fee ?? dueNow * feePercent / 100,
       );
   const chargeAmount = manualNoFee
-    ? payable
-    : Math.round(paymentDetail.charge_amount ?? payable + procFee);
+    ? dueNow
+    : Math.round(paymentDetail.charge_amount ?? dueNow + procFee);
   const awaitingReview = paymentDetail.awaiting_manual_review || paymentStatus === "awaiting_review";
-  const canPay = paymentDetail.can_submit_payment !== false && payable > 0 && !awaitingReview;
+  const canPay = paymentDetail.can_submit_payment !== false && dueNow > 0 && !awaitingReview;
   const deliveryOnArrival =
     Boolean(paymentDetail.medicines_paid) &&
-    payable <= 0 &&
+    dueNow <= 0 &&
     (paymentDetail.delivery_fee_outstanding ?? 0) > 0;
 
   useEffect(() => {
     if (!awaitingReview || !onRefresh) return;
-    const id = window.setInterval(onRefresh, 15_000);
-    return () => window.clearInterval(id);
+    const timer = window.setInterval(onRefresh, 15_000);
+    return () => window.clearInterval(timer);
   }, [awaitingReview, onRefresh]);
 
-  if (paymentDetail.fully_paid && payable <= 0 && !deliveryOnArrival) {
+  if (paymentDetail.fully_paid && dueNow <= 0 && !deliveryOnArrival) {
     return null;
   }
 
   return (
-    <div id={id} className="space-y-4 mb-4 scroll-mt-4">
-      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5">
-        <div className="flex items-start gap-2 mb-4">
-          <Receipt className="w-5 h-5 text-farumasi-600 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Payment summary</p>
-            {paymentDetail.message && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                {paymentDetail.message}
-              </p>
-            )}
+    <div id={id} className={cn("scroll-mt-4", embedded ? "" : "space-y-4 mb-4")}>
+      <div
+        className={cn(
+          embedded
+            ? "mb-4"
+            : "bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5",
+        )}
+      >
+        {!embedded ? (
+          <div className="flex items-start gap-2 mb-4">
+            <Receipt className="w-5 h-5 text-farumasi-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Payment summary</p>
+              {paymentDetail.message && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  {paymentDetail.message}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-3">Complete your payment</p>
+        )}
 
         <div className="space-y-2 text-sm">
           <div className="flex justify-between text-slate-600 dark:text-slate-300">
@@ -120,10 +134,10 @@ export function OrderPaymentSection({
               <span className="font-bold">{formatPrice(balanceDue)}</span>
             </div>
           )}
-          {payable > 0 && payable !== balanceDue && (
-            <div className="flex justify-between text-violet-700 dark:text-violet-300">
-              <span>Due now (app)</span>
-              <span className="font-bold">{formatPrice(payable)}</span>
+          {dueNow > 0 && (
+            <div className="flex justify-between text-amber-700 dark:text-amber-300">
+              <span>Due now</span>
+              <span className="font-bold">{formatPrice(dueNow)}</span>
             </div>
           )}
           {(paymentDetail.delivery_fee_outstanding ?? 0) > 0 && (
@@ -172,20 +186,28 @@ export function OrderPaymentSection({
       )}
 
       {canPay && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-amber-200 dark:border-amber-800/50 shadow-sm p-5">
-          <div className="flex items-start gap-2 mb-4">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                {paid > 0 ? "Pay remaining balance" : "Payment required"}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {manualNoFee
-                  ? `Dial the MoMo pay code for ${formatPrice(chargeAmount)} (no processing fee), upload proof, and wait for confirmation. You can repeat this until the order is fully paid.`
-                  : `Pay ${formatPrice(chargeAmount)} (includes ${effectiveFeePercent}% fee on ${formatPrice(payable)}). You can repeat until the order is fully paid.`}
-              </p>
+        <div
+          className={cn(
+            embedded
+              ? ""
+              : "bg-white dark:bg-slate-800 rounded-3xl border border-amber-200 dark:border-amber-800/50 shadow-sm p-5",
+          )}
+        >
+          {!embedded && (
+            <div className="flex items-start gap-2 mb-4">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  {paid > 0 ? "Pay remaining balance" : "Payment required"}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {manualNoFee
+                    ? `Dial the MoMo pay code for ${formatPrice(chargeAmount)} (no processing fee), upload proof, and wait for confirmation.`
+                    : `Pay ${formatPrice(chargeAmount)} (includes ${effectiveFeePercent}% fee on ${formatPrice(dueNow)}).`}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           <PaymentCheckout
             method={retryPaymentMethod}
@@ -193,7 +215,7 @@ export function OrderPaymentSection({
             phone={retryPhone}
             onPhoneChange={onPhoneChange}
             feePercent={effectiveFeePercent}
-            orderSubtotal={payable}
+            orderSubtotal={dueNow}
             processingFee={procFee}
             totalWithFee={chargeAmount}
             formatPrice={formatPrice}

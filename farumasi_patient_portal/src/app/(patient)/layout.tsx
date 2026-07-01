@@ -99,6 +99,9 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
   const isConsultPage =
     pathname === "/consult" || pathname.startsWith("/consult/");
+  const isOrdersPage =
+    pathname === "/orders" || pathname.startsWith("/orders/");
+  const isFullHeightPage = isConsultPage || isOrdersPage;
 
   const mobilePanelPortal =
     portalReady && activePanel
@@ -181,7 +184,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
               className={cn(
                 "patient-main-pane flex-1 min-w-0 overflow-y-auto scrollbar-hide bg-[#F6F8FB] dark:bg-[#0f172a]",
                 "rounded-tl-[20px] sm:rounded-tl-[32px]",
-                isConsultPage
+                isFullHeightPage
                   ? "flex min-h-0 flex-1 flex-col overflow-hidden pb-0"
                   : "pb-28 sm:pb-32",
                 activePanel ? "sm:rounded-tr-[24px]" : "",
