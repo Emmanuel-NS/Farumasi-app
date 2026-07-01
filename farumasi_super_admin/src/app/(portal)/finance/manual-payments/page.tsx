@@ -109,9 +109,7 @@ export default function ManualPaymentsPage() {
         amount_received:
           approveOutcome === "partial"
             ? Number(amountReceived.replace(/\D/g, "")) || undefined
-            : approveOutcome === "delivery_deferred" && amountReceived.trim()
-              ? Number(amountReceived.replace(/\D/g, ""))
-              : undefined,
+            : undefined,
       });
       setApproveModal(null);
       setMomoTxnId("");
@@ -406,12 +404,7 @@ export default function ManualPaymentsPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Delivery fee</span>
-                  <span className="font-semibold">
-                    {formatRWF(ctx.delivery_fee)}
-                    {ctx.defer_delivery_fee && (
-                      <span className="text-violet-600 font-normal ml-1">· patient chose pay on arrival</span>
-                    )}
-                  </span>
+                  <span className="font-semibold">{formatRWF(ctx.delivery_fee)}</span>
                 </div>
                 <div className="flex justify-between border-t border-slate-200 pt-1.5">
                   <span className="text-slate-600 font-medium">Expected due now</span>
@@ -435,7 +428,6 @@ export default function ManualPaymentsPage() {
                 {([
                   ["full", "Full payment", "Patient paid the full amount due now"],
                   ["partial", "Partial payment", "Patient paid less — remaining balance stays on the order"],
-                  ["delivery_deferred", "Delivery fee on arrival", "Confirm medicines paid; collect delivery fee at delivery"],
                 ] as const).map(([value, label, hint]) => (
                   <label
                     key={value}
@@ -453,10 +445,6 @@ export default function ManualPaymentsPage() {
                       onChange={() => {
                         setApproveOutcome(value);
                         if (value === "full") setAmountReceived(String(Math.round(balanceDue)));
-                        else if (value === "delivery_deferred" && ctx) {
-                          const medsDue = Math.max(0, ctx.subtotal - ctx.amount_paid_order);
-                          setAmountReceived(String(Math.round(medsDue)));
-                        }
                       }}
                       className="mt-0.5"
                     />
@@ -469,7 +457,7 @@ export default function ManualPaymentsPage() {
               </div>
             </div>
 
-            {(approveOutcome === "partial" || approveOutcome === "delivery_deferred") && (
+            {approveOutcome === "partial" && (
               <div>
                 <label className="text-xs font-semibold text-slate-500">
                   Amount received (order value, RWF) <span className="text-red-500">*</span>

@@ -29,6 +29,7 @@ from app.core.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.services.payments.payment_helpers import order_payment_breakdown
 from app.models.delivery import Delivery
 from app.models.order import Order
 from app.models.partner import PartnerCompany
@@ -724,6 +725,11 @@ class DeliveryService:
         patient = patient_res.scalar_one_or_none()
         if not patient or patient.user_id != actor.id:
             raise AuthorizationError("Not your order")
+
+        if not order_payment_breakdown(order)["fully_paid"]:
+            raise BusinessRuleError(
+                "Delivery verification is available after your order is fully paid."
+            )
 
         if order.delivery_method != DeliveryMethod.DELIVERY:
             raise BusinessRuleError("Order has no delivery component")

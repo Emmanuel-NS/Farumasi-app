@@ -187,6 +187,7 @@ async def get_my_prescription_recommendations(
 
 # -- Phase 6: orders shortcuts -------------------------------------------
 from app.schemas.order import OrderCreate, OrderOut
+from app.schemas.order_visibility import order_out_for_patient
 from app.services.order_service import OrderService
 
 
@@ -200,7 +201,12 @@ async def list_my_orders(
     items, total = await OrderService(db).list_patient_orders(
         current_user, offset=offset, limit=limit
     )
-    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
+    return PaginatedResponse(
+        items=[order_out_for_patient(o) for o in items],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.post("/me/orders", response_model=OrderOut, status_code=201)
@@ -209,7 +215,8 @@ async def create_my_order(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await OrderService(db).create_order(data, current_user)
+    order = await OrderService(db).create_order(data, current_user)
+    return order_out_for_patient(order)
 
 
 from app.schemas.payment import PaymentInitiate, PaymentInitiateOut, PaymentStatusOut, ManualPaymentSubmit  # noqa: E402
@@ -321,7 +328,8 @@ async def reassign_my_order_pharmacy(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await OrderService(db).reassign_pharmacy(order_id, data, current_user)
+    order = await OrderService(db).reassign_pharmacy(order_id, data, current_user)
+    return order_out_for_patient(order)
 
 
 # -- Phase 7: delivery QR for patient --------------------------------------

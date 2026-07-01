@@ -24,6 +24,7 @@ import {
   isOrderPaymentComplete,
   orderNeedsPayment,
   orderTotalAmount,
+  patientFulfilmentUnlocked,
   resolvePaymentDetail,
 } from "@/lib/order-payment";
 import { PharmacySwitchTeaser } from "@/components/orders/pharmacy-reassignment-panel";
@@ -354,6 +355,7 @@ export default function OrderDetailPage() {
   const awaitingPaymentReview =
     effectivePayment?.awaiting_manual_review || order.paymentStatus === "awaiting_review";
   const showPayAfterProgress = canRetryPayment && effectivePayment != null;
+  const fulfilmentUnlocked = patientFulfilmentUnlocked(order, effectivePayment);
 
   // Payment breakdown
   const subtotal    = order.subtotal ?? (order.pharmacyPrice ?? 0);
@@ -631,8 +633,8 @@ export default function OrderDetailPage() {
         </div>
       )}
 
-      {/* ── Access code reminder (pickup / delivery) ─────────────────── */}
-      {isActive && order.patientAccessCode && (
+      {/* ── Access code (after full payment) ───────────────────────────── */}
+      {isActive && fulfilmentUnlocked && order.patientAccessCode && (
         <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-3xl p-4 mb-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
             <Lock className="w-5 h-5 text-amber-700 dark:text-amber-300" />
@@ -649,8 +651,8 @@ export default function OrderDetailPage() {
         </div>
       )}
 
-      {/* ── Pickup directions ─────────────────────────────────────────── */}
-      {isPickup && !isCancelled && (
+      {/* ── Pickup directions (after full payment) ───────────────────── */}
+      {isPickup && !isCancelled && fulfilmentUnlocked && (
         order.sellerContact ? (
           <div className="mb-4">
             <OrderSellerLocation contact={order.sellerContact} />
@@ -666,10 +668,19 @@ export default function OrderDetailPage() {
             </h2>
             <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{order.pharmacy}</p>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-              Full address and contact will appear once the pharmacy confirms your order.
+              Full address and contact will appear once your payment is confirmed.
             </p>
           </div>
         )
+      )}
+
+      {!fulfilmentUnlocked && !isCancelled && (
+        <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-3xl p-4 mb-4">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Pharmacy details & access code</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            Your pickup code and the pharmacy&apos;s full location and contacts unlock after the order is fully paid.
+          </p>
+        </div>
       )}
 
       {/* ── Delivery address ──────────────────────────────────────────── */}
@@ -683,8 +694,8 @@ export default function OrderDetailPage() {
         </div>
       )}
 
-      {/* ── Delivery QR ───────────────────────────────────────────────── */}
-      {!isPickup && !isCancelled && (
+      {/* ── Delivery QR (after full payment) ─────────────────────────── */}
+      {!isPickup && !isCancelled && fulfilmentUnlocked && (
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
           <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-2">
             <QrCode className="w-4 h-4 text-farumasi-600" />
@@ -846,8 +857,8 @@ export default function OrderDetailPage() {
         </div>
       )}
 
-      {/* ── Pharmacy / seller location (delivery orders) ─────────────── */}
-      {!isPickup && (order.sellerContact ? (
+      {/* ── Pharmacy / seller location (delivery, after full payment) ── */}
+      {!isPickup && fulfilmentUnlocked && (order.sellerContact ? (
         <OrderSellerLocation contact={order.sellerContact} />
       ) : (
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 mb-4 flex items-center gap-3">

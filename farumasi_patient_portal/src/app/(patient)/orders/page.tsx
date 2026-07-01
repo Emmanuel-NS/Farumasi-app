@@ -16,7 +16,7 @@ import {
   CheckCircle2, Trash2, Zap,
 } from "lucide-react";
 import { PharmacyReassignmentBadge } from "@/components/orders/pharmacy-reassignment-panel";
-import { orderNeedsPayment } from "@/lib/order-payment";
+import { orderBalanceDue, orderNeedsPayment } from "@/lib/order-payment";
 import type { Order } from "@/types";
 
 const ACTIVE_STATUSES = new Set([
@@ -219,6 +219,8 @@ function ActiveOrderCard({ order, stretch = false }: { order: Order; stretch?: b
   const itemList  = order.itemList ?? [];
   const itemCount = itemList.length || order.items.split(",").length;
   const firstName = itemList.length > 0 ? itemList[0].name : order.items.split(",")[0]?.trim();
+  const balanceDue = orderBalanceDue(order);
+  const awaitingPaymentReview = order.paymentStatus === "awaiting_review";
 
   const openOrder = () => router.push(`/orders/${order.id}`);
 
@@ -329,9 +331,19 @@ function ActiveOrderCard({ order, stretch = false }: { order: Order; stretch?: b
           <div>
             <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total</p>
             <p className="text-base font-extrabold text-farumasi-700 dark:text-emerald-300">{order.total}</p>
+            {balanceDue > 0 && (
+              <div className="mt-1.5">
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wide font-semibold">
+                  {awaitingPaymentReview ? "Remaining (under review)" : "Remaining to pay"}
+                </p>
+                <p className="text-base font-extrabold text-amber-600 dark:text-amber-400">
+                  {formatPrice(balanceDue)}
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            {orderNeedsPayment(order) && order.paymentStatus !== "paid" && (
+            {balanceDue > 0 && !awaitingPaymentReview && orderNeedsPayment(order) && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -361,6 +373,7 @@ function PastOrderCard({ order, onArchive }: { order: Order; onArchive: () => vo
   const itemCount = itemList.length || order.items.split(",").length;
   const isDelivered = order.status === "delivered";
   const isCancelled = order.status === "cancelled";
+  const balanceDue = orderBalanceDue(order);
 
   return (
     <div className="relative">
@@ -397,6 +410,11 @@ function PastOrderCard({ order, onArchive }: { order: Order; onArchive: () => vo
 
           <div className="text-right shrink-0 flex flex-col items-end gap-1">
             <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{order.total}</p>
+            {balanceDue > 0 && (
+              <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                {formatPrice(balanceDue)} due
+              </p>
+            )}
             {order.deliveryMethod && (
               <span className={cn(
                 "text-[10px] font-bold px-1.5 py-0.5 rounded-full",

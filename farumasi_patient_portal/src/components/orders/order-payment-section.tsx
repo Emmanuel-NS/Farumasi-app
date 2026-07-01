@@ -77,10 +77,6 @@ export function OrderPaymentSection({
     : Math.round(paymentDetail.charge_amount ?? dueNow + procFee);
   const awaitingReview = paymentDetail.awaiting_manual_review || paymentStatus === "awaiting_review";
   const canPay = paymentDetail.can_submit_payment !== false && dueNow > 0 && !awaitingReview;
-  const deliveryOnArrival =
-    Boolean(paymentDetail.medicines_paid) &&
-    dueNow <= 0 &&
-    (paymentDetail.delivery_fee_outstanding ?? 0) > 0;
 
   useEffect(() => {
     if (!awaitingReview || !onRefresh) return;
@@ -88,7 +84,7 @@ export function OrderPaymentSection({
     return () => window.clearInterval(timer);
   }, [awaitingReview, onRefresh]);
 
-  if (paymentDetail.fully_paid && dueNow <= 0 && !deliveryOnArrival) {
+  if (paymentDetail.fully_paid && dueNow <= 0) {
     return null;
   }
 
@@ -145,7 +141,6 @@ export function OrderPaymentSection({
               <span>Delivery fee outstanding</span>
               <span className="font-semibold">
                 {formatPrice(paymentDetail.delivery_fee_outstanding ?? 0)}
-                {paymentDetail.defer_delivery_fee ? " · on arrival" : ""}
               </span>
             </div>
           )}
@@ -161,13 +156,6 @@ export function OrderPaymentSection({
           <p className="text-sm text-sky-900 dark:text-sky-100 mt-1.5 leading-relaxed whitespace-pre-wrap">
             {paymentDetail.admin_review_note}
           </p>
-        </div>
-      )}
-
-      {deliveryOnArrival && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-3xl px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100">
-          Medicines are paid. Your pharmacy can prepare the order. Pay the delivery fee of{" "}
-          {formatPrice(paymentDetail.delivery_fee_outstanding ?? 0)} when the rider arrives.
         </div>
       )}
 

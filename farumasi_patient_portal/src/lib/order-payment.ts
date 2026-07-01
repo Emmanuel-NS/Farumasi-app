@@ -31,13 +31,7 @@ export function fallbackPaymentDetail(order: Order): PaymentStatusResult {
   const total = orderTotalAmount(order);
   const paid = Math.round(order.amountPaidOrder ?? order.amountPaidSnapshot ?? 0);
   const balanceDue = Math.max(0, total - paid);
-
-  let payable = balanceDue;
-  const medicinesPaid = subtotal > 0 ? paid >= subtotal - 1 : paid > 0;
-  if (order.deferDeliveryFee && deliveryFee > 0 && medicinesPaid) {
-    payable = 0;
-  }
-
+  const payable = balanceDue;
   const awaitingReview = order.paymentStatus === "awaiting_review";
 
   return {
@@ -51,20 +45,24 @@ export function fallbackPaymentDetail(order: Order): PaymentStatusResult {
     subtotal,
     delivery_fee: deliveryFee,
     total_amount: total,
-    defer_delivery_fee: Boolean(order.deferDeliveryFee),
-    delivery_fee_outstanding:
-      order.deferDeliveryFee && medicinesPaid ? Math.max(0, deliveryFee - Math.max(0, paid - subtotal)) : 0,
-    medicines_paid: medicinesPaid,
+    defer_delivery_fee: false,
+    delivery_fee_outstanding: 0,
+    medicines_paid: balanceDue <= 0 || (subtotal > 0 ? paid >= subtotal - 1 : paid > 0),
     fully_paid: balanceDue <= 0,
     can_submit_payment: balanceDue > 0 && !awaitingReview,
     awaiting_manual_review: awaitingReview,
     message:
       payable > 0
         ? `Pay ${payable.toLocaleString()} RWF to confirm your order.`
-        : medicinesPaid
-          ? "Medicines paid — delivery fee due on arrival."
-          : "Complete payment to place your order.",
+        : "Complete payment to place your order.",
   };
+}
+
+/** Remaining order balance (RWF) from list/summary fields — 0 when fully paid or cancelled. */
+export function orderBalanceDue(order: Order): number {
+  if (order.status === "cancelled") return 0;
+  const detail = fallbackPaymentDetail(order);
+  return detail.fully_paid ? 0 : Math.round(detail.balance_due ?? detail.payable_balance ?? 0);
 }
 
 export function resolvePaymentDetail(
@@ -93,18 +91,17 @@ export function amountDueNow(detail: PaymentStatusResult | null, order?: Order):
   return 0;
 }
 
-export function isOrderPaymentComplete(
+export function patientFulfilmentUnlocked(
   order: Order,
   paymentDetail: PaymentStatusResult | null,
 ): boolean {
   const detail = resolvePaymentDetail(order, paymentDetail);
-  if (!detail) return order.paymentStatus === "paid";
-  if (detail.fully_paid) return true;
-  if (
-    detail.medicines_paid &&
-    (detail.payable_balance ?? detail.amount_due ?? 0) <= 0
-  ) {
-    return true;
-  }
-  return order.paymentStatus === "paid";
+  return Boolean(detail?.fully_paid);
+}
+
+export function isOrderPaymentComplete(
+  order: Order,
+  paymentDetail: PaymentStatusResult | null,
+): boolean {
+  return patientFulfilmentUnlocked(order, paymentDetail);
 }

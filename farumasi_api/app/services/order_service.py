@@ -180,7 +180,7 @@ class OrderService:
             net_partner_amount=net_partner,
             patient_access_code=_generate_patient_access_code(),
             notes=data.notes or None,
-            defer_delivery_fee=bool(data.defer_delivery_fee),
+            defer_delivery_fee=False,
             pharmacy_assigned_at=_now(),
         )
         self.db.add(order)

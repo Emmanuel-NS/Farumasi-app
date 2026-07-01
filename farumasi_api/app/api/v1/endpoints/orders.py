@@ -24,6 +24,8 @@ from app.schemas.order import (
 )
 from app.services.delivery_service import DeliveryService
 from app.services.order_service import OrderService
+from app.core.constants import UserRole
+from app.schemas.order_visibility import order_out_for_patient
 
 router = APIRouter()
 
@@ -120,7 +122,10 @@ async def get_order(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ):
-    return await OrderService(db).get_order(order_id, actor)
+    order = await OrderService(db).get_order(order_id, actor)
+    if actor.role == UserRole.PATIENT:
+        return order_out_for_patient(order)
+    return order
 
 
 @router.get("/{order_id}/delivery", response_model=Optional[DeliveryOut])

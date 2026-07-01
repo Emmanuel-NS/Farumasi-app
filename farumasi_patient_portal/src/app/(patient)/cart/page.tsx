@@ -262,7 +262,6 @@ export default function CartPage() {
   const [district, setDistrict]               = useState("");
   const [deliveryHood, setDeliveryHood]       = useState("");
   const [notes, setNotes]                     = useState("");
-  const [deferDeliveryFee, setDeferDeliveryFee] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder]   = useState(false);
   const [paymentStepLabel, setPaymentStepLabel] = useState("");
   const [paymentConfig, setPaymentConfig] = useState<PublicPaymentConfig | null>(null);
@@ -507,7 +506,6 @@ export default function CartPage() {
     setDistrict(saved.district);
     setDeliveryHood(saved.deliveryHood);
     setNotes(saved.notes);
-    setDeferDeliveryFee(saved.deferDeliveryFee);
     setPaymentMethod(saved.paymentMethod);
     setManualDraft(saved.manualDraft);
     setPendingManualOrder(saved.pendingManualOrder);
@@ -783,7 +781,7 @@ export default function CartPage() {
       district,
       deliveryHood,
       notes,
-      deferDeliveryFee,
+      deferDeliveryFee: false,
       paymentMethod,
       manualDraft,
       pendingManualOrder,
@@ -797,7 +795,6 @@ export default function CartPage() {
     district,
     deliveryHood,
     notes,
-    deferDeliveryFee,
     paymentMethod,
     manualDraft,
     pendingManualOrder,
@@ -845,8 +842,7 @@ export default function CartPage() {
       : 0;
   const medicineSubtotal = medicineFullSubtotal - rxInsuranceDiscount;
   const total        = medicineFullSubtotal + deliveryFeeAmount - rxInsuranceDiscount;
-  // If patient defers the delivery fee, only medicines + insurance savings are due now
-  const amountDueNow = total - (deferDeliveryFee && hasPositiveDeliveryFee ? deliveryFeeAmount : 0);
+  const amountDueNow = total;
   const stepIdx      = STEPS.findIndex((s) => s.key === step);
 
   // Price range across matched pharmacies (for cart summary)
@@ -2007,9 +2003,7 @@ export default function CartPage() {
       !!selectedOption && deliveryLocationReady && phoneReady && manualProofReady;
     const canPlace   = canPlaceManual;
     const showPendingManualResume = Boolean(pendingManualOrder && paymentMethod === "manual_momo");
-    const orderSubtotal = Math.round(
-      amountDueNow > 0 ? amountDueNow : medicineSubtotal + (deferDeliveryFee ? 0 : deliveryFeeAmount),
-    );
+    const orderSubtotal = Math.round(amountDueNow > 0 ? amountDueNow : total);
     const processingFee =
       paymentMethod === "manual_momo"
         ? 0
@@ -2098,53 +2092,9 @@ export default function CartPage() {
         <div className="flex items-start gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 px-3 py-2.5 mb-6">
           <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
           <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            A pickup/delivery code is generated when you place the order.
+            Your pickup/delivery code and pharmacy contacts unlock once payment is fully confirmed.
           </p>
         </div>
-
-        {fulfillment === "delivery" && hasPositiveDeliveryFee && (
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Delivery Fee</p>
-            <div className="space-y-2">
-              {([
-                {
-                  defer: false,
-                  title: t.cart_pay_now,
-                  desc: `${formatPrice(deliveryFeeAmount)} charged with your medicines`,
-                },
-                {
-                  defer: true,
-                  title: t.cart_pay_after,
-                  desc: t.cart_pay_after_sub,
-                },
-              ] as const).map(({ defer, title, desc }) => (
-                <button
-                  key={String(defer)}
-                  onClick={() => setDeferDeliveryFee(defer)}
-                  className={cn(
-                    "w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all",
-                    deferDeliveryFee === defer
-                      ? "border-farumasi-500 bg-farumasi-50"
-                      : "border-slate-100 bg-slate-50 hover:border-farumasi-200"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      deferDeliveryFee === defer ? "border-farumasi-600 bg-farumasi-600" : "border-slate-300"
-                    )}
-                  >
-                    {deferDeliveryFee === defer && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">{title}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Order summary */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
@@ -2207,14 +2157,12 @@ export default function CartPage() {
                       ? "Enable location"
                       : deliveryFee === 0
                         ? t.cart_free
-                        : deferDeliveryFee
-                          ? `${formatPrice(deliveryFee)} (after delivery)`
-                          : formatPrice(deliveryFee)}
+                        : formatPrice(deliveryFee)}
                   </span>
                 </div>
-                {deliveryFee != null && deliveryFee > 0 && !deferDeliveryFee && (
+                {deliveryFee != null && deliveryFee > 0 && (
                   <p className="text-[10px] text-violet-700 mt-1">
-                    Included in your total below unless you chose pay-after-delivery.
+                    Included in your total below.
                   </p>
                 )}
               </div>
@@ -2243,7 +2191,7 @@ export default function CartPage() {
               </div>
             )}
             <div className="border-t border-slate-100 pt-2.5 flex justify-between">
-              <span className="font-bold text-slate-900">{deferDeliveryFee && hasPositiveDeliveryFee ? t.cart_due_now : t.cart_total}</span>
+              <span className="font-bold text-slate-900">{t.cart_total}</span>
               <span className="font-extrabold text-farumasi-700 text-lg">
                 {formatPrice(amountDueNow)}
               </span>
@@ -2337,7 +2285,7 @@ export default function CartPage() {
                   : undefined,
                 notes: notes || undefined,
                 items: orderItems,
-                defer_delivery_fee: deferDeliveryFee,
+                defer_delivery_fee: false,
               });
 
               const orderId = result.id;
@@ -2402,6 +2350,8 @@ export default function CartPage() {
                 await paymentsService.waitUntilPaid(orderId);
               }
 
+              const paidOrder = await ordersService.getOrderById(orderId).catch(() => null);
+              setConfirmedAccessCode(paidOrder?.patientAccessCode ?? "");
               setConfirmedOrderCode(orderCode);
               clearCheckoutProgress();
               if (!isLocked) clear();
@@ -2439,6 +2389,7 @@ export default function CartPage() {
   // ── STEP 5: Confirmed ─────────────────────────────────────────
   if (step === "confirmed" && fulfillment === "pickup") {
     const orderCode = confirmedOrderCode || ORDER_NUM;
+    const fulfilmentUnlocked = Boolean(confirmedAccessCode);
     const mapsUrl   = selectedOption?.pharmacy.coordinates
       ? `https://www.google.com/maps?q=${selectedOption.pharmacy.coordinates[0]},${selectedOption.pharmacy.coordinates[1]}`
       : selectedOption
@@ -2479,8 +2430,17 @@ export default function CartPage() {
           </div>
         )}
 
+        {!fulfilmentUnlocked && (
+          <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 text-center">
+            <p className="text-sm font-semibold text-slate-800">Pharmacy details unlock after payment</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Your pickup code and the pharmacy&apos;s full location and contacts appear once payment is confirmed.
+            </p>
+          </div>
+        )}
+
         {/* Pharmacy reveal */}
-        {selectedOption && (
+        {fulfilmentUnlocked && selectedOption && (
           <div className="w-full bg-gradient-to-br from-farumasi-600 to-farumasi-700 rounded-3xl p-5 mb-4 text-white">
             <div className="flex items-center gap-2 mb-3">
               <Eye className="w-4 h-4 opacity-70" />
@@ -2505,7 +2465,7 @@ export default function CartPage() {
         )}
 
         {/* Location & Directions */}
-        {selectedOption && (
+        {fulfilmentUnlocked && selectedOption && (
           <div className="w-full bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">
               Location &amp; Directions
@@ -2639,29 +2599,10 @@ export default function CartPage() {
           </div>
         )}
         <div className="border-t border-slate-100 pt-3 flex justify-between">
-          <span className="font-bold text-slate-900">
-            {deferDeliveryFee && hasPositiveDeliveryFee ? t.cart_charged_now : t.cart_total_charged}
-          </span>
+          <span className="font-bold text-slate-900">{t.cart_total_charged}</span>
           <span className="font-extrabold text-farumasi-700">{formatPrice(amountDueNow)}</span>
         </div>
-        {deferDeliveryFee && hasPositiveDeliveryFee && (
-          <div className="flex justify-between text-sm text-slate-500">
-            <span>{t.cart_delivery_after}</span>
-            <span className="font-medium">{formatPrice(deliveryFeeAmount)}</span>
-          </div>
-        )}
       </div>
-
-      {/* Deferred delivery fee notice */}
-      {deferDeliveryFee && hasPositiveDeliveryFee && (
-        <div className="w-full flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 mb-5">
-          <Truck className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-          <p className="text-xs text-blue-700">
-            <span className="font-semibold">{t.cart_defer_banner}</span>{" "}
-            {formatPrice(deliveryFeeAmount)} will be charged via MTN MoMo once your order is delivered.
-          </p>
-        </div>
-      )}
 
       <div className="w-full flex flex-col gap-3">
         <Link
