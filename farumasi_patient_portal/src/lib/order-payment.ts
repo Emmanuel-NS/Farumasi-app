@@ -61,15 +61,33 @@ export function fallbackPaymentDetail(order: Order): PaymentStatusResult {
 /** Remaining order balance (RWF) from list/summary fields — 0 when fully paid or cancelled. */
 export function orderBalanceDue(order: Order): number {
   if (order.status === "cancelled") return 0;
+  if (isPaymentSettled(order)) return 0;
   const detail = fallbackPaymentDetail(order);
   return detail.fully_paid ? 0 : Math.round(detail.balance_due ?? detail.payable_balance ?? 0);
+}
+
+export function normalizePaymentStatus(raw?: string | null): string {
+  return (raw ?? "unpaid").trim().toLowerCase();
+}
+
+export function isPaymentSettled(order: Order): boolean {
+  if (normalizePaymentStatus(order.paymentStatus) === "paid") return true;
+  return Boolean(fallbackPaymentDetail(order).fully_paid);
 }
 
 export function resolvePaymentDetail(
   order: Order,
   paymentDetail: PaymentStatusResult | null,
 ): PaymentStatusResult | null {
+  if (paymentDetail?.fully_paid) return paymentDetail;
+  if (paymentDetail && normalizePaymentStatus(paymentDetail.payment_status) === "paid") {
+    return { ...paymentDetail, fully_paid: true, payable_balance: 0, amount_due: 0, balance_due: 0 };
+  }
   if (paymentDetail) return paymentDetail;
+  if (isPaymentSettled(order)) {
+    const fb = fallbackPaymentDetail(order);
+    return { ...fb, fully_paid: true, payable_balance: 0, amount_due: 0, balance_due: 0 };
+  }
   if (!orderNeedsPayment(order)) return null;
   return fallbackPaymentDetail(order);
 }
@@ -95,6 +113,7 @@ export function patientFulfilmentUnlocked(
   order: Order,
   paymentDetail: PaymentStatusResult | null,
 ): boolean {
+  if (isPaymentSettled(order)) return true;
   const detail = resolvePaymentDetail(order, paymentDetail);
   return Boolean(detail?.fully_paid);
 }

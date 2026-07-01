@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { ordersService } from "@/lib/services/orders.service";
@@ -104,6 +104,7 @@ export default function OrderDetailPage() {
   const PAYMENT_FEE_PCT = 3.8;
   const [reassignOptions, setReassignOptions] = useState<Awaited<ReturnType<typeof ordersService.getReassignmentOptions>> | null>(null);
   const [reassignTick, setReassignTick] = useState(0);
+  const paymentFetchGen = useRef(0);
   const authUser = useAuthStore((s) => s.user);
 
   const awaitingPharmacyConfirm =
@@ -149,41 +150,44 @@ export default function OrderDetailPage() {
       }
     : null;
 
-  const loadOrder = async () => {
-    if (!id) return;
-    const fresh = await ordersService.getOrderById(id);
-    setOrder(fresh);
+  const syncPaymentDetail = async (fresh: Order, fetchGen: number) => {
     if (fresh.paymentStatus !== "paid" && fresh.paymentStatus !== "cancelled") {
       try {
-        const ps = await paymentsService.getStatus(id);
-        setPaymentDetail(ps);
+        const ps = await paymentsService.getStatus(fresh.id);
+        if (fetchGen === paymentFetchGen.current) setPaymentDetail(ps);
       } catch {
-        setPaymentDetail(null);
+        if (fetchGen === paymentFetchGen.current) setPaymentDetail(null);
       }
-    } else {
-      setPaymentDetail(null);
+      return;
     }
+    if (fetchGen === paymentFetchGen.current) setPaymentDetail(null);
+  };
+
+  const loadOrder = async () => {
+    if (!id) return;
+    const fetchGen = ++paymentFetchGen.current;
+    const fresh = await ordersService.getOrderById(id);
+    if (fetchGen !== paymentFetchGen.current) return;
+    setOrder(fresh);
+    await syncPaymentDetail(fresh, fetchGen);
   };
 
   useEffect(() => {
     if (!id) return;
+    const fetchGen = ++paymentFetchGen.current;
     setLoading(true);
     ordersService.getOrderById(id)
       .then(async (fresh) => {
+        if (fetchGen !== paymentFetchGen.current) return;
         setOrder(fresh);
-        if (fresh.paymentStatus !== "paid" && fresh.paymentStatus !== "cancelled") {
-          try {
-            const ps = await paymentsService.getStatus(id);
-            setPaymentDetail(ps);
-          } catch {
-            setPaymentDetail(null);
-          }
-        } else {
-          setPaymentDetail(null);
-        }
+        await syncPaymentDetail(fresh, fetchGen);
       })
-      .catch(() => setOrder(null))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (fetchGen === paymentFetchGen.current) setOrder(null);
+      })
+      .finally(() => {
+        if (fetchGen === paymentFetchGen.current) setLoading(false);
+      });
   }, [id]);
 
   useEffect(() => {
@@ -355,7 +359,7 @@ export default function OrderDetailPage() {
   const awaitingPaymentReview =
     effectivePayment?.awaiting_manual_review || order.paymentStatus === "awaiting_review";
   const showPayAfterProgress = canRetryPayment && effectivePayment != null;
-  const fulfilmentUnlocked = patientFulfilmentUnlocked(order, effectivePayment);
+  const fulfilmentUnlocked = patientFulfilmentUnlocked(order, paymentDetail);
 
   // Payment breakdown
   const subtotal    = order.subtotal ?? (order.pharmacyPrice ?? 0);
@@ -553,7 +557,7 @@ export default function OrderDetailPage() {
 
             {timelineSteps.map((step, i) => {
               const weight = STATUS_WEIGHTS[step.key] ?? i;
-              const done   = paymentComplete && weight <= fulfilmentActiveWeight;
+              const done   = paymentComplete && weight < fulfilmentActiveWeight;
               const active = paymentComplete && step.key === order.status;
               const last   = i === timelineSteps.length - 1;
               const blockedHint = !paymentComplete && i === 0 ? "Waiting for payment" : step.hint;

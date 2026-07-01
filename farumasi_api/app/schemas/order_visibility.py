@@ -8,6 +8,10 @@ from app.services.payments.payment_helpers import order_payment_breakdown
 
 
 def patient_fulfilment_unlocked(order: Order) -> bool:
+    from app.core.constants import PaymentStatus
+
+    if order.payment_status == PaymentStatus.PAID:
+        return True
     return order_payment_breakdown(order)["fully_paid"]
 
 
