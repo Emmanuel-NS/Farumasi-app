@@ -485,4 +485,6 @@ async def test_phase6_listing_order_still_works(client: AsyncClient, db):
         },
     )
     assert r.status_code == 201, r.text
-    assert r.json()["pharmacy_assigned_at"] is not None
+    body = r.json()
+    assert body["pharmacy_assigned_at"] is None
+    assert body["payment_status"] == "unpaid"

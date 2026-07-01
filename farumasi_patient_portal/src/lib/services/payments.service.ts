@@ -94,11 +94,24 @@ export const paymentsService = {
     orderId: string,
     payload: ManualPaymentSubmitPayload,
   ): Promise<PaymentStatusResult> {
-    const { data } = await api.post<PaymentStatusResult>(
-      `/patients/me/orders/${orderId}/payments/manual`,
-      payload,
-    );
-    return data;
+    try {
+      const { data } = await api.post<PaymentStatusResult>(
+        `/patients/me/orders/${orderId}/payments/manual`,
+        payload,
+        { timeout: 90_000 },
+      );
+      return data;
+    } catch (err) {
+      const status = await this.getStatus(orderId).catch(() => null);
+      if (
+        status &&
+        (status.awaiting_manual_review ||
+          status.payment_status === "awaiting_review")
+      ) {
+        return status;
+      }
+      throw err;
+    }
   },
 
   async waitUntilPaid(orderId: string): Promise<PaymentStatusResult> {

@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Sequence, Tuple
 
-from sqlalchemy import select, func, update as sa_update, case, and_
+from sqlalchemy import select, func, update as sa_update, case, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -181,7 +181,7 @@ class OrderService:
             patient_access_code=_generate_patient_access_code(),
             notes=data.notes or None,
             defer_delivery_fee=False,
-            pharmacy_assigned_at=_now(),
+            pharmacy_assigned_at=None,
         )
         self.db.add(order)
         await self.db.flush()
@@ -223,21 +223,8 @@ class OrderService:
             self.db.add(delivery)
             await self.db.flush()
 
-        # Notify pharmacy/partner staff. For pharmacies we fan out to every
-        # staff member (admin + pharmacists) so the whole team sees new orders.
+        # Notify patient only — partner pharmacy is notified after payment is confirmed.
         notif = NotificationService(self.db)
-        recipient_ids: list[str] = []
-        if pharmacy_id:
-            from app.services.pharmacy_access import list_pharmacy_staff_user_ids
-
-            recipient_ids = await list_pharmacy_staff_user_ids(self.db, pharmacy_id)
-        else:
-            owner_user_id = await self._owner_user_id(pharmacy_id, partner_id)
-            if owner_user_id:
-                recipient_ids = [owner_user_id]
-        for uid in recipient_ids:
-            await notif.order_placed(uid, order.id, order_code=order.order_code)
-
         patient_user_id = await self._patient_user_id(patient.id)
         if patient_user_id:
             await notif.patient_order_placed(
@@ -252,9 +239,6 @@ class OrderService:
             new_value={"order_code": order.order_code, "total": float(order.total_amount)},
         )
 
-        await self._open_partner_assignment(order)
-
-        # Mark linked prescription as fulfilled
         if data.prescription_id:
             rx_res = await self.db.execute(
                 select(DigitalPrescription).where(DigitalPrescription.id == data.prescription_id)
@@ -265,6 +249,50 @@ class OrderService:
                 await self.db.flush()
 
         return await self._reload(order.id)
+
+    async def activate_order_for_partners(self, order: Order) -> None:
+        """Notify the chosen pharmacy/partner once payment qualifies for fulfilment."""
+        from app.services.payments.payment_helpers import order_ready_for_fulfilment
+
+        if not order_ready_for_fulfilment(order):
+            return
+        if order.pharmacy_assigned_at is not None:
+            return
+
+        order.pharmacy_assigned_at = _now()
+        await self.db.flush()
+
+        existing = await self.db.execute(
+            select(OrderPartnerAssignment.id).where(
+                OrderPartnerAssignment.order_id == order.id,
+                OrderPartnerAssignment.ended_at.is_(None),
+            )
+        )
+        if not existing.scalar_one_or_none():
+            await self._open_partner_assignment(order)
+
+        notif = NotificationService(self.db)
+        recipient_ids: list[str] = []
+        if order.pharmacy_id:
+            from app.services.pharmacy_access import list_pharmacy_staff_user_ids
+
+            recipient_ids = await list_pharmacy_staff_user_ids(self.db, order.pharmacy_id)
+        elif order.partner_company_id:
+            owner_user_id = await self._owner_user_id(None, order.partner_company_id)
+            if owner_user_id:
+                recipient_ids = [owner_user_id]
+        for uid in recipient_ids:
+            await notif.order_placed(uid, order.id, order_code=order.order_code)
+
+        await AuditService(self.db).log(
+            actor_user_id=None,
+            action="order.partner_activated",
+            entity_type="Order",
+            entity_id=order.id,
+            new_value={"order_code": order.order_code, "pharmacy_id": order.pharmacy_id},
+        )
+
+        await self.db.flush()
 
     async def get_order(self, order_id: str, actor: User) -> Order:
         order = await self._reload(order_id)
@@ -311,7 +339,7 @@ class OrderService:
         if from_date:
             conds.append(Order.created_at >= from_date)
         return await self._paginate(
-            *conds, offset=offset, limit=limit, pending_confirmation_first=True
+            *conds, offset=offset, limit=limit, pending_confirmation_first=True, seller_visible_only=True
         )
 
     async def list_platform_pharmacist_monitor_orders(
@@ -336,7 +364,7 @@ class OrderService:
         if from_date:
             conds.append(Order.created_at >= from_date)
         return await self._paginate(
-            *conds, offset=offset, limit=limit, pending_confirmation_first=True
+            *conds, offset=offset, limit=limit, pending_confirmation_first=True, seller_visible_only=True
         )
 
     async def list_partner_orders(
@@ -394,7 +422,7 @@ class OrderService:
         if from_date:
             conds.append(Order.created_at >= from_date)
         return await self._paginate(
-            *conds, offset=offset, limit=limit, pending_confirmation_first=True
+            *conds, offset=offset, limit=limit, pending_confirmation_first=True, seller_visible_only=True
         )
 
     async def list_all_orders(
@@ -1655,15 +1683,32 @@ class OrderService:
         offset: int,
         limit: int,
         pending_confirmation_first: bool = False,
+        seller_visible_only: bool = False,
     ) -> Tuple[List[Order], int]:
+        all_conds = list(conds)
+        if seller_visible_only:
+            all_conds.append(
+                or_(
+                    Order.payment_status == PaymentStatus.PAID,
+                    Order.order_status.notin_(
+                        [
+                            OrderStatus.PENDING.value,
+                            OrderStatus.CANCELLED.value,
+                            OrderStatus.REJECTED.value,
+                            OrderStatus.FAILED.value,
+                        ]
+                    ),
+                )
+            )
+
         count_q = select(func.count(Order.id))
-        if conds:
-            count_q = count_q.where(*conds)
+        if all_conds:
+            count_q = count_q.where(*all_conds)
         total = (await self.db.execute(count_q)).scalar_one()
 
         q = select(Order).options(*self._order_options())
-        if conds:
-            q = q.where(*conds)
+        if all_conds:
+            q = q.where(*all_conds)
         if pending_confirmation_first:
             awaiting = and_(
                 Order.order_status == OrderStatus.PENDING.value,

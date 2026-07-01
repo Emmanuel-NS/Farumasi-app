@@ -12,7 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import api, { mediaUrl } from "@/lib/api";
+import { mediaUrl } from "@/lib/api";
+import { uploadPaymentProof } from "@/lib/upload-payment-proof";
 import { toast } from "sonner";
 import type { ManualPaymentDraft } from "@/lib/checkout-progress";
 import type { ManualMomoConfig } from "@/components/cart/manual-payment-panel";
@@ -237,18 +238,19 @@ function ManualPayBlock({
           toast.error(`${file.name} is too large (max 10 MB)`);
           continue;
         }
-        const form = new FormData();
-        form.append("file", file);
-        const { data } = await api.post<{ url: string }>("/uploads/payment-proof", form, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        urls.push(data.url);
+        try {
+          const url = await uploadPaymentProof(file);
+          urls.push(url);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Upload failed";
+          toast.error(`${file.name}: ${msg}`);
+        }
       }
       if (urls.length) {
         onDraftChange({ ...draft, proofUrls: [...draft.proofUrls, ...urls].slice(0, 5) });
       }
     } catch {
-      toast.error("Upload failed. Try again.");
+      toast.error("Upload failed. Try again with a smaller screenshot.");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";

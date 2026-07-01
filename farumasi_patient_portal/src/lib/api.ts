@@ -62,6 +62,14 @@ api.interceptors.request.use((config) => {
       config.timeout = 60_000;
     }
 
+    if (config.url?.includes("/uploads/")) {
+      config.timeout = Math.max(config.timeout ?? 20_000, 120_000);
+    }
+
+    if (config.url?.includes("/payments/manual")) {
+      config.timeout = Math.max(config.timeout ?? 20_000, 90_000);
+    }
+
     const isActionPath = /\/(login|register|refresh|logout|me|read|approve|reject|assign|publish|archive|confirm-qr|mark-all-read|read-all|mark-paid|availability|summary)$/.test(config.url);
     const hasSegmentAfterSlash = /\/[^/]+\/[^/]+$/.test(config.url);
     const isCreateOrder = config.url === "/patients/me/orders";

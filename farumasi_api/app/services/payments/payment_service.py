@@ -544,7 +544,6 @@ class PaymentService:
             message=self._status_message(order),
             pending_transaction_id=pending_id,
             submitted_at=submitted_at,
-            payable_balance=payable,
             processing_fee_on_balance=proc_on_balance if payable > 0 else None,
             charge_amount=charge if payable > 0 else None,
             admin_review_note=admin_note,
@@ -734,6 +733,9 @@ class PaymentService:
             order.partner_response_due_at = datetime.now(timezone.utc) + timedelta(
                 minutes=PARTNER_RESPONSE_TIMEOUT_MINUTES
             )
+            from app.services.order_service import OrderService
+
+            await OrderService(self.db).activate_order_for_partners(order)
 
         await self.db.flush()
 
@@ -881,10 +883,9 @@ class PaymentService:
         order = await self._get_patient_order(order_id, actor)
         if payable_balance_for_order(order) <= 0.01:
             raise BusinessRuleError("This order is already paid.")
-        if await self._active_manual_review_txn(order.id):
-            raise BusinessRuleError(
-                "Payment proof is already under review. Please wait for confirmation."
-            )
+        existing_review = await self._active_manual_review_txn(order.id)
+        if existing_review:
+            return await self.get_status(order.id, actor)
 
         due = amount_due_for_order(order)
         processing_fee = payment_processing_fee(due, method="manual_momo")
