@@ -15,6 +15,7 @@ import type { PaymentStatusResult } from "@/lib/services/payments.service";
 import { formatPrice } from "@/lib/utils";
 
 interface OrderPaymentSectionProps {
+  id?: string;
   paymentDetail: PaymentStatusResult;
   orderTotal: number;
   paymentStatus: string;
@@ -36,6 +37,7 @@ interface OrderPaymentSectionProps {
 }
 
 export function OrderPaymentSection({
+  id,
   paymentDetail,
   orderTotal,
   paymentStatus,
@@ -87,7 +89,7 @@ export function OrderPaymentSection({
   }
 
   return (
-    <div className="space-y-4 mb-4">
+    <div id={id} className="space-y-4 mb-4 scroll-mt-4">
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5">
         <div className="flex items-start gap-2 mb-4">
           <Receipt className="w-5 h-5 text-farumasi-600 shrink-0 mt-0.5" />

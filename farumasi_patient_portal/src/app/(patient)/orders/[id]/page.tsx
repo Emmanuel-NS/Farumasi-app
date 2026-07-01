@@ -365,6 +365,10 @@ export default function OrderDetailPage() {
   const fulfilmentActiveWeight = paymentComplete ? (STATUS_WEIGHTS[order.status] ?? -1) : -1;
   const paymentActive = !isCancelled && !paymentComplete;
   const paymentHint = paymentStepHint(order, paymentDetail);
+  const payableNow = Math.round(paymentDetail?.payable_balance ?? paymentDetail?.amount_due ?? 0);
+  const awaitingPaymentReview =
+    paymentDetail?.awaiting_manual_review || order.paymentStatus === "awaiting_review";
+  const showPayAfterProgress = canRetryPayment && paymentDetail && !paymentComplete;
 
   // Payment breakdown
   const subtotal    = order.subtotal ?? (order.pharmacyPrice ?? 0);
@@ -461,29 +465,6 @@ export default function OrderDetailPage() {
           switchEnabled={reassignOptions?.switch_enabled ?? reassignOptions?.can_reassign ?? false}
           optionCount={switchableCount || reassignOptions?.options.length || 0}
           waitLabel={reassignWaitLabel}
-        />
-      )}
-
-      {canRetryPayment && paymentDetail && (
-        <OrderPaymentSection
-          paymentDetail={paymentDetail}
-          orderTotal={total}
-          paymentStatus={order.paymentStatus ?? "pending"}
-          retryPaymentMethod={retryPaymentMethod}
-          onMethodChange={setRetryPaymentMethod}
-          retryPhone={retryPhone}
-          onPhoneChange={setRetryPhone}
-          feePercent={retryPaymentMethod === "manual_momo" ? 0 : PAYMENT_FEE_PCT}
-          enabledMethods={enabledRetryMethods}
-          manualMomoConfig={manualMomoConfig}
-          manualDraft={manualDraft}
-          onManualDraftChange={setManualDraft}
-          submittingManual={submittingManual}
-          retryingPayment={retryingPayment}
-          retryPhoneReady={retryPhoneReady}
-          onSubmitManual={() => void handleSubmitManualProof()}
-          onRetryPayment={() => void handleRetryPayment()}
-          onRefresh={() => void loadOrder()}
         />
       )}
 
@@ -628,6 +609,26 @@ export default function OrderDetailPage() {
               );
             })}
           </ol>
+
+          {showPayAfterProgress && payableNow > 0 && !awaitingPaymentReview && (
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                  {payableNow < (paymentDetail?.balance_due ?? payableNow) ? "Partial payment received" : "Payment required"}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Pay {formatPrice(payableNow)} to confirm this order.
+                </p>
+              </div>
+              <a
+                href="#order-payment"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-farumasi-600 hover:bg-farumasi-700 text-white px-5 py-2.5 text-sm font-bold transition-colors shrink-0"
+              >
+                <Banknote className="w-4 h-4" aria-hidden />
+                Pay {formatPrice(payableNow)}
+              </a>
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 rounded-3xl p-5 mb-4 flex items-center gap-3">
@@ -637,6 +638,30 @@ export default function OrderDetailPage() {
             <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">This order was not completed.</p>
           </div>
         </div>
+      )}
+
+      {showPayAfterProgress && paymentDetail && (
+        <OrderPaymentSection
+          id="order-payment"
+          paymentDetail={paymentDetail}
+          orderTotal={total}
+          paymentStatus={order.paymentStatus ?? "pending"}
+          retryPaymentMethod={retryPaymentMethod}
+          onMethodChange={setRetryPaymentMethod}
+          retryPhone={retryPhone}
+          onPhoneChange={setRetryPhone}
+          feePercent={retryPaymentMethod === "manual_momo" ? 0 : PAYMENT_FEE_PCT}
+          enabledMethods={enabledRetryMethods}
+          manualMomoConfig={manualMomoConfig}
+          manualDraft={manualDraft}
+          onManualDraftChange={setManualDraft}
+          submittingManual={submittingManual}
+          retryingPayment={retryingPayment}
+          retryPhoneReady={retryPhoneReady}
+          onSubmitManual={() => void handleSubmitManualProof()}
+          onRetryPayment={() => void handleRetryPayment()}
+          onRefresh={() => void loadOrder()}
+        />
       )}
 
       {/* ── Access code reminder (pickup / delivery) ─────────────────── */}

@@ -84,7 +84,7 @@ export default function OrdersPage() {
   return (
     <GuestGate feature="your orders">
       <PinGate feature="orders">
-        <div className="flex flex-col h-full min-h-0">
+        <div className="flex flex-col min-h-full h-full">
 
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700 shrink-0">
@@ -134,9 +134,10 @@ export default function OrdersPage() {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+            <div className="min-h-full p-4 md:p-6 flex flex-col">
             {loading ? (
-              <div className="space-y-3 max-w-3xl mx-auto">
+              <div className="space-y-3 max-w-3xl mx-auto w-full flex-1">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-5 animate-pulse">
                     <div className="h-4 w-1/3 bg-slate-100 dark:bg-slate-700 rounded mb-3" />
@@ -156,18 +157,26 @@ export default function OrdersPage() {
               activeOrders.length === 0 ? (
                 <EmptyOrders message={t.orders_no_active} />
               ) : (
-                <div className="space-y-4 max-w-3xl mx-auto">
+                <div
+                  className={cn(
+                    "w-full max-w-3xl mx-auto flex-1 flex flex-col gap-4",
+                    activeOrders.length <= 4 && "min-h-0",
+                  )}
+                >
                   {activeOrders.map((order) => (
-                    <ActiveOrderCard key={order.id} order={order} />
+                    <ActiveOrderCard
+                      key={order.id}
+                      order={order}
+                      stretch={activeOrders.length <= 4}
+                    />
                   ))}
-                  
                 </div>
               )
             ) : tab === "past" ? (
               pastOrders.length === 0 ? (
                 <EmptyOrders message={t.orders_no_past} />
               ) : (
-                <div className="space-y-3 max-w-3xl mx-auto">
+                <div className="space-y-3 max-w-3xl mx-auto w-full flex-1">
                   {pastOrders.map((order) => <PastOrderCard key={order.id} order={order} onArchive={() => archiveOrder(order.id)} />)}
                 </div>
               )
@@ -176,13 +185,14 @@ export default function OrdersPage() {
               cancelledOrders.length === 0 ? (
                 <EmptyOrders message="No cancelled orders" />
               ) : (
-                <div className="space-y-3 max-w-3xl mx-auto">
+                <div className="space-y-3 max-w-3xl mx-auto w-full flex-1">
                   {cancelledOrders.map((order) => (
                     <PastOrderCard key={order.id} order={order} onArchive={() => archiveOrder(order.id)} />
                   ))}
                 </div>
               )
             )}
+            </div>
           </div>
         </div>
       </PinGate>
@@ -190,7 +200,7 @@ export default function OrdersPage() {
   );
 }
 
-function ActiveOrderCard({ order }: { order: Order }) {
+function ActiveOrderCard({ order, stretch = false }: { order: Order; stretch?: boolean }) {
   const t = useTranslation();
   const router = useRouter();
   const awaitingPharmacy =
@@ -213,7 +223,8 @@ function ActiveOrderCard({ order }: { order: Order }) {
 
   return (
     <div className={cn(
-      "bg-white dark:bg-slate-800 rounded-3xl border shadow-sm hover:shadow-md dark:hover:shadow-black/20 transition-shadow overflow-hidden cursor-pointer group",
+      "bg-white dark:bg-slate-800 rounded-3xl border shadow-sm hover:shadow-md dark:hover:shadow-black/20 transition-shadow overflow-hidden cursor-pointer group flex flex-col",
+      stretch && "flex-1 min-h-[11rem]",
       awaitingPharmacy ? "border-slate-200 dark:border-slate-700 hover:border-farumasi-200 dark:hover:border-emerald-700/50" : "border-slate-100 dark:border-slate-700 hover:border-farumasi-200 dark:hover:border-emerald-700/50",
     )}
       role="link"
@@ -277,7 +288,7 @@ function ActiveOrderCard({ order }: { order: Order }) {
         <StatusBadge status={order.status} />
       </div>
 
-      <div className="px-5 pt-3 pb-4 space-y-3">
+      <div className="px-5 pt-3 pb-4 space-y-3 flex-1 flex flex-col">
         {/* Pharmacy + date */}
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{order.pharmacy}</p>
@@ -313,7 +324,7 @@ function ActiveOrderCard({ order }: { order: Order }) {
         </div>
 
         {/* Footer: total + actions */}
-        <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center justify-between pt-1 mt-auto">
           <div>
             <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total</p>
             <p className="text-base font-extrabold text-farumasi-700 dark:text-emerald-300">{order.total}</p>
@@ -422,7 +433,7 @@ function PastOrderCard({ order, onArchive }: { order: Order; onArchive: () => vo
 
 function EmptyOrders({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center py-16 text-center min-h-[40vh]">
       <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
         <Package className="w-10 h-10 text-slate-300 dark:text-slate-600" />
       </div>
