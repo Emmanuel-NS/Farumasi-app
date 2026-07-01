@@ -391,7 +391,8 @@ export default function ManualPaymentsPage() {
           const balanceDue = ctx?.balance_due ?? approveModal.expected_order_amount ?? approveModal.amount;
           const procFee = ctx?.processing_fee_on_balance ?? 0;
           return (
-          <form onSubmit={handleApprove} className="space-y-4">
+          <form onSubmit={handleApprove} className="flex flex-col -m-6 max-h-[calc(92dvh-5rem)]">
+            <div className="space-y-4 overflow-y-auto overscroll-contain flex-1 p-6 pb-4">
             <p className="text-sm text-slate-600">
               Order <strong>{approveModal.order_code}</strong> · Patient claimed{" "}
               {formatRWF(approveModal.amount)} (incl. fee)
@@ -506,7 +507,8 @@ export default function ManualPaymentsPage() {
               <label className="text-xs font-semibold text-slate-500">Note (optional)</label>
               <Input value={approveNote} onChange={(e) => setApproveNote(e.target.value)} />
             </div>
-            <div className="flex gap-2 justify-end">
+            </div>
+            <div className="flex gap-2 justify-end p-4 border-t border-slate-100 bg-white shrink-0">
               <Button type="button" variant="outline" onClick={() => setApproveModal(null)}>
                 Cancel
               </Button>
