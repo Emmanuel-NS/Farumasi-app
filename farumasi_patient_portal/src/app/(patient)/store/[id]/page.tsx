@@ -86,6 +86,7 @@ export default function MedicineDetailPage() {
       return;
     }
     setSellMode(mode);
+    setQty(minQuantityForLine(med, mode));
   };
 
   if (loading) {
@@ -166,6 +167,7 @@ export default function MedicineDetailPage() {
               <button
                 type="button"
                 onClick={() => selectSellMode("pack")}
+                aria-pressed={sellMode === "pack"}
                 className={cn(
                   "flex-1 py-2 px-3 rounded-xl text-xs font-bold border-2 transition-all",
                   sellMode === "pack"
@@ -178,6 +180,7 @@ export default function MedicineDetailPage() {
               <button
                 type="button"
                 onClick={() => selectSellMode("partial")}
+                aria-pressed={sellMode === "partial"}
                 className={cn(
                   "flex-1 py-2 px-3 rounded-xl text-xs font-bold border-2 transition-all",
                   sellMode === "partial"
@@ -219,10 +222,24 @@ export default function MedicineDetailPage() {
                 ? `How many ${med.partialUnitName ?? "units"}?`
                 : "How many packs?"}
             </span>
-            <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 rounded-2xl px-2 py-1">
-              <button onClick={() => setQty((q) => Math.max(minQty, q - 1))} className="w-8 h-8 rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-200 hover:bg-farumasi-50 dark:hover:bg-slate-600 shadow-sm">−</button>
-              <span className="text-sm font-bold w-6 text-center">{qty}</span>
-              <button onClick={() => setQty((q) => q + 1)} className="w-8 h-8 rounded-xl bg-farumasi-600 text-white flex items-center justify-center font-bold hover:bg-farumasi-700">+</button>
+            <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 rounded-2xl px-2 py-1" role="group" aria-label="Quantity">
+              <button
+                type="button"
+                aria-label="Decrease quantity"
+                onClick={() => setQty((q) => Math.max(minQty, q - 1))}
+                className="w-8 h-8 rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-200 hover:bg-farumasi-50 dark:hover:bg-slate-600 shadow-sm"
+              >
+                −
+              </button>
+              <span className="text-sm font-bold w-6 text-center" aria-live="polite" aria-atomic="true">{qty}</span>
+              <button
+                type="button"
+                aria-label="Increase quantity"
+                onClick={() => setQty((q) => q + 1)}
+                className="w-8 h-8 rounded-xl bg-farumasi-600 text-white flex items-center justify-center font-bold hover:bg-farumasi-700"
+              >
+                +
+              </button>
             </div>
           </div>
 

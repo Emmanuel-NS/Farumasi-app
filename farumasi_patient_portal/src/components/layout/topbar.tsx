@@ -171,7 +171,10 @@ export function Topbar({
 
         {/* Help — desktop only; mobile users open /help from nav */}
         <button
+          type="button"
           onClick={onHelpClick}
+          aria-label="Help"
+          aria-expanded={activePanel === "help"}
           className={cn(
             "hidden sm:block p-2 rounded-lg transition-colors",
             activePanel === "help" ? "bg-white/20 text-white" : "text-white/80 hover:text-white hover:bg-white/10"
@@ -183,7 +186,10 @@ export function Topbar({
 
         {/* Cart */}
         <button
+          type="button"
           onClick={onCartClick}
+          aria-label={cartItemCount > 0 ? `Cart, ${cartItemCount} items` : "Cart"}
+          aria-expanded={activePanel === "cart"}
           className={cn(
             "relative p-2 rounded-lg transition-colors",
             activePanel === "cart" ? "bg-white/20 text-white" : "text-white/80 hover:text-white hover:bg-white/10"
@@ -201,7 +207,10 @@ export function Topbar({
         {/* Notifications */}
         <div className="relative">
           <button
+            type="button"
             onClick={onNotifClick}
+            aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+            aria-expanded={activePanel === "notifications"}
             className={cn(
               "p-2 rounded-lg transition-colors",
               activePanel === "notifications" ? "bg-white/20 text-white" : "text-white/80 hover:text-white hover:bg-white/10"
@@ -230,7 +239,11 @@ export function Topbar({
           ) : (
             <>
               <button
+                type="button"
                 onClick={() => setShowProfile(!showProfile)}
+                aria-label="Account menu"
+                aria-expanded={showProfile}
+                aria-haspopup="menu"
                 className="w-9 h-9 rounded-full bg-[#2B7C5E] border-2 border-white/40 flex items-center justify-center hover:bg-[#1e6b50] transition-colors"
               >
                 <span className="text-sm font-bold text-[#EFFFB5]">{getInitials(user?.name ?? "Me")}</span>

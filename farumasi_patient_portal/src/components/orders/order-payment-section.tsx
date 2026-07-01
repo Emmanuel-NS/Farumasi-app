@@ -59,10 +59,16 @@ export function OrderPaymentSection({
   const balanceDue = Math.round(paymentDetail.balance_due ?? payable);
   const paid = paymentDetail.amount_paid_order ?? paymentDetail.amount_paid ?? 0;
   const total = paymentDetail.total_amount ?? orderTotal;
-  const procFee = Math.round(
-    paymentDetail.processing_fee_on_balance ?? paymentDetail.processing_fee ?? payable * feePercent / 100,
-  );
-  const chargeAmount = Math.round(paymentDetail.charge_amount ?? payable + procFee);
+  const manualNoFee = retryPaymentMethod === "manual_momo";
+  const effectiveFeePercent = manualNoFee ? 0 : feePercent;
+  const procFee = manualNoFee
+    ? 0
+    : Math.round(
+        paymentDetail.processing_fee_on_balance ?? paymentDetail.processing_fee ?? payable * feePercent / 100,
+      );
+  const chargeAmount = manualNoFee
+    ? payable
+    : Math.round(paymentDetail.charge_amount ?? payable + procFee);
   const awaitingReview = paymentDetail.awaiting_manual_review || paymentStatus === "awaiting_review";
   const canPay = paymentDetail.can_submit_payment !== false && payable > 0 && !awaitingReview;
   const deliveryOnArrival =
@@ -172,9 +178,9 @@ export function OrderPaymentSection({
                 {paid > 0 ? "Pay remaining balance" : "Payment required"}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Dial the MoMo pay code for {formatPrice(chargeAmount)} (includes {feePercent}% fee on{" "}
-                {formatPrice(payable)}), upload proof, and wait for confirmation. You can repeat this until
-                the order is fully paid.
+                {manualNoFee
+                  ? `Dial the MoMo pay code for ${formatPrice(chargeAmount)} (no processing fee), upload proof, and wait for confirmation. You can repeat this until the order is fully paid.`
+                  : `Pay ${formatPrice(chargeAmount)} (includes ${effectiveFeePercent}% fee on ${formatPrice(payable)}). You can repeat until the order is fully paid.`}
               </p>
             </div>
           </div>
@@ -184,7 +190,7 @@ export function OrderPaymentSection({
             onMethodChange={onMethodChange}
             phone={retryPhone}
             onPhoneChange={onPhoneChange}
-            feePercent={feePercent}
+            feePercent={effectiveFeePercent}
             orderSubtotal={payable}
             processingFee={procFee}
             totalWithFee={chargeAmount}

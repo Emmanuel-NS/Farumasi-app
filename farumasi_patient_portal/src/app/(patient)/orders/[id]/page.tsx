@@ -56,6 +56,40 @@ const STATUS_WEIGHTS: Record<string, number> = {
   pending_review: 0, pharmacy_accepted: 1, ready_for_pickup: 2, out_for_delivery: 3, delivered: 4,
 };
 
+function isOrderPaymentComplete(
+  order: Order,
+  paymentDetail: PaymentStatusResult | null,
+): boolean {
+  if (paymentDetail?.fully_paid) return true;
+  if (
+    paymentDetail?.medicines_paid &&
+    (paymentDetail.payable_balance ?? paymentDetail.amount_due ?? 0) <= 0
+  ) {
+    return true;
+  }
+  return order.paymentStatus === "paid";
+}
+
+function paymentStepHint(
+  order: Order,
+  paymentDetail: PaymentStatusResult | null,
+): string {
+  const payable = Math.round(paymentDetail?.payable_balance ?? paymentDetail?.amount_due ?? 0);
+  if (paymentDetail?.awaiting_manual_review || order.paymentStatus === "awaiting_review") {
+    return "Your MoMo proof is being reviewed";
+  }
+  if (payable > 0) {
+    return `Pay ${formatPrice(payable)} to confirm your order`;
+  }
+  if (order.paymentStatus === "partially_paid") {
+    return "Finish payment to continue";
+  }
+  if (order.paymentStatus === "failed") {
+    return "Payment failed — try again below";
+  }
+  return "Complete payment to place your order";
+}
+
 export default function OrderDetailPage() {
   const { id }   = useParams<{ id: string }>();
   const router   = useRouter();
@@ -327,7 +361,10 @@ export default function OrderDetailPage() {
   const isDelivered  = order.status === "delivered";
   const isActive     = !isCancelled && !isDelivered;
   const timelineSteps = isPickup ? PICKUP_STEPS : DELIVERY_STEPS;
-  const activeWeight  = STATUS_WEIGHTS[order.status] ?? -1;
+  const paymentComplete = isOrderPaymentComplete(order, paymentDetail);
+  const fulfilmentActiveWeight = paymentComplete ? (STATUS_WEIGHTS[order.status] ?? -1) : -1;
+  const paymentActive = !isCancelled && !paymentComplete;
+  const paymentHint = paymentStepHint(order, paymentDetail);
 
   // Payment breakdown
   const subtotal    = order.subtotal ?? (order.pharmacyPrice ?? 0);
@@ -366,6 +403,7 @@ export default function OrderDetailPage() {
       {/* Back */}
       <button
         onClick={() => router.back()}
+        aria-label={t.order_back}
         className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-farumasi-700 dark:hover:text-emerald-400 mb-5 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -426,6 +464,29 @@ export default function OrderDetailPage() {
         />
       )}
 
+      {canRetryPayment && paymentDetail && (
+        <OrderPaymentSection
+          paymentDetail={paymentDetail}
+          orderTotal={total}
+          paymentStatus={order.paymentStatus ?? "pending"}
+          retryPaymentMethod={retryPaymentMethod}
+          onMethodChange={setRetryPaymentMethod}
+          retryPhone={retryPhone}
+          onPhoneChange={setRetryPhone}
+          feePercent={retryPaymentMethod === "manual_momo" ? 0 : PAYMENT_FEE_PCT}
+          enabledMethods={enabledRetryMethods}
+          manualMomoConfig={manualMomoConfig}
+          manualDraft={manualDraft}
+          onManualDraftChange={setManualDraft}
+          submittingManual={submittingManual}
+          retryingPayment={retryingPayment}
+          retryPhoneReady={retryPhoneReady}
+          onSubmitManual={() => void handleSubmitManualProof()}
+          onRetryPayment={() => void handleRetryPayment()}
+          onRefresh={() => void loadOrder()}
+        />
+      )}
+
       {/* ── Live tracking map ────────────────────────────────────────── */}
       {order.status === "out_for_delivery" && (
         <div className="rounded-3xl overflow-hidden border border-farumasi-100 mb-4 shadow-sm">
@@ -482,18 +543,55 @@ export default function OrderDetailPage() {
       {/* ── Status timeline ──────────────────────────────────────────── */}
       {!isCancelled ? (
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">
-          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4" id="order-progress-heading">
             {isPickup ? "Pickup Progress" : t.order_progress}
           </h2>
-          <div className="space-y-0">
+          <ol className="space-y-0" aria-labelledby="order-progress-heading">
+            {/* Payment step — always first */}
+            <li className="flex gap-3" aria-current={paymentActive ? "step" : undefined}>
+              <div className="flex flex-col items-center" aria-hidden>
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 transition-all",
+                  paymentComplete
+                    ? "bg-farumasi-600 border-farumasi-600"
+                    : paymentActive
+                    ? "bg-white dark:bg-slate-800 border-farumasi-400 ring-4 ring-farumasi-100 dark:ring-emerald-900/40"
+                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600",
+                )}>
+                  {paymentComplete
+                    ? <CheckCircle className="w-4 h-4 text-white" />
+                    : <Banknote className="w-4 h-4 text-farumasi-500" />}
+                </div>
+                <div className={cn(
+                  "w-0.5 flex-1 min-h-[24px] mt-1",
+                  paymentComplete ? "bg-farumasi-400" : "bg-slate-100 dark:bg-slate-700",
+                )} />
+              </div>
+              <div className="pb-5 pt-1 min-w-0 flex-1">
+                <p className={cn(
+                  "text-sm font-semibold",
+                  paymentActive ? "text-farumasi-700 dark:text-emerald-300" : paymentComplete ? "text-slate-700 dark:text-slate-200" : "text-slate-300 dark:text-slate-600",
+                )}>
+                  Payment
+                </p>
+                <p className={cn(
+                  "text-xs mt-0.5",
+                  paymentActive ? "text-farumasi-500 dark:text-emerald-400 font-medium" : paymentComplete ? "text-slate-400 dark:text-slate-500" : "text-slate-300 dark:text-slate-600",
+                )}>
+                  {paymentComplete ? "Payment confirmed" : paymentHint}
+                </p>
+              </div>
+            </li>
+
             {timelineSteps.map((step, i) => {
               const weight = STATUS_WEIGHTS[step.key] ?? i;
-              const done   = weight <= activeWeight;
-              const active = step.key === order.status;
+              const done   = paymentComplete && weight <= fulfilmentActiveWeight;
+              const active = paymentComplete && step.key === order.status;
               const last   = i === timelineSteps.length - 1;
+              const blockedHint = !paymentComplete && i === 0 ? "Waiting for payment" : step.hint;
               return (
-                <div key={step.key} className="flex gap-3">
-                  <div className="flex flex-col items-center">
+                <li key={step.key} className="flex gap-3" aria-current={active ? "step" : undefined}>
+                  <div className="flex flex-col items-center" aria-hidden>
                     <div className={cn(
                       "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 transition-all",
                       done
@@ -504,7 +602,7 @@ export default function OrderDetailPage() {
                     )}>
                       {done
                         ? <CheckCircle className="w-4 h-4 text-white" />
-                        : <span className="text-slate-300 dark:text-slate-600 text-xs font-bold">{i + 1}</span>}
+                        : <span className="text-slate-300 dark:text-slate-600 text-xs font-bold">{i + 2}</span>}
                     </div>
                     {!last && (
                       <div className={cn(
@@ -520,16 +618,16 @@ export default function OrderDetailPage() {
                     )}>
                       {step.label}
                     </p>
-                    {(active || done) && (
+                    {(active || done || (!paymentComplete && i === 0)) && (
                       <p className={cn("text-xs mt-0.5", active ? "text-farumasi-500 dark:text-emerald-400 font-medium" : "text-slate-400 dark:text-slate-500")}>
-                        {step.hint}
+                        {!paymentComplete && i === 0 ? blockedHint : step.hint}
                       </p>
                     )}
                   </div>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ol>
         </div>
       ) : (
         <div className="bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 rounded-3xl p-5 mb-4 flex items-center gap-3">
@@ -770,29 +868,6 @@ export default function OrderDetailPage() {
           </div>
         </div>
       ))}
-
-      {canRetryPayment && paymentDetail && (
-        <OrderPaymentSection
-          paymentDetail={paymentDetail}
-          orderTotal={total}
-          paymentStatus={order.paymentStatus ?? "pending"}
-          retryPaymentMethod={retryPaymentMethod}
-          onMethodChange={setRetryPaymentMethod}
-          retryPhone={retryPhone}
-          onPhoneChange={setRetryPhone}
-          feePercent={PAYMENT_FEE_PCT}
-          enabledMethods={enabledRetryMethods}
-          manualMomoConfig={manualMomoConfig}
-          manualDraft={manualDraft}
-          onManualDraftChange={setManualDraft}
-          submittingManual={submittingManual}
-          retryingPayment={retryingPayment}
-          retryPhoneReady={retryPhoneReady}
-          onSubmitManual={() => void handleSubmitManualProof()}
-          onRetryPayment={() => void handleRetryPayment()}
-          onRefresh={() => void loadOrder()}
-        />
-      )}
 
       {/* ── Actions ──────────────────────────────────────────────────── */}
       <div className="space-y-3">

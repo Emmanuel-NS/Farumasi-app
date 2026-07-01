@@ -83,7 +83,7 @@ export function Sidebar({
       )}
       style={{ width }}
     >
-      <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-visible scrollbar-hide pt-2.5 pb-1 px-2 space-y-0.5">
+      <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-visible scrollbar-hide pt-2.5 pb-1 px-2 space-y-0.5" aria-label="Main navigation">
         {primaryNav.map((item) => (
           <SidebarItem
             key={item.href}
@@ -228,6 +228,7 @@ function SidebarItem({
       prefetch
       onClick={() => onNavigate?.()}
       title={collapsed ? item.label : undefined}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "flex items-center rounded-xl transition-all duration-180",
         collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px] gap-3",

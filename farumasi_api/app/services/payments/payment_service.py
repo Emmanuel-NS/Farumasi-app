@@ -79,7 +79,9 @@ def _safe_payment_email(email: str, order_id: str) -> str:
     return f"patient.{order_id[:8]}@farumasi.rw"
 
 
-def payment_processing_fee(amount: float) -> float:
+def payment_processing_fee(amount: float, *, method: str | None = None) -> float:
+    if method == "manual_momo":
+        return 0.0
     pct = float(settings.PAYMENT_PROCESSING_FEE_PERCENT or 0)
     if pct <= 0 or amount <= 0:
         return 0.0
@@ -517,9 +519,18 @@ class PaymentService:
 
         breakdown = order_payment_breakdown(order)
         payable = breakdown["payable_balance"]
-        proc_on_balance = payment_processing_fee(payable) if payable > 0 else 0
-        charge = round(payable + proc_on_balance, 0) if payable > 0 else 0
         awaiting_manual = order.payment_status == PaymentStatus.AWAITING_REVIEW
+        manual_fee_free = (
+            awaiting_manual
+            or order.payment_method == "manual_momo"
+            or (pending_txn and pending_txn.method == "manual_momo")
+        )
+        proc_on_balance = (
+            0.0
+            if manual_fee_free
+            else (payment_processing_fee(payable) if payable > 0 else 0)
+        )
+        charge = round(payable + proc_on_balance, 0) if payable > 0 else 0
         admin_note = await self._latest_admin_payment_note(order.id)
 
         return PaymentStatusOut(
@@ -876,7 +887,7 @@ class PaymentService:
             )
 
         due = amount_due_for_order(order)
-        processing_fee = payment_processing_fee(due)
+        processing_fee = payment_processing_fee(due, method="manual_momo")
         charge_amount = round(due + processing_fee, 0)
 
         if charge_amount <= 0:

@@ -116,6 +116,9 @@ export function SidebarPreferences({ collapsed }: { collapsed: boolean }) {
       <button
         type="button"
         onClick={toggleTheme}
+        role="switch"
+        aria-checked={darkActive}
+        aria-label={darkActive ? t.theme_light : t.theme_dark}
         title={darkActive ? t.theme_light : t.theme_dark}
         className={cn(
           "w-full flex items-center rounded-lg transition-colors hover:bg-white/10",
@@ -135,8 +138,7 @@ export function SidebarPreferences({ collapsed }: { collapsed: boolean }) {
               {darkActive ? t.theme_light : t.theme_dark}
             </span>
             <span
-              role="switch"
-              aria-checked={darkActive}
+              aria-hidden
               className={cn(
                 "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors",
                 darkActive

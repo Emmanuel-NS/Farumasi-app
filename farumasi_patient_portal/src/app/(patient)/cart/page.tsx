@@ -2010,7 +2010,12 @@ export default function CartPage() {
     const orderSubtotal = Math.round(
       amountDueNow > 0 ? amountDueNow : medicineSubtotal + (deferDeliveryFee ? 0 : deliveryFeeAmount),
     );
-    const processingFee = orderSubtotal > 0 ? Math.round(orderSubtotal * PAYMENT_FEE_PCT / 100) : 0;
+    const processingFee =
+      paymentMethod === "manual_momo"
+        ? 0
+        : orderSubtotal > 0
+          ? Math.round(orderSubtotal * PAYMENT_FEE_PCT / 100)
+          : 0;
     const totalWithFee = orderSubtotal + processingFee;
 
     return (

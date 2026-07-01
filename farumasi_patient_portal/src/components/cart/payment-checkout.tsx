@@ -5,13 +5,14 @@ import {
   CheckCircle2,
   CreditCard,
   Copy,
+  FileText,
   Loader2,
   Smartphone,
   Upload,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import api from "@/lib/api";
+import api, { mediaUrl } from "@/lib/api";
 import { toast } from "sonner";
 import type { ManualPaymentDraft } from "@/lib/checkout-progress";
 import type { ManualMomoConfig } from "@/components/cart/manual-payment-panel";
@@ -99,9 +100,14 @@ export function PaymentCheckout({
       <div className="rounded-2xl bg-slate-900 px-5 py-4 text-white">
         <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-300/80">Pay now</p>
         <p className="mt-1 text-3xl font-extrabold tracking-tight">{formatPrice(totalWithFee)}</p>
-        {processingFee > 0 && (
+        {processingFee > 0 && selected !== "manual_momo" && (
           <p className="mt-1 text-xs text-slate-400">
             Includes {feePercent}% fee · medicines {formatPrice(orderSubtotal)}
+          </p>
+        )}
+        {selected === "manual_momo" && (
+          <p className="mt-1 text-xs text-slate-400">
+            No processing fee on MoMo pay code
           </p>
         )}
       </div>
@@ -199,6 +205,10 @@ export function PaymentCheckout({
   );
 }
 
+function isPdfProof(url: string): boolean {
+  return /\.pdf($|\?)/i.test(url);
+}
+
 function ManualPayBlock({
   amount,
   config,
@@ -247,6 +257,13 @@ function ManualPayBlock({
 
   return (
     <div className="space-y-3 rounded-2xl border-2 border-emerald-300 bg-gradient-to-b from-emerald-50 to-white p-4 dark:border-emerald-700 dark:from-emerald-950/40 dark:to-slate-900">
+      <div aria-live="polite" className="sr-only">
+        {uploading
+          ? "Uploading payment proof"
+          : draft.proofUrls.length
+            ? `${draft.proofUrls.length} payment proof file${draft.proofUrls.length === 1 ? "" : "s"} uploaded`
+            : ""}
+      </div>
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
@@ -290,8 +307,59 @@ function ManualPayBlock({
           accept="image/*,application/pdf"
           multiple
           className="hidden"
+          aria-hidden
           onChange={(e) => void handleFiles(e.target.files)}
         />
+        {draft.proofUrls.length > 0 && (
+          <div
+            className="mb-3 grid grid-cols-2 gap-2"
+            role="list"
+            aria-label="Uploaded payment proof"
+          >
+            {draft.proofUrls.map((url, i) => {
+              const src = mediaUrl(url);
+              const isPdf = isPdfProof(url);
+              return (
+                <div
+                  key={url}
+                  role="listitem"
+                  className="relative overflow-hidden rounded-xl border border-emerald-200 bg-white shadow-sm dark:border-emerald-800 dark:bg-slate-800"
+                >
+                  {isPdf ? (
+                    <a
+                      href={src}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex h-28 flex-col items-center justify-center gap-1.5 px-2 text-center text-xs font-semibold text-emerald-800 dark:text-emerald-200"
+                    >
+                      <FileText className="h-8 w-8" aria-hidden />
+                      <span>PDF proof {i + 1}</span>
+                      <span className="text-[10px] font-normal text-slate-500">Tap to open</span>
+                    </a>
+                  ) : (
+                    <a href={src} target="_blank" rel="noopener noreferrer" className="block">
+                      <img
+                        src={src}
+                        alt={`Payment proof ${i + 1}`}
+                        className="h-28 w-full object-cover"
+                      />
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`Remove payment proof ${i + 1}`}
+                    onClick={() =>
+                      onDraftChange({ ...draft, proofUrls: draft.proofUrls.filter((u) => u !== url) })
+                    }
+                    className="absolute right-1.5 top-1.5 rounded-full bg-slate-900/70 p-1 text-white hover:bg-red-600"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <button
           type="button"
           disabled={uploading || draft.proofUrls.length >= 5}
@@ -304,37 +372,16 @@ function ManualPayBlock({
           )}
         >
           {uploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           ) : (
-            <Upload className="h-4 w-4" />
+            <Upload className="h-4 w-4" aria-hidden />
           )}
           {uploading
             ? "Uploading…"
             : draft.proofUrls.length
-              ? `${draft.proofUrls.length} file(s) — add more`
+              ? "Add another proof"
               : "Upload payment screenshot"}
         </button>
-        {draft.proofUrls.length > 0 && (
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {draft.proofUrls.map((url, i) => (
-              <li
-                key={url}
-                className="flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[11px] text-slate-600 shadow-sm dark:bg-slate-800"
-              >
-                Proof {i + 1}
-                <button
-                  type="button"
-                  onClick={() =>
-                    onDraftChange({ ...draft, proofUrls: draft.proofUrls.filter((u) => u !== url) })
-                  }
-                  className="rounded p-0.5 text-slate-400 hover:text-red-500"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </div>
   );

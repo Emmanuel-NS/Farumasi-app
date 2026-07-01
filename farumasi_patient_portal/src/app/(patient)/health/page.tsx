@@ -19,6 +19,8 @@ import {
   Share2,
   Bookmark,
   SlidersHorizontal,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import type { HealthArticle, ArticleType } from "@/types";
 import { articlesService, type ArticleSort } from "@/lib/services/articles.service";
@@ -41,6 +43,9 @@ const TABS = [
 ] as const;
 
 type Tab = (typeof TABS)[number];
+type ArticleViewMode = "grid" | "list";
+
+const HEALTH_VIEW_STORAGE_KEY = "health-article-view";
 
 // Maps backend category strings → which patient tabs they belong to.
 // Categories NOT listed here fall into the "Others" tab.
@@ -119,6 +124,7 @@ export default function HealthPage() {
   const [typeFilter, setTypeFilter] = useState<"all" | ArticleType>("all");
   const [sortBy, setSortBy] = useState<ArticleSort>("newest");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ArticleViewMode>("grid");
   const healthTabScrollRef = useRef<HTMLDivElement>(null);
   const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
   const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
@@ -470,7 +476,7 @@ export default function HealthPage() {
             {/* Grid — always show all articles */}
             {gridArticles.length > 0 && (
               <>
-                <div className="flex items-end justify-between pt-1">
+                <div className="flex items-end justify-between pt-1 gap-3">
                   <h2 className="text-[15px] font-bold text-slate-900">
                     {lang === "rw"
                       ? "Ibindi byasomwa"
@@ -478,18 +484,68 @@ export default function HealthPage() {
                       ? "À lire aussi"
                       : "More to read"}
                   </h2>
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    {gridArticles.length} {gridArticles.length === 1 ? "article" : "articles"}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                      {gridArticles.length} {gridArticles.length === 1 ? "article" : "articles"}
+                    </span>
+                    <div
+                      className="hidden sm:flex items-center rounded-lg border border-slate-200 bg-white p-0.5"
+                      role="group"
+                      aria-label="Article layout"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("grid")}
+                        className={cn(
+                          "p-1.5 rounded-md transition-colors",
+                          viewMode === "grid"
+                            ? "bg-farumasi-600 text-white shadow-sm"
+                            : "text-slate-500 hover:text-slate-700 hover:bg-slate-50",
+                        )}
+                        aria-pressed={viewMode === "grid"}
+                        title="Grid view"
+                      >
+                        <LayoutGrid className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("list")}
+                        className={cn(
+                          "p-1.5 rounded-md transition-colors",
+                          viewMode === "list"
+                            ? "bg-farumasi-600 text-white shadow-sm"
+                            : "text-slate-500 hover:text-slate-700 hover:bg-slate-50",
+                        )}
+                        aria-pressed={viewMode === "list"}
+                        title="List view"
+                      >
+                        <List className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {gridArticles.map((article) => (
-                    <ModernArticleCard
-                      key={article.id}
-                      article={article}
-                      onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)}
-                    />
-                  ))}
+                <div
+                  className={cn(
+                    viewMode === "grid"
+                      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                      : "flex flex-col gap-3",
+                  )}
+                >
+                  {gridArticles.map((article) =>
+                    viewMode === "grid" ? (
+                      <ModernArticleCard
+                        key={article.id}
+                        article={article}
+                        onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)}
+                      />
+                    ) : (
+                      <ArticleListRow
+                        key={article.id}
+                        article={article}
+                        onSelect={(a) => router.push(`/health/${a.slug ?? a.id}`)}
+                      />
+                    ),
+                  )}
                 </div>
               </>
             )}
@@ -608,6 +664,100 @@ function FeaturedRailCard({
           <span className="inline-flex items-center gap-0.5 ml-auto">
             <Clock className="w-2.5 h-2.5" />
             {timeAgo(article.publishedAt) || `${article.readTimeMin}m`}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* ── ArticleListRow ─────────────────────────────────────────────────────── */
+function ArticleListRow({
+  article,
+  onSelect,
+}: {
+  article: HealthArticle;
+  onSelect: (a: HealthArticle) => void;
+}) {
+  const hasVideo = Boolean(article.videoUrl);
+  const extraCats = (article.categories?.length ?? 0) > 1 ? article.categories!.length - 1 : 0;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(article)}
+      className="group w-full text-left flex gap-3 sm:gap-4 p-3 sm:p-4 rounded-[16px] sm:rounded-[20px] bg-white border border-slate-100 shadow-[0_2px_8px_rgba(15,23,42,0.04)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] hover:border-farumasi-200 transition-all duration-200"
+    >
+      <div className="relative w-24 sm:w-32 lg:w-40 xl:w-44 aspect-[4/3] shrink-0 rounded-xl overflow-hidden bg-slate-100">
+        {article.imageUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={article.imageUrl}
+            alt=""
+            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-farumasi-200 to-farumasi-50 flex items-center justify-center">
+            <BookOpen className="w-8 h-8 text-farumasi-400" />
+          </div>
+        )}
+        {hasVideo && (
+          <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 bg-red-600 rounded-full px-1.5 py-0.5">
+            <svg className="w-2.5 h-2.5 text-white fill-white" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            <span className="text-[9px] font-bold text-white uppercase">Video</span>
+          </span>
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0 flex flex-col py-0.5">
+        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+          <span className="inline-block bg-farumasi-50 text-farumasi-700 border border-farumasi-100 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.6px] truncate max-w-[140px] sm:max-w-none">
+            {article.category}
+          </span>
+          {extraCats > 0 && (
+            <span className="inline-block bg-slate-100 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+              +{extraCats}
+            </span>
+          )}
+          {article.articleType && article.articleType !== "article" && (
+            <span className="inline-block bg-slate-800 rounded-full px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-[0.6px]">
+              {article.articleType === "did_you_know" ? "DYK" : article.articleType}
+            </span>
+          )}
+          {article.isSaved && (
+            <Bookmark className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+          )}
+        </div>
+
+        <p className="text-[15px] sm:text-[16px] font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-farumasi-700 transition-colors">
+          {article.title}
+        </p>
+        <p className="text-[12px] sm:text-[13px] text-slate-500 leading-relaxed line-clamp-2 mt-1 mb-2">
+          {article.summary || article.subtitle}
+        </p>
+
+        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-400 text-[11px] font-semibold">
+          <span className="inline-flex items-center gap-1">
+            <Heart className={cn("w-3.5 h-3.5", article.isLiked && "fill-red-500 text-red-500")} />
+            {compactNumber(article.likeCount ?? 0)}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <MessageCircle className="w-3.5 h-3.5" />
+            {compactNumber(article.commentCount ?? 0)}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Eye className="w-3.5 h-3.5" />
+            {compactNumber(article.viewCount ?? 0)}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Share2 className="w-3.5 h-3.5" />
+            {compactNumber(article.shareCount ?? 0)}
+          </span>
+          <span className="inline-flex items-center gap-1 sm:ml-auto text-slate-500">
+            <Clock className="w-3.5 h-3.5" />
+            {timeAgo(article.publishedAt) || `${article.readTimeMin}m read`}
           </span>
         </div>
       </div>

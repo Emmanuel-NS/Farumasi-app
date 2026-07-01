@@ -16,6 +16,7 @@ import { ConsultNotificationsMount } from "@/components/consult/consult-notifica
 import { PatientLocationMount } from "@/components/providers/patient-location-mount";
 import { useSidebarResize } from "@/hooks/use-sidebar-resize";
 import { PermissionSetupBanner } from "@/components/permission-setup-banner";
+import { SkipLink } from "@/components/a11y/skip-link";
 
 const MOBILE_NAV_MQ = "(max-width: 639px)";
 
@@ -126,6 +127,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
       <ConsultNotificationsMount />
       <PatientLocationMount />
       <PermissionSetupBanner />
+      <SkipLink />
       <div className="flex flex-col h-screen overflow-hidden patient-nav-shell">
         <Topbar
           collapsed={collapsed}
@@ -174,6 +176,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
           <div className={cn("flex flex-1 min-w-0 min-h-0 overflow-hidden", activePanel ? "sm:gap-3" : "")}>
             <main
+              id="main-content"
+              tabIndex={-1}
               className={cn(
                 "patient-main-pane flex-1 min-w-0 overflow-y-auto scrollbar-hide bg-[#F6F8FB] dark:bg-[#0f172a]",
                 "rounded-tl-[20px] sm:rounded-tl-[32px]",
