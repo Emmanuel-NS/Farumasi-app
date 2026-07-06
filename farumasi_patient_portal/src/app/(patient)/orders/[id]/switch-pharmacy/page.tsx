@@ -98,14 +98,14 @@ export default function SwitchPharmacyPage() {
 
   if (loading) {
     return (
-      <div className="p-6 text-center py-24">
-        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-farumasi-600 border-t-transparent" />
+      <div className="flex flex-1 min-h-0 items-center justify-center overflow-y-auto w-full p-6">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-farumasi-600 border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-4 pb-10 md:p-6">
+    <div className="flex flex-col flex-1 min-h-0 overflow-y-auto w-full p-4 pb-10 md:p-6 max-w-2xl mx-auto scrollbar-hide">
       <div className="mb-5 flex items-center justify-between gap-3">
         <Link
           href={`/orders/${id}`}
