@@ -34,6 +34,7 @@ import {
   type ManualPaymentDraft,
   type PendingManualOrder,
 } from "@/lib/checkout-progress";
+import { syncOrderDraft } from "@/lib/order-drafts";
 import { useAuthStore } from "@/store/auth-store";
 import { usePatientLocation } from "@/hooks/use-patient-location";
 import { usePatientLocationStore } from "@/store/patient-location-store";
@@ -786,6 +787,28 @@ export default function CartPage() {
       manualDraft,
       pendingManualOrder,
     });
+    syncOrderDraft(
+      {
+        v: 1,
+        savedAt: Date.now(),
+        rxId,
+        recId,
+        cartKey,
+        step,
+        selectedPharmacyId: selectedOption?.pharmacy.id ?? null,
+        fulfillment,
+        name,
+        phone,
+        district,
+        deliveryHood,
+        notes,
+        deferDeliveryFee: false,
+        paymentMethod,
+        manualDraft,
+        pendingManualOrder,
+      },
+      effectiveItems.map((e) => e.medicine.name),
+    );
   }, [
     step,
     selectedOption,

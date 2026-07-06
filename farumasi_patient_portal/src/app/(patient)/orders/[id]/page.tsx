@@ -396,14 +396,14 @@ export default function OrderDetailPage() {
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-y-auto w-full p-4 md:p-6 max-w-2xl mx-auto pb-10">
       {/* Back */}
-      <button
-        onClick={() => router.back()}
+      <Link
+        href="/orders"
         aria-label={t.order_back}
-        className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-farumasi-700 dark:hover:text-emerald-400 mb-5 transition-colors"
+        className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-farumasi-700 dark:hover:text-emerald-400 mb-5 transition-colors w-fit"
       >
         <ArrowLeft className="w-4 h-4" />
         {t.order_back}
-      </button>
+      </Link>
 
       {/* ── Header card ─────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 mb-4">

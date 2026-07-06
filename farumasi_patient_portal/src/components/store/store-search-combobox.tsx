@@ -12,6 +12,7 @@ import {
   suggestQueryCorrection,
 } from "@/lib/store-search";
 import type { Medicine } from "@/types";
+import { useTranslation } from "@/lib/translations";
 import { StoreFilterButton } from "@/components/store/store-filter-button";
 
 interface StoreSearchComboboxProps {
@@ -39,6 +40,7 @@ export function StoreSearchCombobox({
   className,
 }: StoreSearchComboboxProps) {
   const router = useRouter();
+  const t = useTranslation();
   const { query, setQuery, clear } = useSearchStore();
   const clearStoreFilters = useStoreFilterStore((s) => s.clearAll);
   const storeFilterCount = storeActiveFilterCount(query);
@@ -210,6 +212,16 @@ export function StoreSearchCombobox({
             aria-label="Clear search"
           >
             <X className="w-4 h-4" />
+          </button>
+        )}
+        {isMobile && storeFilterCount > 0 && (
+          <button
+            type="button"
+            onClick={() => clearStoreFilters()}
+            className="shrink-0 text-xs font-bold text-white/90 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10"
+            aria-label="Clear all filters"
+          >
+            {t.store_clear_all}
           </button>
         )}
         {showFilter && !isMobile && (

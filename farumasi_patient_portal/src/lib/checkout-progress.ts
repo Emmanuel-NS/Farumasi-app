@@ -1,4 +1,5 @@
 import type { PaymentMethodId } from "@/components/cart/payment-checkout";
+import { removeOrderDraft } from "@/lib/order-drafts";
 
 export type CheckoutStep = "cart" | "pharmacy" | "details" | "payment" | "confirmed";
 
@@ -86,7 +87,25 @@ export function saveCheckoutProgress(progress: CheckoutProgress): void {
   }
 }
 
-export function clearCheckoutProgress(): void {
+export function clearCheckoutProgress(
+  rxId: string | null = null,
+  recId: string | null = null,
+  cartKey?: string,
+): void {
   if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw) as CheckoutProgress;
+      rxId = rxId ?? data.rxId;
+      recId = recId ?? data.recId;
+      cartKey = cartKey ?? data.cartKey;
+    }
+  } catch {
+    /* ignore */
+  }
   localStorage.removeItem(STORAGE_KEY);
+  if (cartKey) {
+    removeOrderDraft(cartKey, rxId, recId);
+  }
 }

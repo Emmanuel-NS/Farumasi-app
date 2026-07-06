@@ -13,10 +13,18 @@ import { useTranslation } from "@/lib/translations";
 import {
   Package, ChevronRight, Clock, Store, XCircle,
   RefreshCw, Truck, Building2, Pill, Banknote,
-  CheckCircle2, Trash2, Zap,
+  CheckCircle2, Trash2, Zap, FileEdit,
 } from "lucide-react";
 import { PharmacyReassignmentBadge } from "@/components/orders/pharmacy-reassignment-panel";
 import { orderBalanceDue, orderNeedsPayment } from "@/lib/order-payment";
+import {
+  listOrderDrafts,
+  removeOrderDraftById,
+  orderDraftSummary,
+  orderDraftStepLabel,
+  type OrderDraft,
+} from "@/lib/order-drafts";
+import { clearCheckoutProgress } from "@/lib/checkout-progress";
 import type { Order } from "@/types";
 
 const ACTIVE_STATUSES = new Set([
@@ -42,8 +50,10 @@ function saveArchived(ids: Set<string>) {
 const CANCELLED_STATUSES = new Set(["cancelled", "rejected", "failed"]);
 
 export default function OrdersPage() {
+  const router = useRouter();
   const [tab, setTab]             = useState<"active" | "past" | "cancelled">("active");
   const [orders, setOrders]       = useState<Order[]>([]);
+  const [drafts, setDrafts]       = useState<OrderDraft[]>([]);
   const [archived, setArchived]   = useState<Set<string>>(new Set());
   const [loading, setLoading]     = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -51,6 +61,17 @@ export default function OrdersPage() {
   const t = useTranslation();
 
   useEffect(() => { setArchived(loadArchived()); }, []);
+
+  const refreshDrafts = useCallback(() => {
+    setDrafts(listOrderDrafts());
+  }, []);
+
+  useEffect(() => {
+    refreshDrafts();
+    const onFocus = () => refreshDrafts();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refreshDrafts]);
 
   const archiveOrder = (id: string) => {
     setArchived((prev) => {
@@ -103,7 +124,11 @@ export default function OrdersPage() {
           {/* Tabs */}
           <div className="flex border-b border-slate-200 dark:border-slate-700 shrink-0">
             {(["active", "past", "cancelled"] as const).map((tabKey) => {
-              const count = tabKey === "active" ? activeOrders.length : tabKey === "past" ? pastOrders.length : cancelledOrders.length;
+              const count = tabKey === "active"
+                ? activeOrders.length + drafts.length
+                : tabKey === "past"
+                  ? pastOrders.length
+                  : cancelledOrders.length;
               return (
                 <button
                   key={tabKey}
@@ -155,24 +180,47 @@ export default function OrdersPage() {
                 <button onClick={() => load()} className="mt-2 px-5 py-2 rounded-xl bg-farumasi-600 text-white text-sm font-semibold hover:bg-farumasi-700 transition-colors">Retry</button>
               </div>
             ) : tab === "active" ? (
-              activeOrders.length === 0 ? (
-                <EmptyOrders message={t.orders_no_active} />
-              ) : (
-                <div
-                  className={cn(
-                    "w-full max-w-3xl mx-auto flex-1 flex flex-col gap-4",
-                    activeOrders.length <= 4 && "min-h-0",
-                  )}
-                >
-                  {activeOrders.map((order) => (
-                    <ActiveOrderCard
-                      key={order.id}
-                      order={order}
-                      stretch={activeOrders.length <= 4}
-                    />
-                  ))}
-                </div>
-              )
+              <>
+                {drafts.length > 0 && (
+                  <div className="w-full max-w-3xl mx-auto mb-5 space-y-3">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
+                      {t.orders_drafts}
+                    </h2>
+                    {drafts.map((draft) => (
+                      <DraftOrderCard
+                        key={draft.id}
+                        draft={draft}
+                        onContinue={() => router.push(draft.resumeUrl)}
+                        onDiscard={() => {
+                          removeOrderDraftById(draft.id);
+                          clearCheckoutProgress(draft.rxId, draft.recId, draft.cartKey);
+                          refreshDrafts();
+                        }}
+                        stepLabel={t.orders_draft_step}
+                        continueLabel={t.orders_continue_checkout}
+                      />
+                    ))}
+                  </div>
+                )}
+                {activeOrders.length === 0 && drafts.length === 0 ? (
+                  <EmptyOrders message={t.orders_no_active} />
+                ) : activeOrders.length === 0 ? null : (
+                  <div
+                    className={cn(
+                      "w-full max-w-3xl mx-auto flex-1 flex flex-col gap-4",
+                      activeOrders.length <= 4 && "min-h-0",
+                    )}
+                  >
+                    {activeOrders.map((order) => (
+                      <ActiveOrderCard
+                        key={order.id}
+                        order={order}
+                        stretch={activeOrders.length <= 4}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             ) : tab === "past" ? (
               pastOrders.length === 0 ? (
                 <EmptyOrders message={t.orders_no_past} />
@@ -198,6 +246,53 @@ export default function OrdersPage() {
         </div>
       </PinGate>
     </GuestGate>
+  );
+}
+
+function DraftOrderCard({
+  draft,
+  onContinue,
+  onDiscard,
+  stepLabel,
+  continueLabel,
+}: {
+  draft: OrderDraft;
+  onContinue: () => void;
+  onDiscard: () => void;
+  stepLabel: string;
+  continueLabel: string;
+}) {
+  return (
+    <div className="bg-amber-50 dark:bg-amber-950/25 rounded-3xl border border-amber-200 dark:border-amber-800/50 p-4 flex items-start gap-3">
+      <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+        <FileEdit className="w-5 h-5 text-amber-700 dark:text-amber-300" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+          {orderDraftSummary(draft)}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          {stepLabel}: {orderDraftStepLabel(draft.step)} · {timeAgo(new Date(draft.savedAt).toISOString())}
+        </p>
+        <button
+          type="button"
+          onClick={onContinue}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-farumasi-700 dark:text-emerald-300 hover:underline"
+        >
+          {continueLabel}
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={onDiscard}
+        className="p-2 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0"
+        aria-label="Discard draft"
+        title="Discard draft"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+    </div>
   );
 }
 

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useLanguageStore } from "@/store/language-store";
 import { cn, formatPrice, getInitials } from "@/lib/utils";
 import { useSearchStore } from "@/store/search-store";
-import { useStoreFilterStore } from "@/store/store-filter-store";
+import { useStoreFilterStore, storeActiveFilterCount } from "@/store/store-filter-store";
 import { useCartStore } from "@/store/cart-store";
 import type { Medicine, Recommendation } from "@/types";
 import { toast } from "sonner";
@@ -137,6 +137,7 @@ function StorePageInner() {
   const [backendCategories, setBackendCategories] = useState<{ name: string; icon_name: string }[]>([]);
   const [activePrescription, setActivePrescription] = useState<DigitalPrescription | null>(null);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [productsLoadError, setProductsLoadError] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recLoading, setRecLoading] = useState(false);
   const [recError, setRecError] = useState<string | null>(null);
@@ -147,6 +148,8 @@ function StorePageInner() {
 
   useEffect(() => {
     let cancelled = false;
+    setProductsLoadError(false);
+    setLoadingProducts(true);
     Promise.all([
       productsService.getAllProducts(),
       productsService.getCategories(),
@@ -164,7 +167,12 @@ function StorePageInner() {
         .map((c) => ({ name: c.name, icon_name: c.icon_name }))
         .sort((a, b) => (countMap[b.name] ?? 0) - (countMap[a.name] ?? 0));
       setBackendCategories(sorted);
-    }).catch(() => toast.error("Failed to load products")).finally(() => {
+    }).catch(() => {
+      if (!cancelled) {
+        setProductsLoadError(true);
+        toast.error("Failed to load products. Check your connection.");
+      }
+    }).finally(() => {
       if (!cancelled) setLoadingProducts(false);
     });
     return () => {
@@ -305,7 +313,9 @@ function StorePageInner() {
     [selectedCategoriesArr],
   );
   const showFilters = useStoreFilterStore((s) => s.showFilters);
+  const clearAllFilters = useStoreFilterStore((s) => s.clearAll);
   const toggleCategoryStore = useStoreFilterStore((s) => s.toggleCategory);
+  const activeFilterCount = storeActiveFilterCount(query);
   const PRODUCT_TYPES = [
     { value: "medicine",         label: "Medicine" },
     { value: "medical_device",   label: "Medical Device" },
@@ -701,6 +711,18 @@ function StorePageInner() {
         <div className="px-4 md:px-6 relative">
           {showFilters && (
             <div className="relative z-[55] -mx-4 md:-mx-6 px-4 md:px-6 py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Filters</span>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => clearAllFilters()}
+                    className="text-xs font-semibold text-red-600 hover:text-red-700 dark:text-red-400 px-2.5 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                  >
+                    {t.store_clear_all}
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-sm font-medium text-slate-600 shrink-0">{t.store_sort_by}</span>
                 {(
@@ -877,6 +899,21 @@ function StorePageInner() {
         </div>
       </div>
 
+      {activeFilterCount > 0 && (
+        <div className="flex items-center justify-between gap-2 mb-3 px-1 py-2 rounded-xl bg-farumasi-50 dark:bg-emerald-950/30 border border-farumasi-100 dark:border-emerald-900/40">
+          <span className="text-xs font-medium text-farumasi-800 dark:text-emerald-200">
+            {activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""} active
+          </span>
+          <button
+            type="button"
+            onClick={() => clearAllFilters()}
+            className="text-xs font-bold text-farumasi-700 dark:text-emerald-300 hover:underline shrink-0"
+          >
+            {t.store_clear_all}
+          </button>
+        </div>
+      )}
+
       {/* ── Section heading — dynamic like Flutter ────────── */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-[19px] font-bold text-[#0F172A]">{sectionTitle}</h2>
@@ -888,11 +925,60 @@ function StorePageInner() {
       {/* ── Medicine Grid — Flutter SliverGrid with MedicineItem card ───────── */}
       {loadingProducts ? (
         <ShimmerProductGrid count={10} />
+      ) : productsLoadError ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-3 max-w-sm mx-auto text-center">
+          <span className="text-4xl">⚠️</span>
+          <p className="font-semibold text-slate-700 dark:text-slate-200">Couldn&apos;t load medicines</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Check your internet connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setProductsLoadError(false);
+              setLoadingProducts(true);
+              Promise.all([productsService.getAllProducts(), productsService.getCategories()])
+                .then(([prods, cats]) => {
+                  setMedicines(prods);
+                  const countMap: Record<string, number> = {};
+                  for (const p of prods) {
+                    for (const cat of p.category.split(",").map((s) => s.trim()).filter(Boolean)) {
+                      countMap[cat] = (countMap[cat] ?? 0) + 1;
+                    }
+                  }
+                  setBackendCategories(
+                    cats
+                      .map((c) => ({ name: c.name, icon_name: c.icon_name }))
+                      .sort((a, b) => (countMap[b.name] ?? 0) - (countMap[a.name] ?? 0)),
+                  );
+                })
+                .catch(() => {
+                  setProductsLoadError(true);
+                  toast.error("Still unable to load. Check your connection.");
+                })
+                .finally(() => setLoadingProducts(false));
+            }}
+            className="mt-2 px-5 py-2 rounded-xl bg-farumasi-600 text-white text-sm font-semibold hover:bg-farumasi-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24">
+        <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
           <LayoutGrid className="w-14 h-14 text-slate-200 mb-3" />
-          <p className="text-slate-600 font-semibold">{t.store_no_medicines}</p>
-          <p className="text-slate-400 text-sm mt-1">{t.store_try_search}</p>
+          <p className="text-slate-600 font-semibold">
+            {medicines.length === 0 ? t.store_no_medicines : "No medicines match your filters"}
+          </p>
+          <p className="text-slate-400 text-sm mt-1">
+            {medicines.length === 0 ? t.store_try_search : "Try a different search or clear your filters."}
+          </p>
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={() => clearAllFilters()}
+              className="mt-4 px-5 py-2 rounded-xl bg-farumasi-600 text-white text-sm font-semibold hover:bg-farumasi-700 transition-colors"
+            >
+              {t.store_clear_all}
+            </button>
+          )}
         </div>
       ) : (
         /* Flutter: SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent:~220, mainAxisExtent:~300, crossAxisSpacing:14, mainAxisSpacing:14) */

@@ -274,6 +274,9 @@ export type T = {
   orders_no_active: string;
   orders_no_past: string;
   orders_track: string;
+  orders_drafts: string;
+  orders_continue_checkout: string;
+  orders_draft_step: string;
   // Order statuses
   status_pending: string;
   status_confirmed: string;
@@ -687,6 +690,9 @@ const translations: Record<LangCode, T> = {
     orders_no_active: "No active orders",
     orders_no_past: "No past orders",
     orders_track: "Track",
+    orders_drafts: "Draft orders",
+    orders_continue_checkout: "Continue checkout",
+    orders_draft_step: "Stopped at",
     status_pending: "Pending",
     status_confirmed: "Confirmed",
     status_preparing: "Preparing",
@@ -1088,6 +1094,9 @@ const translations: Record<LangCode, T> = {
     orders_no_active: "Nta mabwiriza agikorwa",
     orders_no_past: "Nta mabwiriza ashize",
     orders_track: "Kurikirana",
+    orders_drafts: "Ibyatumijwe bidasoza",
+    orders_continue_checkout: "Komeza kwishyura",
+    orders_draft_step: "Wahagaze kuri",
     status_pending: "Gutegereza",
     status_confirmed: "Byemejwe",
     status_preparing: "Bategura",
@@ -1489,6 +1498,9 @@ const translations: Record<LangCode, T> = {
     orders_no_active: "Aucune commande active",
     orders_no_past: "Aucune commande passée",
     orders_track: "Suivre",
+    orders_drafts: "Commandes en cours",
+    orders_continue_checkout: "Continuer le paiement",
+    orders_draft_step: "Arrêté à",
     status_pending: "En Attente",
     status_confirmed: "Confirmée",
     status_preparing: "En Préparation",
@@ -1890,6 +1902,9 @@ const translations: Record<LangCode, T> = {
     orders_no_active: "Hakuna maagizo yanayoendelea",
     orders_no_past: "Hakuna maagizo ya zamani",
     orders_track: "Fuatilia",
+    orders_drafts: "Maagizo ya rasimu",
+    orders_continue_checkout: "Endelea malipo",
+    orders_draft_step: "Umesimama kwenye",
     status_pending: "Inasubiri",
     status_confirmed: "Imethibitishwa",
     status_preparing: "Inaandaliwa",

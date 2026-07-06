@@ -1,6 +1,6 @@
 "use client";
 
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/translations";
 import { useSearchStore } from "@/store/search-store";
@@ -27,6 +27,7 @@ export function StoreFilterButton({
   const sort = useStoreFilterStore((s) => s.sort);
   const showFilters = useStoreFilterStore((s) => s.showFilters);
   const toggleShowFilters = useStoreFilterStore((s) => s.toggleShowFilters);
+  const clearAllFilters = useStoreFilterStore((s) => s.clearAll);
   const activeFilterCount = storeActiveFilterCount(query);
 
   const sortLabel =
@@ -40,27 +41,39 @@ export function StoreFilterButton({
 
   if (iconOnly) {
     return (
-      <button
-        type="button"
-        onClick={() => toggleShowFilters()}
-        className={cn(
-          "relative p-2 rounded-lg transition-colors shrink-0",
-          active ? "bg-white/25 text-white" : "text-white/80 hover:text-white hover:bg-white/10",
-          className,
-        )}
-        aria-expanded={showFilters}
-        aria-label={
-          activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters"
-        }
-        title="Filters"
-      >
-        <SlidersHorizontal className="w-5 h-5" />
+      <div className={cn("flex items-center gap-0.5 shrink-0", className)}>
+        <button
+          type="button"
+          onClick={() => toggleShowFilters()}
+          className={cn(
+            "relative p-2 rounded-lg transition-colors shrink-0",
+            active ? "bg-white/25 text-white" : "text-white/80 hover:text-white hover:bg-white/10",
+          )}
+          aria-expanded={showFilters}
+          aria-label={
+            activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters"
+          }
+          title="Filters"
+        >
+          <SlidersHorizontal className="w-5 h-5" />
+          {activeFilterCount > 0 && (
+            <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 bg-amber-400 text-[10px] font-extrabold text-white rounded-full flex items-center justify-center px-0.5 leading-none">
+              {activeFilterCount > 9 ? "9+" : activeFilterCount}
+            </span>
+          )}
+        </button>
         {activeFilterCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 bg-amber-400 text-[10px] font-extrabold text-white rounded-full flex items-center justify-center px-0.5 leading-none">
-            {activeFilterCount > 9 ? "9+" : activeFilterCount}
-          </span>
+          <button
+            type="button"
+            onClick={() => clearAllFilters()}
+            className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Clear all filters"
+            title={t.store_clear_all}
+          >
+            <X className="w-4 h-4" />
+          </button>
         )}
-      </button>
+      </div>
     );
   }
 
