@@ -46,10 +46,9 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.core.constants import (
     UserRole, UserStatus, EntityStatus,
-    ProductApprovalStatus, ListingAvailability, PrescriptionType, PrescriptionStatus,
+    ProductApprovalStatus, ListingAvailability,
 )
 from app.models.user import User
-from app.models.patient import PatientProfile, Address
 from app.models.doctor import DoctorProfile
 from app.models.pharmacist import PharmacistProfile
 from app.models.rider import RiderProfile
@@ -57,7 +56,6 @@ from app.models.hospital import Hospital
 from app.models.pharmacy import Pharmacy
 from app.models.partner import PartnerCompany
 from app.models.product import ProductCatalogueItem, ProductListing
-from app.models.prescription import DigitalPrescription, PrescriptionItem
 from app.models.article import HealthArticle
 import app.models  # noqa — ensure all models are registered
 from app.core.constants import VerificationStatus, ArticleStatus
@@ -84,28 +82,6 @@ DEMO_USERS = [
         "full_name": "Dr. Chantal Mukeshimana",
         "role": UserRole.DOCTOR,
         "phone": "+250788000011",
-    },
-    # Patients
-    {
-        "email": "patient@farumasi.com",
-        "password": "Patient@12345",
-        "full_name": "Jean Mugabo",
-        "role": UserRole.PATIENT,
-        "phone": "+250788000002",
-    },
-    {
-        "email": "patient2@farumasi.com",
-        "password": "Patient@12345",
-        "full_name": "Amina Uwase",
-        "role": UserRole.PATIENT,
-        "phone": "+250788000012",
-    },
-    {
-        "email": "patient3@farumasi.com",
-        "password": "Patient@12345",
-        "full_name": "Patrick Nzeyimana",
-        "role": UserRole.PATIENT,
-        "phone": "+250788000013",
     },
     # Pharmacists
     {
@@ -525,34 +501,7 @@ async def seed():
                     ))
                     print(f"  [+] Doctor profile for {email}")
 
-        # ─── Patient profiles ──────────────────────────────────────────────
-        patient_data = [
-            {"email": "patient@farumasi.com", "dob": date(1993, 5, 20), "gender": "male", "lat": -1.9500, "lon": 30.0600},
-            {"email": "patient2@farumasi.com", "dob": date(1990, 8, 14), "gender": "female", "lat": -1.9441, "lon": 30.0619},
-            {"email": "patient3@farumasi.com", "dob": date(2000, 3, 7), "gender": "male", "lat": -1.9600, "lon": 30.0500},
-        ]
-        for pd in patient_data:
-            pat_user = email_to_user.get(pd["email"])
-            if pat_user:
-                existing_pat = (await db.execute(select(PatientProfile).where(PatientProfile.user_id == pat_user.id))).scalar_one_or_none()
-                if not existing_pat:
-                    patient = PatientProfile(
-                        user_id=pat_user.id,
-                        date_of_birth=pd["dob"],
-                        gender=pd["gender"],
-                    )
-                    db.add(patient)
-                    await db.flush()
-                    db.add(Address(
-                        patient_id=patient.id,
-                        label="Home",
-                        line1="KG 11 Ave",
-                        district="Gasabo",
-                        latitude=pd["lat"],
-                        longitude=pd["lon"],
-                        is_default=True,
-                    ))
-                    print(f"  [+] Patient profile for {pd['email']}")
+        # Patients: not seeded — create accounts manually via the patient portal.
 
         # ─── Pharmacist profiles ───────────────────────────────────────────
         for extra in PHARMACIST_EXTRAS:
@@ -796,61 +745,7 @@ async def seed():
         if seeded_products:
             print(f"  [+] {len(seeded_products)} products seeded/verified with listings")
 
-        # ─── Sample prescriptions (patient-uploaded) ──────────────────────
-        patient1_user = email_to_user.get("patient@farumasi.com")
-        if patient1_user:
-            pat_result = await db.execute(select(PatientProfile).where(PatientProfile.user_id == patient1_user.id))
-            pat1 = pat_result.scalar_one_or_none()
-            if pat1:
-                existing_rx = (await db.execute(
-                    select(DigitalPrescription).where(DigitalPrescription.patient_id == pat1.id).limit(1)
-                )).scalar_one_or_none()
-                if not existing_rx:
-                    # Doctor-created prescription
-                    doc_user = email_to_user.get("doctor@farumasi.com")
-                    doc_result = await db.execute(select(DoctorProfile).where(DoctorProfile.user_id == doc_user.id)) if doc_user else None
-                    doctor = doc_result.scalar_one_or_none() if doc_result else None
-
-                    rx1 = DigitalPrescription(
-                        patient_id=pat1.id,
-                        doctor_id=doctor.id if doctor else None,
-                        hospital_id=hospital.id,
-                        prescription_type=PrescriptionType.DOCTOR_CREATED,
-                        status=PrescriptionStatus.ACTIVE,
-                        diagnosis_notes="Type 2 Diabetes — initial management",
-                        notes="Follow up in 4 weeks",
-                    )
-                    db.add(rx1)
-                    await db.flush()
-                    db.add(PrescriptionItem(
-                        prescription_id=rx1.id,
-                        medicine_name="Metformin 500mg",
-                        dosage="500mg",
-                        frequency="Twice daily",
-                        duration="30 days",
-                        quantity=60,
-                        instructions="Take with food",
-                    ))
-                    db.add(PrescriptionItem(
-                        prescription_id=rx1.id,
-                        medicine_name="Amlodipine 5mg",
-                        dosage="5mg",
-                        frequency="Once daily",
-                        duration="30 days",
-                        quantity=30,
-                        instructions="Take in the morning",
-                    ))
-
-                    # Patient-uploaded prescription
-                    rx2 = DigitalPrescription(
-                        patient_id=pat1.id,
-                        prescription_type=PrescriptionType.PATIENT_UPLOADED,
-                        status=PrescriptionStatus.ACTIVE,
-                        uploaded_file_url=None,
-                        notes="Uploaded prescription from hospital visit",
-                    )
-                    db.add(rx2)
-                    print("  [+] Sample prescriptions for patient@farumasi.com")
+        # Sample patient prescriptions: skipped (no seeded patients).
 
         # ─── Verify pharmacies + pharmacists ───────────────────────────────
         all_pharmacies = (await db.execute(select(Pharmacy))).scalars().all()
