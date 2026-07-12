@@ -50,6 +50,7 @@ class ProductUpdate(FarumasiBaseModel):
     manufacturer: Optional[str] = None
     brand: Optional[str] = None
     country_of_origin: Optional[str] = None
+    information_source_url: Optional[str] = None
     prescription_required: Optional[bool] = None
     regulatory_status: Optional[str] = None
     image_url: Optional[str] = None

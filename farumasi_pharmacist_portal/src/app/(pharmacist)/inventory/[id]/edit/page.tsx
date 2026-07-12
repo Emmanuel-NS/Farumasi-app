@@ -9,6 +9,7 @@ import {
   X, Check, ChevronDown, Save,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiError } from "@/lib/api";
 import {
   productsService,
   type BackendProduct,
@@ -400,6 +401,11 @@ export default function EditProductPage({
     const info = PACKAGING_CLASSES.find((c) => c.value === val);
     // Only auto-fill unit name if the user hasn't typed one yet
     if (info?.defaultUnit && !partialUnitName) setPartialUnitName(info.defaultUnit);
+    // Tablets/capsules require min order of at least 2 units
+    if (val === "tablets_capsules") {
+      const n = Number(minPartialQty);
+      if (!Number.isFinite(n) || n < 2) setMinPartialQty("2");
+    }
   };
 
   const [shortDesc,     setShortDesc]     = useState("");
@@ -432,7 +438,11 @@ export default function EditProductPage({
         // Packaging
         setPackagingClass(p.packaging_class ?? "");
         setUnitsPerPack(p.units_per_pack != null ? String(p.units_per_pack) : "");
-        setMinPartialQty(p.min_partial_quantity != null ? String(p.min_partial_quantity) : "1");
+        const defaultMin =
+          p.packaging_class === "tablets_capsules" ? "2" : "1";
+        setMinPartialQty(
+          p.min_partial_quantity != null ? String(p.min_partial_quantity) : defaultMin
+        );
         setPartialUnitName(p.partial_unit_name ?? "");
         setDosageSummary(desc.dosage_summary);
         setOverview(desc.overview);
@@ -456,6 +466,17 @@ export default function EditProductPage({
     if (productType === "medicine" && !informationSourceUrl.trim()) {
       toast.error("Information source URL (PIL) is required for medicines");
       return;
+    }
+    if (allowsPartial && !partialUnitName.trim()) {
+      toast.error("Unit name is required for partial-selling packaging (e.g. tablet, sachet)");
+      return;
+    }
+    if (packagingClass === "tablets_capsules") {
+      const minQ = Number(minPartialQty);
+      if (!Number.isFinite(minQ) || minQ < 2) {
+        toast.error("Minimum order for tablets/capsules must be at least 2 units");
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -486,8 +507,8 @@ export default function EditProductPage({
       await productsService.updateProduct(id, input);
       toast.success("Product updated");
       router.push(`/inventory/${id}`);
-    } catch {
-      toast.error("Failed to save changes");
+    } catch (err) {
+      toast.error(getApiError(err, "Failed to save changes"));
     } finally {
       setSaving(false);
     }
@@ -754,10 +775,12 @@ export default function EditProductPage({
                     <div>
                       <label className={labelCls}>Min order qty</label>
                       <input
-                        type="number" min={1} step={1}
+                        type="number"
+                        min={packagingClass === "tablets_capsules" ? 2 : 1}
+                        step={1}
                         value={minPartialQty}
                         onChange={(e) => setMinPartialQty(e.target.value)}
-                        placeholder="e.g. 5"
+                        placeholder={packagingClass === "tablets_capsules" ? "min 2" : "e.g. 5"}
                         className={inputCls}
                       />
                     </div>

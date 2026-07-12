@@ -8,6 +8,7 @@ import { ArrowLeft, Camera, FlaskConical, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { productsService } from "@/lib/services/products.service";
 import { pharmaciesService } from "@/lib/services/pharmacies.service";
+import { getApiError } from "@/lib/api";
 
 const CATEGORIES = [
   "Pain Relief", "Antibiotics", "Allergy & Asthma", "Cold & Flu",
@@ -121,6 +122,10 @@ export default function NewProductPage() {
     setPackagingClass(val);
     const info = PACKAGING_CLASSES.find((c) => c.value === val);
     if (info?.defaultUnit) setPartialUnitName(info.defaultUnit);
+    if (val === "tablets_capsules") {
+      const n = Number(minPartialQty);
+      if (!Number.isFinite(n) || n < 2) setMinPartialQty("2");
+    }
   };
 
   /* Listing */
@@ -185,9 +190,7 @@ export default function NewProductPage() {
       toast.success(`${product.name} added to your stock`);
       router.push("/inventory");
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } } };
-      const detail = e?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : "Could not save product");
+      toast.error(getApiError(err, "Could not save product"));
     } finally {
       setSubmitting(false);
     }

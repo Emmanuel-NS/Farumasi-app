@@ -7,6 +7,11 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 
+const PATIENT_PORTAL_URL = (
+  process.env.NEXT_PUBLIC_PATIENT_PORTAL_URL ||
+  (process.env.NODE_ENV === "production" ? "https://farumasi.com" : "http://localhost:3002")
+).replace(/\/$/, "");
+
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
@@ -123,7 +128,7 @@ export default function LoginPage() {
 
           <p className="mt-5 text-center text-xs text-slate-500">
             Patient? Visit{" "}
-            <a href="http://localhost:3002" className="text-farumasi-600 font-medium hover:underline">
+            <a href={PATIENT_PORTAL_URL} className="text-farumasi-600 font-medium hover:underline">
               Patient Portal
             </a>
           </p>

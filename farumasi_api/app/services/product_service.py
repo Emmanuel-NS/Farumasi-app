@@ -187,6 +187,8 @@ class ProductService:
         }
         validate_product_packaging_fields(**merged)
         for field, value in patch.items():
+            if field == "information_source_url" and isinstance(value, str):
+                value = value.strip() or None
             setattr(product, field, value)
         if is_medicine_product(product.product_type):
             if not (product.information_source_url or "").strip():
