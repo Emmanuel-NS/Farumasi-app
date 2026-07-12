@@ -43,8 +43,13 @@ def database_requires_ssl(url: str) -> bool:
     lowered = url.lower()
     if "sslmode=disable" in lowered or "ssl=false" in lowered or "ssl=disable" in lowered:
         return False
-    # External Render / Railway public hostnames need TLS.
-    if host.endswith("render.com") or "railway.app" in host or "rlwy.net" in host:
+    # External Render / Railway / Neon public hostnames need TLS.
+    if (
+        host.endswith("render.com")
+        or host.endswith("neon.tech")
+        or "railway.app" in host
+        or "rlwy.net" in host
+    ):
         return True
     # Internal-style short hostnames: do not force TLS (probe / auto).
     if "." not in host:

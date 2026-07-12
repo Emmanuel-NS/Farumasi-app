@@ -232,7 +232,8 @@ Or use Cloudinary (`STORAGE_BACKEND=cloudinary`).
 - [ ] `python scripts/seed.py` run once (locally with `--url` if Shell unavailable — see below)
 - [ ] Portals: `NEXT_PUBLIC_API_URL=.../api/v1`
 - [ ] Object storage for uploads (production)
-- [ ] Upgrade Postgres before 30-day free expiry
+- [ ] **Postgres:** use Neon (or other non-expiring DB) — do not rely on Render free Postgres (expires ~30 days)
+- [ ] Upgrade Render **web** to Starter when budget allows (avoids free-tier sleep)
 
 ---
 
