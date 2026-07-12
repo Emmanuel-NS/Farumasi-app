@@ -3,7 +3,10 @@ Seed script for FARUMASI — creates demo users and entities.
 
 Usage (from farumasi_api/):
     python scripts/seed.py
-    python scripts/seed.py --url "postgresql://USER:PASS@HOST/neondb?sslmode=require"
+    # prompts for Neon/Postgres connection string
+
+    python scripts/seed.py --url "postgresql://..."
+    # optional: pass URL without prompting
 """
 # NOTE: This file is fully rewritten to match the actual SQLAlchemy models.
 
@@ -33,12 +36,31 @@ def _apply_url(url: str) -> None:
     os.environ["ASYNC_DATABASE_URL"] = _to_async_url(sync_url)
 
 
-# Parse --url early so Settings picks up Neon before import.
+def _prompt_connection_string() -> str:
+    print("")
+    print("Paste your Neon / Postgres connection string, then press Enter.")
+    print("(It usually starts with postgresql:// … and may include ?sslmode=require)")
+    print("")
+    url = input("Connection string: ").strip().strip('"').strip("'")
+    if not url:
+        raise SystemExit("No connection string entered — aborting.")
+    if not (
+        url.startswith("postgresql://")
+        or url.startswith("postgres://")
+        or url.startswith("postgresql+asyncpg://")
+    ):
+        raise SystemExit("URL must start with postgresql:// or postgres://")
+    return url
+
+
+# Resolve DB URL before Settings import (so Neon TLS + host are applied).
 _pre = argparse.ArgumentParser(add_help=False)
 _pre.add_argument("--url")
 _pre_args, _ = _pre.parse_known_args()
 if _pre_args.url:
     _apply_url(_pre_args.url)
+elif __name__ == "__main__":
+    _apply_url(_prompt_connection_string())
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import select
@@ -49,10 +71,8 @@ from app.core.constants import (
     ProductApprovalStatus, ListingAvailability,
 )
 from app.models.user import User
-from app.models.doctor import DoctorProfile
 from app.models.pharmacist import PharmacistProfile
 from app.models.rider import RiderProfile
-from app.models.hospital import Hospital
 from app.models.pharmacy import Pharmacy
 from app.models.partner import PartnerCompany
 from app.models.product import ProductCatalogueItem, ProductListing
@@ -67,21 +87,6 @@ DEMO_USERS = [
         "password": "Admin@12345",
         "full_name": "Super Admin",
         "role": UserRole.SUPER_ADMIN,
-    },
-    # Doctors
-    {
-        "email": "doctor@farumasi.com",
-        "password": "Doctor@12345",
-        "full_name": "Dr. Amara Nziza",
-        "role": UserRole.DOCTOR,
-        "phone": "+250788000001",
-    },
-    {
-        "email": "doctor2@farumasi.com",
-        "password": "Doctor@12345",
-        "full_name": "Dr. Chantal Mukeshimana",
-        "role": UserRole.DOCTOR,
-        "phone": "+250788000011",
     },
     # Pharmacists
     {
@@ -140,34 +145,6 @@ DEMO_USERS = [
         "full_name": "Innocent Mugisha",
         "role": UserRole.RIDER,
         "phone": "+250788000017",
-    },
-    {
-        "email": "hospital_admin@farumasi.com",
-        "password": "Hospital@12345",
-        "full_name": "Honore Habimana",
-        "role": UserRole.HOSPITAL_ADMIN,
-        "phone": "+250788000007",
-    },
-    {
-        "email": "finance@farumasi.com",
-        "password": "Finance@12345",
-        "full_name": "Finance Admin",
-        "role": UserRole.FINANCE_ADMIN,
-        "phone": "+250788000020",
-    },
-    {
-        "email": "operations@farumasi.com",
-        "password": "Operations@12345",
-        "full_name": "Operations Admin",
-        "role": UserRole.OPERATIONS_ADMIN,
-        "phone": "+250788000021",
-    },
-    {
-        "email": "compliance@farumasi.com",
-        "password": "Compliance@12345",
-        "full_name": "Compliance Admin",
-        "role": UserRole.COMPLIANCE_ADMIN,
-        "phone": "+250788000022",
     },
 ]
 
@@ -466,42 +443,7 @@ async def seed():
 
         fallback_user = list(created_users.values())[0]
 
-        # ─── Hospital ─────────────────────────────────────────────────────
-        hospital_result = await db.execute(select(Hospital).limit(1))
-        hospital = hospital_result.scalar_one_or_none()
-        if not hospital:
-            hospital = Hospital(
-                name="King Faisal Hospital",
-                address="KG 544 St, Kigali",
-                district="Gasabo",
-                phone="+250788100001",
-                email="info@kfh.rw",
-                status=EntityStatus.ACTIVE,
-            )
-            db.add(hospital)
-            await db.flush()
-            print(f"  [+] Hospital: {hospital.name}")
-        else:
-            print(f"  [skip] Hospital already exists")
-
-        # ─── Doctor profiles ──────────────────────────────────────────────
-        doctor_emails = ["doctor@farumasi.com", "doctor2@farumasi.com"]
-        doctor_specialties = ["General Medicine", "Pediatrics & Obstetrics"]
-        for i, email in enumerate(doctor_emails):
-            doc_user = email_to_user.get(email)
-            if doc_user:
-                existing_doc = (await db.execute(select(DoctorProfile).where(DoctorProfile.user_id == doc_user.id))).scalar_one_or_none()
-                if not existing_doc:
-                    db.add(DoctorProfile(
-                        user_id=doc_user.id,
-                        hospital_id=hospital.id,
-                        specialty=doctor_specialties[i],
-                        license_number=f"RWA-DOC-00{i+1}",
-                        status=EntityStatus.ACTIVE,
-                    ))
-                    print(f"  [+] Doctor profile for {email}")
-
-        # Patients: not seeded — create accounts manually via the patient portal.
+        # Patients / doctors / hospital / finance / ops / compliance: not seeded.
 
         # ─── Pharmacist profiles ───────────────────────────────────────────
         for extra in PHARMACIST_EXTRAS:
@@ -1021,8 +963,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Seed FARUMASI demo data")
     parser.add_argument(
         "--url",
-        help="Postgres URL (e.g. Neon). Omit to use DATABASE_URL from .env / environment",
+        help="Optional Postgres URL. If omitted, you will be prompted.",
     )
-    parser.parse_args()  # --url already applied by early parse above
+    parser.parse_args()  # --url already applied by early parse / prompt above
     print(f"Seeding database host: {settings.ASYNC_DATABASE_URL.split('@')[-1]}")
     asyncio.run(seed())
