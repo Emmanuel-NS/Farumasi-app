@@ -3,15 +3,42 @@ Seed script for FARUMASI — creates demo users and entities.
 
 Usage (from farumasi_api/):
     python scripts/seed.py
+    python scripts/seed.py --url "postgresql://USER:PASS@HOST/neondb?sslmode=require"
 """
 # NOTE: This file is fully rewritten to match the actual SQLAlchemy models.
 
+import argparse
 import asyncio
 import sys
 import os
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+
+def _to_async_url(sync_url: str) -> str:
+    if sync_url.startswith("postgresql+asyncpg://"):
+        return sync_url
+    if sync_url.startswith("postgresql://"):
+        return sync_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if sync_url.startswith("postgres://"):
+        return sync_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    raise ValueError("URL must start with postgresql:// or postgres://")
+
+
+def _apply_url(url: str) -> None:
+    """Set DB env before app.core.config is imported (process-local only)."""
+    sync_url = url.replace("postgres://", "postgresql://", 1)
+    os.environ["DATABASE_URL"] = sync_url
+    os.environ["ASYNC_DATABASE_URL"] = _to_async_url(sync_url)
+
+
+# Parse --url early so Settings picks up Neon before import.
+_pre = argparse.ArgumentParser(add_help=False)
+_pre.add_argument("--url")
+_pre_args, _ = _pre.parse_known_args()
+if _pre_args.url:
+    _apply_url(_pre_args.url)
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import select
@@ -428,7 +455,11 @@ PHARMACIST_EXTRAS = [
 
 
 async def seed():
-    engine = create_async_engine(settings.ASYNC_DATABASE_URL, echo=False)
+    engine = create_async_engine(
+        settings.ASYNC_DATABASE_URL,
+        echo=False,
+        connect_args=settings.async_database_connect_args,
+    )
     SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
     async with SessionLocal() as db:
@@ -1092,4 +1123,11 @@ Work with your doctor to create a written asthma action plan that tells you what
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Seed FARUMASI demo data")
+    parser.add_argument(
+        "--url",
+        help="Postgres URL (e.g. Neon). Omit to use DATABASE_URL from .env / environment",
+    )
+    parser.parse_args()  # --url already applied by early parse above
+    print(f"Seeding database host: {settings.ASYNC_DATABASE_URL.split('@')[-1]}")
     asyncio.run(seed())
