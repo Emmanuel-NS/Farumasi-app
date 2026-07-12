@@ -1661,10 +1661,6 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name?.trim()) { toast.error("Product name is required"); return; }
-    if (form.product_type === "medicine" && !(form.information_source_url ?? "").trim()) {
-      toast.error("Medicines require a Rwanda FDA PIL or official information source URL");
-      return;
-    }
     setSaving(true);
     try {
       const updated = await productsService.updateProduct(product.id, {
@@ -1955,19 +1951,18 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
                         Regulatory information source
                       </p>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        Link to Rwanda FDA patient information leaflet (PIL) or other official source used for this product page.
+                        Link to Rwanda FDA patient information leaflet (PIL) or other official source (optional).
                       </p>
                     </div>
                     <div>
                       <label className={labelCls}>
-                        Information source URL (PIL) <span className="text-red-500">*</span>
+                        Information source URL (PIL)
                       </label>
                       <input
                         type="url"
-                        required
                         value={form.information_source_url ?? ""}
                         onChange={(e) => setF("information_source_url", e.target.value)}
-                        placeholder="https://rwandafda.gov.rw/…"
+                        placeholder="https://rwandafda.gov.rw/… (optional)"
                         className={inputCls}
                       />
                     </div>
@@ -2120,10 +2115,6 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) { toast.error("Product name is required"); return; }
-    if (form.product_type === "medicine" && !(form.information_source_url ?? "").trim()) {
-      toast.error("Medicines require a Rwanda FDA PIL or official information source URL");
-      return;
-    }
     setSaving(true);
     try {
       const created = await productsService.createProduct({
@@ -2412,19 +2403,18 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
                         Regulatory information source
                       </p>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        Link to Rwanda FDA patient information leaflet (PIL) or other official source used for this product page.
+                        Link to Rwanda FDA patient information leaflet (PIL) or other official source (optional).
                       </p>
                     </div>
                     <div>
                       <label className={labelCls}>
-                        Information source URL (PIL) <span className="text-red-500">*</span>
+                        Information source URL (PIL)
                       </label>
                       <input
                         type="url"
-                        required
                         value={form.information_source_url ?? ""}
                         onChange={(e) => set("information_source_url", e.target.value)}
-                        placeholder="https://rwandafda.gov.rw/…"
+                        placeholder="https://rwandafda.gov.rw/… (optional)"
                         className={inputCls}
                       />
                     </div>

@@ -463,10 +463,6 @@ export default function EditProductPage({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { toast.error("Product name is required"); return; }
-    if (productType === "medicine" && !informationSourceUrl.trim()) {
-      toast.error("Information source URL (PIL) is required for medicines");
-      return;
-    }
     if (allowsPartial && !partialUnitName.trim()) {
       toast.error("Unit name is required for partial-selling packaging (e.g. tablet, sachet)");
       return;
@@ -888,12 +884,12 @@ export default function EditProductPage({
                     Link to Rwanda FDA patient information leaflet (PIL) or other official source used for this product page.
                   </p>
                   <div>
-                    <label className={labelCls}>Information source URL (PIL) *</label>
+                    <label className={labelCls}>Information source URL (PIL)</label>
                     <input
                       type="url"
                       value={informationSourceUrl}
                       onChange={(e) => setInformationSourceUrl(e.target.value)}
-                      placeholder="https://…/patient-information-leaflet-pil-2"
+                      placeholder="https://…/patient-information-leaflet (optional)"
                       className={inputCls}
                     />
                   </div>

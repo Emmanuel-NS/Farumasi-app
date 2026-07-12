@@ -45,7 +45,7 @@ from app.schemas.product import (
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.utils.packaging import validate_listing_prices, validate_product_packaging_fields
-from app.utils.seller_catalogue import is_medicine_product, partner_may_list_product
+from app.utils.seller_catalogue import partner_may_list_product
 
 
 # ─── role helpers ─────────────────────────────────────────────────────────
@@ -135,11 +135,6 @@ class ProductService:
             min_partial_quantity=data.min_partial_quantity,
             partial_unit_name=data.partial_unit_name,
         )
-        if is_medicine_product(data.product_type.value if hasattr(data.product_type, "value") else data.product_type):
-            if not (data.information_source_url or "").strip():
-                raise ValidationError(
-                    "Medicines require a Rwanda FDA PIL or official information source URL"
-                )
         # Pharmacists list their own stock immediately; super admin approves catalogue entries.
         approval = (
             ProductApprovalStatus.APPROVED
@@ -194,11 +189,6 @@ class ProductService:
             if field == "information_source_url" and isinstance(value, str):
                 value = value.strip() or None
             setattr(product, field, value)
-        if is_medicine_product(product.product_type):
-            if not (product.information_source_url or "").strip():
-                raise ValidationError(
-                    "Medicines require a Rwanda FDA PIL or official information source URL"
-                )
         await self.db.commit()
         await self.db.refresh(product)
         return product

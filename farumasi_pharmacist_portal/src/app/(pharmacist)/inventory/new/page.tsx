@@ -143,10 +143,6 @@ export default function NewProductPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { toast.error("Product name is required"); return; }
-    if (productType === "medicine" && !informationSourceUrl.trim()) {
-      toast.error("Medicines require a Rwanda FDA PIL or official information source URL");
-      return;
-    }
     const priceNum = Number(price);
     const stockNum = Number(stock);
     if (!Number.isFinite(priceNum) || priceNum < 0) { toast.error("Enter a valid price"); return; }
@@ -289,12 +285,12 @@ export default function NewProductPage() {
             title="Regulatory information source"
             subtitle="Link to Rwanda FDA patient information leaflet (PIL) or other official source used to build this product page."
           >
-            <Field label="Information source URL (PIL)" required hint="e.g. Rwanda FDA PIL link">
+            <Field label="Information source URL (PIL)" hint="Optional — e.g. Rwanda FDA PIL link">
               <input
                 type="url"
                 value={informationSourceUrl}
                 onChange={(e) => setInformationSourceUrl(e.target.value)}
-                placeholder="https://…/patient-information-leaflet-pil-2"
+                placeholder="https://…/patient-information-leaflet"
                 className={inp}
               />
             </Field>
