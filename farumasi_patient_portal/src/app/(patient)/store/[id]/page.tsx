@@ -20,8 +20,16 @@ import { minQuantityForLine } from "@/lib/cart-pricing";
 import { RichContent } from "@/components/shared/rich-content";
 import {
   ArrowLeft, AlertCircle, ShoppingCart, Upload,
-  CheckCircle,
+  CheckCircle, ExternalLink,
 } from "lucide-react";
+
+function labelingSourceHost(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
 
 function categoryBg(cat?: string): string {
   const c = (cat ?? "").toLowerCase();
@@ -408,6 +416,31 @@ export default function MedicineDetailPage() {
                       "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No safety information available.</p>"
                 }
               />
+
+              {med.informationSourceUrl && (
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 space-y-1.5">
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                    Labeling source
+                  </p>
+                  <a
+                    href={med.informationSourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-farumasi-700 dark:text-emerald-300 hover:underline break-all"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                    View official patient information leaflet
+                    {labelingSourceHost(med.informationSourceUrl) && (
+                      <span className="font-normal text-slate-400">
+                        ({labelingSourceHost(med.informationSourceUrl)})
+                      </span>
+                    )}
+                  </a>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Digital labeling is pharmacist-reviewed and supplementary to the physical pack insert.
+                  </p>
+                </div>
+              )}
             </div>
         </div>
 

@@ -47,6 +47,8 @@ export interface Medicine {
   dosageDetails?: string;
   /** Safety / warnings text for quickview */
   safetyInfo?: string;
+  /** Official PIL / labeling source URL (Rwanda FDA or equivalent) */
+  informationSourceUrl?: string;
   price: number;
   maxPrice?: number;
   imageUrl: string;

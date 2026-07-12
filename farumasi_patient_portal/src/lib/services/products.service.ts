@@ -17,6 +17,7 @@ export interface BackendProduct {
   prescription_required: boolean;
   approval_status: string;
   image_url: string | null;
+  information_source_url?: string | null;
   created_at: string;
   /** Lowest listing price across active pharmacy/partner listings (RWF) */
   price_from: number | null;
@@ -74,6 +75,7 @@ export function adaptProduct(p: BackendProduct): Medicine {
     dosageSummary: desc.dosage_summary?.trim() || undefined,
     dosageDetails: desc.dosage_details?.trim() || undefined,
     safetyInfo: desc.safety?.trim() || undefined,
+    informationSourceUrl: p.information_source_url?.trim() || undefined,
     price: displayPrice,
     maxPrice: maxPrice,
     imageUrl: (() => {

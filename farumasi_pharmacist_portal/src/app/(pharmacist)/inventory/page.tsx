@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import api, { mediaUrl } from "@/lib/api";
+import api, { mediaUrl, getApiError } from "@/lib/api";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
 import { RichEditor } from "@/components/ui/rich-editor";
 import type { CategoryIconComponent } from "@/components/icons/CategoryIcons";
@@ -1513,6 +1513,21 @@ function ProductDetailPanel({ product, pharmacyMap: parentPharmacyMap, onClose, 
                           "<p style='color:#94a3b8;font-style:italic;font-size:0.875rem'>No safety information yet.</p>",
                   }}
                 />
+                {product.information_source_url && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 space-y-1">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                      Labeling source
+                    </p>
+                    <a
+                      href={product.information_source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-semibold text-farumasi-700 hover:underline break-all"
+                    >
+                      {product.information_source_url}
+                    </a>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1612,6 +1627,7 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
     product_type:          product.product_type as CreateProductInput["product_type"],
     prescription_required: product.prescription_required,
     image_url:             product.image_url ?? "",
+    information_source_url: product.information_source_url ?? "",
   });
   const [categories, setCategories] = useState<string[]>(
     () => (product.category ?? "").split(",").map((s) => s.trim()).filter(Boolean),
@@ -1645,6 +1661,10 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name?.trim()) { toast.error("Product name is required"); return; }
+    if (form.product_type === "medicine" && !(form.information_source_url ?? "").trim()) {
+      toast.error("Medicines require a Rwanda FDA PIL or official information source URL");
+      return;
+    }
     setSaving(true);
     try {
       const updated = await productsService.updateProduct(product.id, {
@@ -1656,12 +1676,13 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
         manufacturer: form.manufacturer?.trim() || null,
         category:     categories.length ? categories.join(", ") : null,
         image_url:    form.image_url?.trim() || null,
+        information_source_url: form.information_source_url?.trim() || null,
         description:  serializeDesc(desc),
       });
       onSaved(updated);
       toast.success("Product updated successfully");
-    } catch {
-      toast.error("Failed to update product");
+    } catch (err) {
+      toast.error(getApiError(err, "Failed to update product"));
     } finally {
       setSaving(false);
     }
@@ -1926,6 +1947,32 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
                     </div>
                   </button>
                 </div>
+
+                {form.product_type === "medicine" && (
+                  <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+                    <div>
+                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                        Regulatory information source
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Link to Rwanda FDA patient information leaflet (PIL) or other official source used for this product page.
+                      </p>
+                    </div>
+                    <div>
+                      <label className={labelCls}>
+                        Information source URL (PIL) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="url"
+                        required
+                        value={form.information_source_url ?? ""}
+                        onChange={(e) => setF("information_source_url", e.target.value)}
+                        placeholder="https://rwandafda.gov.rw/…"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -2073,6 +2120,10 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) { toast.error("Product name is required"); return; }
+    if (form.product_type === "medicine" && !(form.information_source_url ?? "").trim()) {
+      toast.error("Medicines require a Rwanda FDA PIL or official information source URL");
+      return;
+    }
     setSaving(true);
     try {
       const created = await productsService.createProduct({
@@ -2084,11 +2135,12 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
         strength:     form.strength?.trim() || null,
         manufacturer: form.manufacturer?.trim() || null,
         image_url:    form.image_url?.trim() || null,
+        information_source_url: form.information_source_url?.trim() || null,
         description:  serializeDesc(desc),
       });
       onCreated(created);
-    } catch {
-      toast.error("Failed to add product to catalogue");
+    } catch (err) {
+      toast.error(getApiError(err, "Failed to add product to catalogue"));
     } finally {
       setSaving(false);
     }
@@ -2352,6 +2404,32 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
                     </div>
                   </button>
                 </div>
+
+                {form.product_type === "medicine" && (
+                  <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+                    <div>
+                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                        Regulatory information source
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Link to Rwanda FDA patient information leaflet (PIL) or other official source used for this product page.
+                      </p>
+                    </div>
+                    <div>
+                      <label className={labelCls}>
+                        Information source URL (PIL) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="url"
+                        required
+                        value={form.information_source_url ?? ""}
+                        onChange={(e) => set("information_source_url", e.target.value)}
+                        placeholder="https://rwandafda.gov.rw/…"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <>

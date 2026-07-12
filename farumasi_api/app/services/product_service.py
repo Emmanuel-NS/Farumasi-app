@@ -150,7 +150,11 @@ class ProductService:
             name=data.name,
             generic_name=data.generic_name,
             category=data.category,
-            product_type=data.product_type,
+            product_type=(
+                data.product_type.value
+                if hasattr(data.product_type, "value")
+                else data.product_type
+            ),
             description=data.description,
             dosage_form=data.dosage_form,
             strength=data.strength,
