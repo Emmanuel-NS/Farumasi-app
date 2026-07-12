@@ -41,6 +41,8 @@ The repo includes `render.yaml` at the root.
 
 `ASYNC_DATABASE_URL` is derived from `DATABASE_URL` in code — you do **not** need to set it manually.
 
+Hosted Postgres (Render/Railway) requires TLS. The API enables `ssl=True` automatically for non-local hosts so Alembic and the app do not fail with `SSL/TLS required`.
+
 ### 2. Wait for deploy
 
 **Logs** should show:

@@ -1,14 +1,58 @@
 from __future__ import annotations
 
-from typing import List
+from typing import Any, Dict, List
 import base64
 import json
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from pydantic import computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 _DEFAULT_SECRET_KEY = "change-this-in-production"
+
+# Hosts that typically do not require TLS (local docker / laptop).
+_LOCAL_DB_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "db", "postgres"})
+
+
+def _db_host(url: str) -> str:
+    try:
+        return (urlparse(url).hostname or "").lower()
+    except Exception:
+        return ""
+
+
+def database_requires_ssl(url: str) -> bool:
+    """Render/Railway external Postgres requires TLS; local docker usually does not."""
+    host = _db_host(url)
+    if not host or host in _LOCAL_DB_HOSTS:
+        return False
+    # Explicit opt-out for rare internal networks that already terminate TLS.
+    lowered = url.lower()
+    if "sslmode=disable" in lowered or "ssl=false" in lowered or "ssl=disable" in lowered:
+        return False
+    return True
+
+
+def normalize_asyncpg_url(url: str) -> str:
+    """
+    Convert postgres:// / postgresql:// to postgresql+asyncpg:// and strip
+    libpq-only query params (sslmode) that asyncpg does not understand.
+    SSL is applied via connect_args — see Settings.async_database_connect_args.
+    """
+    u = (url or "").strip().replace("postgres://", "postgresql://", 1)
+    if u.startswith("postgresql://"):
+        u = u.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if not u.startswith("postgresql+asyncpg://"):
+        return u
+
+    parsed = urlparse(u)
+    q = [
+        (k, v)
+        for k, v in parse_qsl(parsed.query, keep_blank_values=True)
+        if k.lower() not in {"sslmode", "ssl", "channel_binding"}
+    ]
+    return urlunparse(parsed._replace(query=urlencode(q)))
 
 
 class Settings(BaseSettings):
@@ -195,19 +239,29 @@ class Settings(BaseSettings):
     def _derive_async_database_url(self) -> "Settings":
         """When only DATABASE_URL is set (e.g. Render/Railway), derive asyncpg URL."""
         url = self.DATABASE_URL.replace("postgres://", "postgresql://", 1)
-        if not url.startswith("postgresql://"):
-            return self
-        sync_tail = url.split("@", 1)[-1] if "@" in url else ""
-        async_tail = (
-            self.ASYNC_DATABASE_URL.split("@", 1)[-1]
-            if "@" in self.ASYNC_DATABASE_URL
-            else ""
-        )
-        if sync_tail and sync_tail != async_tail:
-            self.ASYNC_DATABASE_URL = url.replace(
-                "postgresql://", "postgresql+asyncpg://", 1
+        if url.startswith("postgresql://"):
+            sync_tail = url.split("@", 1)[-1] if "@" in url else ""
+            async_tail = (
+                self.ASYNC_DATABASE_URL.split("@", 1)[-1]
+                if "@" in self.ASYNC_DATABASE_URL
+                else ""
             )
+            if sync_tail and sync_tail != async_tail:
+                self.ASYNC_DATABASE_URL = url.replace(
+                    "postgresql://", "postgresql+asyncpg://", 1
+                )
+
+        # Always normalize so Render URLs with sslmode=require work with asyncpg.
+        self.ASYNC_DATABASE_URL = normalize_asyncpg_url(self.ASYNC_DATABASE_URL)
         return self
+
+    @property
+    def async_database_connect_args(self) -> Dict[str, Any]:
+        """connect_args for create_async_engine / Alembic (SSL for hosted Postgres)."""
+        if database_requires_ssl(self.ASYNC_DATABASE_URL):
+            # asyncpg: True enables TLS; required by Render/Railway managed Postgres.
+            return {"ssl": True}
+        return {}
 
     @model_validator(mode="after")
     def _enforce_secret_in_non_dev(self) -> "Settings":
