@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 import base64
 import json
+import os
 import ssl
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
@@ -24,13 +25,29 @@ def _db_host(url: str) -> str:
 
 
 def database_requires_ssl(url: str) -> bool:
-    """Render/Railway external Postgres requires TLS; local docker usually does not."""
+    """
+    Render external hosts (*.render.com) require TLS.
+    Internal hosts (e.g. dpg-xxxxx-a) often work without client SSL; forcing TLS
+    can yield: ConnectionDoesNotExistError: connection was closed mid-operation.
+    Override with DATABASE_SSL=require|disable|auto (default auto).
+    """
+    mode = (os.environ.get("DATABASE_SSL") or "auto").strip().lower()
+    if mode in {"disable", "false", "0", "off"}:
+        return False
+    if mode in {"require", "true", "1", "on"}:
+        return True
+
     host = _db_host(url)
     if not host or host in _LOCAL_DB_HOSTS:
         return False
-    # Explicit opt-out for rare internal networks that already terminate TLS.
     lowered = url.lower()
     if "sslmode=disable" in lowered or "ssl=false" in lowered or "ssl=disable" in lowered:
+        return False
+    # External Render / Railway public hostnames need TLS.
+    if host.endswith("render.com") or "railway.app" in host or "rlwy.net" in host:
+        return True
+    # Internal-style short hostnames: do not force TLS (probe / auto).
+    if "." not in host:
         return False
     return True
 
