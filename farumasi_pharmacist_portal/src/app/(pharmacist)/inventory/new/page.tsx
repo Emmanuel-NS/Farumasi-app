@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -9,12 +9,7 @@ import { cn } from "@/lib/utils";
 import { productsService } from "@/lib/services/products.service";
 import { pharmaciesService } from "@/lib/services/pharmacies.service";
 import { getApiError } from "@/lib/api";
-
-const CATEGORIES = [
-  "Pain Relief", "Antibiotics", "Allergy & Asthma", "Cold & Flu",
-  "Digestive Health", "Chronic Care", "Supplements", "Personal Care",
-  "Antimalarial", "First Aid", "Wellness", "Mother & Baby", "Medical Devices",
-];
+import { useCategoryStore } from "@/store/category-store";
 
 const DOSAGE_FORMS = [
   "Tablet", "Capsule", "Syrup", "Suspension", "Injection",
@@ -95,13 +90,19 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
 
 export default function NewProductPage() {
   const router = useRouter();
+  const categoryOptions = useCategoryStore((s) => s.categories);
+  const fetchCategories = useCategoryStore((s) => s.fetchCategories);
+
+  useEffect(() => {
+    void fetchCategories();
+  }, [fetchCategories]);
 
   /* Product */
   const [name, setName] = useState("");
   const [genericName, setGenericName] = useState("");
   const [manufacturer, setManufacturer] = useState("");
   const [productType, setProductType] = useState<"medicine" | "device" | "supplement" | "personal_care">("medicine");
-  const [category, setCategory] = useState<string>(CATEGORIES[0]);
+  const [category, setCategory] = useState<string>("");
   const [dosageForm, setDosageForm] = useState<string>("");
   const [strength, setStrength] = useState("");
   const [description, setDescription] = useState("");
@@ -161,7 +162,7 @@ export default function NewProductPage() {
         name: name.trim(),
         generic_name: genericName.trim() || null,
         manufacturer: manufacturer.trim() || null,
-        category,
+        category: category || null,
         product_type: PRODUCT_TYPE_MAP[productType],
         dosage_form: dosageForm || null,
         strength: strength.trim() || null,
@@ -253,8 +254,15 @@ export default function NewProductPage() {
               </select>
             </Field>
             <Field label="Category">
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inp}>
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className={inp}
+              >
+                <option value="">— Select —</option>
+                {categoryOptions.map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
               </select>
             </Field>
             <Field label="Dosage Form">

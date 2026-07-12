@@ -16,30 +16,9 @@ import {
   type CreateProductInput,
   type UpdateProductInput,
 } from "@/lib/services/products.service";
+import { useCategoryStore } from "@/store/category-store";
 
 /* ─── Constants ─────────────────────────────────────────── */
-const ALL_CATEGORIES = [
-  "Analgesics",
-  "Antibiotics",
-  "Antidiabetics",
-  "Antihypertensives",
-  "Antimalarials",
-  "Antihistamines",
-  "Gastrointestinal",
-  "Respiratory",
-  "Vitamins & Supplements",
-  "Pain Relief",
-  "Cold & Flu",
-  "Allergy & Asthma",
-  "Digestive Health",
-  "Chronic Care",
-  "Supplements",
-  "Personal Care",
-  "First Aid",
-  "Wellness",
-  "General",
-];
-
 const DOSAGE_FORMS = [
   "Tablet", "Capsule", "Syrup", "Injection", "Inhaler",
   "Cream", "Ointment", "Drops", "Sachet", "Patch", "Suppository", "Other",
@@ -249,6 +228,12 @@ function CategorySelector({
   onChange: (cats: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const categories = useCategoryStore((s) => s.categories);
+  const fetchCategories = useCategoryStore((s) => s.fetchCategories);
+
+  useEffect(() => {
+    void fetchCategories();
+  }, [fetchCategories]);
 
   const toggle = (cat: string) => {
     if (selected.includes(cat)) {
@@ -295,34 +280,38 @@ function CategorySelector({
       {open && (
         <div className="mt-1.5 border border-slate-200 rounded-xl bg-white shadow-lg overflow-hidden relative z-10">
           <div className="max-h-52 overflow-y-auto">
-            {ALL_CATEGORIES.map((cat) => {
-              const checked = selected.includes(cat);
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => toggle(cat)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors",
-                    checked
-                      ? "bg-farumasi-50 text-farumasi-800"
-                      : "text-slate-700 hover:bg-slate-50",
-                  )}
-                >
-                  <div
+            {categories.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-slate-400">No categories yet. Create some in Inventory → Categories.</p>
+            ) : (
+              categories.map((cat) => {
+                const checked = selected.includes(cat.name);
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => toggle(cat.name)}
                     className={cn(
-                      "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                      "w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors",
                       checked
-                        ? "bg-farumasi-600 border-farumasi-600"
-                        : "border-slate-300",
+                        ? "bg-farumasi-50 text-farumasi-800"
+                        : "text-slate-700 hover:bg-slate-50",
                     )}
                   >
-                    {checked && <Check className="w-2.5 h-2.5 text-white" />}
-                  </div>
-                  {cat}
-                </button>
-              );
-            })}
+                    <div
+                      className={cn(
+                        "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                        checked
+                          ? "bg-farumasi-600 border-farumasi-600"
+                          : "border-slate-300",
+                      )}
+                    >
+                      {checked && <Check className="w-2.5 h-2.5 text-white" />}
+                    </div>
+                    {cat.name}
+                  </button>
+                );
+              })
+            )}
           </div>
           {selected.length > 0 && (
             <div className="border-t border-slate-100 px-4 py-2 flex items-center justify-between">

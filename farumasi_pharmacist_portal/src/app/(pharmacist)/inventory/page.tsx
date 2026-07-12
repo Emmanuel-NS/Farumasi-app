@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import api, { mediaUrl, getApiError } from "@/lib/api";
@@ -72,22 +72,9 @@ import {
 } from "@/lib/services/listings.service";
 import { pharmaciesService, type BackendPharmacy } from "@/lib/services/pharmacies.service";
 import { ordersService } from "@/lib/services/orders.service";
+import { useCategoryStore, type CategoryItem } from "@/store/category-store";
 
 /* ─── Constants ─────────────────────────────────────────── */
-const CATEGORY_LIST = [
-  "All", "Pain Relief", "Antibiotics", "Allergy & Asthma", "Cold & Flu",
-  "Digestive Health", "Chronic Care", "Supplements", "Personal Care",
-  "Antimalarial", "First Aid", "Wellness",
-];
-
-const BACKEND_CATEGORIES = [
-  "Analgesics", "Antibiotics", "Antidiabetics", "Antihypertensives",
-  "Antimalarials", "Antihistamines", "Gastrointestinal", "Respiratory",
-  "Vitamins & Supplements", "Pain Relief", "Cold & Flu", "Allergy & Asthma",
-  "Digestive Health", "Chronic Care", "Supplements", "Personal Care",
-  "First Aid", "Wellness", "General",
-];
-
 const DOSAGE_FORMS = [
   "Tablet", "Capsule", "Syrup", "Injection", "Inhaler",
   "Cream", "Ointment", "Drops", "Sachet", "Patch", "Suppository", "Other",
@@ -274,154 +261,21 @@ function resolveIcon(name: string): CategoryIconComponent {
   return ICON_BY_NAME[name] ?? IconGeneral;
 }
 
-function getDefaultIconName(catName: string): string {
-  const n = catName.toLowerCase();
-  if (n.includes("analgesic") || n.includes("pain"))           return "pain-relief";
-  if (n.includes("antibiotic"))                                return "antibiotics";
-  if (n.includes("antidiabet") || n.includes("diabet"))        return "diabetes";
-  if (n.includes("antihypertens") || n.includes("hypertens"))  return "blood-pressure";
-  if (n.includes("malaria"))                                   return "infectious";
-  if (n.includes("antihistamine") || n.includes("histamine"))  return "allergy";
-  if (n.includes("gastro") || n.includes("digestive"))         return "digestive";
-  if (n.includes("respiratory") || n.includes("lung"))         return "respiratory";
-  if (n.includes("vitamin"))                                   return "vitamins";
-  if (n.includes("supplement"))                                return "supplements";
-  if (n.includes("cold") || n.includes("flu"))                 return "cold-flu";
-  if (n.includes("allergy") || n.includes("asthma"))           return "allergy";
-  if (n.includes("chronic"))                                   return "chronic-care";
-  if (n.includes("personal care") || n.includes("beauty"))     return "skincare";
-  if (n.includes("first aid"))                                 return "first-aid";
-  if (n.includes("wellness"))                                  return "general";
-  if (n.includes("sleep"))                                     return "sleep";
-  if (n.includes("mental") || n.includes("neuro") || n.includes("brain")) return "mental-health";
-  if (n.includes("baby") || n.includes("child") || n.includes("pedia"))   return "pediatrics";
-  if (n.includes("skin") || n.includes("derma"))               return "skincare";
-  if (n.includes("eye") || n.includes("ophthalm"))             return "eye-care";
-  if (n.includes("ear"))                                       return "ear-care";
-  if (n.includes("dental") || n.includes("oral"))              return "dental";
-  if (n.includes("cardiac") || n.includes("heart"))            return "heart-health";
-  if (n.includes("oncol") || n.includes("cancer"))             return "cancer-care";
-  if (n.includes("kidney") || n.includes("renal"))             return "kidney";
-  if (n.includes("liver") || n.includes("hepat"))              return "liver";
-  if (n.includes("bone") || n.includes("ortho"))               return "bone-joint";
-  if (n.includes("thyroid"))                                   return "thyroid";
-  if (n.includes("reproductive") || n.includes("uterus"))      return "reproductive";
-  return "general";
-}
-
-interface CategoryItem {
-  id: string;
-  name: string;
-  iconName: string;
-  isDefault?: boolean;
-}
-
-const DEFAULT_CATEGORIES: CategoryItem[] = BACKEND_CATEGORIES.map((name, i) => ({
-  id: `default-${i}`,
-  name,
-  iconName: getDefaultIconName(name),
-  isDefault: true,
-}));
-
-const CAT_STORAGE_KEY = "farumasi_product_categories";
-
-/* Remote category shape from GET /products/categories/ */
-interface RemoteCategoryItem {
-  id: string;
-  name: string;
-  icon_name: string;
-  is_default: boolean;
-  display_order: number;
-}
-
-function remoteToLocal(r: RemoteCategoryItem): CategoryItem {
-  return { id: r.id, name: r.name, iconName: r.icon_name, isDefault: r.is_default };
-}
-
-function useCategoryStore() {
-  const [categories, setCategories] = useState<CategoryItem[]>(() => {
-    if (typeof window === "undefined") return DEFAULT_CATEGORIES;
-    try {
-      const stored = localStorage.getItem(CAT_STORAGE_KEY);
-      return stored ? (JSON.parse(stored) as CategoryItem[]) : DEFAULT_CATEGORIES;
-    } catch {
-      return DEFAULT_CATEGORIES;
-    }
-  });
-
-  // Hydrate from backend on mount — backend is the source of truth
-  useEffect(() => {
-    api.get<RemoteCategoryItem[]>("/products/categories/")
-      .then(({ data }) => {
-        if (data.length > 0) {
-          const mapped = data.map(remoteToLocal);
-          setCategories(mapped);
-          try { localStorage.setItem(CAT_STORAGE_KEY, JSON.stringify(mapped)); } catch { /* noop */ }
-        }
-      })
-      .catch(() => { /* keep localStorage fallback */ });
-  }, []);
-
-  const persist = useCallback((next: CategoryItem[]) => {
-    setCategories(next);
-    try { localStorage.setItem(CAT_STORAGE_KEY, JSON.stringify(next)); } catch { /* noop */ }
-  }, []);
-
-  const addCategory = useCallback(
-    async (item: Omit<CategoryItem, "id">) => {
-      try {
-        const { data } = await api.post<RemoteCategoryItem>("/products/categories/", {
-          name: item.name,
-          icon_name: item.iconName,
-          display_order: categories.length,
-        });
-        persist([...categories, remoteToLocal(data)]);
-      } catch {
-        // Optimistic local-only fallback
-        persist([...categories, { ...item, id: crypto.randomUUID() }]);
-      }
-    },
-    [persist, categories],
-  );
-
-  const updateCategory = useCallback(
-    async (id: string, patch: Partial<Omit<CategoryItem, "id">>) => {
-      const next = categories.map((c) => (c.id === id ? { ...c, ...patch } : c));
-      persist(next);
-      try {
-        await api.patch(`/products/categories/${id}`, {
-          ...(patch.name !== undefined && { name: patch.name }),
-          ...(patch.iconName !== undefined && { icon_name: patch.iconName }),
-        });
-      } catch { /* local already updated */ }
-    },
-    [persist, categories],
-  );
-
-  const deleteCategory = useCallback(
-    async (id: string) => {
-      persist(categories.filter((c) => c.id !== id));
-      try { await api.delete(`/products/categories/${id}`); } catch { /* local already updated */ }
-    },
-    [persist, categories],
-  );
-
-  const resetAll = useCallback(() => persist(DEFAULT_CATEGORIES), [persist]);
-
-  return { categories, addCategory, updateCategory, deleteCategory, resetAll };
-}
-
 /* ─── CategoryManagerPage ──────────────────────────────── */
 type CatViewState = { mode: "list" } | { mode: "create" } | { mode: "edit"; id: string };
 
 function CategoryManagerPage({ onClose }: { onClose: () => void }) {
-  const { categories, addCategory, updateCategory, deleteCategory, resetAll } = useCategoryStore();
+  const { categories, addCategory, updateCategory, deleteCategory, resetAll, fetchCategories } = useCategoryStore();
   const [view, setView]               = useState<CatViewState>({ mode: "list" });
   const [name, setName]               = useState("");
   const [iconName, setIconName]       = useState("package");
   const [listSearch, setListSearch]   = useState("");
   const [iconSearch, setIconSearch]   = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  useEffect(() => {
+    void fetchCategories();
+  }, [fetchCategories]);
 
   const isForm = view.mode !== "list";
 
@@ -433,9 +287,18 @@ function CategoryManagerPage({ onClose }: { onClose: () => void }) {
   }
   async function handleSave() {
     if (!name.trim()) return;
-    if (view.mode === "create") await addCategory({ name: name.trim(), iconName, isDefault: false });
-    else if (view.mode === "edit") await updateCategory(view.id, { name: name.trim(), iconName });
-    setView({ mode: "list" });
+    try {
+      if (view.mode === "create") {
+        await addCategory({ name: name.trim(), iconName, isDefault: false });
+        toast.success(`Category "${name.trim()}" created`);
+      } else if (view.mode === "edit") {
+        await updateCategory(view.id, { name: name.trim(), iconName });
+        toast.success("Category updated");
+      }
+      setView({ mode: "list" });
+    } catch (err) {
+      toast.error(getApiError(err, "Could not save category"));
+    }
   }
 
   const filteredCategories = listSearch.trim()
@@ -1617,6 +1480,11 @@ interface EditDrawerProps {
 
 function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
   const parsed = parseDesc(product.description);
+  const { categories: availableCategories, fetchCategories } = useCategoryStore();
+
+  useEffect(() => {
+    void fetchCategories();
+  }, [fetchCategories]);
 
   const [form, setForm] = useState<UpdateProductInput & { prescription_required: boolean }>({
     name:                  product.name,
@@ -1637,7 +1505,6 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
   const [uploading, setUploading] = useState(false);
   const [section,   setSection]   = useState<"identity" | "description">("identity");
   const imgInputRef = useRef<HTMLInputElement>(null);
-  const { categories: availableCategories } = useCategoryStore();
 
   const setF = <K extends keyof typeof form>(key: K, val: (typeof form)[K]) =>
     setForm((p) => ({ ...p, [key]: val }));
@@ -2080,6 +1947,11 @@ interface AddDrawerProps {
 }
 
 function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
+  const { categories: availableCategories, fetchCategories } = useCategoryStore();
+  useEffect(() => {
+    void fetchCategories();
+  }, [fetchCategories]);
+
   const [form, setForm] = useState<CreateProductInput>({
     name: "", generic_name: "",
     product_type: "medicine", dosage_form: "", strength: "",
@@ -2091,7 +1963,6 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
   const [uploading, setUploading] = useState(false);
   const [section,   setSection]   = useState<"identity" | "description">("identity");
   const imgInputRef = useRef<HTMLInputElement>(null);
-  const { categories: availableCategories } = useCategoryStore();
 
   const set = <K extends keyof CreateProductInput>(key: K, val: CreateProductInput[K]) =>
     setForm((p) => ({ ...p, [key]: val }));
@@ -2534,12 +2405,16 @@ export default function InventoryPage() {
   const [showAdd,        setShowAdd]        = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const router = useRouter();
-  const { categories: storedCategories } = useCategoryStore();
+  const { categories: storedCategories, fetchCategories } = useCategoryStore();
 
   const chipRef = useRef<HTMLDivElement>(null);
 
   const scrollChips = (dir: "l" | "r") =>
     chipRef.current?.scrollBy({ left: dir === "l" ? -160 : 160, behavior: "smooth" });
+
+  useEffect(() => {
+    void fetchCategories();
+  }, [fetchCategories]);
 
   useEffect(() => {
     let cancelled = false;
