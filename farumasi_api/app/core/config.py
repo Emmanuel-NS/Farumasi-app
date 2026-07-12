@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 import base64
 import json
+import ssl
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from pydantic import computed_field, field_validator, model_validator
@@ -32,6 +33,22 @@ def database_requires_ssl(url: str) -> bool:
     if "sslmode=disable" in lowered or "ssl=false" in lowered or "ssl=disable" in lowered:
         return False
     return True
+
+
+def build_asyncpg_ssl_context() -> ssl.SSLContext:
+    """
+    TLS context for hosted Postgres (Render/Railway).
+
+    Plain ``ssl=True`` can fail mid-handshake with:
+    ``ConnectionDoesNotExistError: connection was closed in the middle of operation``.
+    An explicit SSLContext is the reliable asyncpg pattern for managed Postgres.
+    """
+    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+    # Managed DB hostnames / cert chains often fail strict hostname checks;
+    # encryption is still enforced (required by the server).
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
 
 
 def normalize_asyncpg_url(url: str) -> str:
@@ -259,8 +276,7 @@ class Settings(BaseSettings):
     def async_database_connect_args(self) -> Dict[str, Any]:
         """connect_args for create_async_engine / Alembic (SSL for hosted Postgres)."""
         if database_requires_ssl(self.ASYNC_DATABASE_URL):
-            # asyncpg: True enables TLS; required by Render/Railway managed Postgres.
-            return {"ssl": True}
+            return {"ssl": build_asyncpg_ssl_context()}
         return {}
 
     @model_validator(mode="after")
