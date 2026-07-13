@@ -141,6 +141,51 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS defer_delivery_fee BOOLEAN NOT NULL DEFAULT false",
                     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS amount_paid_order NUMERIC(12,2) NOT NULL DEFAULT 0",
                     "ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS estimated_distance_km NUMERIC(8,2)",
+                    # Multi-select category labels exceed varchar(100); widen even if Alembic skipped
+                    """
+                    DO $$
+                    BEGIN
+                      IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'product_catalogue_items'
+                          AND column_name = 'category'
+                          AND data_type = 'character varying'
+                      ) THEN
+                        ALTER TABLE product_catalogue_items
+                          ALTER COLUMN category TYPE TEXT;
+                      END IF;
+                    END $$
+                    """,
+                    """
+                    DO $$
+                    BEGIN
+                      IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'product_catalogue_items'
+                          AND column_name = 'dosage_form'
+                          AND data_type = 'character varying'
+                          AND character_maximum_length IS NOT NULL
+                          AND character_maximum_length < 255
+                      ) THEN
+                        ALTER TABLE product_catalogue_items
+                          ALTER COLUMN dosage_form TYPE VARCHAR(255);
+                      END IF;
+                      IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'product_catalogue_items'
+                          AND column_name = 'strength'
+                          AND data_type = 'character varying'
+                          AND character_maximum_length IS NOT NULL
+                          AND character_maximum_length < 255
+                      ) THEN
+                        ALTER TABLE product_catalogue_items
+                          ALTER COLUMN strength TYPE VARCHAR(255);
+                      END IF;
+                    END $$
+                    """,
                     """
                     CREATE TABLE IF NOT EXISTS payment_transactions (
                         id VARCHAR(36) PRIMARY KEY,

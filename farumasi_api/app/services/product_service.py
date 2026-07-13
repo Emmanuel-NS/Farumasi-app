@@ -242,8 +242,15 @@ class ProductService:
             from sqlalchemy.exc import SQLAlchemyError
 
             if isinstance(exc, SQLAlchemyError):
-                # e.g. value too long for varchar — surface instead of opaque CORS/500
-                raise ValidationError(f"Could not save product: {exc.orig if getattr(exc, 'orig', None) else exc}") from exc
+                orig = getattr(exc, "orig", None)
+                msg = str(orig or exc)
+                if "StringDataRightTruncationError" in msg or "value too long" in msg.lower():
+                    raise ValidationError(
+                        "Could not save product: one or more fields are too long for the "
+                        "database (often Categories). Shorten the value or contact support "
+                        "if this persists after a refresh."
+                    ) from exc
+                raise ValidationError(f"Could not save product: {msg}") from exc
             raise
         return product
 
