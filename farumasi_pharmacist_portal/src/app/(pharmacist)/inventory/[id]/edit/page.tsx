@@ -403,6 +403,7 @@ export default function EditProductPage({
   const [dosageDetails, setDosageDetails] = useState("");
   const [safety,        setSafety]        = useState("");
   const [informationSourceUrl, setInformationSourceUrl] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   /* fetch product */
   useEffect(() => {
@@ -451,9 +452,17 @@ export default function EditProductPage({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error("Product name is required"); return; }
+    setSaveError(null);
+    if (!name.trim()) {
+      const msg = "Product name is required";
+      setSaveError(msg);
+      toast.error(msg);
+      return;
+    }
     if (allowsPartial && !partialUnitName.trim()) {
-      toast.error("Unit name is required for partial-selling packaging (e.g. tablet, sachet)");
+      const msg = "Unit name is required for partial-selling packaging (e.g. tablet, sachet)";
+      setSaveError(msg);
+      toast.error(msg);
       return;
     }
     const minPartialNumber = allowsPartial && minPartialQty ? Number(minPartialQty) : null;
@@ -491,7 +500,10 @@ export default function EditProductPage({
       toast.success("Product updated");
       router.push(`/inventory/${id}`);
     } catch (err) {
-      toast.error(getApiError(err, "Failed to save changes"));
+      const msg = getApiError(err, "Failed to save changes");
+      console.error("[product update failed]", err);
+      setSaveError(msg);
+      toast.error(msg, { duration: 8000 });
     } finally {
       setSaving(false);
     }
@@ -513,7 +525,7 @@ export default function EditProductPage({
   const sectionHeadCls = "text-[10px] font-extrabold text-slate-400 uppercase tracking-widest";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col min-h-full">
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col min-h-full">
 
       {/* ── Sticky top bar ───────────────────────────────── */}
       <div className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between shrink-0 sticky top-0 z-20">
@@ -552,6 +564,13 @@ export default function EditProductPage({
           </button>
         </div>
       </div>
+
+      {saveError && (
+        <div className="mx-6 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p className="font-bold">Could not save changes</p>
+          <p className="mt-0.5 break-words">{saveError}</p>
+        </div>
+      )}
 
       {/* ── Scrollable body ──────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
@@ -873,7 +892,8 @@ export default function EditProductPage({
                   <div>
                     <label className={labelCls}>Information source URL (PIL)</label>
                     <input
-                      type="url"
+                      type="text"
+                      inputMode="url"
                       value={informationSourceUrl}
                       onChange={(e) => setInformationSourceUrl(e.target.value)}
                       placeholder="https://…/patient-information-leaflet (optional)"

@@ -295,7 +295,8 @@ export default function NewProductPage() {
           >
             <Field label="Information source URL (PIL)" hint="Optional — e.g. Rwanda FDA PIL link">
               <input
-                type="url"
+                type="text"
+                inputMode="url"
                 value={informationSourceUrl}
                 onChange={(e) => setInformationSourceUrl(e.target.value)}
                 placeholder="https://…/patient-information-leaflet"

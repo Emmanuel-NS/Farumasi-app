@@ -76,36 +76,50 @@ api.interceptors.response.use(
 /** Extract a human-readable error message from an Axios error response. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getApiError(err: any, fallback = "Something went wrong"): string {
+  const status = err?.response?.status as number | undefined;
   const data = err?.response?.data;
   const detail = data?.detail ?? data?.message ?? data?.error;
-  if (!detail) {
+  const withStatus = (msg: string) => (status ? `${msg} (HTTP ${status})` : msg);
+
+  if (detail == null || detail === "") {
     if (err?.code === "ECONNABORTED") return "Request timed out — try again";
     if (!err?.response) return err?.message || "Network error — check your connection";
-    return fallback;
+    return withStatus(fallback);
   }
-  if (typeof detail === "string") return detail;
+  if (typeof detail === "string") return withStatus(detail);
   if (Array.isArray(detail)) {
     const parts = detail
       .map((item: unknown) => {
         if (typeof item === "string") return item;
         if (item && typeof item === "object") {
-          const row = item as { msg?: string; loc?: unknown[] };
-          if (row.msg) {
+          const row = item as { msg?: string; message?: string; loc?: unknown[] };
+          const msg = row.msg ?? row.message;
+          if (msg) {
             const loc = Array.isArray(row.loc)
               ? row.loc.filter((p) => p !== "body" && p !== "query").join(".")
               : "";
-            return loc ? `${loc}: ${row.msg}` : row.msg;
+            return loc ? `${loc}: ${msg}` : msg;
           }
         }
-        return null;
+        try {
+          return JSON.stringify(item);
+        } catch {
+          return null;
+        }
       })
       .filter(Boolean);
-    if (parts.length) return parts.join("; ");
+    if (parts.length) return withStatus(parts.join("; "));
   }
-  if (typeof detail === "object" && detail !== null && "msg" in detail) {
-    return String((detail as { msg: string }).msg);
+  if (typeof detail === "object") {
+    const row = detail as { msg?: string; message?: string; type?: string };
+    if (row.msg || row.message) return withStatus(String(row.msg ?? row.message));
+    try {
+      return withStatus(JSON.stringify(detail));
+    } catch {
+      /* fall through */
+    }
   }
-  return fallback;
+  return withStatus(fallback);
 }
 
 export default api;

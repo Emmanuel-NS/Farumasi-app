@@ -1503,6 +1503,7 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
   const [desc,      setDesc]      = useState<ParsedDesc>(parsed);
   const [saving,    setSaving]    = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [section,   setSection]   = useState<"identity" | "description">("identity");
   const imgInputRef = useRef<HTMLInputElement>(null);
 
@@ -1527,16 +1528,23 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name?.trim()) { toast.error("Product name is required"); return; }
+    setSaveError(null);
+    if (!form.name?.trim()) {
+      const msg = "Product name is required";
+      setSaveError(msg);
+      toast.error(msg);
+      return;
+    }
     setSaving(true);
     try {
       const updated = await productsService.updateProduct(product.id, {
-        ...form,
         name:         form.name?.trim(),
         generic_name: form.generic_name?.trim() || null,
         strength:     form.strength?.trim() || null,
         dosage_form:  form.dosage_form?.trim() || null,
         manufacturer: form.manufacturer?.trim() || null,
+        product_type: form.product_type,
+        prescription_required: form.prescription_required,
         category:     categories.length ? categories.join(", ") : null,
         image_url:    form.image_url?.trim() || null,
         information_source_url: form.information_source_url?.trim() || null,
@@ -1545,7 +1553,10 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
       onSaved(updated);
       toast.success("Product updated successfully");
     } catch (err) {
-      toast.error(getApiError(err, "Failed to update product"));
+      const msg = getApiError(err, "Failed to update product");
+      console.error("[product update failed]", err);
+      setSaveError(msg);
+      toast.error(msg, { duration: 8000 });
     } finally {
       setSaving(false);
     }
@@ -1596,8 +1607,14 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
         </div>
       </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col">
+        <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto flex flex-col">
           <div className="flex-1 max-w-3xl mx-auto w-full px-6 py-5 space-y-4">
+            {saveError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <p className="font-bold">Could not save changes</p>
+                <p className="mt-0.5 break-words">{saveError}</p>
+              </div>
+            )}
             {section === "identity" ? (
               <>
                 {/* Product Image */}
@@ -1826,7 +1843,8 @@ function EditProductDrawer({ product, onClose, onSaved }: EditDrawerProps) {
                         Information source URL (PIL)
                       </label>
                       <input
-                        type="url"
+                        type="text"
+                        inputMode="url"
                         value={form.information_source_url ?? ""}
                         onChange={(e) => setF("information_source_url", e.target.value)}
                         placeholder="https://rwandafda.gov.rw/… (optional)"
@@ -1961,6 +1979,7 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
   const [desc,      setDesc]      = useState<ParsedDesc>({ short: "", dosage_summary: "", overview: "", dosage_details: "", safety: "" });
   const [saving,    setSaving]    = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [section,   setSection]   = useState<"identity" | "description">("identity");
   const imgInputRef = useRef<HTMLInputElement>(null);
 
@@ -1985,7 +2004,13 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) { toast.error("Product name is required"); return; }
+    setSaveError(null);
+    if (!form.name.trim()) {
+      const msg = "Product name is required";
+      setSaveError(msg);
+      toast.error(msg);
+      return;
+    }
     setSaving(true);
     try {
       const created = await productsService.createProduct({
@@ -2002,7 +2027,10 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
       });
       onCreated(created);
     } catch (err) {
-      toast.error(getApiError(err, "Failed to add product to catalogue"));
+      const msg = getApiError(err, "Failed to add product to catalogue");
+      console.error("[product create failed]", err);
+      setSaveError(msg);
+      toast.error(msg, { duration: 8000 });
     } finally {
       setSaving(false);
     }
@@ -2053,8 +2081,14 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
         </div>
       </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col">
+        <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto flex flex-col">
           <div className="flex-1 max-w-3xl mx-auto w-full px-6 py-5 space-y-4">
+            {saveError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <p className="font-bold">Could not save changes</p>
+                <p className="mt-0.5 break-words">{saveError}</p>
+              </div>
+            )}
             {section === "identity" ? (
               <>
                 {/* Product Image */}
@@ -2282,7 +2316,8 @@ function AddProductDrawer({ onClose, onCreated }: AddDrawerProps) {
                         Information source URL (PIL)
                       </label>
                       <input
-                        type="url"
+                        type="text"
+                        inputMode="url"
                         value={form.information_source_url ?? ""}
                         onChange={(e) => set("information_source_url", e.target.value)}
                         placeholder="https://rwandafda.gov.rw/… (optional)"

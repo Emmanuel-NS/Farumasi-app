@@ -386,6 +386,7 @@ function EditProductDrawer({
   });
   const [desc,    setDesc]    = useState<ParsedDesc>(parsed);
   const [saving,  setSaving]  = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [section, setSection] = useState<"identity" | "description">("identity");
 
   const setF = <K extends keyof typeof form>(key: K, val: (typeof form)[K]) => setForm((p) => ({ ...p, [key]: val }));
@@ -393,20 +394,30 @@ function EditProductDrawer({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name?.trim()) { toast.error("Product name is required"); return; }
+    setSaveError(null);
+    if (!form.name?.trim()) {
+      const msg = "Product name is required";
+      setSaveError(msg);
+      toast.error(msg);
+      return;
+    }
     setSaving(true);
     try {
       const updated = await productsService.updateProduct(product.id, {
-        ...form,
         name: form.name?.trim(), generic_name: form.generic_name?.trim() || null,
         strength: form.strength?.trim() || null, dosage_form: form.dosage_form?.trim() || null,
         manufacturer: form.manufacturer?.trim() || null, category: form.category?.trim() || null,
+        product_type: form.product_type,
+        prescription_required: form.prescription_required,
         description: serializeDesc(desc),
       });
       onSaved(updated);
       toast.success("Product updated successfully");
     } catch (err) {
-      toast.error(getApiError(err, "Failed to update product"));
+      const msg = getApiError(err, "Failed to update product");
+      console.error("[product update failed]", err);
+      setSaveError(msg);
+      toast.error(msg, { duration: 8000 });
     } finally {
       setSaving(false);
     }
@@ -438,8 +449,14 @@ function EditProductDrawer({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col">
+        <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto flex flex-col">
           <div className="flex-1 px-6 py-5 space-y-4">
+            {saveError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <p className="font-bold">Could not save changes</p>
+                <p className="mt-0.5 break-words">{saveError}</p>
+              </div>
+            )}
             {section === "identity" ? (
               <>
                 {/* Basic info */}
