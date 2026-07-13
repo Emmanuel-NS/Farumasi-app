@@ -33,7 +33,7 @@ class ProductCatalogueItem(Base, UUIDMixin, TimestampMixin):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     generic_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    category: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     product_type: Mapped[str] = mapped_column(String(50), default=ProductType.MEDICINE)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     dosage_form: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -66,8 +66,11 @@ class ProductCatalogueItem(Base, UUIDMixin, TimestampMixin):
         """Derived from packaging_class — no extra DB column needed."""
         if not self.packaging_class:
             return False
-        allowed = {c.value if hasattr(c, "value") else c for c in PARTIAL_SELLING_CLASSES}
-        return self.packaging_class in allowed
+        allowed = {
+            (c.value if hasattr(c, "value") else str(c))
+            for c in PARTIAL_SELLING_CLASSES
+        }
+        return str(self.packaging_class) in allowed
 
     # ── Relationships ─────────────────────────────────────────────────────
     approved_by_pharmacist: Mapped[Optional["PharmacistProfile"]] = relationship(

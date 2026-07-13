@@ -216,16 +216,35 @@ class ProductService:
                     patch.setdefault("partial_unit_name", healed)
                 if pc == "tablets_capsules":
                     min_q = merged["min_partial_quantity"]
-                    if min_q is None or int(min_q) < 2:
+                    try:
+                        min_q_int = int(min_q) if min_q is not None else None
+                    except (TypeError, ValueError):
+                        min_q_int = None
+                    if min_q_int is None or min_q_int < 2:
                         merged["min_partial_quantity"] = 2
                         patch["min_partial_quantity"] = 2
             validate_product_packaging_fields(**merged)
         for field, value in patch.items():
             if field == "information_source_url" and isinstance(value, str):
                 value = value.strip() or None
+            if field == "product_type" and hasattr(value, "value"):
+                value = value.value
+            if field == "packaging_class" and hasattr(value, "value"):
+                value = value.value
+            if field == "category" and isinstance(value, str):
+                value = value.strip() or None
             setattr(product, field, value)
-        await self.db.commit()
-        await self.db.refresh(product)
+        try:
+            await self.db.commit()
+            await self.db.refresh(product)
+        except Exception as exc:
+            await self.db.rollback()
+            from sqlalchemy.exc import SQLAlchemyError
+
+            if isinstance(exc, SQLAlchemyError):
+                # e.g. value too long for varchar — surface instead of opaque CORS/500
+                raise ValidationError(f"Could not save product: {exc.orig if getattr(exc, 'orig', None) else exc}") from exc
+            raise
         return product
 
     async def set_product_status(

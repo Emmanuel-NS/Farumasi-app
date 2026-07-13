@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.responses import JSONResponse
 
 
@@ -60,6 +61,10 @@ class AccountRestrictedError(FarumasiException):
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    import logging
+
+    log = logging.getLogger("farumasi.api")
+
     @app.exception_handler(FarumasiException)
     async def farumasi_exception_handler(request: Request, exc: FarumasiException):
         return JSONResponse(
@@ -67,10 +72,31 @@ def register_exception_handlers(app: FastAPI) -> None:
             content={"detail": exc.detail, "type": type(exc).__name__},
         )
 
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_handler(request: Request, exc: RequestValidationError):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"detail": exc.errors(), "type": "RequestValidationError"},
+        )
+
+    @app.exception_handler(ResponseValidationError)
+    async def response_validation_handler(request: Request, exc: ResponseValidationError):
+        log.exception("Response validation failed on %s %s", request.method, request.url.path)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "detail": "Server response validation failed while saving product",
+                "type": "ResponseValidationError",
+                "errors": exc.errors(),
+            },
+        )
+
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception):
         # Never leak internal details in production
         from app.core.config import settings
+
+        log.exception("Unhandled error on %s %s", request.method, request.url.path)
         detail = str(exc) if settings.DEBUG else "An internal server error occurred"
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

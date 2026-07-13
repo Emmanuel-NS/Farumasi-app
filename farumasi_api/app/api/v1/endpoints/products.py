@@ -130,7 +130,9 @@ async def update_product(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await ProductService(db).update_product(product_id, data, current_user)
+    await ProductService(db).update_product(product_id, data, current_user)
+    # Return the enriched product shape (same as GET) so response validation stays consistent
+    return await ProductService(db).get_product(product_id)
 
 
 @router.patch("/{product_id}/status", response_model=ProductOut)
