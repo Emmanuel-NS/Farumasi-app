@@ -60,6 +60,28 @@ class AccountRestrictedError(FarumasiException):
         super().__init__("Your account is restricted. Contact support.", status.HTTP_403_FORBIDDEN)
 
 
+def _cors_headers_for(request: Request) -> dict[str, str]:
+    """Ensure browser clients always see ACAO even if middleware is skipped."""
+    import re
+
+    from app.core.config import settings
+
+    origin = request.headers.get("origin")
+    if not origin:
+        return {}
+    allowed = set(settings.cors_origins)
+    if origin in allowed or re.fullmatch(
+        r"http://(localhost|127\.0\.0\.1):\d+|https://([a-z0-9-]+\.)?farumasi\.com",
+        origin,
+    ):
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
+    return {}
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     import logging
 
@@ -70,6 +92,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.detail, "type": type(exc).__name__},
+            headers=_cors_headers_for(request),
         )
 
     @app.exception_handler(RequestValidationError)
@@ -77,6 +100,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={"detail": exc.errors(), "type": "RequestValidationError"},
+            headers=_cors_headers_for(request),
         )
 
     @app.exception_handler(ResponseValidationError)
@@ -89,6 +113,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "type": "ResponseValidationError",
                 "errors": exc.errors(),
             },
+            headers=_cors_headers_for(request),
         )
 
     @app.exception_handler(Exception)
@@ -97,8 +122,19 @@ def register_exception_handlers(app: FastAPI) -> None:
         from app.core.config import settings
 
         log.exception("Unhandled error on %s %s", request.method, request.url.path)
-        detail = str(exc) if settings.DEBUG else "An internal server error occurred"
+        exc_name = type(exc).__name__
+        # Surface asyncpg cache invalidation clearly — usually after DDL / Neon pooler
+        if "InvalidCachedStatement" in exc_name or "InvalidCachedStatement" in str(exc):
+            detail = (
+                "Database connection cache was reset after a schema change. "
+                "Please retry the request."
+            )
+        elif settings.DEBUG:
+            detail = str(exc)
+        else:
+            detail = "An internal server error occurred"
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"detail": detail, "type": "InternalServerError"},
+            content={"detail": detail, "type": exc_name},
+            headers=_cors_headers_for(request),
         )

@@ -297,9 +297,15 @@ class Settings(BaseSettings):
     @property
     def async_database_connect_args(self) -> Dict[str, Any]:
         """connect_args for create_async_engine / Alembic (SSL for hosted Postgres)."""
+        args: Dict[str, Any] = {}
         if database_requires_ssl(self.ASYNC_DATABASE_URL):
-            return {"ssl": build_asyncpg_ssl_context()}
-        return {}
+            args["ssl"] = build_asyncpg_ssl_context()
+        # Neon / PgBouncer (transaction pool) + startup DDL invalidate asyncpg
+        # prepared-statement plans → InvalidCachedStatementError / opaque CORS 500s.
+        url = (self.ASYNC_DATABASE_URL or "").lower()
+        if "neon.tech" in url or "-pooler." in url or "pgbouncer" in url:
+            args["statement_cache_size"] = 0
+        return args
 
     @model_validator(mode="after")
     def _enforce_secret_in_non_dev(self) -> "Settings":

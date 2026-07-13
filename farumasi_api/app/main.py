@@ -234,6 +234,9 @@ async def lifespan(app: FastAPI):
                 ):
                     await conn.execute(text(stmt))
             logger.info("Optional DB columns ensured")
+            # Drop pooled connections whose prepared plans were invalidated by DDL
+            await engine.dispose()
+            logger.info("Database pool reset after schema ensure")
         except Exception as exc:  # noqa: BLE001
             logger.warning("Could not ensure optional DB columns: %s", exc)
     except Exception as exc:  # noqa: BLE001
