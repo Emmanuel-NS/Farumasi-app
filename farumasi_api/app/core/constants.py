@@ -58,6 +58,7 @@ class ProductApprovalStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     SUSPENDED = "suspended"
+    WITHDRAWN = "withdrawn"  # soft-deleted from catalogue (pharmacist/admin)
 
 
 class ProductRequestStatus(str, Enum):

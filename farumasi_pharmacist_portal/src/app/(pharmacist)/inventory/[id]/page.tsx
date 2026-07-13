@@ -8,6 +8,7 @@ import { RichEditor } from "@/components/ui/rich-editor";
 import {
   ArrowLeft, Pencil, Loader2, Building2, Calendar, TrendingUp,
   X, ChevronDown, ShieldOff, Trash2, MoreVertical, AlertTriangle,
+  EyeOff, CheckCircle2, Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getApiError } from "@/lib/api";
@@ -20,6 +21,7 @@ import {
   type BackendProduct,
   type CreateProductInput,
   type UpdateProductInput,
+  type ProductApprovalStatus,
 } from "@/lib/services/products.service";
 import {
   listingsService,
@@ -77,6 +79,25 @@ function categoryGradient(cat?: string | null): string {
   if (c.includes("hypertension"))                           return "from-rose-500 to-rose-700";
   if (c.includes("antihistamine") || c.includes("allergy")) return "from-teal-400 to-teal-600";
   return "from-farumasi-500 to-farumasi-700";
+}
+
+function approvalBadge(status: string): { label: string; className: string } {
+  switch (status) {
+    case "approved":
+      return { label: "Published", className: "bg-emerald-500/90 text-white" };
+    case "suspended":
+      return { label: "Unpublished", className: "bg-amber-500/90 text-white" };
+    case "withdrawn":
+      return { label: "Deleted", className: "bg-red-600/90 text-white" };
+    case "pending_review":
+      return { label: "Pending review", className: "bg-sky-500/90 text-white" };
+    case "rejected":
+      return { label: "Rejected", className: "bg-red-500/90 text-white" };
+    case "draft":
+      return { label: "Draft", className: "bg-slate-500/90 text-white" };
+    default:
+      return { label: status.replace(/_/g, " "), className: "bg-white/20 text-white" };
+  }
 }
 
 /* ─── Description helpers ───────────────────────────────── */
@@ -588,6 +609,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [listingsLoading,setListingsLoading]= useState(true);
   const [activeModal,    setActiveModal]    = useState<null | "price" | "expiry" | "sales">(null);
   const [activeTab,      setActiveTab]      = useState<"overview" | "dosage" | "safety">("overview");
+  const [actionsOpen,    setActionsOpen]    = useState(false);
+  const [confirmAction,  setConfirmAction]  = useState<null | "unpublish" | "publish" | "delete">(null);
+  const [actionBusy,     setActionBusy]     = useState(false);
 
   /* Fetch product */
   useEffect(() => {
@@ -613,6 +637,40 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     return () => { cancelled = true; };
   }, [id]);
 
+  const runCatalogueAction = async () => {
+    if (!confirmAction || !product) return;
+    setActionBusy(true);
+    try {
+      let updated: BackendProduct;
+      if (confirmAction === "delete") {
+        updated = await productsService.deleteProduct(product.id);
+        toast.success("Product deleted from catalogue");
+        setProduct(updated);
+        setConfirmAction(null);
+        router.push("/inventory");
+        return;
+      }
+      const next: ProductApprovalStatus =
+        confirmAction === "unpublish" ? "suspended" : "approved";
+      updated = await productsService.setProductStatus(product.id, next);
+      setProduct(updated);
+      toast.success(
+        confirmAction === "unpublish"
+          ? "Product unpublished — hidden from patients"
+          : "Product published — visible in the patient store",
+      );
+      // Refresh listings so suspended stock badges update
+      const listResult = await listingsService.getListingsForProduct(id);
+      setListings(listResult);
+      setPharmacyMap(buildPharmacyMapFromListings(listResult));
+      setConfirmAction(null);
+    } catch (err) {
+      toast.error(getApiError(err, "Could not update product"), { duration: 8000 });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   if (loading || !product) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center py-32">
@@ -626,6 +684,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const catBg    = categoryBg(product.category);
   const initials = product.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "Rx";
   const desc     = parseDesc(product.description);
+  const statusUi = approvalBadge(product.approval_status);
+  const isPublished = product.approval_status === "approved";
+  const isWithdrawn = product.approval_status === "withdrawn";
 
   const activeListings = listings.filter((l) => l.availability_status !== "suspended");
   const prices     = activeListings.filter((l) => l.price > 0).map((l) => l.price);
@@ -648,12 +709,92 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           >
             <ArrowLeft className="w-4 h-4" /> Back to Inventory
           </button>
-          <button
-            onClick={() => router.push(`/inventory/${id}/edit`)}
-            className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors"
-          >
-            <Pencil className="w-3.5 h-3.5" /> Edit Product
-          </button>
+          <div className="flex items-center gap-2">
+            {!isWithdrawn && (
+              <button
+                onClick={() => router.push(`/inventory/${id}/edit`)}
+                className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit Product
+              </button>
+            )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActionsOpen((o) => !o)}
+                className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white text-sm font-bold px-3 py-2 rounded-xl transition-colors"
+                aria-expanded={actionsOpen}
+                aria-haspopup="menu"
+              >
+                <MoreVertical className="w-4 h-4" /> Actions
+              </button>
+              {actionsOpen && (
+                <>
+                  <button
+                    type="button"
+                    className="fixed inset-0 z-40 cursor-default"
+                    aria-label="Close actions"
+                    onClick={() => setActionsOpen(false)}
+                  />
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-2 z-50 w-56 rounded-xl bg-white shadow-xl border border-slate-200 py-1 overflow-hidden"
+                  >
+                    {isPublished ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-800"
+                        onClick={() => {
+                          setActionsOpen(false);
+                          setConfirmAction("unpublish");
+                        }}
+                      >
+                        <EyeOff className="w-4 h-4" /> Unpublish
+                      </button>
+                    ) : !isWithdrawn ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-800"
+                        onClick={() => {
+                          setActionsOpen(false);
+                          setConfirmAction("publish");
+                        }}
+                      >
+                        <Globe className="w-4 h-4" /> Publish
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-800"
+                        onClick={() => {
+                          setActionsOpen(false);
+                          setConfirmAction("publish");
+                        }}
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Restore &amp; publish
+                      </button>
+                    )}
+                    {!isWithdrawn && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 border-t border-slate-100"
+                        onClick={() => {
+                          setActionsOpen(false);
+                          setConfirmAction("delete");
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" /> Delete from catalogue
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Product identity */}
@@ -671,6 +812,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               {product.prescription_required && (
                 <span className="text-[10px] font-extrabold text-white bg-violet-600/80 px-2.5 py-0.5 rounded-md">Rx</span>
               )}
+              <span className={cn("text-[10px] font-extrabold px-2.5 py-0.5 rounded-md", statusUi.className)}>
+                {statusUi.label}
+              </span>
             </div>
             {product.generic_name && (
               <p className="text-sm text-white/70 italic mt-0.5">{product.generic_name}</p>
@@ -691,6 +835,76 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
       </div>
+
+      {/* Catalogue action confirm */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className={cn(
+                "shrink-0 w-11 h-11 rounded-xl flex items-center justify-center",
+                confirmAction === "delete" ? "bg-red-50" : confirmAction === "unpublish" ? "bg-amber-50" : "bg-emerald-50",
+              )}>
+                {confirmAction === "delete" ? (
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                ) : confirmAction === "unpublish" ? (
+                  <EyeOff className="w-5 h-5 text-amber-600" />
+                ) : (
+                  <Globe className="w-5 h-5 text-emerald-600" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  {confirmAction === "delete"
+                    ? "Delete this product?"
+                    : confirmAction === "unpublish"
+                      ? "Unpublish this product?"
+                      : isWithdrawn
+                        ? "Restore & publish?"
+                        : "Publish this product?"}
+                </h3>
+                <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                  {confirmAction === "delete"
+                    ? "The product will be removed from the patient store and pharmacy listings will be suspended. You can restore it later from inventory."
+                    : confirmAction === "unpublish"
+                      ? "Patients will no longer see this product. Active pharmacy listings will be suspended."
+                      : "The product will appear in the patient store again. Re-enable pharmacy listings separately if needed."}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={() => setConfirmAction(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={() => void runCatalogueAction()}
+                className={cn(
+                  "flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2",
+                  confirmAction === "delete"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : confirmAction === "unpublish"
+                      ? "bg-amber-600 hover:bg-amber-700"
+                      : "bg-farumasi-600 hover:bg-farumasi-700",
+                )}
+              >
+                {actionBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                {confirmAction === "delete"
+                  ? "Delete"
+                  : confirmAction === "unpublish"
+                    ? "Unpublish"
+                    : "Publish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Insight cards ─────────────────────────────────── */}
       <div className="px-6 -mt-10 z-10 relative max-w-5xl mx-auto w-full">

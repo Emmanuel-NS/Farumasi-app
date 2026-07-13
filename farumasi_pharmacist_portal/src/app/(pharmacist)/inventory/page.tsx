@@ -623,7 +623,11 @@ function ProductCard({
   const desc    = parseDesc(product.description);
 
   return (
-    <div className="group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-farumasi-200 transition-all duration-300 overflow-hidden flex flex-col">
+    <div className={cn(
+      "group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-farumasi-200 transition-all duration-300 overflow-hidden flex flex-col",
+      product.approval_status === "withdrawn" && "opacity-70",
+      product.approval_status === "suspended" && "ring-1 ring-amber-200",
+    )}>
       {/* Image / gradient area */}
       <div className={cn("relative h-44 overflow-hidden bg-gradient-to-br", grad)}>
         {product.image_url && !imgErr ? (
@@ -654,6 +658,23 @@ function ProductCard({
             Rx
           </div>
         )}
+        {/* Catalogue status */}
+        {product.approval_status && product.approval_status !== "approved" && (
+          <div className={cn(
+            "absolute top-2.5 right-2.5 text-[9px] font-extrabold px-2 py-0.5 rounded-md backdrop-blur-sm",
+            product.approval_status === "suspended" && "bg-amber-500/95 text-white",
+            product.approval_status === "withdrawn" && "bg-red-600/95 text-white",
+            product.approval_status === "pending_review" && "bg-sky-500/95 text-white",
+            product.approval_status === "rejected" && "bg-red-500/95 text-white",
+            product.approval_status === "draft" && "bg-slate-600/95 text-white",
+          )}>
+            {product.approval_status === "suspended"
+              ? "Unpublished"
+              : product.approval_status === "withdrawn"
+                ? "Deleted"
+                : product.approval_status.replace(/_/g, " ")}
+          </div>
+        )}
         {/* Category badge */}
         {product.category && (
           <div className="absolute bottom-2.5 left-2.5">
@@ -670,12 +691,14 @@ function ProductCard({
           >
             <Eye className="w-3.5 h-3.5" /> View
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            className="flex items-center gap-1.5 bg-farumasi-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-lg hover:bg-farumasi-700 transition-colors"
-          >
-            <Pencil className="w-3.5 h-3.5" /> Edit
-          </button>
+          {product.approval_status !== "withdrawn" && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              className="flex items-center gap-1.5 bg-farumasi-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-lg hover:bg-farumasi-700 transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Edit
+            </button>
+          )}
         </div>
       </div>
 
@@ -2630,7 +2653,7 @@ export default function InventoryPage() {
                 key={product.id}
                 product={product}
                 onView={() => router.push(`/inventory/${product.id}`)}
-                onEdit={() => router.push(`/inventory/${product.id}?edit=1`)}
+                onEdit={() => router.push(`/inventory/${product.id}/edit`)}
               />
             ))}
           </div>

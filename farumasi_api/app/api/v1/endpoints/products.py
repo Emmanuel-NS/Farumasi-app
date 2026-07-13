@@ -142,6 +142,18 @@ async def update_product_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await ProductService(db).set_product_status(
+    await ProductService(db).set_product_status(
         product_id, data.approval_status, current_user
     )
+    return await ProductService(db).get_product(product_id)
+
+
+@router.delete("/{product_id}", response_model=ProductOut)
+async def delete_product(
+    product_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Soft-delete (withdraw) a catalogue product so it leaves the patient store."""
+    await ProductService(db).withdraw_product(product_id, current_user)
+    return await ProductService(db).get_product(product_id)

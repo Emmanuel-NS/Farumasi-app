@@ -57,6 +57,14 @@ export interface CreateProductInput {
 
 export type UpdateProductInput = Partial<CreateProductInput>;
 
+export type ProductApprovalStatus =
+  | "draft"
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "suspended"
+  | "withdrawn";
+
 export const productsService = {
   async searchProducts(params?: {
     search?: string;
@@ -84,6 +92,22 @@ export const productsService = {
 
   async updateProduct(id: string, input: UpdateProductInput): Promise<BackendProduct> {
     const { data } = await api.patch<BackendProduct>(`/products/${id}`, input);
+    return data;
+  },
+
+  async setProductStatus(
+    id: string,
+    approval_status: ProductApprovalStatus,
+  ): Promise<BackendProduct> {
+    const { data } = await api.patch<BackendProduct>(`/products/${id}/status`, {
+      approval_status,
+    });
+    return data;
+  },
+
+  /** Soft-delete: sets approval_status to withdrawn and suspends listings. */
+  async deleteProduct(id: string): Promise<BackendProduct> {
+    const { data } = await api.delete<BackendProduct>(`/products/${id}`);
     return data;
   },
 };

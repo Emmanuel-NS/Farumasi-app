@@ -257,23 +257,64 @@ class ProductService:
     async def set_product_status(
         self, product_id: str, new_status: ProductApprovalStatus, actor: User
     ) -> ProductCatalogueItem:
-        # Only super_admin can suspend/reject; pharmacist can move to approved/pending
+        """Change catalogue visibility / lifecycle status.
+
+        Pharmacists may publish (approved), unpublish (suspended), withdraw, or
+        send back to pending_review. Reject remains super_admin-only.
+        """
+        status_value = (
+            new_status.value if isinstance(new_status, ProductApprovalStatus) else str(new_status)
+        )
+        try:
+            target = ProductApprovalStatus(status_value)
+        except ValueError as exc:
+            raise ValidationError(f"Invalid product status '{status_value}'") from exc
+
+        pharmacist_allowed = {
+            ProductApprovalStatus.APPROVED,
+            ProductApprovalStatus.SUSPENDED,
+            ProductApprovalStatus.WITHDRAWN,
+            ProductApprovalStatus.PENDING_REVIEW,
+        }
         if actor.role == UserRole.SUPER_ADMIN:
             pass
         elif actor.role == UserRole.PHARMACIST:
-            if new_status == ProductApprovalStatus.SUSPENDED:
-                raise AuthorizationError("Only super_admin can suspend a product")
+            if target not in pharmacist_allowed:
+                raise AuthorizationError(
+                    "Pharmacists can publish, unpublish, or withdraw products — "
+                    "not reject them"
+                )
         else:
             raise AuthorizationError("Only super_admin or pharmacist can change product status")
+
         product = await self._get_product_or_404(product_id)
-        product.approval_status = new_status
-        if new_status == ProductApprovalStatus.APPROVED:
+        product.approval_status = target.value
+        if target == ProductApprovalStatus.APPROVED:
             pharmacist_id = await self._pharmacist_id_for_user(actor.id)
             if pharmacist_id:
                 product.approved_by_pharmacist_id = pharmacist_id
+        # Unpublish / withdraw: hide pharmacy stock so patients cannot order it
+        if target in (ProductApprovalStatus.SUSPENDED, ProductApprovalStatus.WITHDRAWN):
+            await self._suspend_product_listings(product_id)
         await self.db.commit()
         await self.db.refresh(product)
         return product
+
+    async def withdraw_product(self, product_id: str, actor: User) -> ProductCatalogueItem:
+        """Soft-delete a catalogue product (status = withdrawn)."""
+        return await self.set_product_status(
+            product_id, ProductApprovalStatus.WITHDRAWN, actor
+        )
+
+    async def _suspend_product_listings(self, product_id: str) -> None:
+        result = await self.db.execute(
+            select(ProductListing).where(
+                ProductListing.product_id == product_id,
+                ProductListing.availability_status != ListingAvailability.SUSPENDED.value,
+            )
+        )
+        for listing in result.scalars().all():
+            listing.availability_status = ListingAvailability.SUSPENDED.value
 
     async def get_product(self, product_id: str) -> ProductCatalogueItem:
         """Return a single product with listing stats attached (same fields as list view)."""
