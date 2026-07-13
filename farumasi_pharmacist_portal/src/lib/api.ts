@@ -76,13 +76,34 @@ api.interceptors.response.use(
 /** Extract a human-readable error message from an Axios error response. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getApiError(err: any, fallback = "Something went wrong"): string {
-  const detail = err?.response?.data?.detail;
-  if (!detail) return fallback;
+  const data = err?.response?.data;
+  const detail = data?.detail ?? data?.message ?? data?.error;
+  if (!detail) {
+    if (err?.code === "ECONNABORTED") return "Request timed out — try again";
+    if (!err?.response) return err?.message || "Network error — check your connection";
+    return fallback;
+  }
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
-    const first = detail[0];
-    if (typeof first === "string") return first;
-    if (first?.msg) return first.msg as string;
+    const parts = detail
+      .map((item: unknown) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          const row = item as { msg?: string; loc?: unknown[] };
+          if (row.msg) {
+            const loc = Array.isArray(row.loc)
+              ? row.loc.filter((p) => p !== "body" && p !== "query").join(".")
+              : "";
+            return loc ? `${loc}: ${row.msg}` : row.msg;
+          }
+        }
+        return null;
+      })
+      .filter(Boolean);
+    if (parts.length) return parts.join("; ");
+  }
+  if (typeof detail === "object" && detail !== null && "msg" in detail) {
+    return String((detail as { msg: string }).msg);
   }
   return fallback;
 }

@@ -10,6 +10,7 @@ import {
   X, ChevronDown, ShieldOff, Trash2, MoreVertical, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getApiError } from "@/lib/api";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -404,8 +405,11 @@ function EditProductDrawer({
       });
       onSaved(updated);
       toast.success("Product updated successfully");
-    } catch { toast.error("Failed to update product"); }
-    finally   { setSaving(false); }
+    } catch (err) {
+      toast.error(getApiError(err, "Failed to update product"));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inputCls = "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-farumasi-300 focus:border-transparent transition-all bg-white";

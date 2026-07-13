@@ -456,13 +456,11 @@ export default function EditProductPage({
       toast.error("Unit name is required for partial-selling packaging (e.g. tablet, sachet)");
       return;
     }
-    if (packagingClass === "tablets_capsules") {
-      const minQ = Number(minPartialQty);
-      if (!Number.isFinite(minQ) || minQ < 2) {
-        toast.error("Minimum order for tablets/capsules must be at least 2 units");
-        return;
-      }
-    }
+    const minPartialNumber = allowsPartial && minPartialQty ? Number(minPartialQty) : null;
+    const normalizedMinPartial =
+      packagingClass === "tablets_capsules" && minPartialNumber != null
+        ? Math.max(2, minPartialNumber)
+        : minPartialNumber;
     setSaving(true);
     try {
       const input: UpdateProductInput = {
@@ -485,7 +483,7 @@ export default function EditProductPage({
         }),
         packaging_class:       packagingClass || null,
         units_per_pack:        allowsPartial && unitsPerPack ? Number(unitsPerPack) : null,
-        min_partial_quantity:  allowsPartial && minPartialQty ? Number(minPartialQty) : null,
+        min_partial_quantity:  allowsPartial ? normalizedMinPartial : null,
         partial_unit_name:     allowsPartial ? (partialUnitName.trim() || null) : null,
         information_source_url: informationSourceUrl.trim() || null,
       };

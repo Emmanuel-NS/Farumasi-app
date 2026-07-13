@@ -44,7 +44,11 @@ from app.schemas.product import (
 )
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
-from app.utils.packaging import validate_listing_prices, validate_product_packaging_fields
+from app.utils.packaging import (
+    packaging_allows_partial,
+    validate_listing_prices,
+    validate_product_packaging_fields,
+)
 from app.utils.seller_catalogue import partner_may_list_product
 
 
@@ -178,13 +182,44 @@ class ProductService:
         _ensure_role(actor, _PRODUCT_MANAGERS, "update products")
         product = await self._get_product_or_404(product_id)
         patch = data.model_dump(exclude_unset=True)
-        merged = {
-            "packaging_class": patch.get("packaging_class", product.packaging_class),
-            "units_per_pack": patch.get("units_per_pack", product.units_per_pack),
-            "min_partial_quantity": patch.get("min_partial_quantity", product.min_partial_quantity),
-            "partial_unit_name": patch.get("partial_unit_name", product.partial_unit_name),
+        packaging_keys = {
+            "packaging_class",
+            "units_per_pack",
+            "min_partial_quantity",
+            "partial_unit_name",
         }
-        validate_product_packaging_fields(**merged)
+        # Only re-validate packaging when the client is changing those fields.
+        # Otherwise legacy catalogue rows (e.g. tablets with min qty 1) block
+        # unrelated edits like name/description.
+        if packaging_keys & patch.keys():
+            merged = {
+                "packaging_class": patch.get("packaging_class", product.packaging_class),
+                "units_per_pack": patch.get("units_per_pack", product.units_per_pack),
+                "min_partial_quantity": patch.get(
+                    "min_partial_quantity", product.min_partial_quantity
+                ),
+                "partial_unit_name": patch.get(
+                    "partial_unit_name", product.partial_unit_name
+                ),
+            }
+            # Soft-heal common legacy gaps before strict validation
+            pc = merged["packaging_class"]
+            if pc and packaging_allows_partial(pc):
+                if not (merged["partial_unit_name"] or "").strip():
+                    defaults = {
+                        "tablets_capsules": "tablet",
+                        "sachets": "sachet",
+                        "ampoules_vials": "ampoule",
+                    }
+                    healed = defaults.get(pc, "unit")
+                    merged["partial_unit_name"] = healed
+                    patch.setdefault("partial_unit_name", healed)
+                if pc == "tablets_capsules":
+                    min_q = merged["min_partial_quantity"]
+                    if min_q is None or int(min_q) < 2:
+                        merged["min_partial_quantity"] = 2
+                        patch["min_partial_quantity"] = 2
+            validate_product_packaging_fields(**merged)
         for field, value in patch.items():
             if field == "information_source_url" and isinstance(value, str):
                 value = value.strip() or None
