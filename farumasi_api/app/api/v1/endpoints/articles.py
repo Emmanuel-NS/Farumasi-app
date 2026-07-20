@@ -41,6 +41,11 @@ async def list_published_articles(
     category: Optional[str] = Query(None),
     categories: Optional[List[str]] = Query(None),
     article_type: Optional[str] = Query(None),
+    search: Optional[str] = Query(
+        None,
+        description="Keyword search across title, summary, body, category, slug",
+        max_length=120,
+    ),
     sort_by: Optional[str] = Query(
         None,
         description="newest|oldest|likes|views|shares|comments (default newest)",
@@ -67,6 +72,7 @@ async def list_published_articles(
             article_type=article_type,
             sort_by=sort_by,
             sponsored_only=sponsored_only,
+            search=search,
             offset=offset,
             limit=limit,
         )

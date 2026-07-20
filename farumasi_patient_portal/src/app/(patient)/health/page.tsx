@@ -117,8 +117,10 @@ export default function HealthPage() {
   const lang = useLanguageStore((s) => s.lang);
   const [activeTab, setActiveTab] = useState<Tab>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [ARTICLES, setArticles] = useState<HealthArticle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [savedOnly, setSavedOnly] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | ArticleType>("all");
@@ -129,6 +131,17 @@ export default function HealthPage() {
   const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
   const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
   const tabDragState = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (searchQuery.trim() && activeTab !== "All") {
+      setActiveTab("All");
+    }
+  }, [searchQuery, activeTab]);
 
   const updateScrollState = useCallback(() => {
     const el = healthTabScrollRef.current;
@@ -174,19 +187,26 @@ export default function HealthPage() {
   }, [updateScrollState]);
 
   const fetchArticles = useCallback(() => {
-    setLoading(true);
+    const q = debouncedSearch;
+    const isSearch = q.length > 0;
+    if (isSearch) setSearching(true);
+    else setLoading(true);
     const promise = savedOnly
       ? articlesService.listSaved({ limit: 100 })
       : articlesService.listPublished({
           limit: 100,
           sortBy,
-          articleType: typeFilter !== "all" ? typeFilter : undefined,
+          search: isSearch ? q : undefined,
+          articleType: !isSearch && typeFilter !== "all" ? typeFilter : undefined,
         });
     promise
       .then((items) => { setArticles(items); setLoadError(false); })
       .catch(() => { setArticles([]); setLoadError(true); })
-      .finally(() => setLoading(false));
-  }, [savedOnly, sortBy, typeFilter]);
+      .finally(() => {
+        setLoading(false);
+        setSearching(false);
+      });
+  }, [savedOnly, sortBy, typeFilter, debouncedSearch]);
 
   useEffect(() => {
     fetchArticles();
@@ -223,28 +243,38 @@ export default function HealthPage() {
 
   const articles = useMemo(() => {
     let list = ARTICLES;
-    if (activeTab === "Others") {
-      // Articles whose categories are all outside the known map
+    const q = searchQuery.trim().toLowerCase();
+    // While searching (or after API search), do not narrow by category tab —
+    // keyword match should work across the whole health library.
+    if (!q && activeTab === "Others") {
       list = list.filter((a) => {
         const cats = a.categories && a.categories.length > 0 ? a.categories : [a.category ?? ""];
         return !cats.some((c) => c in ARTICLE_CATEGORY_MAP);
       });
-    } else if (activeTab !== "All") {
+    } else if (!q && activeTab !== "All") {
       list = list.filter((a) => {
         const cats = a.categories && a.categories.length > 0 ? a.categories : [a.category ?? ""];
         return cats.some((c) => (ARTICLE_CATEGORY_MAP[c] ?? []).includes(activeTab));
       });
     }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (a) =>
-          a.title.toLowerCase().includes(q) ||
-          (a.subtitle ?? "").toLowerCase().includes(q) ||
-          a.category.toLowerCase().includes(q) ||
-          (a.categories ?? []).some((c) => c.toLowerCase().includes(q)) ||
-          (a.summary ?? "").toLowerCase().includes(q)
-      );
+    // Instant client-side refine (also covers saved list which has no API search)
+    if (q) {
+      const tokens = q.split(/\s+/).filter(Boolean);
+      list = list.filter((a) => {
+        const haystack = [
+          a.title,
+          a.subtitle,
+          a.summary,
+          a.category,
+          a.articleType,
+          ...(a.categories ?? []),
+          // Strip HTML so body keywords like "malaria" / "diabetes" match
+          (a.fullContent ?? "").replace(/<[^>]+>/g, " "),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return tokens.every((token) => haystack.includes(token));
+      });
     }
     return list;
   }, [ARTICLES, activeTab, searchQuery]);
@@ -303,9 +333,19 @@ export default function HealthPage() {
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t.health_search_ph}
+              placeholder={
+                lang === "rw"
+                  ? "Shakira ijambo: malaria, diabetes, ubuzima…"
+                  : lang === "fr"
+                  ? "Rechercher : malaria, diabète, nutrition…"
+                  : "Search by keyword: malaria, diabetes, nutrition…"
+              }
               className="flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none"
+              aria-label="Search health articles"
             />
+            {(searching || (searchQuery.trim() && searchQuery.trim() !== debouncedSearch)) && (
+              <span className="text-[10px] font-semibold text-farumasi-600 shrink-0">Searching…</span>
+            )}
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
@@ -316,6 +356,21 @@ export default function HealthPage() {
               </button>
             )}
           </div>
+          {searchQuery.trim() && !loading && !searching && (
+            <p className="mt-1.5 text-[11px] text-slate-500">
+              {articles.length === 0
+                ? lang === "rw"
+                  ? `Nta nkuru zahuye na “${searchQuery.trim()}”`
+                  : lang === "fr"
+                  ? `Aucun résultat pour « ${searchQuery.trim()} »`
+                  : `No results for “${searchQuery.trim()}”`
+                : lang === "rw"
+                ? `${articles.length} zahuye na “${searchQuery.trim()}”`
+                : lang === "fr"
+                ? `${articles.length} résultat${articles.length > 1 ? "s" : ""} pour « ${searchQuery.trim()} »`
+                : `${articles.length} result${articles.length === 1 ? "" : "s"} for “${searchQuery.trim()}”`}
+            </p>
+          )}
         </div>
 
         {/* Filter / sort row — collapsed on mobile until toggled */}
@@ -448,13 +503,36 @@ export default function HealthPage() {
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <Search className="w-14 h-14 text-slate-200 mb-3" />
             <p className="text-slate-600 font-semibold">
-              {savedOnly ? "No saved articles yet" : t.health_no_articles}
+              {savedOnly
+                ? "No saved articles yet"
+                : searchQuery.trim()
+                  ? lang === "rw"
+                    ? "Nta nkuru zabonetse"
+                    : lang === "fr"
+                    ? "Aucun article trouvé"
+                    : "No articles found"
+                  : t.health_no_articles}
             </p>
             <p className="text-slate-400 text-sm mt-1 max-w-xs">
               {savedOnly
                 ? "Tap the bookmark on any article to save it for later."
-                : "Try another tab or clear the search to see more articles."}
+                : searchQuery.trim()
+                  ? lang === "rw"
+                    ? "Gerageza ijambo rindi cyangwa siba ishakisha."
+                    : lang === "fr"
+                    ? "Essayez un autre mot-clé ou effacez la recherche."
+                    : "Try another keyword, or clear the search to browse all articles."
+                  : "Try another tab or clear the search to see more articles."}
             </p>
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="mt-4 px-4 py-2 rounded-xl bg-farumasi-600 text-white text-sm font-semibold hover:bg-farumasi-700"
+              >
+                {lang === "rw" ? "Siba ishakisha" : lang === "fr" ? "Effacer la recherche" : "Clear search"}
+              </button>
+            )}
           </div>
         ) : (
           <div className="max-w-6xl mx-auto space-y-4 sm:space-y-5">

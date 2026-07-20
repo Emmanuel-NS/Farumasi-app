@@ -355,13 +355,32 @@ class ArticleService:
         article_type: Optional[str] = None,
         sort_by: Optional[str] = None,
         sponsored_only: bool = False,
+        search: Optional[str] = None,
         offset: int = 0,
         limit: int = 20,
     ) -> Tuple[List[HealthArticle], int]:
         q = select(HealthArticle).where(HealthArticle.status == ArticleStatus.PUBLISHED)
         if sponsored_only:
             q = q.where(HealthArticle.is_sponsored.is_(True))
-        q = self._apply_category_filter(q, category, categories)
+        # Keyword search looks across the full catalogue; skip category narrow-down
+        # so users can find articles by any term regardless of active tab.
+        if search and search.strip():
+            tokens = [t for t in re.split(r"\s+", search.strip()) if t]
+            for token in tokens[:8]:
+                like = f"%{token}%"
+                q = q.where(
+                    or_(
+                        HealthArticle.title.ilike(like),
+                        HealthArticle.summary.ilike(like),
+                        HealthArticle.content.ilike(like),
+                        HealthArticle.category.ilike(like),
+                        HealthArticle.categories_json.ilike(like),
+                        HealthArticle.slug.ilike(like),
+                        HealthArticle.article_type.ilike(like),
+                    )
+                )
+        else:
+            q = self._apply_category_filter(q, category, categories)
         if article_type:
             q = q.where(HealthArticle.article_type == self._normalize_type(article_type))
         total = (await self.db.execute(select(func.count()).select_from(q.subquery()))).scalar_one()

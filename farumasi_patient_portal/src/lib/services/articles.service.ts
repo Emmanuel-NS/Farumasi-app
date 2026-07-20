@@ -12,6 +12,8 @@ export interface ListArticlesQuery {
   category?: string;
   categories?: string[];
   articleType?: string;
+  /** Keyword search (title, summary, body, category, slug) */
+  search?: string;
   sortBy?: ArticleSort;
   savedOnly?: boolean;
   offset?: number;
@@ -51,10 +53,15 @@ function adaptComment(c: BackendComment): ArticleComment {
 }
 
 function buildListParams(query: ListArticlesQuery): Record<string, unknown> {
+  const search = query.search?.trim();
   return {
-    category: query.category,
-    categories: query.categories && query.categories.length > 0 ? query.categories : undefined,
+    category: search ? undefined : query.category,
+    categories:
+      search || !query.categories || query.categories.length === 0
+        ? undefined
+        : query.categories,
     article_type: query.articleType,
+    search: search || undefined,
     sort_by: query.sortBy,
     saved_only: query.savedOnly ? true : undefined,
     offset: query.offset ?? 0,
