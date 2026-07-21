@@ -22,7 +22,6 @@ import { getPatientCoords, usePatientLocationStore } from "@/store/patient-locat
 import type { DigitalPrescription } from "@/types";
 import {
   ShoppingCart,
-  AlertCircle,
   X,
   ChevronLeft,
   ChevronRight,
@@ -1060,15 +1059,6 @@ function StorePageInner() {
                   >
                     {med.name}
                   </p>
-                  {/* Rx notice — right under the image/name, image stays fully visible */}
-                  {med.requiresPrescription && (
-                    <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span className="text-[10px] font-bold text-amber-800 leading-tight">
-                        {t.store_rx_badge}
-                      </span>
-                    </div>
-                  )}
                   {/* Price — 12px bold green; shows pharmacy-specific price when pharmacy is selected */}
                   <p className="text-[12px] font-bold text-farumasi-600 mt-1">
                     {displayPrice > 0 ? formatPrice(displayPrice) : "See seller prices"}
