@@ -185,3 +185,9 @@ export function dismissPermissionBanner(): void {
   if (typeof window === "undefined") return;
   sessionStorage.setItem(DISMISS_KEY, "1");
 }
+
+/** Clear dismiss so the banner can show again after login / account switch. */
+export function clearPermissionBannerDismiss(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(DISMISS_KEY);
+}
