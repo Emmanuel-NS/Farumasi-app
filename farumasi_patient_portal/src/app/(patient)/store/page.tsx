@@ -1059,6 +1059,11 @@ function StorePageInner() {
                   >
                     {med.name}
                   </p>
+                  {med.requiresPrescription && (
+                    <p className="text-[10px] font-semibold text-amber-700 mt-0.5">
+                      {t.store_rx_badge}
+                    </p>
+                  )}
                   {/* Price — 12px bold green; shows pharmacy-specific price when pharmacy is selected */}
                   <p className="text-[12px] font-bold text-farumasi-600 mt-1">
                     {displayPrice > 0 ? formatPrice(displayPrice) : "See seller prices"}

@@ -162,6 +162,18 @@ class MedicineItem extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
+                            if (medicine.requiresPrescription)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 2),
+                                child: Text(
+                                  'Prescription required',
+                                  style: TextStyle(
+                                    color: Color(0xFFB45309),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
                             const SizedBox(height: 3),
                             FittedBox(
                               fit: BoxFit.scaleDown,

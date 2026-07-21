@@ -519,7 +519,7 @@ const translations: Record<LangCode, T> = {
     store_filtered: "Filtered Results",
     store_results: "Search Results",
     store_at: "Medicines at",
-    store_rx_badge: "Rx Required",
+    store_rx_badge: "Prescription required",
     store_about: "About >",
     store_cats_selected: "{n} categories selected",
     store_showing_for: "Showing results for",
