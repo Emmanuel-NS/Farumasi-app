@@ -16,8 +16,8 @@ export const KIGALI_BOUNDS = {
 /** Desktop: require a phone-quality fix — Wi‑Fi / IP geolocation is often km off. */
 export const DESKTOP_MAX_DELIVERY_ACCURACY_M = 150;
 
-/** Mobile: allow typical phone GPS (still capped in the location store). */
-export const MOBILE_MAX_DELIVERY_ACCURACY_M = 2_500;
+/** Mobile: allow typical phone GPS; indoor fixes are often 1–3 km but still usable in Kigali. */
+export const MOBILE_MAX_DELIVERY_ACCURACY_M = 5_000;
 
 export type DeliveryLocationBlockReason =
   | "no_gps"

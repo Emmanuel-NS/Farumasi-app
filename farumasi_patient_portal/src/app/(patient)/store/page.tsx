@@ -1039,15 +1039,6 @@ function StorePageInner() {
                       <Pill className="w-14 h-14 text-slate-200" />
                     </div>
                   )}
-                  {/* Rx lock overlay */}
-                  {med.requiresPrescription && (
-                    <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center rounded-t-[12px] gap-1">
-                      <div className="w-10 h-10 rounded-full bg-amber-500/90 border-2 border-white flex items-center justify-center">
-                        <AlertCircle className="w-5 h-5 text-white" />
-                      </div>
-                      <span className="text-white text-[9px] font-bold bg-black/40 px-2 py-0.5 rounded-full">{t.store_rx_badge}</span>
-                    </div>
-                  )}
                   {/* In-cart overlay — green checkmark circle */}
                   {!med.requiresPrescription && isInCart && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-t-[12px]">
@@ -1069,6 +1060,15 @@ function StorePageInner() {
                   >
                     {med.name}
                   </p>
+                  {/* Rx notice — right under the image/name, image stays fully visible */}
+                  {med.requiresPrescription && (
+                    <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span className="text-[10px] font-bold text-amber-800 leading-tight">
+                        {t.store_rx_badge}
+                      </span>
+                    </div>
+                  )}
                   {/* Price — 12px bold green; shows pharmacy-specific price when pharmacy is selected */}
                   <p className="text-[12px] font-bold text-farumasi-600 mt-1">
                     {displayPrice > 0 ? formatPrice(displayPrice) : "See seller prices"}
@@ -1083,13 +1083,6 @@ function StorePageInner() {
                   {med.allowsPartialSelling && med.unitPriceFrom != null && (
                     <p className="text-[10px] text-farumasi-500 mt-0.5">
                       or {formatPrice(med.unitPriceFrom)}/{med.partialUnitName ?? "unit"}
-                    </p>
-                  )}
-                  {/* Rx badge */}
-                  {med.requiresPrescription && (
-                    <p className="text-[10px] text-amber-500 font-bold flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-2.5 h-2.5" />
-                      {t.store_rx_badge}
                     </p>
                   )}
                   {/* Description peek + Read more */}

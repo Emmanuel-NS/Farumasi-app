@@ -1,5 +1,12 @@
 /** Browser permission helpers for the patient portal (web / installed PWA). */
 
+import {
+  FALLBACK_GEO_OPTIONS,
+  FRESH_GEO_OPTIONS,
+  readGeolocationPosition,
+  type GeoPosition,
+} from "@/lib/location";
+
 export type PermissionState = "granted" | "denied" | "default" | "unsupported";
 
 export type PermissionBlockReason =
@@ -12,6 +19,8 @@ export type PermissionBlockReason =
 export interface PermissionRequestResult {
   state: PermissionState;
   blockReason?: PermissionBlockReason;
+  /** Position from the same user-gesture GPS call — reuse so we don't ask twice. */
+  position?: GeoPosition;
 }
 
 export function notificationPermissionState(): PermissionState {
@@ -57,9 +66,22 @@ function geolocationErrorToResult(err: unknown): PermissionRequestResult {
   return { state: "default", blockReason: "prompt_blocked" };
 }
 
+function toGeoPosition(pos: GeolocationPosition): GeoPosition {
+  return {
+    coords: readGeolocationPosition(pos),
+    accuracy: pos.coords.accuracy ?? null,
+  };
+}
+
+function getCurrentPositionOnce(options: PositionOptions): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, options);
+  });
+}
+
 /**
  * Request location — must be called from a user tap/click.
- * Browsers block prompts without a gesture or when overlays are open.
+ * Returns the GPS fix from this same call so callers do not need a second attempt.
  */
 export async function requestLocationPermission(): Promise<PermissionRequestResult> {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -72,16 +94,18 @@ export async function requestLocationPermission(): Promise<PermissionRequestResu
   }
 
   try {
-    await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        timeout: 15_000,
-        maximumAge: 0,
-        enableHighAccuracy: true,
-      });
-    });
-    return { state: "granted" };
+    const pos = await getCurrentPositionOnce(FRESH_GEO_OPTIONS);
+    return { state: "granted", position: toGeoPosition(pos) };
   } catch (err: unknown) {
-    return geolocationErrorToResult(err);
+    const code = (err as GeolocationPositionError)?.code;
+    if (code === 1) return geolocationErrorToResult(err);
+    // Timeout / unavailable: one soft retry without making the user tap again
+    try {
+      const pos = await getCurrentPositionOnce(FALLBACK_GEO_OPTIONS);
+      return { state: "granted", position: toGeoPosition(pos) };
+    } catch (err2: unknown) {
+      return geolocationErrorToResult(err2);
+    }
   }
 }
 
@@ -158,9 +182,6 @@ export function wasPermissionBannerDismissed(): boolean {
 }
 
 export function dismissPermissionBanner(): void {
+  if (typeof window === "undefined") return;
   sessionStorage.setItem(DISMISS_KEY, "1");
-}
-
-export function clearPermissionBannerDismiss(): void {
-  sessionStorage.removeItem(DISMISS_KEY);
 }

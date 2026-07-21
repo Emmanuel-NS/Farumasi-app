@@ -19,6 +19,7 @@ import {
 import {
   DESKTOP_MAX_DELIVERY_ACCURACY_M,
   isDesktopBrowser,
+  MOBILE_MAX_DELIVERY_ACCURACY_M,
 } from "@/lib/delivery-location";
 
 export type PatientLocationSource = "gps" | "address" | "fallback" | null;
@@ -29,13 +30,10 @@ export type PatientLocationStatus =
   | "denied"
   | "unsupported";
 
-/** Ignore GPS fixes worse than this (metres) unless we have nothing better. */
-const MAX_ACCEPTABLE_ACCURACY_M = 2_500;
-
 function maxStoreAccuracyM(): number {
   return isDesktopBrowser()
     ? DESKTOP_MAX_DELIVERY_ACCURACY_M
-    : MAX_ACCEPTABLE_ACCURACY_M;
+    : MOBILE_MAX_DELIVERY_ACCURACY_M;
 }
 
 function shouldAcceptGpsFix(
@@ -70,6 +68,56 @@ interface PatientLocationStore {
   /** Live GPS updates — only starts when permission is already granted (no auto-prompt). */
   startLiveWatch: () => () => void;
   stopLiveWatch: () => void;
+}
+
+/**
+ * After a coarse/rejected first fix, wait briefly for watchPosition to deliver
+ * an acceptable reading so the user does not have to tap Enable again.
+ */
+function waitForAcceptableWatchFix(
+  applyFix: (coords: Coords, accuracy: number | null) => boolean,
+  set: (partial: Partial<PatientLocationStore>) => void,
+  get: () => PatientLocationStore,
+  timeoutMs = 8_000,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let watchId: number | null = null;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      if (watchId != null) clearLocationWatch(watchId);
+      if (!ok) {
+        const hadGps = get().lat != null && get().source === "gps";
+        set({
+          status: hadGps ? "granted" : "idle",
+          permissionBlockReason: hadGps ? null : "timeout",
+        });
+      }
+      resolve(ok);
+    };
+
+    watchId = watchPatientLocation(
+      (coords, accuracy) => {
+        if (applyFix(coords, accuracy)) finish(true);
+      },
+      (err) => {
+        if (err.code === 1) {
+          set({ status: "denied", permissionBlockReason: "denied" });
+          finish(false);
+        }
+      },
+    );
+
+    const timer = window.setTimeout(() => {
+      finish(get().lat != null && get().source === "gps");
+    }, timeoutMs);
+
+    if (watchId == null) {
+      finish(false);
+    }
+  });
 }
 
 export const usePatientLocationStore = create<PatientLocationStore>((set, get) => ({
@@ -119,27 +167,14 @@ export const usePatientLocationStore = create<PatientLocationStore>((set, get) =
 
     // Never trigger the browser prompt without an explicit user tap.
     if (!userInitiated && perm !== "granted") {
-      return get().lat != null;
+      return get().lat != null && get().source === "gps";
     }
 
     set({ status: "pending", permissionBlockReason: null });
 
-    if (userInitiated && perm !== "granted") {
-      const result = await requestLocationPermission();
-      if (result.state !== "granted") {
-        set({
-          status: result.state === "denied" ? "denied" : "idle",
-          permissionBlockReason: result.blockReason ?? null,
-        });
-        return false;
-      }
-    }
-
-    try {
-      const { coords, accuracy } = await requestFreshPatientLocation();
+    const applyFix = (coords: { lat: number; lon: number }, accuracy: number | null) => {
       if (!shouldAcceptGpsFix(accuracy, get().accuracy)) {
-        set({ status: get().lat != null ? "granted" : "idle" });
-        return get().lat != null;
+        return get().lat != null && get().source === "gps";
       }
       set({
         lat: coords.lat,
@@ -153,14 +188,47 @@ export const usePatientLocationStore = create<PatientLocationStore>((set, get) =
       writePersistedGps(coords.lat, coords.lon, accuracy);
       void syncGpsToDefaultAddress(coords.lat, coords.lon);
       return true;
+    };
+
+    try {
+      // User tap path: one GPS call that also unlocks permission — reuse the fix.
+      if (userInitiated && perm !== "granted") {
+        const result = await requestLocationPermission();
+        if (result.state !== "granted") {
+          set({
+            status: result.state === "denied" ? "denied" : "idle",
+            permissionBlockReason: result.blockReason ?? null,
+          });
+          return false;
+        }
+        if (result.position) {
+          const ok = applyFix(result.position.coords, result.position.accuracy);
+          if (ok) return true;
+          // Coarse first fix: keep listening briefly for a better one (no extra tap).
+          return await waitForAcceptableWatchFix(applyFix, set, get);
+        }
+      }
+
+      const { coords, accuracy } = await requestFreshPatientLocation();
+      const ok = applyFix(coords, accuracy);
+      if (ok) return true;
+      return await waitForAcceptableWatchFix(applyFix, set, get);
     } catch (err: unknown) {
       const code = (err as GeolocationPositionError)?.code;
+      // Keep a previously good GPS fix rather than wiping it on a transient timeout.
+      const hadGps = get().lat != null && get().source === "gps";
       set({
-        status: code === 1 ? "denied" : get().status === "granted" ? "granted" : "idle",
+        status: code === 1 ? "denied" : hadGps ? "granted" : "idle",
         permissionBlockReason:
-          code === 1 ? "denied" : code === 3 ? "timeout" : code === 2 ? "unavailable" : "prompt_blocked",
+          code === 1
+            ? "denied"
+            : code === 3
+              ? "timeout"
+              : code === 2
+                ? "unavailable"
+                : "prompt_blocked",
       });
-      return false;
+      return hadGps;
     }
   },
 
